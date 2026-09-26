@@ -24,6 +24,14 @@ _Avoid_: Agent config, role file
 One running agent instance of a cell type, working one ticket, usually in its own git worktree.
 _Avoid_: Agent, worker, bot
 
+**Bao**:
+The organism's on-screen body: a large seated plush panda that cells perch on.
+_Avoid_: Mascot, avatar
+
+**Perch**:
+The spot on Bao or the grass where a cell sits. Cells hop or waddle between perches.
+_Avoid_: Slot, seat, position
+
 **Runtime**:
 The agent program that runs a cell (Claude Code, Codex CLI, Gemini CLI, OpenCode, local model).
 _Avoid_: Provider, engine
