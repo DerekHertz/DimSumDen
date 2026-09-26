@@ -1,0 +1,20 @@
+# Vendored skills
+
+Source: https://github.com/mattpocock/skills (MIT, see `MATTPOCOCK-LICENSE`)
+Upstream commit: `c55ee46073ed923f86ce59a5eb3b6d895095d1b7` (2026-09-18)
+Local clone for diffing: `vendor/mattpocock-skills/` (git-ignored). Update with `git -C vendor/mattpocock-skills pull`, then diff each skill against this folder.
+
+`agents/` subfolders (other-tool metadata) were not copied.
+
+| Skill | Status | Local changes |
+|---|---|---|
+| grilling, grill-me, grill-with-docs | as-is | none |
+| domain-modeling, codebase-design | as-is | none |
+| tdd, diagnosing-bugs, prototype, research | as-is | none |
+| wayfinder, resolving-merge-conflicts, writing-for-agents | as-is | none |
+| handoff | **adapted** | Model-invocable. Writes to the board (`.scratch/<feature>/handoffs/`) instead of the OS temp dir. Fixed sections, 60-line cap. |
+| implement | **adapted** | Model-invocable. Claims the ticket via organism-protocol, delegates verbose output to `scout`, never merges, ends with /handoff. |
+| to-tickets | **adapted** | Model-invocable (orchestrator). Step 4 is a brain gate. |
+| to-spec | **adapted** | Model-invocable (product). |
+| code-review | **adapted** | Adds a Pro token-budget note (sonnet sub-agents, diff command not pasted, current ticket only). |
+| organism-protocol | **new** | Shared cell rules: board, claims, gates, apoptosis, token hygiene. |

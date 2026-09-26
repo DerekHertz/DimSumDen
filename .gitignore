@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env*
+vendor/
+.claude/worktrees/
+.claude/settings.local.json
+.scratch/**/*.lock
+
+# Blender autosave backups
+*.blend1
