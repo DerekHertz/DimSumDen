@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- PROTOTYPE (ticket 01, throwaway): motion test for the shared panda rig. Not app code. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panda Motion Test</title>
+  <style>
+    :root { --bg: #efe8d8; --panel: #fffdf7; --ink: #1d2124; --muted: #5a605d; --line: #d8ceb8; --qi: #006c71; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) { --bg: #111418; --panel: #1f252b; --ink: #eceee9; --muted: #a4ada9; --line: #343d45; --qi: #3aced3; }
+    }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/20px Nunito, system-ui, sans-serif; }
+    canvas { display: block; }
+    #hud { position: fixed; top: 16px; left: 16px; max-width: calc(100vw - 32px); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px; box-sizing: border-box; }
+    #hud h1 { font-size: 16px; line-height: 22px; margin: 0 0 8px; }
+    .row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+    button { font: inherit; font-weight: 700; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 4px 8px; cursor: pointer; }
+    button[aria-pressed="true"] { border-color: var(--qi); color: var(--qi); }
+    button:focus-visible { outline: 2px solid var(--qi); outline-offset: 2px; }
+    label { color: var(--muted); font-size: 12px; margin-right: 8px; }
+    #status { font: 12px/16px "JetBrains Mono", ui-monospace, monospace; color: var(--muted); white-space: pre; }
+  </style>
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    } }
+  </script>
+</head>
+<body>
+  <div id="hud">
+    <h1>Panda motion test <span style="color:var(--muted);font-weight:400">(prototype)</span></h1>
+    <div class="row" id="states"></div>
+    <div class="row">
+      <button id="cycle" aria-pressed="false">Cycle states</button>
+      <button id="waddle">Waddle A↔B</button>
+      <button id="hop">Hop B↔C</button>
+      <button id="demo">Travel demo</button>
+    </div>
+    <div class="row">
+      <label>speed <input id="speed" type="range" min="0.25" max="1" step="0.25" value="1"></label>
+      <label><input id="bones" type="checkbox"> bones</label>
+    </div>
+    <div id="status">loading…</div>
+  </div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
