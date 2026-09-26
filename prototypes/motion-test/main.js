@@ -86,7 +86,7 @@ panda.traverse((o) => {
     const pre = o.clone();
     pre.userData.prepass = true;
     pre.material = new THREE.MeshBasicMaterial({ colorWrite: false });
-    pre.renderOrder = -1;
+    pre.renderOrder = 1; // after the other opaque objects, so the scene behind still shows through
     pre.castShadow = false;
     pre.visible = false;
     depthPrepasses.push([o, pre]);
