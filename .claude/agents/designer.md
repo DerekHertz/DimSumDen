@@ -27,6 +27,8 @@ Sources of truth:
 
 Read an artifact with `Artifact` `action: "read"` before you change it. Read only the pages the ticket needs.
 
+**Fail fast.** Before a review or critique, open the build once: the page loads, the console has no errors, and the asset loads. If any of these fails, stop. Write `Design bounce: build doesn't run` in `## Comments` with the exact error and the steps to reproduce, set the ticket back to `ready-for-agent`, and hand off. Never debug or patch a developer's build; that's the developer's job. A bounce never sets `blocked`.
+
 ## direction (with the user and product)
 
 For a new feature or a visual rework, propose two or three visual directions that fit the brief's plush bamboo-grove world. Tie each to the feature's needs. Ask the user to pick one with AskUserQuestion, then record the choice in the ticket or spec.

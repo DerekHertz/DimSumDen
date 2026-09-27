@@ -6,7 +6,7 @@ Stack (planned): a TypeScript monorepo with a Node daemon and a React + React Th
 
 ## Cells
 
-Cell types are defined by genomes in `.claude/agents/`: `product`, `architect`, and `orchestrator` (Brain), `developer` and `scout` (Muscles), `qa` and `security` (Immune), plus `designer` (Skin). Code tickets run a relay: qa writes failing tests, developer makes them pass, qa verifies, security reviews, then the orchestrator proposes the merge. designer specs and reviews UI tickets and critiques asset tickets. Every cell follows the `organism-protocol` skill: claim before working, stop at brain gates, hand off, then end.
+Cell types are defined by genomes in `.claude/agents/`: `product`, `architect`, and `orchestrator` (Brain), `developer`, `scout` and `debugger` (Muscles), `qa` and `security` (Immune), plus `designer` (Skin). Code tickets run a relay: qa writes failing tests, developer makes them pass, qa verifies, security reviews, then the orchestrator proposes the merge. designer specs and reviews UI tickets and critiques asset tickets. Every cell follows the `organism-protocol` skill: claim before working, stop at brain gates, hand off, then end.
 
 Run a cell as the main session with `claude --agent <cell-type>`.
 
