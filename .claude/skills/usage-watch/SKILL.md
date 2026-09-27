@@ -5,6 +5,8 @@ description: Check plan usage and wind work down before the limit hits. Use at e
 
 Read usage with `mcp__ccd_session_mgmt__get_usage` (main session only; the `5-hour limit` window's `percentUsed`). If the tool isn't available (for example in a subagent), ask the main session or the user for the number rather than guessing.
 
+The user is on the **Pro** plan. If `get_usage` reports a different plan (e.g. it reported "Max" on 2026-09-27, likely stale), warn the user rather than silently trusting it.
+
 | 5-hour usage | Action |
 |---|---|
 | under 70% | Carry on. Check again at the next dispatch or cell return. |
