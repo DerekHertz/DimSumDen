@@ -22,6 +22,7 @@ OLD_PAW = Vector((0.74, -0.38, -0.30))
 ARM_RADIUS = 0.24                       # body-shell verts this close to the arm bone are the old arm
 MELT_RADIUS = 0.40                      # the melt fades out by here
 MELT_ITERATIONS = 300
+FLANK_ITERATIONS = 30                   # a gentle final smooth for the Meshy dents on the lower flanks
 VOXEL = 0.012
 VOXEL_FUSE = 0.024                      # coarse first remesh: fuses the crevice where the old paw met the belly
 BODY_FACES = 36000
@@ -139,6 +140,11 @@ def blur_colours(me, passes):
         d.color = v
 
 
+def flank_weight(p):
+    """The lower flanks, where the arm, belly and thigh meet."""
+    return smoothstep(0.35, 0.5, abs(p.x)) * smoothstep(-0.85, -0.7, p.z) * smoothstep(0.15, 0.0, p.z)
+
+
 def is_chin_disc(p):
     """A stray pale disc sits under the chin where the head meets the body."""
     return abs(p.x) < 0.11 and -0.46 < p.y < -0.36 and 0.03 < p.z < 0.11
@@ -149,19 +155,25 @@ def band_weight(p):
     arms read as growing out of one black saddle. 1 inside, easing to 0 at the edges."""
     ax = abs(p.x)
     # The band's lower edge dips at the shoulders, where it meets the arms, and sits under the chin in front.
-    low = -0.10 - 0.25 * smoothstep(0.30, 0.62, ax)
+    low = -0.10 - 0.08 * smoothstep(0.30, 0.62, ax)
     front = smoothstep(0.1, -0.2, p.y)  # 1 on the chest
     low += 0.04 * front
     return smoothstep(low - 0.04, low + 0.04, p.z)
 
 
+def front_flank_weight(p):
+    """The front of the flank behind the resting arm, above the thigh. Painted belly-white so the
+    black arms keep their outline instead of merging with black sides."""
+    return (smoothstep(0.15, -0.45, p.y) * smoothstep(1.0, 0.6, abs(p.x))
+            * smoothstep(-0.55, -0.32, p.z) * smoothstep(0.02, -0.18, p.z))
+
+
 def paint_shoulder_band(me):
     col = me.color_attributes["Col"].data
-    black = Vector(BLACK)
+    black, white = Vector(BLACK), Vector(BELLY)
     for v in me.vertices:
-        w = band_weight(v.co)
-        if w > 0:
-            col[v.index].color = Vector(col[v.index].color).lerp(black, w)
+        c = Vector(col[v.index].color).lerp(white, front_flank_weight(v.co))
+        col[v.index].color = c.lerp(black, band_weight(v.co))
 
 
 def rebuild_body(sc, src):
@@ -193,6 +205,15 @@ def rebuild_body(sc, src):
     apply(ob, melt)
     ob.vertex_groups.clear()
     remesh(ob, VOXEL)
+    vg = ob.vertex_groups.new(name="flank")
+    for v in ob.data.vertices:
+        w = flank_weight(v.co)
+        if w > 0:
+            vg.add([v.index], w, "REPLACE")
+    flank = ob.modifiers.new("Flank", "SMOOTH")
+    flank.factor, flank.iterations, flank.vertex_group = 0.5, FLANK_ITERATIONS, "flank"
+    apply(ob, flank)
+    ob.vertex_groups.clear()
 
     # Colours back from the armless shell (nearest surface), softened, then decimate.
     ob.data.color_attributes.new("Col", "FLOAT_COLOR", "POINT")
@@ -258,20 +279,21 @@ def plush_material():
 
 ARM_RINGS = 32
 ARM_SEGS = 28
-SHOULDER_R = 0.25  # the shoulder ball, centred on the arm bone head
-MID_R = 0.225
-PAW_R = 0.245      # the paw ball, centred on the arm bone tail; about as thick as the legs
+SHOULDER_R = 0.22  # the shoulder ball, centred on the arm bone head
+WRIST_R = 0.17     # the arm tapers to a wrist...
+WRIST_T = 0.78     # ...this far along the bone...
+PAW_R = 0.19       # ...then swells into the paw ball, centred on the bone tail
 BLACK = (0.018, 0.016, 0.016, 1.0)  # the mean of PlushBase's black fur
+BELLY = (0.80, 0.765, 0.703, 1.0)   # PlushBase's belly white
 PAD = (0.115, 0.103, 0.095, 1.0)    # the back paws' pad colour
 
 
 def arm_profile(t):
-    """Radius along the arm (t = 0 shoulder ball centre, 1 paw ball centre)."""
-    if t < 0.5:
-        s = t / 0.5
-        return SHOULDER_R + (MID_R - SHOULDER_R) * (s * s * (3 - 2 * s))
-    s = (t - 0.5) / 0.5
-    return MID_R + (PAW_R - MID_R) * (s * s * (3 - 2 * s))
+    """Radius along the arm (t = 0 shoulder ball centre, 1 paw ball centre): a limb that tapers
+    to the wrist, not a log."""
+    if t < WRIST_T:
+        return SHOULDER_R + (WRIST_R - SHOULDER_R) * smoothstep(0.0, WRIST_T, t)
+    return WRIST_R + (PAW_R - WRIST_R) * smoothstep(WRIST_T, 1.0, t)
 
 
 def palm_direction(side, axis):
@@ -287,11 +309,11 @@ def palm_direction(side, axis):
 def paint_pads(me, paw, axis, palm):
     """A big pad and three toe pads on the palm side of the paw, like the back paws."""
     across = axis.cross(palm)
-    spots = [(paw + palm * PAW_R, 0.11)]
+    spots = [(paw + palm * PAW_R, 0.085)]
     for k in (-1, 0, 1):
         d = (palm * cos(0.95) + axis * sin(0.95)).normalized()
         d = (d + across * 0.42 * k).normalized()
-        spots.append((paw + d * PAW_R, 0.048))
+        spots.append((paw + d * PAW_R, 0.038))
     col = me.color_attributes["Col"].data
     for v in me.vertices:
         for c, r in spots:

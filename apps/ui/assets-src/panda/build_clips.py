@@ -186,9 +186,9 @@ def wave():
 POSES = {
     "sit_still": {},
     "arms_folded": {
-        # The paws cross in front of the belly; the right arm tucks under the left.
-        "arm_L": {"rot": AIM("arm_L", (-0.50, -1.0, -0.22))},
-        "arm_R": {"rot": AIM("arm_R", (0.50, -1.0, -0.36))},
+        # The forearms cross high on the chest: the left lies on top, the right tucks under it.
+        "arm_L": {"rot": AIM("arm_L", (-0.50, -1.05, -0.02))},
+        "arm_R": {"rot": AIM("arm_R", (0.50, -0.92, -0.24))},
         "head": {"rot": mul(W("head", Z, 12), W("head", X, 4))},
     },
     "lean_back": {

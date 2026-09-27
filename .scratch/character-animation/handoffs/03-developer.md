@@ -29,6 +29,13 @@
 - Proportions (head vs belly) are unchanged, by the user's choice.
 - The bone positions now live in one place, `rig_spec.py`, which resolves the review's duplicated-constants finding for the rig.
 
+## Round 3: the second critique (arms overshot)
+
+- Arms taper now: shoulder r 0.22, wrist r 0.17 (at 78% of the bone), paw r 0.19. The bone is ~0.8 long, and the resting arm peaks at x 0.91, inside the body's 0.97.
+- `arms_folded` crosses high on the chest, with the left forearm on top.
+- The shoulder band's dip at the shoulders is shallower. The front of each flank above the thigh is painted belly-white (`front_flank_weight`), so the black arms keep their outline.
+- A gentle second smooth (`flank_weight`, 30 iterations) removes the Meshy pits where the belly, thigh and arm meet.
+
 ## Next step
 
 The **user** checks paw_raise and wave from the front and three-quarter views in the viewer (README), then records a verdict in ticket 03's Comments. After that, the **orchestrator** resolves 03 and dispatches 04.

@@ -5,7 +5,7 @@
 # Names use _L/_R (three.js strips dots from glTF node names).
 
 ARM_HEAD = (0.60, 0.06, 0.0)       # the shoulder ball's centre
-ARM_TAIL = (0.80, -0.66, -0.42)    # the paw ball's centre (arm length ~0.85)
+ARM_TAIL = (0.72, -0.64, -0.40)    # the paw ball's centre (arm length ~0.8; the paw stays inside the body's outline)
 
 BONES = [
     # name, head, tail, parent, deform
