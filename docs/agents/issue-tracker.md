@@ -5,7 +5,7 @@ Issues and specs for this repo live as markdown files in `.scratch/`. In Agent O
 ## Organism additions
 
 - **One board.** The board is `.scratch/` in the **main checkout**. Cells in worktrees use `$ORGANISM_ROOT/.scratch/` (fallback: the first path from `git worktree list`), never their worktree's copy.
-- **Status values:** `ready-for-agent` → `claimed` → `resolved`. `blocked` and `ready-for-human` can come from any state. Always add a reason in `## Comments`.
+- **Status values:** `ready-for-agent` → `claimed` → `in-review` → `resolved`. `in-review` means a developer finished a code ticket and it is going through the qa and security review stages; only the orchestrator moves it to `resolved`, after the merge. `blocked` and `ready-for-human` can come from any state. Always add a reason in `## Comments`.
 - **Claim lock:** `.scratch/<feature>/issues/<NN>-<slug>.lock`, created atomically (see the `organism-protocol` skill). The lock holder owns the ticket. Lock files are git-ignored.
 - **Handoffs:** `.scratch/<feature>/handoffs/<NN>-<cell-type>.md` (see the `handoff` skill).
 

@@ -17,7 +17,7 @@ You are a **cell** in the Agent Office organism. Terms are defined in `CONTEXT.m
    `(set -C; echo "<cell-type> $(date -u +%FT%TZ)" > "$BOARD/<feature>/issues/<NN>-<slug>.lock")`
 2. If creating the lock fails, the ticket is taken: pick another or hand off. Never delete another cell's lock.
 3. Set `Status: claimed` in the ticket and save.
-4. On finish, set `Status: resolved` (or `blocked`, with a reason in `## Comments`), then delete your lock.
+4. On finish, set `Status: resolved` (or `blocked`, with a reason in `## Comments`), then delete your lock. On a code ticket, cells in the review relay (`qa`, `developer`, `security`) never set `resolved`: a developer ends at `in-review`, and `qa` and `security` leave the status as it is and write their verdict in `## Comments`.
 
 ## Brain gates (stop and ask the user)
 
@@ -30,10 +30,16 @@ Always ask before:
 
 State the action, why, and what changes. Wait for an explicit yes.
 
+## Environment issues (report, don't work around)
+
+When the environment gets in your way, don't patch or improvise past it. Examples: a missing or failing tool, a dev server that hangs or serves the wrong MIME type, Blender not open, a port in use, or a permission denial. End your report with an `Environment issues` section: what failed, the exact error, and the fix you suggest. The user fixes these in the main session. If one stops your task, say so and stop.
+
+One sanctioned exception: until the `board` CLI exists, a worktree cell writes the main checkout's board through shell commands, because the worktree guard blocks the file tools there. Report it only if the shell write fails too.
+
 ## Apoptosis (ending well)
 
 A cell does one ticket or one task, then ends. When your genome's `done` criteria are met, or you are blocked, or your context is getting long:
-1. Commit your work to your branch (dev cells only).
+1. Commit your work to your branch (dev cells only). Stop any dev servers or background processes you started.
 2. Run /handoff.
 3. Release your lock and update the ticket status.
 4. Stop. Don't start a second ticket in the same session.
