@@ -1,6 +1,11 @@
 // The panda asset contract (spec: "Asset contract"). The exported glb must carry these names.
 // Clips and the character director refer to bones, sockets, clips and face frames by these names.
-import { readFileSync } from "node:fs";
+// This module is loaded by the browser (apps/ui/src/scene/dev-scene.mjs, for PROP_ASSETS and the
+// other browser-safe constants below), so it must not import a Node built-in at the top level —
+// design bounce (ticket 07, HIGH): a top-level `node:fs` import here made the whole module graph
+// fail to resolve in a real browser ("Failed to resolve module specifier \"node:fs\""), so
+// dev-scene.html never loaded. `readGlbFile` is the only caller of `readFileSync`, and it's used
+// only by Node-side tests, so the import is lazy/dynamic inside that function instead.
 
 export const DEFORM_BONES = ["root", "body", "head", "ear_L", "ear_R", "arm_L", "arm_R", "leg_L", "leg_R"];
 export const SOCKETS = ["paw_L", "paw_R", "hat"];
@@ -34,7 +39,8 @@ export function readGlbJson(buf) {
   return JSON.parse(buf.subarray(20, 20 + len).toString("utf8"));
 }
 
-export function readGlbFile(path) {
+export async function readGlbFile(path) {
+  const { readFileSync } = await import("node:fs");
   return readGlbJson(readFileSync(path));
 }
 

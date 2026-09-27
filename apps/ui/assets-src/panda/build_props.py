@@ -7,12 +7,32 @@
 # Writes apps/ui/public/models/props/{fan,scroll,blueprint}.glb.
 import bpy
 import bmesh
+import colorsys
 import math
 import os
 
 SRC = globals().get("PANDA_SRC") or os.path.dirname(globals().get("__file__", ""))
 OUT_DIR = os.path.normpath(os.path.join(SRC, "..", "..", "public", "models", "props"))
 SCENE = "PropAssets"
+
+# Design bounce (ticket 07, MEDIUM): cell-types.md says a cell type's personality comes from a hat
+# and held prop "in its organ hue". Orchestrator/product/architect are all Brain (organ-brain =
+# wisteria, tokens.json #674698 light / #c3a5f9 dark, hue ~264deg). The three props stay in that
+# hue family, varied by lightness/saturation for shape-driven distinguishability rather than by
+# swapping to unrelated narrative colours.
+WISTERIA_HUE = 264 / 360
+
+
+def wisteria(lightness, saturation):
+    return colorsys.hls_to_rgb(WISTERIA_HUE, lightness, saturation)
+
+
+# Design bounce (ticket 07, HIGH): a prop's object origin sat exactly at the socket's origin with no
+# offset outward into the grip, so scroll and blueprint were centred inside the paw's fist geometry
+# instead of extending out of it. GRIP_OFFSET nudges those two out along local +Z, which the paw_L
+# socket's rest orientation carries to world +Z (toward the camera, out of the fist) — see
+# apps/ui/assets-src/panda/README.md and the ticket 07 designer handoff for the axis derivation.
+GRIP_OFFSET = 0.06
 
 
 def ensure_scene():
@@ -42,7 +62,19 @@ def new_object(name, bm, color):
 
 
 def make_fan():
-    """A folding fan, open: a pie-wedge held closed-edge-first at the paw (paw_R). Warm lacquer red."""
+    """A folding fan, open: a pie-wedge held closed-edge-first at the paw (paw_R). Wisteria (organ
+    Brain hue, cell-types.md), a mid lightness so it reads distinctly from the scroll and blueprint.
+
+    Design bounce (ticket 07, HIGH): the arc used to spread in local X/Z with the thin (solidify)
+    axis on local Y. paw_R's rest orientation carries local Y to world Y (up) and local Z to world
+    Z (depth) — the opposite of what a held-up fan needs — so the fan's *tall* dimension landed on
+    depth (foreshortened, wasted) and its *thin* dimension landed on world-up, making the whole fan
+    a near-invisible horizontal sliver from the front/three-quarter view used to look at a working
+    cell. Swapping the arc to spread in local X/Y (thin axis on local Z) puts the tall dimension on
+    world-up and the thin solidify axis on world-depth, so the fan's face reads front-on instead of
+    edge-on. See apps/ui/assets-src/panda/README.md and the ticket 07 designer handoff for the full
+    axis derivation (measured from the exported panda.glb's paw_R world matrix).
+    """
     bm = bmesh.new()
     radius, angle_deg, segs, thickness = 0.16, 110, 10, 0.012
     hinge = bm.verts.new((0, 0, 0))
@@ -50,36 +82,52 @@ def make_fan():
     start = -angle_deg / 2
     for i in range(segs + 1):
         a = math.radians(start + angle_deg * i / segs)
-        arc.append(bm.verts.new((radius * math.sin(a), radius * math.cos(a) * 0.15, radius * math.cos(a))))
+        arc.append(bm.verts.new((radius * math.sin(a), radius * math.cos(a), radius * math.cos(a) * 0.15)))
     for i in range(segs):
         bm.faces.new((hinge, arc[i], arc[i + 1]))
     bmesh.ops.solidify(bm, geom=list(bm.faces), thickness=thickness)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    return new_object("Prop_Fan", bm, (0.62, 0.11, 0.11))
+    return new_object("Prop_Fan", bm, wisteria(0.42, 0.45))
 
 
 def make_scroll():
-    """A rolled scroll, held horizontally in the paw (paw_L). Parchment tan."""
+    """A rolled scroll, held horizontally in the paw (paw_L). Wisteria (organ Brain hue), lighter
+    than the fan and blueprint so the three read as distinct at a glance.
+
+    Design bounce (ticket 07, HIGH): the scroll's object origin sat exactly at the socket's origin,
+    centred inside the paw's fist geometry instead of extending out of it. Offset outward along
+    local Z (GRIP_OFFSET) by a few cm so its body clears the fist.
+    """
     from mathutils import Matrix
     bm = bmesh.new()
     bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=True, segments=16,
                            radius1=0.045, radius2=0.045, depth=0.30, matrix=Matrix.Identity(4))
     for v in bm.verts:
-        v.co = (v.co.z, v.co.y, v.co.x)  # lay the cylinder's depth axis along local X (across the palm)
-    return new_object("Prop_Scroll", bm, (0.80, 0.70, 0.48))
+        # lay the cylinder's depth axis along local X (across the palm); local Z is what paw_L's
+        # rest orientation carries to world +Z (out of the fist, toward the camera), so GRIP_OFFSET
+        # goes there, not on local Y (which lands on world-up instead).
+        v.co = (v.co.z, v.co.y, v.co.x + GRIP_OFFSET)
+    return new_object("Prop_Scroll", bm, wisteria(0.66, 0.42))
 
 
 def make_blueprint():
     """An unrolled blueprint sheet, held in the left paw (paw_L is the attach socket) and steadied
-    with both arms as build_clips.py's blueprint_unroll plays. Slate blue, standing in for a
-    printed border/grid."""
+    with both arms as build_clips.py's blueprint_unroll plays. Wisteria (organ Brain hue), darker
+    than the fan and scroll so the three read as distinct at a glance.
+
+    Design bounce (ticket 07, HIGH): same centring problem as the scroll — offset outward along
+    local Z (GRIP_OFFSET) so the sheet clears the fist instead of sitting centred inside it.
+    """
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     for v in bm.verts:
         v.co.x *= 0.20
         v.co.y *= 0.012
-        v.co.z *= 0.26
-    return new_object("Prop_Blueprint", bm, (0.42, 0.55, 0.68))
+        # local Z is what paw_L's rest orientation carries to world +Z (out of the fist, toward
+        # the camera); GRIP_OFFSET shifts the whole sheet out along it instead of on local Y
+        # (world-up), which would just sink it or lift it rather than clearing the fist.
+        v.co.z = v.co.z * 0.26 + GRIP_OFFSET
+    return new_object("Prop_Blueprint", bm, wisteria(0.28, 0.50))
 
 
 def export_one(obj):
