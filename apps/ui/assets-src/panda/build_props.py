@@ -70,8 +70,9 @@ def make_scroll():
 
 
 def make_blueprint():
-    """An unrolled blueprint sheet, held in both paws (paw_L is the attach socket). Slate blue
-    with a cream border strip standing in for a printed border."""
+    """An unrolled blueprint sheet, held in the left paw (paw_L is the attach socket) and steadied
+    with both arms as build_clips.py's blueprint_unroll plays. Slate blue, standing in for a
+    printed border/grid."""
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     for v in bm.verts:

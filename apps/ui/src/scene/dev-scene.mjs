@@ -115,6 +115,12 @@ for (const type of ["generic", ...Object.keys(HABIT_LOOPS)]) {
     director.setCellType(CELL_ID, cellType);
     mark("cell-types", type);
     applyProp(cellType);
+    // The habit only shows while working (mappingFor only substitutes it for that state), so
+    // switching type jumps straight to "working" — otherwise picking a type is a no-op until the
+    // tester separately clicks "working", and the point of this control is to show the habit.
+    source.setState(CELL_ID, "working");
+    mark("states", "working");
+    showStateLabel("working");
   });
 }
 mark("cell-types", "generic");
