@@ -2,11 +2,15 @@
   "name": "agent-office",
   "private": true,
   "type": "module",
+  "bin": {
+    "board": "apps/organism-infra/board.mjs"
+  },
   "scripts": {
     "test": "node --test \"apps/**/*.test.mjs\" \"packages/**/*.test.mjs\" \"scripts/**/*.test.mjs\"",
     "dev": "node apps/ci-cd/dev-server.mjs",
     "smoke": "node apps/ci-cd/smoke.mjs",
-    "risk-check": "node scripts/risk-check.mjs"
+    "risk-check": "node scripts/risk-check.mjs",
+    "board": "node apps/organism-infra/board.mjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"
