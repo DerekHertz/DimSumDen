@@ -1,0 +1,145 @@
+<!doctype html>
+<!-- Dev tool for the panda asset (ticket 03): plays each clip and face frame from public/models/panda.glb
+     so a person can check the rig, the sewn-on arms and the face atlas. Not app code.
+     Run: python -m http.server 8124 --directory apps/ui   then open http://localhost:8124/assets-src/panda/viewer.html -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panda Asset Viewer</title>
+  <style>
+    :root { --bg: #efe8d8; --panel: #fffdf7; --ink: #1d2124; --muted: #5a605d; --line: #d8ceb8; --qi: #006c71; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) { --bg: #111418; --panel: #1f252b; --ink: #eceee9; --muted: #a4ada9; --line: #343d45; --qi: #3aced3; }
+    }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/20px Nunito, system-ui, sans-serif; }
+    canvas { display: block; }
+    #hud { position: fixed; top: 16px; left: 16px; max-width: min(360px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px; box-sizing: border-box; }
+    #hud h1 { font-size: 16px; line-height: 22px; margin: 0 0 8px; }
+    h2 { font-size: 12px; line-height: 16px; margin: 8px 0 4px; color: var(--muted); font-weight: 700; }
+    .row { display: flex; flex-wrap: wrap; gap: 4px; }
+    button { font: inherit; font-size: 13px; font-weight: 700; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 2px 8px; cursor: pointer; }
+    button[aria-pressed="true"] { border-color: var(--qi); color: var(--qi); }
+    button:focus-visible { outline: 2px solid var(--qi); outline-offset: 2px; }
+    input[type="range"] { width: 100%; accent-color: var(--qi); }
+    #status { font: 12px/16px ui-monospace, monospace; color: var(--muted); white-space: pre; margin-top: 8px; }
+  </style>
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    } }
+  </script>
+</head>
+<body>
+  <div id="hud">
+    <h1>Panda asset</h1>
+    <h2>Clip</h2><div class="row" id="clips"></div>
+    <h2>Face frame</h2><div class="row" id="faces"></div>
+    <h2>View</h2><div class="row" id="views"></div>
+    <h2>Speed</h2><input id="speed" type="range" min="0" max="1.5" step="0.05" value="1" aria-label="Playback speed">
+    <div id="status">loading…</div>
+  </div>
+  <script type="module">
+    import * as THREE from "three";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    document.body.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(getComputedStyle(document.body).backgroundColor);
+    const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 100);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0.1, 0);
+    scene.add(new THREE.HemisphereLight(0xfff6e8, 0x6b7a5a, 2.0));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+    sun.position.set(3, 6, 6);
+    scene.add(sun);
+
+    // glTF space: +Y up, the panda faces +Z.
+    const VIEWS = {
+      front: [0, 0.3, 7.5],
+      "three-quarter L": [5.2, 0.8, 5.2],
+      "three-quarter R": [-5.2, 0.8, 5.2],
+      side: [7.5, 0.3, 0],
+    };
+    const setView = (name) => {
+      camera.position.set(...VIEWS[name]);
+      controls.update();
+      mark("views", name);
+    };
+
+    const mark = (group, name) => {
+      for (const b of document.querySelectorAll(`#${group} button`)) b.setAttribute("aria-pressed", String(b.textContent === name));
+    };
+    const button = (group, name, onClick) => {
+      const b = document.createElement("button");
+      b.textContent = name;
+      b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", onClick);
+      document.getElementById(group).appendChild(b);
+    };
+
+    const gltf = await new GLTFLoader().loadAsync("../../public/models/panda.glb");
+    const panda = gltf.scene;
+    scene.add(panda);
+    const mixer = new THREE.AnimationMixer(panda);
+
+    // The face atlas contract (build_face.py): frame i shows cell (i % cols, floor(i / cols)).
+    const faceNode = panda.getObjectByName("face");
+    const atlas = gltf.parser.json.nodes.find((n) => n.name === "face").extras.faceAtlas;
+    const faceMap = faceNode.material.map;
+    let chosenFace = atlas.defaultFrame;
+    const showFace = (name) => {
+      const i = atlas.frames[name];
+      faceMap.offset.set((i % atlas.cols) / atlas.cols, Math.floor(i / atlas.cols) / atlas.rows);
+    };
+
+    const extrasByClip = Object.fromEntries(gltf.parser.json.animations.map((a) => [a.name, a.extras ?? {}]));
+    let action = null, clipName = "sit_still";
+    const play = (name) => {
+      const clip = gltf.animations.find((c) => c.name === name);
+      const next = mixer.clipAction(clip);
+      next.reset();
+      next.setLoop(extrasByClip[name].loop ? THREE.LoopRepeat : THREE.LoopPingPong, Infinity);
+      if (action && action !== next) next.crossFadeFrom(action, 0.16, false);
+      next.play();
+      action = next;
+      clipName = name;
+      mark("clips", name);
+    };
+
+    for (const c of gltf.animations.map((c) => c.name).sort()) button("clips", c, () => play(c));
+    for (const f of Object.keys(atlas.frames)) button("faces", f, () => { chosenFace = f; mark("faces", f); });
+    for (const v of Object.keys(VIEWS)) button("views", v, () => setView(v));
+
+    const speed = document.getElementById("speed");
+    const status = document.getElementById("status");
+    setView("front");
+    play("sit_still");
+    mark("faces", chosenFace);
+
+    const clock = new THREE.Clock();
+    renderer.setAnimationLoop(() => {
+      mixer.update(clock.getDelta() * Number(speed.value));
+      // A clip's faceFrames override the chosen face while they apply; "" hands it back.
+      const keys = extrasByClip[clipName].faceFrames ?? [];
+      const t = action ? action.time : 0;
+      const key = keys.filter((k) => k.t <= t + 1e-4).at(-1);
+      const face = key && key.frame ? key.frame : chosenFace;
+      showFace(face);
+      status.textContent = `${clipName}  t=${t.toFixed(2)}s  face=${face}`;
+      controls.update();
+      renderer.render(scene, camera);
+    });
+    addEventListener("resize", () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+  </script>
+</body>
+</html>
