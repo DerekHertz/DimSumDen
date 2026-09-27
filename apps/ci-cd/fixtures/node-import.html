@@ -1,0 +1,14 @@
+<!doctype html>
+<!-- QA fixture for ci-cd/02: a dev page whose module imports a node: built-in.
+     This is ticket 07's node:fs bug, reproduced on purpose. A browser has no
+     polyfill for node:fs, so the module import must fail, and the smoke check
+     must catch it. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>QA smoke fixture: node import</title>
+</head>
+<body>
+  <script type="module" src="./node-import.mjs"></script>
+</body>
+</html>
