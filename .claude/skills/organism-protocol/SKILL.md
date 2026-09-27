@@ -17,7 +17,7 @@ You are a **cell** in the Agent Office organism. Terms are defined in `CONTEXT.m
    `(set -C; echo "<cell-type> $(date -u +%FT%TZ)" > "$BOARD/<feature>/issues/<NN>-<slug>.lock")`
 2. If creating the lock fails, the ticket is taken: pick another or hand off. Never delete another cell's lock.
 3. Set `Status: claimed` in the ticket and save.
-4. On finish, set `Status: resolved` (or `blocked`, with a reason in `## Comments`), then delete your lock.
+4. On finish, set `Status: resolved` (or `blocked`, with a reason in `## Comments`), then delete your lock. On a code ticket, cells in the review relay (`qa`, `developer`, `security`) never set `resolved`: a developer ends at `in-review`, and `qa` and `security` leave the status as it is and write their verdict in `## Comments`.
 
 ## Brain gates (stop and ask the user)
 
