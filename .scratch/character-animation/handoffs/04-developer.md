@@ -31,3 +31,18 @@ Every state's loop and held pose reuse the same clip (only `idle` has a distinct
 ## Suggested next steps
 
 Resume this same branch/worktree (`worktree-agent-a919cafc1cb3eea97`), re-claim ticket 04, run `/code-review`, then get browser verification before moving to `resolved`.
+
+---
+
+# Update: ticket 04 resolved (review + browser check session, 2026-09-26)
+
+Branch `claude/remote-control-c0e546` (a fast-forward of `worktree-agent-a919cafc1cb3eea97` plus the fix commit below). `worktree-agent-a919cafc1cb3eea97` itself was left untouched at `a83baee`.
+
+- **Code review** (Standards + Spec, run in parallel). Spec findings, all fixed: pose clips (arms_folded, lean_back, slump, sit_still) played as `LoopRepeat` though the contract's LOOPS has only breathe, paw_raise and doze; terminated waved forever instead of once (story 8); idle's `blink` body entry was a 0.2 s clip given 0.5 s. Standards findings were left as they were: they're judgement calls (listed below).
+- **Browser bug, fixed**: with reduced motion on, switching state left the previous paused action at full weight, blending poses (blocked → idle kept the arms folded). `applyCommand` now stops the old action when there's no cross-fade.
+- **STATE_MAP now**: each state has `loops` (tested against contract LOOPS). Terminated = `wave` entry for 1.87 s, then holds `sit_still`. Idle = `sit_still` held, face `half_lidded` (the user chose to keep it over a literal "eyes closed to a line" frame).
+- **Verified in browser**: all 8 states change pose and face, icon + word are always shown, reduced motion holds each pose with no blink, and terminated waves once and settles.
+- Also fixed: the dev-scene run note (serve the repo root, since the scene imports `packages/`; Python on Windows serves `.mjs` as text/plain) and the `showFace` fallback (`defaultFrame` is a name, not an index).
+- Tests: 23/23 pass.
+
+**Left as follow-ups (judgement calls, not blockers):** `DUR_HEARTBEAT` is defined in both director.mjs and panda-contract.mjs. director.test.mjs imports the app's contract, so the package's tests reach into apps/ui. ADR 0007 says "Vitest" but the repo uses node:test. Most states still have no separate entry one-shot, because the asset contract has none.

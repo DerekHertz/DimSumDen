@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CLIPS, FACE_FRAMES } from "../../../apps/ui/src/assets/panda-contract.mjs";
+import { CLIPS, LOOPS, FACE_FRAMES } from "../../../apps/ui/src/assets/panda-contract.mjs";
 import { STATES, STATE_MAP, DUR_FAST, DUR_HEARTBEAT, createCharacterDirector } from "./director.mjs";
 
 test("every state maps to a loop, entry one-shot, face frame and held pose, all named in the asset contract", () => {
@@ -14,7 +14,29 @@ test("every state maps to a loop, entry one-shot, face frame and held pose, all 
     assert.ok(CLIPS.includes(mapping.enter), `${state}.enter "${mapping.enter}" is not a contract clip`);
     assert.ok(CLIPS.includes(mapping.heldPose), `${state}.heldPose "${mapping.heldPose}" is not a contract clip`);
     assert.ok(FACE_FRAMES.includes(mapping.face), `${state}.face "${mapping.face}" is not a contract face frame`);
+    assert.equal(mapping.loops, LOOPS.includes(mapping.loop), `${state}.loops disagrees with the contract's LOOPS`);
   }
+});
+
+test("pose clips are held once settled, and only contract loop clips repeat", () => {
+  const director = createCharacterDirector();
+  for (const state of STATES) {
+    director.setState("cell-1", state, 0);
+    const cmd = director.tick("cell-1", 10);
+    assert.equal(cmd.clip, STATE_MAP[state].loop, state);
+    assert.equal(cmd.loop, LOOPS.includes(cmd.clip), state);
+  }
+});
+
+test("a terminated cell waves once, then settles instead of waving again", () => {
+  const director = createCharacterDirector();
+  director.setState("cell-1", "terminated", 0);
+  const waving = director.tick("cell-1", 1);
+  assert.equal(waving.clip, "wave");
+  assert.equal(waving.loop, false);
+  const settled = director.tick("cell-1", 5);
+  assert.notEqual(settled.clip, "wave");
+  assert.equal(settled.loop, false);
 });
 
 test("a cell defaults to idle before any state is pushed", () => {
@@ -36,10 +58,9 @@ test("tick plays each state's entry clip and face frame right after a state chan
 
 test("tick settles into the state's loop once the entry duration has elapsed", () => {
   const director = createCharacterDirector();
-  director.setState("cell-1", "idle", 0);
-  // idle's entry (blink) is brief; well past it the cell should be looping sit_still.
+  director.setState("cell-1", "working", 0);
   const cmd = director.tick("cell-1", 10);
-  assert.equal(cmd.clip, STATE_MAP.idle.loop);
+  assert.equal(cmd.clip, STATE_MAP.working.loop);
   assert.equal(cmd.loop, true);
 });
 

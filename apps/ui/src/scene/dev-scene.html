@@ -2,7 +2,9 @@
 <!-- Ticket 04 dev scene: wires the character director (packages/character-director) to one cell
      built from apps/ui/public/models/panda.glb, driven by a mock state source's dev control.
      State is shown by pose AND by icon + word, never by motion alone.
-     Run: python -m http.server 8124 --directory apps/ui   then open http://localhost:8124/src/scene/dev-scene.html -->
+     Run from the repo root (the scene imports packages/): python -m http.server 8124
+     then open http://localhost:8124/apps/ui/src/scene/dev-scene.html
+     On Windows, Python may serve .mjs as text/plain, which browsers refuse; map .mjs to text/javascript. -->
 <html lang="en">
 <head>
   <meta charset="utf-8">

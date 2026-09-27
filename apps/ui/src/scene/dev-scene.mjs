@@ -86,7 +86,7 @@ const faceNode = panda.getObjectByName("face");
 const atlas = gltf.parser.json.nodes.find((n) => n.name === "face").extras.faceAtlas;
 const faceMap = faceNode.material.map;
 const showFace = (name) => {
-  const i = atlas.frames[name] ?? atlas.defaultFrame;
+  const i = atlas.frames[name] ?? atlas.frames[atlas.defaultFrame];
   faceMap.offset.set((i % atlas.cols) / atlas.cols, Math.floor(i / atlas.cols) / atlas.rows);
 };
 
@@ -106,7 +106,12 @@ function applyCommand(cmd) {
     next.reset();
     next.setLoop(cmd.loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
     next.clampWhenFinished = !cmd.loop;
-    if (currentAction && currentAction !== next && cmd.crossFade > 0) next.crossFadeFrom(currentAction, cmd.crossFade, false);
+    if (currentAction && currentAction !== next) {
+      // Without a cross-fade (reduced motion, or an entry settling into its loop) the old action must
+      // stop, or it stays blended under the new pose.
+      if (cmd.crossFade > 0) next.crossFadeFrom(currentAction, cmd.crossFade, false);
+      else currentAction.stop();
+    }
     next.play();
     next.paused = reducedMotionOn; // reduced motion: a still held pose; otherwise clips play (one-shot or loop)
     currentAction = next;

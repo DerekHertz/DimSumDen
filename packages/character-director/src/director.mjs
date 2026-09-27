@@ -1,6 +1,6 @@
 // The character director (ADR 0007, spec.md "Character director"): a pure module, no renderer
 // dependency. It takes cell-state changes (and, later, handoff events, perch anchors and time) and
-// answers `tick(cellId, now)` with a clip name, a face frame and a cross-fade hint. State→clip
+// answers `tick(cellId, now)` with a clip name, whether it loops, a face frame and a cross-fade hint. State→clip
 // names come from the panda asset contract (apps/ui/src/assets/panda-contract.mjs) so the two
 // stay in lockstep.
 
@@ -16,17 +16,21 @@ export const DUR_HEARTBEAT = 1.2;
 const BLINK_DURATION = 0.12;
 
 // Each state maps to a looping clip, an entry one-shot, a face frame and a held pose for reduced
-// motion (spec.md, "State → clip map"). Every clip named here must exist in the asset contract's
-// CLIPS list (enforced by director.test.mjs, not re-imported here to keep this module dependency-free).
+// motion (spec.md, "State → clip map"). `loop` is what the cell settles into after the entry;
+// `loops` says whether it repeats (a contract LOOPS clip) or is a pose clip played once and held.
+// Every clip named here must exist in the asset contract's CLIPS list, and `loops` must agree with
+// its LOOPS list (both enforced by director.test.mjs, not re-imported here to keep this module
+// dependency-free).
 export const STATE_MAP = {
-  idle: { loop: "sit_still", enter: "blink", face: "half_lidded", heldPose: "sit_still", enterDuration: 0.5 },
-  working: { loop: "breathe", enter: "breathe", face: "focused_squint", heldPose: "breathe", enterDuration: 0 },
-  waiting_on_user: { loop: "paw_raise", enter: "paw_raise", face: "wide_eyes", heldPose: "paw_raise", enterDuration: 0 },
-  blocked: { loop: "arms_folded", enter: "arms_folded", face: "narrowed", heldPose: "arms_folded", enterDuration: 0 },
-  done: { loop: "lean_back", enter: "lean_back", face: "content_squint", heldPose: "lean_back", enterDuration: 0 },
-  failed: { loop: "slump", enter: "slump", face: "sour_pucker", heldPose: "slump", enterDuration: 0 },
-  throttled: { loop: "doze", enter: "doze", face: "sleepy", heldPose: "doze", enterDuration: 0 },
-  terminated: { loop: "wave", enter: "wave", face: "eyes_shut_savoring", heldPose: "wave", enterDuration: 0 },
+  idle: { loop: "sit_still", loops: false, enter: "sit_still", face: "half_lidded", heldPose: "sit_still", enterDuration: 0 },
+  working: { loop: "breathe", loops: true, enter: "breathe", face: "focused_squint", heldPose: "breathe", enterDuration: 0 },
+  waiting_on_user: { loop: "paw_raise", loops: true, enter: "paw_raise", face: "wide_eyes", heldPose: "paw_raise", enterDuration: 0 },
+  blocked: { loop: "arms_folded", loops: false, enter: "arms_folded", face: "narrowed", heldPose: "arms_folded", enterDuration: 0 },
+  done: { loop: "lean_back", loops: false, enter: "lean_back", face: "content_squint", heldPose: "lean_back", enterDuration: 0 },
+  failed: { loop: "slump", loops: false, enter: "slump", face: "sour_pucker", heldPose: "slump", enterDuration: 0 },
+  throttled: { loop: "doze", loops: true, enter: "doze", face: "sleepy", heldPose: "doze", enterDuration: 0 },
+  // Story 8: wave once (the contract's wave clip runs 1.87 s), then settle. The ghost fade isn't a clip.
+  terminated: { loop: "sit_still", loops: false, enter: "wave", face: "eyes_shut_savoring", heldPose: "sit_still", enterDuration: 1.87 },
 };
 
 const DEFAULT_STATE = "idle";
@@ -91,7 +95,7 @@ export function createCharacterDirector({ reducedMotion = false, random = Math.r
         }
       }
 
-      return { clip, loop: !entering, face, crossFade };
+      return { clip, loop: !entering && mapping.loops, face, crossFade };
     },
   };
 }
