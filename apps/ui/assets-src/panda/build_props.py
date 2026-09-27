@@ -15,9 +15,10 @@ SRC = globals().get("PANDA_SRC") or os.path.dirname(globals().get("__file__", ""
 OUT_DIR = os.path.normpath(os.path.join(SRC, "..", "..", "public", "models", "props"))
 SCENE = "PropAssets"
 
-# Design bounce (ticket 07, MEDIUM): cell-types.md says a cell type's personality comes from a hat
-# and held prop "in its organ hue". Orchestrator/product/architect are all Brain (organ-brain =
-# wisteria, tokens.json #674698 light / #c3a5f9 dark, hue ~264deg). The three props stay in that
+# Design bounce (ticket 07, MEDIUM): the design system artifact's cell-types.md (not checked into
+# this repo; see handoffs/07-designer-1.md) says a cell type's personality comes from a hat and held
+# prop "in its organ hue". Orchestrator/product/architect are all Brain (organ-brain = wisteria, the
+# artifact's tokens.json #674698 light / #c3a5f9 dark, hue ~264deg). The three props stay in that
 # hue family, varied by lightness/saturation for shape-driven distinguishability rather than by
 # swapping to unrelated narrative colours.
 WISTERIA_HUE = 264 / 360
@@ -74,6 +75,12 @@ def make_fan():
     world-up and the thin solidify axis on world-depth, so the fan's face reads front-on instead of
     edge-on. See apps/ui/assets-src/panda/README.md and the ticket 07 designer handoff for the full
     axis derivation (measured from the exported panda.glb's paw_R world matrix).
+
+    Unlike the scroll and blueprint, the fan gets no GRIP_OFFSET: its hinge is the socket contact
+    point by design (the pie-wedge radiates outward from it, per the original "closed-edge-first"
+    grip), so shifting the hinge off-origin would push the grip point itself out of the fist rather
+    than clearing a body that's centred on the origin. The scroll/blueprint problem — a shape whose
+    origin sits at its own centre, burying it in the fist — doesn't apply here.
     """
     bm = bmesh.new()
     radius, angle_deg, segs, thickness = 0.16, 110, 10, 0.012
@@ -103,10 +110,7 @@ def make_scroll():
     bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=True, segments=16,
                            radius1=0.045, radius2=0.045, depth=0.30, matrix=Matrix.Identity(4))
     for v in bm.verts:
-        # lay the cylinder's depth axis along local X (across the palm); local Z is what paw_L's
-        # rest orientation carries to world +Z (out of the fist, toward the camera), so GRIP_OFFSET
-        # goes there, not on local Y (which lands on world-up instead).
-        v.co = (v.co.z, v.co.y, v.co.x + GRIP_OFFSET)
+        v.co = (v.co.z, v.co.y, v.co.x + GRIP_OFFSET)  # depth axis along local X (across the palm); see GRIP_OFFSET above
     return new_object("Prop_Scroll", bm, wisteria(0.66, 0.42))
 
 
@@ -123,10 +127,7 @@ def make_blueprint():
     for v in bm.verts:
         v.co.x *= 0.20
         v.co.y *= 0.012
-        # local Z is what paw_L's rest orientation carries to world +Z (out of the fist, toward
-        # the camera); GRIP_OFFSET shifts the whole sheet out along it instead of on local Y
-        # (world-up), which would just sink it or lift it rather than clearing the fist.
-        v.co.z = v.co.z * 0.26 + GRIP_OFFSET
+        v.co.z = v.co.z * 0.26 + GRIP_OFFSET  # see GRIP_OFFSET above
     return new_object("Prop_Blueprint", bm, wisteria(0.28, 0.50))
 
 

@@ -26,7 +26,9 @@ Each step works in the `PandaAsset` scene and leaves `panda-mascot.blend` itself
 
 ## Props and hats
 
-Props and hats (`apps/ui/public/models/props/*.glb`) are separate assets, not baked into `panda.glb` (spec.md "Export"). Each prop's object origin is its own geometric centre, sized and built so that centre sits naturally in the paw; a runtime attach parents its root node under the matching `paw_L`/`paw_R`/`hat` socket bone with an identity transform, and the socket's own animation then carries the prop through every clip. `apps/ui/src/assets/panda-contract.mjs`'s `PROP_ASSETS` names each Brain type's prop file, socket and habit clip; `apps/ui/src/scene/dev-scene.mjs` shows the attach/detach.
+Props and hats (`apps/ui/public/models/props/*.glb`) are separate assets, not baked into `panda.glb` (spec.md "Export"). A runtime attach parents a prop's root node under the matching `paw_L`/`paw_R`/`hat` socket bone with an identity transform, and the socket's own animation then carries the prop through every clip. `apps/ui/src/assets/panda-contract.mjs`'s `PROP_ASSETS` names each Brain type's prop file, socket and habit clip; `apps/ui/src/scene/dev-scene.mjs` shows the attach/detach.
+
+Each prop's local geometry is built so it clears the fist once attached, not necessarily centred on the socket origin: a design bounce on ticket 07 found the scroll and blueprint reading as buried in the fist because their object origin sat exactly at the socket's origin with no offset outward into the grip. `build_props.py`'s `GRIP_OFFSET` now shifts those two out along local Z — which `paw_L`'s rest orientation carries to world +Z (toward the camera, out of the fist) — by a few cm. The fan needed no offset (its hinge is meant to sit at the socket) but did need an orientation fix: its arc used to spread with the thin (solidify) axis on local Y, which `paw_R`'s rest orientation carries to world-up, reading as a near-invisible edge-on sliver; it now spreads with the thin axis on local Z (world-depth) instead. See `build_props.py`'s per-prop docstrings for the full axis derivation, measured from the exported `panda.glb`'s socket world matrices.
 
 ## Face atlas
 
