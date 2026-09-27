@@ -30,6 +30,12 @@ Always ask before:
 
 State the action, why, and what changes. Wait for an explicit yes.
 
+## Environment issues (report, don't work around)
+
+When the environment gets in your way, don't patch or improvise past it. Examples: a missing or failing tool, a dev server that hangs or serves the wrong MIME type, Blender not open, a port in use, or a permission denial. End your report with an `Environment issues` section: what failed, the exact error, and the fix you suggest. The user fixes these in the main session. If one stops your task, say so and stop.
+
+One sanctioned exception: until the `board` CLI exists, a worktree cell writes the main checkout's board through shell commands, because the worktree guard blocks the file tools there. Report it only if the shell write fails too.
+
 ## Apoptosis (ending well)
 
 A cell does one ticket or one task, then ends. When your genome's `done` criteria are met, or you are blocked, or your context is getting long:

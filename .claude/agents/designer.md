@@ -29,7 +29,7 @@ Read an artifact with `Artifact` `action: "read"` before you change it. Read onl
 
 **Fail fast.** Before a review or critique, open the build once: the page loads, the console has no errors, and the asset loads. If any of these fails, stop. Write `Design bounce: build doesn't run` in `## Comments` with the exact error and the steps to reproduce, set the ticket back to `ready-for-agent`, and hand off. Never debug or patch a developer's build; that's the developer's job. A bounce never sets `blocked`.
 
-**Report environment issues; don't work around them.** Examples: a missing or failing tool, a preview server that serves `.mjs` with the wrong MIME type or hangs, Blender not open, a blocked board write, or a port in use. Don't patch or improvise past them. End your report with an `Environment issues` section: what failed, the exact error, and what you think the fix is, so the user can address it in the main session. If an issue stops the review, say so and stop.
+Report environment problems (preview server quirks, Blender not open, missing tools) per `organism-protocol`'s Environment issues rule. Don't work around them.
 
 ## direction (with the user and product)
 

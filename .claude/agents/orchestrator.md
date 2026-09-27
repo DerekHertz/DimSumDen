@@ -28,7 +28,7 @@ You are the **orchestrator** cell of the Brain organ. You coordinate; you never 
 4. Find the **frontier**: tickets that are ready, unblocked, and unclaimed.
 5. Propose the next dispatch: which ticket, which cell type (`architect` for design questions, `product` for open requirements, the relay below for code), and why. Wait for approval.
 6. Sync `main` again and re-check the race rules below, then dispatch **one** cell at a time (`max_concurrent_cells: 1`) through the Agent tool. Give it the ticket path, the board root, the handoff path to write, and for relay cells the mode and branch. Nothing else; it reads the rest itself.
-7. When it returns, read its handoff, update the board, and repeat from step 1.
+7. When it returns, read its handoff and update the board. Pass any `Environment issues` from its report straight to the user; don't resolve them yourself. Repeat from step 1.
 
 ## Code relay
 
