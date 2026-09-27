@@ -30,7 +30,7 @@ const CODE_RISK_PATTERNS = [
   },
   {
     name: "shelling out to another program",
-    re: /\bchild_process\b|\b(spawn|execFile|execSync)\s*\(|(?<!\.)\bexec\s*\(/,
+    re: /\bchild_process\b|\b(spawnSync|spawn|execFileSync|execFile|execSync|fork)\s*\(|(?<!\.)\bexec\s*\(/,
   },
   { name: "board, lock, or daemon code", re: /\bdaemon\b|\.lock\b|\bboard\b/i },
   { name: "secrets handling", re: /\b(secret|credential|apiKey|api_key)\b/i },
@@ -41,7 +41,7 @@ function git(args) {
 }
 
 function parseDiff(range) {
-  const raw = git(["diff", "--unified=0", range]);
+  const raw = git(["diff", "--unified=0", "--end-of-options", range]);
   const files = [];
   let current = null;
   for (const line of raw.split("\n")) {
@@ -94,6 +94,14 @@ function checkFile(file) {
 
 function main() {
   const range = process.argv[2] || "main...HEAD";
+
+  if (range.startsWith("-")) {
+    console.error(
+      `risk-check: refusing option-shaped range argument "${range}" (looks like a git option, not a range)`
+    );
+    return 1;
+  }
+
   const files = parseDiff(range);
   const hits = files.flatMap(checkFile);
 

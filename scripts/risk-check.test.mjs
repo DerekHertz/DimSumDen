@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -75,7 +75,11 @@ test("a hardcoded secret-shaped value fails and names the file", () => {
 test("a private key block fails", () => {
   const dir = initRepo();
   try {
-    commitChange(dir, "keys/id_rsa", "-----BEGIN RSA PRIVATE KEY-----\nabc\n-----END RSA PRIVATE KEY-----\n");
+    // Built at runtime (not a literal PEM header/footer) so this fixture
+    // itself doesn't trip generic secret scanners on this source file.
+    const header = "-----BEGIN " + "RSA PRIVATE KEY" + "-----";
+    const footer = "-----END " + "RSA PRIVATE KEY" + "-----";
+    commitChange(dir, "keys/id_rsa", `${header}\nabc\n${footer}\n`);
     const { code } = runCheck(dir);
     assert.notEqual(code, 0);
   } finally {
@@ -165,6 +169,95 @@ test("the word 'secret' in ticket prose does not trigger a false positive", () =
     );
     const { code } = runCheck(dir);
     assert.equal(code, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("an option-shaped range argument is rejected without writing a file or reporting clean", () => {
+  const dir = initRepo();
+  try {
+    commitChange(dir, "apps/ci-cd/foo.mjs", "export const x = 1;\n");
+    const outputPath = path.join(dir, "pwned.txt");
+    const maliciousRange = `--output=${outputPath}`;
+    const { code, stdout } = runCheck(dir, maliciousRange);
+    assert.notEqual(code, 0);
+    assert.equal(existsSync(outputPath), false);
+    assert.doesNotMatch(stdout, /clean/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("execFileSync used without touching an already-present import line still fails", () => {
+  const dir = initRepo();
+  try {
+    const filePath = "apps/ci-cd/runner.mjs";
+    const full = path.join(dir, filePath);
+    mkdirSync(path.dirname(full), { recursive: true });
+    writeFileSync(full, 'import { execFileSync } from "node:child_process";\n');
+    git(dir, ["add", filePath]);
+    git(dir, ["commit", "-q", "-m", "add import only"]);
+
+    // The only *added* line in this next commit is the call itself; the
+    // import line is unchanged context, so a naive "added lines" diff scan
+    // must still catch it via the call-site pattern, not the import.
+    writeFileSync(full, 'import { execFileSync } from "node:child_process";\nexecFileSync("ls");\n');
+    git(dir, ["add", filePath]);
+    git(dir, ["commit", "-q", "-m", "call execFileSync"]);
+
+    const { code, stdout } = runCheck(dir);
+    assert.notEqual(code, 0);
+    assert.match(stdout, /apps\/ci-cd\/runner\.mjs/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("spawnSync, execFile, and fork calls are also caught", () => {
+  const dir = initRepo();
+  try {
+    commitChange(
+      dir,
+      "apps/ci-cd/runner2.mjs",
+      'import { spawnSync, execFile, fork } from "node:child_process";\n' +
+        'spawnSync("ls");\nexecFile("ls", () => {});\nfork("./x.js");\n'
+    );
+    const { code, stdout } = runCheck(dir);
+    assert.notEqual(code, 0);
+    assert.match(stdout, /apps\/ci-cd\/runner2\.mjs/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("board, lock, or daemon vocabulary triggers escalation", () => {
+  const dir = initRepo();
+  try {
+    commitChange(
+      dir,
+      "apps/ci-cd/worker.mjs",
+      "// starts the daemon that watches the board\nexport function start() {}\n"
+    );
+    const { code, stdout } = runCheck(dir);
+    assert.notEqual(code, 0);
+    assert.match(stdout, /apps\/ci-cd\/worker\.mjs/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("secrets-handling vocabulary triggers escalation", () => {
+  const dir = initRepo();
+  try {
+    commitChange(
+      dir,
+      "apps/ci-cd/auth.mjs",
+      "export function load() {\n  const credential = fetchFromVault();\n  return credential;\n}\n"
+    );
+    const { code, stdout } = runCheck(dir);
+    assert.notEqual(code, 0);
+    assert.match(stdout, /apps\/ci-cd\/auth\.mjs/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
