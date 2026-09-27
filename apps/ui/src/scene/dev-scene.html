@@ -1,0 +1,47 @@
+<!doctype html>
+<!-- Ticket 04 dev scene: wires the character director (packages/character-director) to one cell
+     built from apps/ui/public/models/panda.glb, driven by a mock state source's dev control.
+     State is shown by pose AND by icon + word, never by motion alone.
+     Run: python -m http.server 8124 --directory apps/ui   then open http://localhost:8124/src/scene/dev-scene.html -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cell state: dev scene</title>
+  <style>
+    :root { --bg: #efe8d8; --panel: #fffdf7; --ink: #1d2124; --muted: #5a605d; --line: #d8ceb8; --qi: #006c71; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) { --bg: #111418; --panel: #1f252b; --ink: #eceee9; --muted: #a4ada9; --line: #343d45; --qi: #3aced3; }
+    }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/20px Nunito, system-ui, sans-serif; }
+    canvas { display: block; }
+    #hud { position: fixed; top: 16px; left: 16px; max-width: min(360px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px; box-sizing: border-box; }
+    #hud h1 { font-size: 16px; line-height: 22px; margin: 0 0 8px; }
+    h2 { font-size: 12px; line-height: 16px; margin: 8px 0 4px; color: var(--muted); font-weight: 700; }
+    .row { display: flex; flex-wrap: wrap; gap: 4px; }
+    button { font: inherit; font-size: 13px; font-weight: 700; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 2px 8px; cursor: pointer; }
+    button[aria-pressed="true"] { border-color: var(--qi); color: var(--qi); }
+    button:focus-visible { outline: 2px solid var(--qi); outline-offset: 2px; }
+    #state-badge { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 800; margin-top: 8px; }
+    #state-badge .icon { font-size: 24px; }
+    #status { font: 12px/16px ui-monospace, monospace; color: var(--muted); white-space: pre; margin-top: 8px; }
+  </style>
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    } }
+  </script>
+</head>
+<body>
+  <div id="hud">
+    <h1>Cell state (dev control)</h1>
+    <h2>State</h2><div class="row" id="states"></div>
+    <h2>Reduced motion</h2><div class="row" id="reduced-motion"></div>
+    <!-- State is shown by icon + word here, never by pose alone. -->
+    <div id="state-badge"><span class="icon" id="state-icon"></span><span id="state-word"></span></div>
+    <div id="status">loading…</div>
+  </div>
+  <script type="module" src="./dev-scene.mjs"></script>
+</body>
+</html>
