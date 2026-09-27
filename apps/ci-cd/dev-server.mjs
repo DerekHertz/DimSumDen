@@ -85,7 +85,7 @@ export function createDevServer(root = REPO_ROOT) {
 function main() {
   const port = Number(process.argv[2]) || 8124;
   const server = createDevServer();
-  server.listen(port, () => {
+  server.listen(port, "127.0.0.1", () => {
     console.log(`dev server listening on http://localhost:${port}`);
   });
 }
