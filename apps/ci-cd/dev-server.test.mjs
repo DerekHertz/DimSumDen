@@ -57,7 +57,15 @@ function stopServer(child) {
   return new Promise((resolve) => {
     if (child.exitCode !== null || child.signalCode !== null) return resolve();
     child.once("exit", () => resolve());
-    child.kill();
+    if (process.platform === "win32") {
+      // `npm run dev` on Windows re-spawns the actual `node dev-server.mjs` process
+      // through its own shell layer, and Windows has no POSIX-style process-group
+      // signal propagation -- child.kill() here would only kill the outer cmd.exe
+      // wrapper and orphan the real server. Kill the whole tree by pid instead.
+      spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+    } else {
+      child.kill();
+    }
   });
 }
 
