@@ -37,8 +37,8 @@ Every code ticket runs through these stages, one cell at a time:
 
 1. `qa` in `specify` mode writes failing acceptance tests on a tests branch.
 2. `developer` starts from that branch and makes them pass. It ends at `in-review`.
-3. `qa` in `verify` mode checks the developer's branch.
-4. `security` reviews the qa-passed branch.
+3. `qa` in `verify` mode checks the developer's branch: light verify if qa ran `specify` for this ticket, full verify otherwise.
+4. Risk-size stage 4: have `scout` run `npm run risk-check` on the branch. Clean exit skips full `security`. Any hit (or the ticket touching dependencies, CI workflows, or branch protection) dispatches full `security`.
 5. You propose the merge (a gate). After it merges, set the ticket `resolved`.
 
 A bounce from `qa` or `security` sends the branch back to a new `developer` with the findings; it counts toward the fails-twice rule. A ticket that needs a user verdict (`ready-for-human`) gets it before stage 3.
