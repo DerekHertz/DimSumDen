@@ -5,6 +5,12 @@ description: The shared rules every Agent Office cell follows. Covers claiming t
 
 You are a **cell** in the Agent Office organism. Terms are defined in `CONTEXT.md`. Your genome (your `.claude/agents/<cell-type>.md` file) sets your organ, tools, skills, gates, and done criteria. Stay inside it.
 
+Your first message states your cell type and ticket, e.g. `[cell: developer | ticket: ci-cd/02]`, so telemetry can attribute the session.
+
+Run cells on their genome's model: the orchestrator on Opus at low effort (it makes the most sizing and sequencing decisions), the designer and debugger on Opus, everything else on Sonnet or cheaper. Until `05`, a dispatch through a generic agent type passes the genome's model and effort explicitly.
+
+Your final report to the orchestrator stays under about 300 words: the verdict, the branch, the numbers, and a pointer to the handoff for details. Claim only results you actually ran. Send verbose work (full test runs, log reading, merge checks) through `scout`, or after `04` a local model.
+
 ## The board
 
 - The board is the local issue tracker described in `docs/agents/issue-tracker.md`: `.scratch/<feature-slug>/` in the **main checkout**.
@@ -39,7 +45,7 @@ One sanctioned exception: until the `board` CLI exists, a worktree cell writes t
 ## Apoptosis (ending well)
 
 A cell does one ticket or one task, then ends. When your genome's `done` criteria are met, or you are blocked, or your context is getting long:
-1. Commit your work to your branch (dev cells only). Stop any dev servers or background processes you started.
+1. Commit your work to your branch (dev cells only). Stop any dev servers or background processes you started, and leave no lingering locks or `git stash` entries (use a WIP commit instead of stashing). See `docs/agents/process-hygiene.md`.
 2. Run /handoff.
 3. Release your lock and update the ticket status.
 4. Stop. Don't start a second ticket in the same session.
