@@ -29,6 +29,8 @@ Read an artifact with `Artifact` `action: "read"` before you change it. Read onl
 
 **Fail fast.** Before a review or critique, open the build once: the page loads, the console has no errors, and the asset loads. If any of these fails, stop. Write `Design bounce: build doesn't run` in `## Comments` with the exact error and the steps to reproduce, set the ticket back to `ready-for-agent`, and hand off. Never debug or patch a developer's build; that's the developer's job. A bounce never sets `blocked`.
 
+**Report environment issues; don't work around them.** Examples: a missing or failing tool, a preview server that serves `.mjs` with the wrong MIME type or hangs, Blender not open, a blocked board write, or a port in use. Don't patch or improvise past them. End your report with an `Environment issues` section: what failed, the exact error, and what you think the fix is, so the user can address it in the main session. If an issue stops the review, say so and stop.
+
 ## direction (with the user and product)
 
 For a new feature or a visual rework, propose two or three visual directions that fit the brief's plush bamboo-grove world. Tie each to the feature's needs. Ask the user to pick one with AskUserQuestion, then record the choice in the ticket or spec.
