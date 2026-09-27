@@ -1,7 +1,7 @@
 # Ticket 07 (spec.md "Export": "Props and hats are separate assets attached to sockets by name").
-# Builds the three Brain-type habit props as small standalone meshes, each in its own local space
-# (object origin at (0,0,0) is where it meets the socket, so a runtime attach with an identity
-# transform under the paw_L/paw_R/hat socket node holds it naturally in the paw). Run inside
+# Builds the three Brain-type habit props as small standalone meshes, each in its socket's local
+# space (object origin (0,0,0) is the socket, at the paw's centre, so a runtime attach with an
+# identity transform under the paw_L/paw_R/hat socket node puts it in the paw). Run inside
 # Blender from the Python console or the Blender MCP:
 #   exec(open(r"<repo>/apps/ui/assets-src/panda/build_props.py").read(), {"PANDA_SRC": r"<repo>/apps/ui/assets-src/panda"})
 # Writes apps/ui/public/models/props/{fan,scroll,blueprint}.glb.
@@ -28,12 +28,25 @@ def wisteria(lightness, saturation):
     return colorsys.hls_to_rgb(WISTERIA_HUE, lightness, saturation)
 
 
-# Design bounce (ticket 07, HIGH): a prop's object origin sat exactly at the socket's origin with no
-# offset outward into the grip, so scroll and blueprint were centred inside the paw's fist geometry
-# instead of extending out of it. GRIP_OFFSET nudges those two out along local +Z, which the paw_L
-# socket's rest orientation carries to world +Z (toward the camera, out of the fist) — see
-# apps/ui/assets-src/panda/README.md and the ticket 07 designer handoff for the axis derivation.
-GRIP_OFFSET = 0.06
+# Where the props sit (ticket 07, design bounces 1 and 2). The socket is at the centre of the paw,
+# and the paw is a ball of radius PAW_RADIUS around it (arm tail thickness 0.38), so anything within
+# PAW_RADIUS of the object origin is buried in the fist. Each prop's grip point sits on the paw
+# surface and its body extends out of it.
+#
+# Axes, in Blender's frame here (the glb export turns Blender +Z into glTF +Y, and Blender -Y into
+# glTF +Z). Under the paw sockets:
+#   Blender +Z (glTF +Y): out past the paw tip, along the forearm, toward the camera.
+#   Blender -Y (glTF +Z): up (world up at rest, mostly up in every habit pose).
+#   Blender  X (glTF  X): across the paw (world -X at rest).
+# apps/ui/src/assets/prop-placement.test.mjs checks the exported result in world space.
+PAW_RADIUS = 0.19
+FAN_HINGE = 0.18                 # fan hinge, out past the paw tip, on the paw surface
+FAN_RADIUS = 0.26                # fan blade radius (designer target 0.24 to 0.28)
+SCROLL_RADIUS = 0.045
+SCROLL_CENTRE = PAW_RADIUS + 0.05  # the whole rod clears the paw
+BLUEPRINT_OUT = 0.17             # sheet plane, just in front of the paw
+BLUEPRINT_LIFT = 0.12            # sheet's bottom edge above the paw centre
+BLUEPRINT_W, BLUEPRINT_H = 0.20, 0.26
 
 
 def ensure_scene():
@@ -66,30 +79,19 @@ def make_fan():
     """A folding fan, open: a pie-wedge held closed-edge-first at the paw (paw_R). Wisteria (organ
     Brain hue, cell-types.md), a mid lightness so it reads distinctly from the scroll and blueprint.
 
-    Design bounce (ticket 07, HIGH): the arc used to spread in local X/Z with the thin (solidify)
-    axis on local Y. paw_R's rest orientation carries local Y to world Y (up) and local Z to world
-    Z (depth) — the opposite of what a held-up fan needs — so the fan's *tall* dimension landed on
-    depth (foreshortened, wasted) and its *thin* dimension landed on world-up, making the whole fan
-    a near-invisible horizontal sliver from the front/three-quarter view used to look at a working
-    cell. Swapping the arc to spread in local X/Y (thin axis on local Z) puts the tall dimension on
-    world-up and the thin solidify axis on world-depth, so the fan's face reads front-on instead of
-    edge-on. See apps/ui/assets-src/panda/README.md and the ticket 07 designer handoff for the full
-    axis derivation (measured from the exported panda.glb's paw_R world matrix).
-
-    Unlike the scroll and blueprint, the fan gets no GRIP_OFFSET: its hinge is the socket contact
-    point by design (the pie-wedge radiates outward from it, per the original "closed-edge-first"
-    grip), so shifting the hinge off-origin would push the grip point itself out of the fist rather
-    than clearing a body that's centred on the origin. The scroll/blueprint problem — a shape whose
-    origin sits at its own centre, burying it in the fist — doesn't apply here.
+    The wedge stands upright with its face to the camera (its thin solidify axis on Blender Z, which
+    is world depth). The hinge sits on the paw surface, FAN_HINGE out past the paw tip, and the
+    blade rises from it (Blender -Y, up) with a radius of FAN_RADIUS, leaning slightly toward the
+    camera. Design bounce 2: the old 0.16 blade hung below a hinge at the paw centre, all inside it.
     """
     bm = bmesh.new()
-    radius, angle_deg, segs, thickness = 0.16, 110, 10, 0.012
-    hinge = bm.verts.new((0, 0, 0))
+    radius, angle_deg, segs, thickness = FAN_RADIUS, 110, 10, 0.012
+    hinge = bm.verts.new((0, 0, FAN_HINGE))
     arc = []
     start = -angle_deg / 2
     for i in range(segs + 1):
         a = math.radians(start + angle_deg * i / segs)
-        arc.append(bm.verts.new((radius * math.sin(a), radius * math.cos(a), radius * math.cos(a) * 0.15)))
+        arc.append(bm.verts.new((radius * math.sin(a), -radius * math.cos(a), FAN_HINGE + radius * math.cos(a) * 0.15)))
     for i in range(segs):
         bm.faces.new((hinge, arc[i], arc[i + 1]))
     bmesh.ops.solidify(bm, geom=list(bm.faces), thickness=thickness)
@@ -101,16 +103,15 @@ def make_scroll():
     """A rolled scroll, held horizontally in the paw (paw_L). Wisteria (organ Brain hue), lighter
     than the fan and blueprint so the three read as distinct at a glance.
 
-    Design bounce (ticket 07, HIGH): the scroll's object origin sat exactly at the socket's origin,
-    centred inside the paw's fist geometry instead of extending out of it. Offset outward along
-    local Z (GRIP_OFFSET) by a few cm so its body clears the fist.
+    Its length runs across the paw (Blender X), perpendicular to the forearm, and it lies just past
+    the paw tip (centre SCROLL_CENTRE out along Blender Z), so the whole rod clears the paw.
     """
     from mathutils import Matrix
     bm = bmesh.new()
     bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=True, segments=16,
-                           radius1=0.045, radius2=0.045, depth=0.30, matrix=Matrix.Identity(4))
+                           radius1=SCROLL_RADIUS, radius2=SCROLL_RADIUS, depth=0.30, matrix=Matrix.Identity(4))
     for v in bm.verts:
-        v.co = (v.co.z, v.co.y, v.co.x + GRIP_OFFSET)  # depth axis along local X (across the palm); see GRIP_OFFSET above
+        v.co = (v.co.z, v.co.y, v.co.x + SCROLL_CENTRE)  # cone's length axis onto Blender X
     return new_object("Prop_Scroll", bm, wisteria(0.66, 0.42))
 
 
@@ -119,15 +120,16 @@ def make_blueprint():
     with both arms as build_clips.py's blueprint_unroll plays. Wisteria (organ Brain hue), darker
     than the fan and scroll so the three read as distinct at a glance.
 
-    Design bounce (ticket 07, HIGH): same centring problem as the scroll — offset outward along
-    local Z (GRIP_OFFSET) so the sheet clears the fist instead of sitting centred inside it.
+    The sheet stands up facing the camera (thin on Blender Z, world depth), just in front of the
+    paw (BLUEPRINT_OUT), and rises from its bottom edge, which the paw holds (BLUEPRINT_LIFT above
+    the paw centre). Design bounce 2: the old sheet lay flat, edge-on, centred in the paw.
     """
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     for v in bm.verts:
-        v.co.x *= 0.20
-        v.co.y *= 0.012
-        v.co.z = v.co.z * 0.26 + GRIP_OFFSET  # see GRIP_OFFSET above
+        v.co.x *= BLUEPRINT_W
+        v.co.y = -(BLUEPRINT_LIFT + (v.co.y + 0.5) * BLUEPRINT_H)  # Blender -Y is up
+        v.co.z = v.co.z * 0.012 + BLUEPRINT_OUT
     return new_object("Prop_Blueprint", bm, wisteria(0.28, 0.50))
 
 
