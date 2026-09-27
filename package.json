@@ -3,6 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test \"apps/**/*.test.mjs\" \"packages/**/*.test.mjs\""
+    "test": "node --test \"apps/**/*.test.mjs\" \"packages/**/*.test.mjs\"",
+    "dev": "node apps/ci-cd/dev-server.mjs",
+    "smoke": "node apps/ci-cd/smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
   }
 }
