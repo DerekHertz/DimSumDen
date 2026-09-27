@@ -26,6 +26,7 @@
     button:focus-visible { outline: 2px solid var(--qi); outline-offset: 2px; }
     #state-badge { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 800; margin-top: 8px; }
     #state-badge .icon { font-size: 24px; }
+    #cell-emoji { position: fixed; left: 0; top: 0; font-size: 40px; line-height: 1; pointer-events: none; transform: translate(-50%, -100%); filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.25)); }
     #status { font: 12px/16px ui-monospace, monospace; color: var(--muted); white-space: pre; margin-top: 8px; }
   </style>
   <script type="importmap">
@@ -44,6 +45,8 @@
     <div id="state-badge"><span class="icon" id="state-icon"></span><span id="state-word"></span></div>
     <div id="status">loading…</div>
   </div>
+  <!-- The state's emoji, floating over the cell's head (the HUD badge above carries the word). -->
+  <div id="cell-emoji" aria-hidden="true"></div>
   <script type="module" src="./dev-scene.mjs"></script>
 </body>
 </html>

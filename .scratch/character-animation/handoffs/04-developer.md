@@ -46,3 +46,4 @@ Branch `claude/remote-control-c0e546` (a fast-forward of `worktree-agent-a919caf
 - Tests: 23/23 pass.
 
 **Left as follow-ups (judgement calls, not blockers):** `DUR_HEARTBEAT` is defined in both director.mjs and panda-contract.mjs. director.test.mjs imports the app's contract, so the package's tests reach into apps/ui. ADR 0007 says "Vitest" but the repo uses node:test. Most states still have no separate entry one-shot, because the asset contract has none.
+- **Emoji over the head** (user request): each state's emoji now floats above the panda and follows it as the camera orbits (💤 🛠️ ✋ 🚧 ✅ ❌ ⏳ 👋). The HUD badge uses the same emoji and still carries the word.

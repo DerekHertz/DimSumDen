@@ -11,12 +11,12 @@ import { createMockStateSource } from "../../../../packages/character-director/s
 
 // Icon + word for each state (spec.md story 28: state is never shown by motion alone).
 const STATE_LABEL = {
-  idle: { icon: "○", word: "idle" },
-  working: { icon: "⚙", word: "working" },
-  waiting_on_user: { icon: "❓", word: "waiting on user" },
-  blocked: { icon: "⛔", word: "blocked" },
-  done: { icon: "✓", word: "done" },
-  failed: { icon: "✕", word: "failed" },
+  idle: { icon: "💤", word: "idle" },
+  working: { icon: "🛠️", word: "working" },
+  waiting_on_user: { icon: "✋", word: "waiting on user" },
+  blocked: { icon: "🚧", word: "blocked" },
+  done: { icon: "✅", word: "done" },
+  failed: { icon: "❌", word: "failed" },
   throttled: { icon: "⏳", word: "throttled" },
   terminated: { icon: "👋", word: "terminated" },
 };
@@ -57,10 +57,12 @@ source.subscribe((event) => director.setState(event.cell_id, event.state, perfor
 
 const stateWord = document.getElementById("state-word");
 const stateIcon = document.getElementById("state-icon");
+const cellEmoji = document.getElementById("cell-emoji");
 const showStateLabel = (state) => {
   const label = STATE_LABEL[state];
   stateIcon.textContent = label.icon;
   stateWord.textContent = label.word;
+  cellEmoji.textContent = label.icon;
 };
 
 for (const state of STATES) {
@@ -81,6 +83,16 @@ const gltf = await new GLTFLoader().loadAsync("../../public/models/panda.glb");
 const panda = gltf.scene;
 scene.add(panda);
 const mixer = new THREE.AnimationMixer(panda);
+
+// The floating emoji sits just above the head: projected from the panda's rest-pose bounding box
+// each frame, so it stays put as the camera orbits.
+const emojiAnchor = new THREE.Vector3(0, new THREE.Box3().setFromObject(panda).max.y + 0.08, 0);
+const projected = new THREE.Vector3();
+const placeCellEmoji = () => {
+  projected.copy(emojiAnchor).project(camera);
+  cellEmoji.style.left = `${((projected.x + 1) / 2) * innerWidth}px`;
+  cellEmoji.style.top = `${((1 - projected.y) / 2) * innerHeight}px`;
+};
 
 const faceNode = panda.getObjectByName("face");
 const atlas = gltf.parser.json.nodes.find((n) => n.name === "face").extras.faceAtlas;
@@ -134,6 +146,7 @@ renderer.setAnimationLoop(() => {
   applyCommand(cmd);
   status.textContent = `clip=${cmd.clip}  face=${cmd.face}  loop=${cmd.loop}  crossFade=${cmd.crossFade}`;
   controls.update();
+  placeCellEmoji();
   renderer.render(scene, camera);
 });
 addEventListener("resize", () => {
