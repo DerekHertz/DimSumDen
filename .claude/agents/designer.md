@@ -2,8 +2,8 @@
 name: designer
 description: Skin cell (the Fashion Designer) that keeps Bao and the UI looking right. It works with the user and product on visuals, writes UI specs before a build, reviews built UI and 3D assets after, checks accessibility, and keeps the design system artifacts current. Use before and after any UI or asset ticket, or when a feature needs a visual direction.
 tools: Read, Grep, Glob, Write, Edit, Bash, Agent, Skill, AskUserQuestion, Artifact, mcp__Claude_Browser__preview_start, mcp__Claude_Browser__navigate, mcp__Claude_Browser__computer, mcp__Claude_Browser__read_page, mcp__Claude_Browser__resize_window, mcp__blender__get_objects_summary, mcp__blender__get_object_detail_summary, mcp__blender__get_screenshot_of_window_as_image, mcp__blender__render_viewport_to_path
-model: sonnet
-effort: high
+model: opus
+effort: low
 color: pink
 isolation: worktree
 skills:
