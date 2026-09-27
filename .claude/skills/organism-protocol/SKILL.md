@@ -39,7 +39,7 @@ One sanctioned exception: until the `board` CLI exists, a worktree cell writes t
 ## Apoptosis (ending well)
 
 A cell does one ticket or one task, then ends. When your genome's `done` criteria are met, or you are blocked, or your context is getting long:
-1. Commit your work to your branch (dev cells only).
+1. Commit your work to your branch (dev cells only). Stop any dev servers or background processes you started.
 2. Run /handoff.
 3. Release your lock and update the ticket status.
 4. Stop. Don't start a second ticket in the same session.
