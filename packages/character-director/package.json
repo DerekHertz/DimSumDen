@@ -1,0 +1,10 @@
+{
+  "name": "@agent-office/character-director",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "src/director.mjs",
+  "scripts": {
+    "test": "node --test \"src/**/*.test.mjs\""
+  }
+}
