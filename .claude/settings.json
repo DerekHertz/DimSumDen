@@ -1,0 +1,23 @@
+{
+  "env": {
+    "ENABLE_CLAUDEAI_MCP_SERVERS": "false"
+  },
+  "permissions": {
+    "deny": [
+      "mcp__claude-in-chrome",
+      "mcp__computer-use",
+      "mcp__scheduled-tasks",
+      "mcp__mcp-registry",
+      "mcp__plugin_design_asana",
+      "mcp__plugin_design_atlassian",
+      "mcp__plugin_design_figma",
+      "mcp__plugin_design_intercom",
+      "mcp__plugin_design_linear",
+      "mcp__plugin_design_notion",
+      "mcp__plugin_design_slack",
+      "mcp__plugin_engineering_datadog",
+      "mcp__plugin_engineering_github",
+      "mcp__plugin_engineering_pagerduty"
+    ]
+  }
+}
