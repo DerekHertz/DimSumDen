@@ -9,6 +9,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../", import.meta.url)));
 
+// The browser requests this on its own for every page load, whether or not the page references
+// one. None of the dev pages/fixtures ship a favicon, so both this server and smoke.mjs treat it
+// as browser housekeeping rather than a real asset the page asked for.
+export const FAVICON_PATH = "/favicon.ico";
+
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
   ".htm": "text/html; charset=utf-8",
@@ -66,10 +71,7 @@ export function createDevServer(root = REPO_ROOT) {
       });
       res.end(body);
     } catch {
-      // The browser requests /favicon.ico on its own for every page load. None of the dev
-      // pages/fixtures ship one, so answer with a plain 204 rather than a 404 -- otherwise the
-      // smoke check (ci-cd/02) would see a "failed asset load" the page itself never asked for.
-      if (pathname === "/favicon.ico") {
+      if (pathname === FAVICON_PATH) {
         res.writeHead(204, { "Cache-Control": "no-store" });
         res.end();
         return;

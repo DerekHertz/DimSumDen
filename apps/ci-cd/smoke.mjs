@@ -9,7 +9,7 @@
 // machine (Chrome, then Edge) so this doesn't need its own Chromium download locally; CI installs
 // Chromium separately and this falls back to the Playwright-managed browser there.
 import { chromium } from "playwright";
-import { createDevServer, REPO_ROOT } from "./dev-server.mjs";
+import { createDevServer, REPO_ROOT, FAVICON_PATH } from "./dev-server.mjs";
 
 const LAUNCH_CHANNELS = ["chrome", "msedge", undefined];
 
@@ -35,11 +35,10 @@ function startEphemeralServer() {
   });
 }
 
-// The browser requests /favicon.ico on its own for any page load, whether or not the page
-// references one. A dev fixture with no <link rel="icon"> has no favicon to serve, so that 404
-// is the browser's own housekeeping, not a failed asset the page asked for -- ignore it.
+// FAVICON_PATH is browser housekeeping (see dev-server.mjs), not a real asset the page asked
+// for -- ignore it here too so a fixture with no favicon does not false-fail.
 function isBrowserHousekeeping(url) {
-  return new URL(url).pathname === "/favicon.ico";
+  return new URL(url).pathname === FAVICON_PATH;
 }
 
 /**
