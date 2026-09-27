@@ -42,6 +42,14 @@ _Avoid_: Provider, engine
 The local-markdown issue tracker under `.scratch/` in the main checkout, and the single source of truth for work.
 _Avoid_: Backlog, queue, kanban (the kanban is a view of the board)
 
+**Board service**:
+The module behind the `board` CLI; the single writer of the board.
+_Avoid_: Board server, board API
+
+**Board event**:
+One line in the board's `events.jsonl`, recording a single board change. Cells and the UI subscribe to these lines.
+_Avoid_: Board message, notification
+
 **Ticket**:
 One tracer-bullet slice of work on the board, sized for one cell.
 _Avoid_: Issue, task, story
