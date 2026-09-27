@@ -20,8 +20,13 @@ Each step works in the `PandaAsset` scene and leaves `panda-mascot.blend` itself
 | `build_mesh.py` | Copies `PlushBase`, melts the fused Meshy arms back into the body shell (a masked voxel remesh and smooth), then adds two separate sewn-on arms. Each arm has a ball shoulder centred on its bone, so a raised paw never stretches skin. It also paints the black shoulder band and the front paw pads, and removes a stray chin disc. |
 | `build_rig.py` | Builds `PA_Rig` with 9 deform bones plus the `paw_L`, `paw_R` and `hat` sockets. It binds the arms rigidly to their bones and smooth-weights the rest, then joins everything into one skinned mesh. |
 | `build_face.py` | Removes the baked sleepy eyelids and draws `face-atlas.png`. It then builds the `face` decal: a thin shell over the front of the head, skinned to `head`. |
-| `build_clips.py` | Authors every clip as an action, with its `loop` and `faceFrames` metadata. |
+| `build_clips.py` | Authors every clip as an action, with its `loop` and `faceFrames` metadata. Includes the three Brain-type habit loops (ticket 07): `fan_tap_and_point` (orchestrator), `scroll_unroll` (product), `blueprint_unroll` (architect). |
 | `export_glb.py` | Writes the glb (actions become named animations, custom properties become extras) and `panda.blend`. |
+| `build_props.py` | Ticket 07: builds the three habit props (fan, scroll, blueprint) as small standalone meshes and exports each to `apps/ui/public/models/props/*.glb`. Not part of the rebuild loop above (run it separately, or whenever a prop's look changes); it doesn't touch `PandaAsset` or `panda.blend`. |
+
+## Props and hats
+
+Props and hats (`apps/ui/public/models/props/*.glb`) are separate assets, not baked into `panda.glb` (spec.md "Export"). Each prop's object origin is where it meets its socket, so a runtime attach parents its root node under the matching `paw_L`/`paw_R`/`hat` socket bone with an identity transform; the socket's own animation then carries the prop through every clip. `apps/ui/src/assets/panda-contract.mjs`'s `PROP_ASSETS` names each Brain type's prop file, socket and habit clip; `apps/ui/src/scene/dev-scene.mjs` shows the attach/detach.
 
 ## Face atlas
 

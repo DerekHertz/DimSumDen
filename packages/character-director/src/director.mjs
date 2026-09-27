@@ -35,14 +35,32 @@ export const STATE_MAP = {
 
 const DEFAULT_STATE = "idle";
 
-function newCell(state, now) {
-  return { state, since: now, nextBlinkAt: undefined };
+// Per-type idle habits (spec.md "Per-type idle habits", ticket 07): a working Brain-type cell
+// loops its own prop clip instead of the generic `breathe`. Only the three modeled Brain types
+// (orchestrator, product, architect) have a habit today; every other type still breathes. Clip
+// names must exist in the asset contract's CLIPS/LOOPS (cross-checked in director.test.mjs, not
+// re-imported here, matching STATE_MAP's convention).
+export const HABIT_LOOPS = {
+  orchestrator: "fan_tap_and_point",
+  product: "scroll_unroll",
+  architect: "blueprint_unroll",
+};
+
+function newCell(state, now, cellType) {
+  return { state, since: now, nextBlinkAt: undefined, cellType };
+}
+
+/** Returns state's mapping, substituting the habit loop for `working` when cellType has one. */
+function mappingFor(state, cellType) {
+  const habit = state === "working" ? HABIT_LOOPS[cellType] : undefined;
+  if (!habit) return STATE_MAP[state];
+  return { ...STATE_MAP[state], loop: habit, enter: habit, heldPose: habit, loops: true };
 }
 
 /**
  * Creates a character director. `reducedMotion` and `random` (an injectable RNG, for
  * deterministic tests of the calm rule) are the only options; everything else arrives through
- * `setState`/`tick`.
+ * `setState`/`setCellType`/`tick`.
  */
 export function createCharacterDirector({ reducedMotion = false, random = Math.random } = {}) {
   const cells = new Map();
@@ -64,13 +82,18 @@ export function createCharacterDirector({ reducedMotion = false, random = Math.r
     /** Pushes a cell-state-changed event. Interrupts immediately, even mid one-shot or mid loop. */
     setState(cellId, state, now) {
       if (!STATE_MAP[state]) throw new Error(`unknown state "${state}"`);
-      cells.set(cellId, newCell(state, now));
+      cells.set(cellId, newCell(state, now, cells.get(cellId)?.cellType));
+    },
+
+    /** Records `cellId`'s cell type (spec.md "Per-type idle habits"), for the `working` habit loop. */
+    setCellType(cellId, cellType) {
+      cellOf(cellId, 0).cellType = cellType;
     },
 
     /** Samples the clip, face frame and cross-fade hint for `cellId` at time `now` (seconds). */
     tick(cellId, now) {
       const cell = cellOf(cellId, now);
-      const mapping = STATE_MAP[cell.state];
+      const mapping = mappingFor(cell.state, cell.cellType);
       const sinceChange = now - cell.since;
       const crossFade = sinceChange < DUR_FAST ? DUR_FAST : 0;
 

@@ -11,7 +11,7 @@ GLB = os.path.normpath(os.path.join(SRC, "..", "..", "public", "models", "panda.
 BLEND = os.path.join(SRC, "panda.blend")
 
 CLIPS = ["sit_still", "breathe", "blink", "paw_raise", "arms_folded", "slump", "lean_back", "doze", "wave",
-         "hop", "waddle"]
+         "hop", "waddle", "fan_tap_and_point", "scroll_unroll", "blueprint_unroll"]
 
 sc = bpy.data.scenes["PandaAsset"]
 bpy.context.window.scene = sc

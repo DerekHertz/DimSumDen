@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  CLIPS, DEFORM_BONES, DUR_HEARTBEAT, FACE_FRAMES, FACE_NODE, LOOPS, SOCKETS,
+  CLIPS, DEFORM_BONES, DUR_HEARTBEAT, FACE_FRAMES, FACE_NODE, LOOPS, SOCKETS, PROP_ASSETS,
   checkPandaGltf, readGlbFile,
 } from "./panda-contract.mjs";
 
@@ -77,4 +77,14 @@ test("fails when the skinned body has no vertex colours", () => {
 
 test("the exported panda.glb satisfies the contract", () => {
   assert.deepEqual(checkPandaGltf(readGlbFile(PANDA_GLB)), []);
+});
+
+test("each Brain type's prop names a contract clip, socket and an exported prop glb (ticket 07)", () => {
+  for (const [cellType, spec] of Object.entries(PROP_ASSETS)) {
+    assert.ok(CLIPS.includes(spec.clip), `${cellType}'s clip "${spec.clip}" is not a contract clip`);
+    assert.ok(SOCKETS.includes(spec.socket), `${cellType}'s socket "${spec.socket}" is not a contract socket`);
+    const propGlb = new URL(`../../public/models/${spec.file}`, import.meta.url);
+    const gltf = readGlbFile(propGlb); // throws if the file is missing or not a valid glb
+    assert.ok(gltf.meshes?.length > 0, `${spec.file} has no mesh`);
+  }
 });

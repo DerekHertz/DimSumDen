@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CLIPS, LOOPS, FACE_FRAMES } from "../../../apps/ui/src/assets/panda-contract.mjs";
-import { STATES, STATE_MAP, DUR_FAST, DUR_HEARTBEAT, createCharacterDirector } from "./director.mjs";
+import { CLIPS, LOOPS, FACE_FRAMES, PROP_ASSETS } from "../../../apps/ui/src/assets/panda-contract.mjs";
+import { STATES, STATE_MAP, DUR_FAST, DUR_HEARTBEAT, HABIT_LOOPS, createCharacterDirector } from "./director.mjs";
 
 test("every state maps to a loop, entry one-shot, face frame and held pose, all named in the asset contract", () => {
   assert.deepEqual([...STATES].sort(), [
@@ -119,4 +119,40 @@ test("cells are tracked independently", () => {
   director.setState("b", "failed", 0);
   assert.equal(director.tick("a", 0).clip, STATE_MAP.done.enter);
   assert.equal(director.tick("b", 0).clip, STATE_MAP.failed.enter);
+});
+
+test("every habit loop is a contract clip that also appears in the prop-asset map (ticket 07)", () => {
+  for (const [cellType, clip] of Object.entries(HABIT_LOOPS)) {
+    assert.ok(CLIPS.includes(clip), `${cellType}'s habit "${clip}" is not a contract clip`);
+    assert.ok(LOOPS.includes(clip), `${cellType}'s habit "${clip}" is not a contract loop`);
+    assert.equal(PROP_ASSETS[cellType]?.clip, clip, `${cellType}'s prop-asset entry disagrees with HABIT_LOOPS`);
+  }
+});
+
+test("a working Brain-type cell loops its own habit clip instead of the generic breathe", () => {
+  const director = createCharacterDirector();
+  for (const [cellType, clip] of Object.entries(HABIT_LOOPS)) {
+    director.setCellType("cell-1", cellType);
+    director.setState("cell-1", "working", 0);
+    const settled = director.tick("cell-1", 10);
+    assert.equal(settled.clip, clip, cellType);
+    assert.equal(settled.loop, true, cellType);
+  }
+});
+
+test("a working cell with no habit (or an unmodeled type) still breathes", () => {
+  const director = createCharacterDirector();
+  director.setState("cell-1", "working", 0);
+  assert.equal(director.tick("cell-1", 10).clip, "breathe");
+
+  director.setCellType("cell-2", "developer");
+  director.setState("cell-2", "working", 0);
+  assert.equal(director.tick("cell-2", 10).clip, "breathe");
+});
+
+test("a Brain-type cell's habit only applies to working; other states are unaffected", () => {
+  const director = createCharacterDirector();
+  director.setCellType("cell-1", "orchestrator");
+  director.setState("cell-1", "done", 0);
+  assert.equal(director.tick("cell-1", 10).clip, STATE_MAP.done.loop);
 });

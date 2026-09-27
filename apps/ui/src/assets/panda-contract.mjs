@@ -4,8 +4,20 @@ import { readFileSync } from "node:fs";
 
 export const DEFORM_BONES = ["root", "body", "head", "ear_L", "ear_R", "arm_L", "arm_R", "leg_L", "leg_R"];
 export const SOCKETS = ["paw_L", "paw_R", "hat"];
-export const CLIPS = ["sit_still", "breathe", "blink", "paw_raise", "arms_folded", "slump", "lean_back", "doze", "wave"];
-export const LOOPS = ["breathe", "paw_raise", "doze"];
+export const CLIPS = [
+  "sit_still", "breathe", "blink", "paw_raise", "arms_folded", "slump", "lean_back", "doze", "wave",
+  "fan_tap_and_point", "scroll_unroll", "blueprint_unroll",
+];
+export const LOOPS = ["breathe", "paw_raise", "doze", "fan_tap_and_point", "scroll_unroll", "blueprint_unroll"];
+
+// Per-type idle habits (spec.md "Per-type idle habits", ticket 07): the three modeled Brain types
+// each carry a prop, attached to a socket by name, that loops while the cell is "working". The prop
+// itself is a separate glb (spec.md "Export"), not baked into panda.glb.
+export const PROP_ASSETS = {
+  orchestrator: { file: "props/fan.glb", socket: "paw_R", clip: "fan_tap_and_point" },
+  product: { file: "props/scroll.glb", socket: "paw_L", clip: "scroll_unroll" },
+  architect: { file: "props/blueprint.glb", socket: "paw_L", clip: "blueprint_unroll" },
+};
 export const FACE_FRAMES = [
   "blink", "content_squint", "wide_eyes", "half_lidded", "focused_squint",
   "narrowed", "eyes_shut_savoring", "sour_pucker", "sleepy", "yawn",
