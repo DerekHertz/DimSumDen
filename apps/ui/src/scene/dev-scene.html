@@ -11,9 +11,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cell state: dev scene</title>
   <style>
-    :root { --bg: #efe8d8; --panel: #fffdf7; --ink: #1d2124; --muted: #5a605d; --line: #d8ceb8; --qi: #006c71; }
+    :root {
+      --bg: #efe8d8; --panel: #fffdf7; --ink: #1d2124; --muted: #5a605d; --faint: #80847c; --line: #d8ceb8; --qi: #006c71;
+      --lantern: #905d00; --lantern-fill: #f8bd40; --on-lantern: #1b1d20; --alarm: #c1291b; --alarm-fill: #c1291b; --on-alarm: #fffdf7;
+      --throttled: #626a75; --shadow-panel: 0 8px 24px rgba(74,58,24,0.14);
+    }
     @media (prefers-color-scheme: dark) {
-      :root:not([data-theme="light"]) { --bg: #111418; --panel: #1f252b; --ink: #eceee9; --muted: #a4ada9; --line: #343d45; --qi: #3aced3; }
+      :root:not([data-theme="light"]) {
+        --bg: #111418; --panel: #1f252b; --ink: #eceee9; --muted: #a4ada9; --faint: #7a8480; --line: #343d45; --qi: #3aced3;
+        --lantern: #f8bd40; --alarm: #f45340; --alarm-fill: #f45340; --on-alarm: #111418;
+        --throttled: #8d96a3; --shadow-panel: 0 12px 32px rgba(0,0,0,0.5);
+      }
     }
     html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/20px Nunito, system-ui, sans-serif; }
     canvas { display: block; }
@@ -25,8 +33,25 @@
     button[aria-pressed="true"] { border-color: var(--qi); color: var(--qi); }
     button:focus-visible { outline: 2px solid var(--qi); outline-offset: 2px; }
     #state-badge { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 800; margin-top: 8px; }
-    #state-badge .icon { font-size: 24px; }
-    #cell-emoji { position: fixed; left: 0; top: 0; font-size: 40px; line-height: 1; pointer-events: none; transform: translate(-50%, -100%); filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.25)); }
+    #state-badge .icon svg { display: block; width: 24px; height: 24px; }
+    /* State colours (design system tokens state-*): only waiting and failed use the reserved hues. */
+    [data-state="idle"], [data-state="terminated"] { --state: var(--faint); }
+    [data-state="working"] { --state: var(--qi); }
+    [data-state="waiting_on_user"] { --state: var(--lantern); }
+    [data-state="blocked"] { --state: var(--muted); }
+    [data-state="done"] { --state: var(--ink); }
+    [data-state="failed"] { --state: var(--alarm); }
+    [data-state="throttled"] { --state: var(--throttled); }
+    #state-badge .icon { color: var(--state); }
+    /* Emote bubble: a round speech bubble over the panda's head holding the state's line icon. */
+    #emote-bubble { position: fixed; left: 0; top: 0; width: 48px; height: 48px; box-sizing: border-box; padding: 10px; border-radius: 50%;
+      background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow-panel); color: var(--state);
+      pointer-events: none; transform: translate(-50%, calc(-100% - 8px)); }
+    #emote-bubble::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 10px; height: 10px; margin-left: -5px;
+      background: inherit; border: inherit; border-top: 0; border-left: 0; transform: rotate(45deg); }
+    #emote-bubble[data-state="waiting_on_user"] { background: var(--lantern-fill); border-color: var(--lantern-fill); color: var(--on-lantern); }
+    #emote-bubble[data-state="failed"] { background: var(--alarm-fill); border-color: var(--alarm-fill); color: var(--on-alarm); }
+    #emote-bubble svg { display: block; width: 100%; height: 100%; }
     #status { font: 12px/16px ui-monospace, monospace; color: var(--muted); white-space: pre; margin-top: 8px; }
   </style>
   <script type="importmap">
@@ -45,8 +70,8 @@
     <div id="state-badge"><span class="icon" id="state-icon"></span><span id="state-word"></span></div>
     <div id="status">loading…</div>
   </div>
-  <!-- The state's emoji, floating over the cell's head (the HUD badge above carries the word). -->
-  <div id="cell-emoji" aria-hidden="true"></div>
+  <!-- The state's emote bubble over the cell's head (the HUD badge above carries the word). -->
+  <div id="emote-bubble" aria-hidden="true"></div>
   <script type="module" src="./dev-scene.mjs"></script>
 </body>
 </html>
