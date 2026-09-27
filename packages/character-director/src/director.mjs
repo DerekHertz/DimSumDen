@@ -46,8 +46,8 @@ export const HABIT_LOOPS = {
   architect: "blueprint_unroll",
 };
 
-function newCell(state, now, cellType) {
-  return { state, since: now, nextBlinkAt: undefined, cellType };
+function newCell(state, now) {
+  return { state, since: now, nextBlinkAt: undefined };
 }
 
 /** Returns state's mapping, substituting the habit loop for `working` when cellType has one. */
@@ -64,6 +64,9 @@ function mappingFor(state, cellType) {
  */
 export function createCharacterDirector({ reducedMotion = false, random = Math.random } = {}) {
   const cells = new Map();
+  // Kept separate from `cells`: a type is a fixed identity, not part of the state timeline, so
+  // recording it never resets or depends on a cell's `since` (order-independent with setState).
+  const cellTypes = new Map();
 
   function cellOf(cellId, now) {
     let cell = cells.get(cellId);
@@ -82,18 +85,18 @@ export function createCharacterDirector({ reducedMotion = false, random = Math.r
     /** Pushes a cell-state-changed event. Interrupts immediately, even mid one-shot or mid loop. */
     setState(cellId, state, now) {
       if (!STATE_MAP[state]) throw new Error(`unknown state "${state}"`);
-      cells.set(cellId, newCell(state, now, cells.get(cellId)?.cellType));
+      cells.set(cellId, newCell(state, now));
     },
 
     /** Records `cellId`'s cell type (spec.md "Per-type idle habits"), for the `working` habit loop. */
     setCellType(cellId, cellType) {
-      cellOf(cellId, 0).cellType = cellType;
+      cellTypes.set(cellId, cellType);
     },
 
     /** Samples the clip, face frame and cross-fade hint for `cellId` at time `now` (seconds). */
     tick(cellId, now) {
       const cell = cellOf(cellId, now);
-      const mapping = mappingFor(cell.state, cell.cellType);
+      const mapping = mappingFor(cell.state, cellTypes.get(cellId));
       const sinceChange = now - cell.since;
       const crossFade = sinceChange < DUR_FAST ? DUR_FAST : 0;
 

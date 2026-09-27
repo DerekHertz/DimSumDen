@@ -26,7 +26,7 @@ Each step works in the `PandaAsset` scene and leaves `panda-mascot.blend` itself
 
 ## Props and hats
 
-Props and hats (`apps/ui/public/models/props/*.glb`) are separate assets, not baked into `panda.glb` (spec.md "Export"). Each prop's object origin is where it meets its socket, so a runtime attach parents its root node under the matching `paw_L`/`paw_R`/`hat` socket bone with an identity transform; the socket's own animation then carries the prop through every clip. `apps/ui/src/assets/panda-contract.mjs`'s `PROP_ASSETS` names each Brain type's prop file, socket and habit clip; `apps/ui/src/scene/dev-scene.mjs` shows the attach/detach.
+Props and hats (`apps/ui/public/models/props/*.glb`) are separate assets, not baked into `panda.glb` (spec.md "Export"). Each prop's object origin is its own geometric centre, sized and built so that centre sits naturally in the paw; a runtime attach parents its root node under the matching `paw_L`/`paw_R`/`hat` socket bone with an identity transform, and the socket's own animation then carries the prop through every clip. `apps/ui/src/assets/panda-contract.mjs`'s `PROP_ASSETS` names each Brain type's prop file, socket and habit clip; `apps/ui/src/scene/dev-scene.mjs` shows the attach/detach.
 
 ## Face atlas
 

@@ -150,6 +150,14 @@ test("a working cell with no habit (or an unmodeled type) still breathes", () =>
   assert.equal(director.tick("cell-2", 10).clip, "breathe");
 });
 
+test("setCellType before the first setState still cross-fades normally on the first real state change", () => {
+  const director = createCharacterDirector();
+  director.setCellType("cell-1", "orchestrator"); // no `now`; must not skew the cell's `since`
+  director.setState("cell-1", "working", 100);
+  const justChanged = director.tick("cell-1", 100);
+  assert.equal(justChanged.crossFade, DUR_FAST);
+});
+
 test("a Brain-type cell's habit only applies to working; other states are unaffected", () => {
   const director = createCharacterDirector();
   director.setCellType("cell-1", "orchestrator");
