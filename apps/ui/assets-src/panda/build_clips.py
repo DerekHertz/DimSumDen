@@ -127,6 +127,43 @@ def paw_raise():
     return key_clip("paw_raise", {0: low, BEAT // 2: high, BEAT: low}, BEAT, loop=True)
 
 
+def fan_tap_and_point():
+    """Orchestrator's habit (ticket 07, spec.md "Per-type idle habits"): a folding fan, held in
+    the right paw (socket paw_R), taps closed then swings open pointing forward."""
+    aim = AIM("arm_R", (-0.35, -0.85, 0.15))
+    tap = mul(W("arm_R", Y, -8), aim)
+    point = mul(W("arm_R", Y, 10), aim)
+    head = W("head", Y, 4)
+    low = {"arm_R": {"rot": tap}, "head": {"rot": head}}
+    high = {"arm_R": {"rot": point}, "head": {"rot": mul(head, W("head", X, -2))}}
+    return key_clip("fan_tap_and_point", {0: low, BEAT // 2: high, BEAT: low}, BEAT, loop=True)
+
+
+def scroll_unroll():
+    """Product's habit: a scroll, held in the left paw (socket paw_L), curls closed then
+    unrolls out to be read."""
+    aim = AIM("arm_L", (0.30, -0.85, -0.10))
+    curl = mul(W("arm_L", Y, 6), aim)
+    unroll = mul(W("arm_L", Y, -10), aim)
+    head = W("head", Y, -4)
+    low = {"arm_L": {"rot": curl}, "head": {"rot": head}}
+    high = {"arm_L": {"rot": unroll}, "head": {"rot": mul(head, W("head", X, -2))}}
+    return key_clip("scroll_unroll", {0: low, BEAT // 2: high, BEAT: low}, BEAT, loop=True)
+
+
+def blueprint_unroll():
+    """Architect's habit: a blueprint sheet, held in the left paw (socket paw_L), spreads open
+    with both arms then draws back in."""
+    out_l = AIM("arm_L", (0.70, -0.70, -0.05))
+    out_r = AIM("arm_R", (-0.70, -0.70, -0.05))
+    in_l = AIM("arm_L", (0.35, -0.85, -0.05))
+    in_r = AIM("arm_R", (-0.35, -0.85, -0.05))
+    head = W("head", X, -3)
+    narrow = {"arm_L": {"rot": in_l}, "arm_R": {"rot": in_r}, "head": {"rot": head}}
+    wide = {"arm_L": {"rot": out_l}, "arm_R": {"rot": out_r}, "head": {"rot": head}}
+    return key_clip("blueprint_unroll", {0: narrow, BEAT // 2: wide, BEAT: narrow}, BEAT, loop=True)
+
+
 def waddle():
     def step(side):  # side +1: lean onto the left foot, lift the right
         lift = "leg_R" if side > 0 else "leg_L"
@@ -209,7 +246,8 @@ POSES = {
 
 def run():
     bpy.context.scene.render.fps = FPS
-    made = [breathe(), paw_raise(), waddle(), doze(), blink(), hop(), wave()]
+    made = [breathe(), paw_raise(), waddle(), doze(), blink(), hop(), wave(),
+            fan_tap_and_point(), scroll_unroll(), blueprint_unroll()]
     made += [hold(n, p) for n, p in POSES.items()]
     for pb in RIG.pose.bones:
         pb.rotation_quaternion, pb.location, pb.scale = Quaternion(), Vector(), Vector((1, 1, 1))

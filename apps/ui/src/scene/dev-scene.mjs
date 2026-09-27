@@ -6,8 +6,9 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { STATES, createCharacterDirector } from "../../../../packages/character-director/src/director.mjs";
+import { STATES, HABIT_LOOPS, createCharacterDirector } from "../../../../packages/character-director/src/director.mjs";
 import { createMockStateSource } from "../../../../packages/character-director/src/mock-state-source.mjs";
+import { PROP_ASSETS } from "../assets/panda-contract.mjs";
 
 // Icon + word for each state (spec.md story 28: state is never shown by motion alone). Icons are
 // line glyphs on a 24 grid (round caps, currentColor; the design system rules out emoji), drawn
@@ -103,6 +104,27 @@ for (const state of STATES) {
     showStateLabel(state);
   });
 }
+
+// Ticket 07: a working Brain-type cell loops its own habit clip with its prop, held at the prop's
+// socket (spec.md "Per-type idle habits", "Props and hats are separate assets attached to sockets
+// by name"). "generic" carries no prop and just breathes, matching every type without a habit yet.
+let cellType = null;
+for (const type of ["generic", ...Object.keys(HABIT_LOOPS)]) {
+  button("cell-types", type, type, () => {
+    cellType = type === "generic" ? undefined : type;
+    director.setCellType(CELL_ID, cellType);
+    mark("cell-types", type);
+    applyProp(cellType);
+    // The habit only shows while working (mappingFor only substitutes it for that state), so
+    // switching type jumps straight to "working" — otherwise picking a type is a no-op until the
+    // tester separately clicks "working", and the point of this control is to show the habit.
+    source.setState(CELL_ID, "working");
+    mark("states", "working");
+    showStateLabel("working");
+  });
+}
+mark("cell-types", "generic");
+
 let reducedMotionOn = false;
 button("reduced-motion", "on", "reduced motion", () => {
   reducedMotionOn = !reducedMotionOn;
@@ -132,6 +154,32 @@ const showFace = (name) => {
   const i = atlas.frames[name] ?? atlas.frames[atlas.defaultFrame];
   faceMap.offset.set((i % atlas.cols) / atlas.cols, Math.floor(i / atlas.cols) / atlas.rows);
 };
+
+// Ticket 07: props/hats are separate assets (spec.md "Export"), attached to a socket bone by name
+// so they follow the paw or head through every clip instead of being baked into panda.glb. Loaded
+// lazily and cached, since a cell may never wear one.
+const propLoader = new GLTFLoader();
+const propCache = new Map();
+let attachedProp = null;
+async function applyProp(type) {
+  const spec = type && PROP_ASSETS[type];
+  if (attachedProp) {
+    attachedProp.parent?.remove(attachedProp);
+    attachedProp = null;
+  }
+  if (!spec) return;
+  let propScene = propCache.get(spec.file);
+  if (!propScene) {
+    const propGltf = await propLoader.loadAsync(`../../public/models/${spec.file}`);
+    propScene = propGltf.scene;
+    propCache.set(spec.file, propScene);
+  }
+  const socket = panda.getObjectByName(spec.socket);
+  if (!socket) throw new Error(`socket "${spec.socket}" not found on the panda rig`);
+  const instance = propScene.clone(true);
+  socket.add(instance);
+  attachedProp = instance;
+}
 
 const clipsByName = new Map(gltf.animations.map((c) => [c.name, c]));
 let currentAction = null;
