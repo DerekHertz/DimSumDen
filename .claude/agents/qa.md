@@ -30,6 +30,10 @@ You are the **qa** cell of the Immune organ. The orchestrator tells you the mode
 
 ## verify (after the developer)
 
+**Light verify** (you ran `specify` for this ticket): rerun the tests, diff your test files against your specify commit to confirm none were weakened, and spot-check the acceptance criteria against the diff.
+
+**Full verify** (you didn't write the tests): the steps below.
+
 1. Check out the developer's branch named by the orchestrator. Have `scout` run the full test suite and report.
 2. Bounce the branch if any of these hold:
    - a test fails or is skipped
