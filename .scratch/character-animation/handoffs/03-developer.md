@@ -4,7 +4,7 @@
 
 ## What changed
 
-- Branch `claude/production-rig-asset-contract-6a1723`, commit `57f6ba2` (not pushed, no PR).
+- Branch `claude/production-rig-asset-contract-6a1723`: commit `57f6ba2` (asset) and the critique-fix commit after it (not pushed, no PR).
 - `apps/ui/assets-src/panda/`: the Blender build scripts (`build_mesh`, `build_rig`, `build_face`, `build_clips`, `export_glb`), `face-atlas.png`, `panda.blend` (LFS), `viewer.html` and `README.md` with the rebuild and view steps.
 - `apps/ui/public/models/panda.glb`: the production asset.
 - `apps/ui/src/assets/panda-contract.mjs` + `.test.mjs`: the asset contract. Root `package.json` runs `npm test` (`node --test`, no dependencies).
@@ -19,6 +19,15 @@
 - **Contract extra:** it also fails if the skinned body has no `COLOR_0`. The first export silently lost the vertex colours, and this check caught it.
 - **Kept `hop` and `waddle`** from ticket 01 in the glb, though this ticket doesn't list them (spec review flagged this as scope creep). Ticket 05 needs them, and they are not in the contract's required list. Orchestrator: keep them or drop them.
 - `dur-heartbeat` = 1.2 s and `dur-breath` = 2.8 s, taken from ticket 01, which cites the design-system tokens.
+
+## Round 2: the user's critique (after the first ready-for-human)
+
+- The arms are about 1.3× thicker (shoulder r 0.25, paw r 0.245, matching the legs) and longer (~0.85 bone). The shoulder moved forward to `(0.60, 0.06, 0.0)`.
+- `arms_folded` is re-aimed so the paws overlap in front of the belly, with the right arm under the left. `lean_back`'s arm spread went from 22° to 10°.
+- Added the black shoulder band (`band_weight` in `build_mesh.py`) and front paw pads. The palm is chosen so it faces the viewer at the wave aim (`WAVE_AIM_R` in `rig_spec.py`, shared with `build_clips.py`).
+- Deleted the pale chin disc (a stray 146-vert loose part).
+- Proportions (head vs belly) are unchanged, by the user's choice.
+- The bone positions now live in one place, `rig_spec.py`, which resolves the review's duplicated-constants finding for the rig.
 
 ## Next step
 

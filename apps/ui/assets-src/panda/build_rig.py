@@ -3,36 +3,15 @@
 # Builds PA_Rig, the shared hand-placed panda rig (ADR 0006), and skins PA_Panda to it.
 # The sewn-on arms are bound rigidly to their arm bones; the rest uses smooth procedural weights.
 import bpy
+import os
 from mathutils import Vector
 
 SCENE = "PandaAsset"
 BODY = "PA_Panda"
 RIG = "PA_Rig"
 
-# Blender space: Z up, the panda faces -Y, character left is +X. Model centre is the origin.
-# Names use _L/_R (three.js strips dots from glTF node names).
-BONES = [
-    # name, head, tail, parent, deform
-    ("root", (0, 0, -1.0), (0, 0, -0.7), None, True),
-    ("body", (0, -0.05, -0.9), (0, -0.05, 0.1), "root", True),
-    ("head", (0, 0, 0.1), (0, 0, 0.9), "body", True),
-    ("ear_L", (0.40, 0.20, 0.72), (0.47, 0.24, 0.95), "head", True),
-    ("arm_L", (0.52, 0.18, 0.05), (0.74, -0.38, -0.30), "body", True),
-    ("leg_L", (0.40, 0.05, -0.50), (0.66, -0.75, -0.74), "root", True),
-    ("paw_L", (0.74, -0.38, -0.30), (0.74, -0.55, -0.30), "arm_L", False),
-    ("hat", (0, 0, 0.97), (0, 0, 1.17), "head", False),
-]
-
-
-def mirror(b):
-    name, h, t, parent, deform = b
-    m = lambda v: (-v[0], v[1], v[2])
-    swap = lambda n: n[:-2] + "_R" if n and n.endswith("_L") else n
-    return (swap(name), m(h), m(t), swap(parent), deform)
-
-
-ALL_BONES = BONES + [mirror(b) for b in BONES if b[0].endswith("_L")]
-DEFORM = [b[0] for b in ALL_BONES if b[4]]
+SRC = globals().get("PANDA_SRC") or os.path.dirname(globals().get("__file__", ""))
+exec(open(os.path.join(SRC, "rig_spec.py")).read(), globals())  # BONES, ALL_BONES, DEFORM
 
 
 def build_armature(sc):

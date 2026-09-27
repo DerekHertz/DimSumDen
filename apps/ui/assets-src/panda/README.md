@@ -16,7 +16,8 @@ Each step works in the `PandaAsset` scene and leaves `panda-mascot.blend` itself
 
 | Step | What it does |
 | --- | --- |
-| `build_mesh.py` | Copies `PlushBase`, melts the fused Meshy arms back into the body shell (a masked voxel remesh and smooth), then adds two separate sewn-on arms. Each arm has a ball shoulder centred on its bone, so a raised paw never stretches skin. |
+| `rig_spec.py` | Holds the bone names and rest positions, which `build_mesh.py` and `build_rig.py` share. |
+| `build_mesh.py` | Copies `PlushBase`, melts the fused Meshy arms back into the body shell (a masked voxel remesh and smooth), then adds two separate sewn-on arms. Each arm has a ball shoulder centred on its bone, so a raised paw never stretches skin. It also paints the black shoulder band and the front paw pads, and removes a stray chin disc. |
 | `build_rig.py` | Builds `PA_Rig` with 9 deform bones plus the `paw_L`, `paw_R` and `hat` sockets. It binds the arms rigidly to their bones and smooth-weights the rest, then joins everything into one skinned mesh. |
 | `build_face.py` | Removes the baked sleepy eyelids and draws `face-atlas.png`. It then builds the `face` decal: a thin shell over the front of the head, skinned to `head`. |
 | `build_clips.py` | Authors every clip as an action, with its `loop` and `faceFrames` metadata. |

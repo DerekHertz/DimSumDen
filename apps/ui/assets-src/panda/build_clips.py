@@ -6,8 +6,12 @@
 #   loop: the clip repeats (the asset contract holds it to at least dur-heartbeat).
 #   faceFrames: [{t: seconds, frame: name}, ...] face-atlas frames the clip selects; "" hands the face back.
 import bpy
+import os
 from mathutils import Quaternion, Vector
 from math import radians
+
+SRC = globals().get("PANDA_SRC") or os.path.dirname(globals().get("__file__", ""))
+exec(open(os.path.join(SRC, "rig_spec.py")).read(), globals())  # WAVE_AIM_R
 
 RIG = bpy.data.objects["PA_Rig"]
 FPS = 30
@@ -171,7 +175,7 @@ def hop():
 
 
 def wave():
-    up = AIM("arm_R", (-0.4, -0.7, 0.55))
+    up = AIM("arm_R", WAVE_AIM_R)  # the palm faces the viewer at this aim (see build_mesh.py)
     a = {"arm_R": {"rot": mul(W("arm_R", Y, -22), up)}, "head": {"rot": W("head", Y, -6)}}
     b = {"arm_R": {"rot": mul(W("arm_R", Y, 22), up)}, "head": {"rot": W("head", Y, -6)}}
     return key_clip("wave", {0: {}, 10: a, 18: b, 26: a, 34: b, 42: a, 56: {}}, 56)
@@ -182,14 +186,15 @@ def wave():
 POSES = {
     "sit_still": {},
     "arms_folded": {
-        "arm_L": {"rot": AIM("arm_L", (-0.25, -0.90, -0.30))},
-        "arm_R": {"rot": AIM("arm_R", (0.25, -0.90, -0.22))},
+        # The paws cross in front of the belly; the right arm tucks under the left.
+        "arm_L": {"rot": AIM("arm_L", (-0.50, -1.0, -0.22))},
+        "arm_R": {"rot": AIM("arm_R", (0.50, -1.0, -0.36))},
         "head": {"rot": mul(W("head", Z, 12), W("head", X, 4))},
     },
     "lean_back": {
         "root": {"rot": W("root", X, -9)},
         "head": {"rot": W("head", X, -8)},
-        "arm_L": {"rot": OUT("L", 22)}, "arm_R": {"rot": OUT("R", 22)},
+        "arm_L": {"rot": OUT("L", 10)}, "arm_R": {"rot": OUT("R", 10)},
         "leg_L": {"rot": W("leg_L", X, -10)}, "leg_R": {"rot": W("leg_R", X, -10)},
     },
     "slump": {

@@ -6,15 +6,19 @@
 # (ticket 01 verdict).
 import bpy
 import bmesh
+import os
 from math import cos, sin, pi
 from mathutils import Vector
+
+SRC = globals().get("PANDA_SRC") or os.path.dirname(globals().get("__file__", ""))
+exec(open(os.path.join(SRC, "rig_spec.py")).read(), globals())
 
 SCENE = "PandaAsset"
 BODY = "PA_Panda"
 
 # Blender space: Z up, the panda faces -Y, character left is +X. Model centre is the origin.
-SHOULDER = Vector((0.52, 0.18, 0.05))   # arm_L head (shared with build_rig.py)
-PAW = Vector((0.74, -0.38, -0.30))      # arm_L tail
+OLD_SHOULDER = Vector((0.52, 0.18, 0.05))  # where the fused Meshy arm (character left) runs
+OLD_PAW = Vector((0.74, -0.38, -0.30))
 ARM_RADIUS = 0.24                       # body-shell verts this close to the arm bone are the old arm
 MELT_RADIUS = 0.40                      # the melt fades out by here
 MELT_ITERATIONS = 300
@@ -46,7 +50,7 @@ def smoothstep(e0, e1, x):
 
 
 def arm_dist(p):
-    return seg(Vector((abs(p.x), p.y, p.z)), SHOULDER, PAW)
+    return seg(Vector((abs(p.x), p.y, p.z)), OLD_SHOULDER, OLD_PAW)
 
 
 def melt_weight(p):
@@ -135,6 +139,31 @@ def blur_colours(me, passes):
         d.color = v
 
 
+def is_chin_disc(p):
+    """A stray pale disc sits under the chin where the head meets the body."""
+    return abs(p.x) < 0.11 and -0.46 < p.y < -0.36 and 0.03 < p.z < 0.11
+
+
+def band_weight(p):
+    """The black shoulder band: over the shoulders and across the upper chest and back, so the
+    arms read as growing out of one black saddle. 1 inside, easing to 0 at the edges."""
+    ax = abs(p.x)
+    # The band's lower edge dips at the shoulders, where it meets the arms, and sits under the chin in front.
+    low = -0.10 - 0.25 * smoothstep(0.30, 0.62, ax)
+    front = smoothstep(0.1, -0.2, p.y)  # 1 on the chest
+    low += 0.04 * front
+    return smoothstep(low - 0.04, low + 0.04, p.z)
+
+
+def paint_shoulder_band(me):
+    col = me.color_attributes["Col"].data
+    black = Vector(BLACK)
+    for v in me.vertices:
+        w = band_weight(v.co)
+        if w > 0:
+            col[v.index].color = Vector(col[v.index].color).lerp(black, w)
+
+
 def rebuild_body(sc, src):
     shell, rest = split_parts(src.data)
 
@@ -177,6 +206,7 @@ def rebuild_body(sc, src):
     bpy.data.objects.remove(src_ob)
     bpy.data.meshes.remove(armless_me)
     blur_colours(ob.data, passes=6)
+    paint_shoulder_band(ob.data)
     dec = ob.modifiers.new("Decimate", "DECIMATE")
     dec.ratio = min(1.0, BODY_FACES / len(ob.data.polygons))
     apply(ob, dec)
@@ -184,6 +214,7 @@ def rebuild_body(sc, src):
     # Join the rebuilt shell with the untouched parts (head, ears, legs, nose...).
     loose = [f for f in rest.faces if all(len(e.link_faces) == 1 for e in f.edges)]
     bmesh.ops.delete(rest, geom=loose, context="FACES")
+    bmesh.ops.delete(rest, geom=[v for v in rest.verts if is_chin_disc(v.co)], context="VERTS")
     bm = bmesh.new()
     bm.from_mesh(ob.data)
     rest_me = bpy.data.meshes.new("PA_Rest")
@@ -225,46 +256,67 @@ def plush_material():
 
 # ---------- the new arms ----------
 
-ARM_RINGS = 28
-ARM_SEGS = 24
-SHOULDER_R = 0.19  # the shoulder ball, centred on the arm bone head
-PAW_R = 0.17
+ARM_RINGS = 32
+ARM_SEGS = 28
+SHOULDER_R = 0.25  # the shoulder ball, centred on the arm bone head
+MID_R = 0.225
+PAW_R = 0.245      # the paw ball, centred on the arm bone tail; about as thick as the legs
 BLACK = (0.018, 0.016, 0.016, 1.0)  # the mean of PlushBase's black fur
+PAD = (0.115, 0.103, 0.095, 1.0)    # the back paws' pad colour
 
 
 def arm_profile(t):
-    """Radius along the arm (t = 0 shoulder ball centre, 1 paw tip)."""
-    mid = 0.155
+    """Radius along the arm (t = 0 shoulder ball centre, 1 paw ball centre)."""
     if t < 0.5:
         s = t / 0.5
-        return SHOULDER_R + (mid - SHOULDER_R) * (s * s * (3 - 2 * s))
+        return SHOULDER_R + (MID_R - SHOULDER_R) * (s * s * (3 - 2 * s))
     s = (t - 0.5) / 0.5
-    return mid + (PAW_R - mid) * (s * s * (3 - 2 * s))
+    return MID_R + (PAW_R - MID_R) * (s * s * (3 - 2 * s))
+
+
+def palm_direction(side, axis):
+    """The palm faces whichever way turns toward the viewer (-Y) when the paw is raised to wave."""
+    aim = Vector(WAVE_AIM_R)
+    if side == "L":
+        aim.x = -aim.x
+    lift = axis.rotation_difference(aim.normalized())
+    palm = lift.inverted() @ Vector((0, -1, 0))
+    return (palm - axis * palm.dot(axis)).normalized()
+
+
+def paint_pads(me, paw, axis, palm):
+    """A big pad and three toe pads on the palm side of the paw, like the back paws."""
+    across = axis.cross(palm)
+    spots = [(paw + palm * PAW_R, 0.11)]
+    for k in (-1, 0, 1):
+        d = (palm * cos(0.95) + axis * sin(0.95)).normalized()
+        d = (d + across * 0.42 * k).normalized()
+        spots.append((paw + d * PAW_R, 0.048))
+    col = me.color_attributes["Col"].data
+    for v in me.vertices:
+        for c, r in spots:
+            t = smoothstep(r + 0.01, r - 0.01, (v.co - c).length)
+            if t > 0:
+                col[v.index].color = Vector(col[v.index].color).lerp(Vector(PAD), t)
 
 
 def build_arm(sc, side):
-    a, b = (SHOULDER, PAW) if side == "L" else (mirror_x(SHOULDER), mirror_x(PAW))
+    a, b = Vector(ARM_HEAD), Vector(ARM_TAIL)
+    if side == "R":
+        a, b = mirror_x(a), mirror_x(b)
     axis = (b - a).normalized()
-    length = (b - a).length + 0.02
-    # A gentle forward curve so the paw rests on the belly, not in it.
+    length = (b - a).length
+    # A gentle forward curve so the arm hugs the belly rather than cutting straight through it.
     bend = Vector((0, -1, 0)) - axis * axis.dot(Vector((0, -1, 0)))
-    bend = bend.normalized() * 0.035 if bend.length > 1e-6 else Vector()
+    bend = bend.normalized() * 0.03 if bend.length > 1e-6 else Vector()
     u = axis.orthogonal().normalized()
     w = axis.cross(u)
 
     bm = bmesh.new()
     rings = []
-    # Hemispherical caps: t runs past the ends by the end radii.
-    ts = []
-    for i in range(ARM_RINGS + 1):
-        k = i / ARM_RINGS
-        ts.append(k)
-    for i, k in enumerate(ts):
-        if k in (0.0, 1.0):
-            continue
-        # Map k into the cap-extended range so both ends round off.
-        start, end = -SHOULDER_R, length + PAW_R
-        s = start + (end - start) * k
+    start, end = -SHOULDER_R, length + PAW_R  # hemispherical caps past both ends
+    for i in range(1, ARM_RINGS):
+        s = start + (end - start) * i / ARM_RINGS
         if s < 0:
             r = (SHOULDER_R ** 2 - s * s) ** 0.5
         elif s > length:
@@ -272,11 +324,8 @@ def build_arm(sc, side):
         else:
             r = arm_profile(s / length)
         centre = a + axis * s + bend * sin(pi * max(0.0, min(1.0, s / length)))
-        ring = []
-        for j in range(ARM_SEGS):
-            ang = 2 * pi * j / ARM_SEGS
-            ring.append(bm.verts.new(centre + (u * cos(ang) + w * sin(ang)) * max(r, 1e-4)))
-        rings.append(ring)
+        rings.append([bm.verts.new(centre + (u * cos(2 * pi * j / ARM_SEGS) + w * sin(2 * pi * j / ARM_SEGS)) * r)
+                      for j in range(ARM_SEGS)])
     for r0, r1 in zip(rings, rings[1:]):
         for j in range(ARM_SEGS):
             bm.faces.new((r0[j], r0[(j + 1) % ARM_SEGS], r1[(j + 1) % ARM_SEGS], r1[j]))
@@ -291,15 +340,15 @@ def build_arm(sc, side):
     bm.free()
     for p in me.polygons:
         p.use_smooth = True
-    col = me.color_attributes.new("Col", "FLOAT_COLOR", "POINT")
-    for d in col.data:
-        d.color = BLACK
     me.materials.append(plush_material())
     ob = link_new(sc, f"PA_Arm_{side}", me)
     sub = ob.modifiers.new("Subdiv", "SUBSURF")
     sub.levels = sub.render_levels = 1
-    with bpy.context.temp_override(object=ob, active_object=ob, selected_objects=[ob]):
-        bpy.ops.object.modifier_apply(modifier="Subdiv")
+    apply(ob, sub)
+    col = me.color_attributes.new("Col", "FLOAT_COLOR", "POINT")
+    for d in col.data:
+        d.color = BLACK
+    paint_pads(me, b, axis, palm_direction(side, axis))
     return ob
 
 
