@@ -80,3 +80,17 @@ _Avoid_: Shutdown, kill (kill is the user force-stopping a cell)
 **Endocrine limits**:
 The organism-wide caps on concurrent cells and plan usage.
 _Avoid_: Rate limiting, quotas
+
+## Observation
+
+**Telemetry**:
+Aggregates derived from the organism's own transcripts: tokens, tool calls, and errors, attributed to cell type and ticket. It can always be rebuilt from the transcripts.
+_Avoid_: Logs, metrics, analytics
+
+**Error cluster**:
+A group of tool errors that share one normalized signature (paths, numbers, hashes and positions stripped), grouped by tool.
+_Avoid_: Error bucket, error type
+
+**Savings proposal**:
+A suggested change that cuts token use at a telemetry hotspot, such as an index, a helper script, or delegating to scout. It becomes a ticket only after the user approves it.
+_Avoid_: Optimization, recommendation
