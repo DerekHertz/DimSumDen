@@ -18,3 +18,4 @@ Local clone for diffing: `vendor/mattpocock-skills/` (git-ignored). Update with 
 | to-spec | **adapted** | Model-invocable (product). |
 | code-review | **adapted** | Adds a Pro token-budget note (sonnet sub-agents, diff command not pasted, current ticket only). |
 | organism-protocol | **new** | Shared cell rules: board, claims, gates, apoptosis, token hygiene. |
+| asset-critique | **new** | Visual critique rounds for rigged glb assets; `scripts/measure-glb.mjs` measures per-bone proportions. |
