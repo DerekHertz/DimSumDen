@@ -14,6 +14,7 @@
 // See .scratch/organism-infra/issues/05-dispatch-into-existing-branch.md
 // ("Scope approved", 2026-09-27) for the rule this implements.
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 function parseArgs(argv) {
@@ -73,9 +74,79 @@ function parseWorktreeList(raw) {
   });
 }
 
-function isDirty(worktreePath) {
-  const status = git(worktreePath, ["status", "--porcelain"]);
-  return status.trim().length > 0;
+// Parses `git status --porcelain` into { code, filePath } entries. `code` is
+// the two-char XY status ("??" for untracked). Handles the " -> " rename
+// arrow by keeping the new path, and strips quoting git adds around paths
+// with unusual characters.
+function parseStatusEntries(raw) {
+  return raw
+    .split("\n")
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const code = line.slice(0, 2);
+      let filePath = line.slice(3);
+      const arrow = filePath.indexOf(" -> ");
+      if (arrow !== -1) filePath = filePath.slice(arrow + 4);
+      if (filePath.startsWith('"') && filePath.endsWith('"')) {
+        filePath = filePath.slice(1, -1);
+      }
+      return { code, filePath };
+    });
+}
+
+function getStatusEntries(worktreePath) {
+  // --untracked-files=all: without it, git collapses an entirely-untracked
+  // directory (e.g. a fresh .claude/ or .scratch/handoffs/) into a single
+  // "?? dir/" line, which hides the individual files forgiveness needs to
+  // inspect.
+  const status = git(worktreePath, ["status", "--porcelain", "--untracked-files=all"]);
+  return parseStatusEntries(status);
+}
+
+// organism-infra/16: a dirty file is forgivable if (a) it is untracked in
+// the worktree and its bytes exactly match the file at the same
+// repo-relative path in main's tree at mainTip, or (b) its repo-relative
+// path lives under .claude/, regardless of content. Only untracked ("??")
+// entries are ever forgivable -- a tracked modification is always a real
+// dirty change.
+function isForgivableEntry(root, worktreePath, mainTip, entry) {
+  if (entry.code !== "??") return false;
+  const relPath = entry.filePath.replace(/\\/g, "/");
+  if (relPath === ".claude" || relPath.startsWith(".claude/")) return true;
+  try {
+    const mainBytes = execFileSync("git", ["show", `${mainTip}:${relPath}`], { cwd: root });
+    const wtBytes = readFileSync(path.join(worktreePath, entry.filePath));
+    return Buffer.compare(mainBytes, wtBytes) === 0;
+  } catch {
+    return false;
+  }
+}
+
+// Builds a one-line diff summary for a single non-forgivable dirty entry:
+// the file's repo-relative path plus an insertion/deletion count, so the
+// gc report names what changed instead of just saying "dirty".
+function diffSummaryForEntry(worktreePath, entry) {
+  const relPath = entry.filePath;
+  if (entry.code === "??") {
+    let lineCount = 0;
+    try {
+      const content = readFileSync(path.join(worktreePath, relPath), "utf8");
+      lineCount = content.length === 0 ? 0 : content.split("\n").length - (content.endsWith("\n") ? 1 : 0);
+    } catch {
+      // unreadable (binary, race with deletion, etc.) -- report the name only
+    }
+    return `${relPath} (+${lineCount} new)`;
+  }
+  try {
+    const out = execFileSync("git", ["diff", "--numstat", "--", relPath], {
+      cwd: worktreePath,
+      encoding: "utf8",
+    }).trim();
+    const [ins, del] = out.split("\t");
+    return `${relPath} (+${ins ?? "0"}/-${del ?? "0"})`;
+  } catch {
+    return relPath;
+  }
 }
 
 function isAncestorOfMain(root, sha, mainTip) {
@@ -133,19 +204,44 @@ function main() {
   for (const entry of candidates) {
     const name = path.basename(entry.worktreePath);
     let disposition;
+    let dirtySummary = "";
     if (entry.locked) {
       disposition = DISPOSITIONS.LOCKED;
-    } else if (isDirty(entry.worktreePath)) {
-      disposition = DISPOSITIONS.DIRTY;
-    } else if (!isAncestorOfMain(root, entry.headSha, mainTip)) {
-      disposition = DISPOSITIONS.UNMERGED;
     } else {
-      disposition = DISPOSITIONS.REMOVABLE;
+      const statusEntries = getStatusEntries(entry.worktreePath);
+      const unforgivable = statusEntries.filter(
+        (e) => !isForgivableEntry(root, entry.worktreePath, mainTip, e)
+      );
+      if (unforgivable.length > 0) {
+        disposition = DISPOSITIONS.DIRTY;
+        dirtySummary = unforgivable
+          .map((e) => diffSummaryForEntry(entry.worktreePath, e))
+          .join(", ");
+      } else if (!isAncestorOfMain(root, entry.headSha, mainTip)) {
+        disposition = DISPOSITIONS.UNMERGED;
+      } else {
+        disposition = DISPOSITIONS.REMOVABLE;
+      }
     }
 
     if (disposition === DISPOSITIONS.REMOVABLE && apply) {
-      git(root, ["worktree", "remove", entry.worktreePath]);
-      lines.push(`${name}: removed (was clean, merged into main)`);
+      // --force: a "removable" worktree may still carry forgivable dirty
+      // files (untracked copies identical to main's, or .claude/ local
+      // config), which git itself doesn't know are harmless.
+      git(root, ["worktree", "remove", "--force", entry.worktreePath]);
+      let branchNote = "";
+      if (entry.branch) {
+        const branchName = entry.branch.replace(/^refs\/heads\//, "");
+        try {
+          git(root, ["branch", "-d", branchName]);
+          branchNote = `, branch ${branchName} deleted`;
+        } catch (err) {
+          branchNote = `, branch ${branchName} not deleted (${err.message.trim()})`;
+        }
+      }
+      lines.push(`${name}: removed (was clean, merged into main${branchNote})`);
+    } else if (disposition === DISPOSITIONS.DIRTY && dirtySummary) {
+      lines.push(`${name}: ${disposition} (${dirtySummary})`);
     } else {
       lines.push(`${name}: ${disposition}${entry.locked && entry.lockReason ? ` (${entry.lockReason})` : ""}`);
     }
