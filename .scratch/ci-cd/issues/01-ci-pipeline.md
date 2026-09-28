@@ -15,7 +15,7 @@ Security stage (security):
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] `.github/workflows/ci.yml` runs the test and security stages on `pull_request` to `main` and `push` to `main`
 - [ ] Every third-party action is pinned to a full commit SHA, with the version in a comment
@@ -28,3 +28,5 @@ Security stage (security):
 ## Comments
 
 - **Created (main session, 2026-09-26):** At the user's request. The pipeline is built by a developer ticket; qa defines the test stage and security the security stage. Afterwards, security owns `.github/workflows/` and branch protection, and the orchestrator watches for version-control drift at each sync.
+
+- **Resolved (orchestrator, 2026-09-28):** Delivered by ci-cd/03 (PR #18).

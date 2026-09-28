@@ -4,10 +4,11 @@
 
 **Blocked by:** 01, 02
 
-**Status:** ready-for-agent
+**Status:** blocked
 
 - [ ] The CLI routes through the daemon when it's running and falls back cleanly when it isn't (both paths tested)
 - [ ] Ten concurrent claims or comments leave the board consistent, with no lost writes (tested)
 - [ ] `board subscribe` streams events in order; the event log can be replayed to rebuild the board's state
 - [ ] The transport is local-only, per the ADR's auth section; `security` passes it
 - [ ] Runs the full code relay: qa specify, developer, qa verify, security review
+- **Parked (user, 2026-09-27):** ADR 0008 is simplified to CLI-only: the `board` CLI is the single writer, with no daemon or IPC. Why: one cell at a time, and the daemon's IPC brought the security findings on organism-infra/01. Revisit when we need more than one writing process (for example, parallel cells).
