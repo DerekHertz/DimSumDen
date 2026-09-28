@@ -4,7 +4,7 @@
 // git-worktree resolution, without ever touching this repo's own .scratch/.
 //
 // Not a test file itself (no *.test.mjs suffix) so `npm test` skips it.
-import { mkdtemp, mkdir, writeFile, rm, readFile } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, rm, readFile, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
@@ -65,11 +65,26 @@ export async function writeValidHandoff(fx, { filename, ticket = fx.ticket, over
   await mkdir(dir, { recursive: true });
   const nn = /^(\d{2})-/.exec(ticket)?.[1] ?? "00";
   const name = filename ?? `${nn}-setup.md`;
+  // organism-infra/35: the gate binds a handoff to the releasing cell (and
+  // mode) and to the current claim, so infer both from the live claim lock
+  // (callers claim before writing); fall back to "developer".
+  const lock = await readFile(
+    path.join(fx.root, ".scratch", fx.feature, "issues", `${ticket}.lock`),
+    "utf8"
+  ).catch(() => "");
+  const toks = lock.trim().split(/\s+/);
+  const lockCell = toks[0] || undefined;
+  const lockMode = toks[2];
+  const identity = { cell: lockCell ?? "developer", ...(lockMode ? { mode: lockMode } : {}) };
   const body =
     "```json\n" +
-    JSON.stringify(validStateJson({ ticket: `${fx.feature}/${ticket}`, ...overrides })) +
+    JSON.stringify(validStateJson({ ticket: `${fx.feature}/${ticket}`, ...identity, ...overrides })) +
     "\n```\n\n## Summary\n\nfixture handoff\n";
-  await writeFile(path.join(dir, name), body, "utf8");
+  const p = path.join(dir, name);
+  await writeFile(p, body, "utf8");
+  // Written "after the claim": push mtime ahead so same-ms/earlier claims pass.
+  const later = new Date(Date.now() + 60_000);
+  await utimes(p, later, later);
 }
 
 function git(cwd, args) {

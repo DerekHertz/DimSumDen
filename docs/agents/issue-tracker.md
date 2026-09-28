@@ -7,7 +7,8 @@ Issues and specs for this repo live as markdown files in `.scratch/`. In Agent O
 - **One board.** The board is `.scratch/` in the **main checkout**. `board` finds it from any worktree through `git worktree list` (the main checkout is listed first), so cells need no setup; `$ORGANISM_ROOT` is an optional override, e.g. outside a git checkout. Never use a worktree's copy.
 - **Status values:** `ready-for-agent` → `claimed` → `in-review` → `resolved`. `in-review` means a developer finished a code ticket and it is going through the qa and security review stages; only the orchestrator moves it to `resolved`, after the merge. A `security` or `qa --mode verify` claim on an `in-review` ticket keeps it `in-review` (ADR 0008 decision 10); check the `.lock` to see if a review is running. `blocked` and `ready-for-human` can come from any state. Always add a reason in `## Comments`.
 - **Claim lock:** `.scratch/<feature>/issues/<NN>-<slug>.lock`, created atomically by `board claim` (see the `organism-protocol` skill). The lock holder owns the ticket. Lock files are git-ignored.
-- **Handoffs:** `.scratch/<feature>/handoffs/<NN>-<cell-type>.md` (see the `handoff` skill).
+- **Handoffs:** `.scratch/<feature>/handoffs/<NN>-<cell-type>.md` (see the `handoff` skill). The State block names its author: `cell` (and `mode` for moded cells such as qa). `board release --status in-review|resolved` accepts only a handoff whose `cell`/`mode` match the claim and whose mtime is not older than the claim lock, so an earlier hop's handoff never satisfies it (ADR 0008 decision 11). Write your handoff after claiming and before releasing.
+- **Release events** carry `force: true|false`; `--force` shows in the audit trail.
 
 ## Conventions
 
