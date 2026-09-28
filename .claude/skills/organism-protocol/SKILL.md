@@ -20,7 +20,7 @@ Your final report to the orchestrator stays under about 300 words: the verdict, 
 
 ## Claiming a ticket (exactly one cell per ticket)
 
-1. Claim with `npm run board -- claim <feature>/<NN-slug> <cell-type>`. It creates the lock atomically, sets `Status: claimed`, and fails if another cell holds the ticket.
+1. Claim with `npm run board -- claim <feature>/<NN-slug> <cell-type>`. It creates the lock atomically, sets `Status: claimed` (a `security` or `qa --mode verify` claim on an `in-review` ticket keeps `in-review`), and fails if another cell holds the ticket. Moded cells need `--mode` (qa: `specify` or `verify`).
 2. If the claim fails, the ticket is taken: pick another or hand off. Never delete another cell's lock.
 3. Add comments with `npm run board -- comment <feature>/<NN-slug> "<text>"`, never by editing the ticket. With a lock held, the author is your lock's cell. With no lock, pass `--as <cell-type>`; with a lock, `--as` must match your cell.
    - Take over a dead holder's lock with `board reclaim <ref> <cell-type> --reason "..."`, never as `orchestrator`. Free a lock without changing status with `board release <ref> --keep-status`.
