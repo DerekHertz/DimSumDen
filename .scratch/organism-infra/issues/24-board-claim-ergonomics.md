@@ -19,3 +19,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-09-28):** At the user's request, as a follow-up to 18.
+- **orchestrator, 2026-09-28:** From the security re-review of 18: a qa claim can release straight to `resolved`, because the transition rule only checks in-review. Add a rule so only the orchestrator can resolve.
