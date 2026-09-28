@@ -43,7 +43,7 @@ When the environment gets in your way, don't patch or improvise past it. Example
 
 **Log every failed call and blocker, even ones you got past on a retry.** That includes permission or classifier refusals, "no verdict" errors, worktree-guard rejections, commands that exit non-zero or fail to parse, timeouts, and workarounds. Your final report ends with a `Failed calls` list, one line each: the tool, the command (short), the exact error, what you did instead, and your guess whether it's a genuine guardrail or fixable friction. Never write "refusals: none" if anything failed. The orchestrator appends each one to `.scratch/usage.jsonl` as `kind:"incident"`, so they can be analyzed.
 
-One sanctioned exception: `board` doesn't write handoff files yet, so a worktree cell writes its handoff (`.scratch/<feature>/handoffs/*.md`) to the main checkout through shell commands. Every other board change goes through `board`. A future `board handoff` command closes this gap.
+One sanctioned exception: `board` doesn't write handoff files yet, so a worktree cell writes its handoff (`.scratch/<feature>/handoffs/*.md`) to the main checkout through shell commands. Write it to the main checkout only; never leave a copy in your worktree. Every other board change goes through `board`. A future `board handoff` command closes this gap.
 
 ## Timeouts (never wait out a hang)
 
@@ -55,7 +55,8 @@ A cell does one ticket or one task, then ends. When your genome's `done` criteri
 1. Commit your work to your branch (dev cells only). Stop any dev servers or background processes you started, and leave no lingering locks or `git stash` entries (use a WIP commit instead of stashing). See `docs/agents/process-hygiene.md`.
 2. Run /handoff.
 3. Release with `board release` (above).
-4. Stop. Don't start a second ticket in the same session.
+4. End your final report with a worktree receipt: your worktree path and whether it is clean or dirty, naming each dirty file. This fills the Receipt's `worktree: {path, clean}` field (organism-infra/17).
+5. Stop. Don't start a second ticket in the same session.
 
 ## Token hygiene (Pro plan)
 
