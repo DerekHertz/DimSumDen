@@ -3,6 +3,11 @@
     "ENABLE_CLAUDEAI_MCP_SERVERS": "false"
   },
   "permissions": {
+    "allow": [
+      "Bash(git worktree remove:*)",
+      "Bash(git branch -d:*)",
+      "Bash(node scripts/worktree-gc.mjs:*)"
+    ],
     "deny": [
       "mcp__claude-in-chrome",
       "mcp__computer-use",
@@ -17,7 +22,9 @@
       "mcp__plugin_design_slack",
       "mcp__plugin_engineering_datadog",
       "mcp__plugin_engineering_github",
-      "mcp__plugin_engineering_pagerduty"
+      "mcp__plugin_engineering_pagerduty",
+      "Bash(git worktree remove --force:*)",
+      "Bash(git worktree remove -f:*)"
     ]
   }
 }
