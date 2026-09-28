@@ -19,14 +19,22 @@ import { readFileSync } from "node:fs";
 const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);
 const CHECKED_EXT_RE = /\.(md|json)$/i;
 
+function git(args) {
+  return execFileSync("git", args, { encoding: "utf8" });
+}
+
 function gitTrackedTargets() {
-  const raw = execFileSync("git", ["ls-files", "*.md", "*.json"], { encoding: "utf8" });
-  return raw.split("\n").filter(Boolean);
+  return git(["ls-files", "*.md", "*.json"]).split("\n").filter(Boolean);
 }
 
 function hasBom(filePath) {
-  const fd = readFileSync(filePath);
-  return fd.length >= 3 && fd[0] === UTF8_BOM[0] && fd[1] === UTF8_BOM[1] && fd[2] === UTF8_BOM[2];
+  const contents = readFileSync(filePath);
+  return (
+    contents.length >= 3 &&
+    contents[0] === UTF8_BOM[0] &&
+    contents[1] === UTF8_BOM[1] &&
+    contents[2] === UTF8_BOM[2]
+  );
 }
 
 function main() {
