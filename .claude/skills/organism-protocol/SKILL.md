@@ -45,6 +45,16 @@ When the environment gets in your way, don't patch or improvise past it. Example
 
 One sanctioned exception: `board` doesn't write handoff files yet, so a worktree cell writes its handoff (`.scratch/<feature>/handoffs/*.md`) to the main checkout through shell commands. Write it to the main checkout only; never leave a copy in your worktree. Every other board change goes through `board`. A future `board handoff` command closes this gap.
 
+## Shell and git
+
+- Write prose (handoffs, comments, markdown) with the Write tool or node `fs.writeFileSync`, never a shell heredoc. Copy files with `fs.copyFileSync`.
+- `rm` and `cp` can hang on a y/n prompt in the sandbox, even with `-f`. Use `fs.rmSync` / `fs.copyFileSync`, or `git checkout -- <path>` to revert.
+- PowerShell 5.1: never `Set-Content -Encoding utf8` (it writes a BOM; `npm test` rejects BOMs in `.md`/`.json`). Prefer node for file writes.
+- Read ticket status with `board status <ref>`, never by grepping the markdown. Keep `board comment` text short; put detail in the handoff.
+- Never `git commit -a` in the main checkout; stage explicit paths. Give every `git push` a timeout.
+- In a worktree, use plain single commands: no `cd <main> && git …`, and no git in pipes. The isolation guard rejects them.
+- Run `npm ci` first in a fresh worktree.
+
 ## Timeouts (never wait out a hang)
 
 Give every long-running command an explicit timeout: test runs, dev servers, browser automation, installs, and CI waits (`gh run watch`, `gh pr checks --watch`). Pick a bound that fits the work. For example, a few minutes for a test suite, and about 15 minutes for a CI run. When a timeout fires, stop. Don't retry, and don't keep waiting. Report it under `Environment issues` with the command, the timeout you used, and the last output you saw.
