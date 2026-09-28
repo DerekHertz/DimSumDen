@@ -6,7 +6,8 @@
     "allow": [
       "Bash(git worktree remove:*)",
       "Bash(git branch -d:*)",
-      "Bash(node scripts/worktree-gc.mjs:*)"
+      "Bash(node scripts/worktree-gc.mjs:*)",
+      "Bash(node scripts/usage.mjs)"
     ],
     "deny": [
       "mcp__claude-in-chrome",
