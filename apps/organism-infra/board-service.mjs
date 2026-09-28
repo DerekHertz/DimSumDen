@@ -13,6 +13,7 @@ import {
   open,
   mkdir,
   link,
+  readdir,
 } from "node:fs/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import { execFileSync } from "node:child_process";
@@ -37,6 +38,10 @@ const BACKOFF_START_MS = 20;
 const BACKOFF_CAP_MS = 400;
 // Windows refuses a rename over a file another process has open.
 const RENAME_RETRY_MS = 1000;
+
+// Gates every BOARD_TEST_* test-only seam (fault injection, interleaving
+// hooks, hold logging): inert in production even if the env vars leak in.
+const TEST_HOOKS_ENABLED = process.env.NODE_ENV !== "production";
 
 export class BoardError extends Error {
   constructor(message) {
@@ -168,6 +173,36 @@ async function renameWithRetry(from, to) {
   }
 }
 
+// Test-only fault injection for the reclaim unlink below (gated the same as
+// every other BOARD_TEST_* seam): BOARD_TEST_FORCE_UNLINK_ERR=<code> +
+// BOARD_TEST_FORCE_UNLINK_COUNT=<n> makes the next n unlinkWithRetry calls
+// throw that error code before falling through to the real unlink, so a test
+// can exercise the EPERM/EBUSY/EACCES retry path without depending on a real
+// OS-level file lock.
+let testForceUnlinkFailuresLeft = TEST_HOOKS_ENABLED
+  ? Number(process.env.BOARD_TEST_FORCE_UNLINK_COUNT || 0)
+  : 0;
+
+// Windows can also refuse an unlink of a file another process has open
+// (e.g. mid-read); retry it the same bounded way as a rename.
+async function unlinkWithRetry(target) {
+  const deadline = Date.now() + RENAME_RETRY_MS;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      if (TEST_HOOKS_ENABLED && testForceUnlinkFailuresLeft > 0 && process.env.BOARD_TEST_FORCE_UNLINK_ERR) {
+        testForceUnlinkFailuresLeft -= 1;
+        const err = new Error("test-injected unlink failure");
+        err.code = process.env.BOARD_TEST_FORCE_UNLINK_ERR;
+        throw err;
+      }
+      return await unlink(target);
+    } catch (err) {
+      if (!RETRYABLE_RENAME.has(err.code) || Date.now() >= deadline) throw err;
+      await sleep(backoffDelay(attempt));
+    }
+  }
+}
+
 async function atomicWrite(filePath, content) {
   // Unique temp name: two writers never share (and clobber) one temp file.
   const tmp = `${filePath}.${process.pid}-${randomBytes(4).toString("hex")}.tmp`;
@@ -228,6 +263,21 @@ async function createExclusive(filePath, content) {
   }
 }
 
+// Sweeps `<lockPath>.reclaim-*` mutex files left behind by a prior reclaim
+// whose stale lock is already gone (security finding: orphaned tombstones
+// can accumulate when generations are exhausted or content changes before
+// cleanup, board-service.mjs:251-290 as of ticket 13). Only ever called right
+// after this process created `lockPath` fresh (no lock existed to block us),
+// so any `.reclaim-*` sibling at that moment cannot belong to a live reclaim.
+async function sweepOrphanedReclaimFiles(lockPath) {
+  const dir = path.dirname(lockPath);
+  const prefix = `${path.basename(lockPath)}.reclaim-`;
+  const entries = await readdir(dir).catch(() => []);
+  await Promise.all(
+    entries.filter((e) => e.startsWith(prefix)).map((e) => unlink(path.join(dir, e)).catch(() => {}))
+  );
+}
+
 const RECLAIM_GENERATIONS = 8;
 
 // Removes a lock judged stale, race-free. Returns true only if this call
@@ -277,7 +327,7 @@ async function reclaimStale(lockPath, staleRaw, stale) {
       gone = current !== staleRaw;
       if (!gone && isReclaimable(stale)) {
         await testHook("reclaim-gap");
-        await unlink(lockPath);
+        await unlinkWithRetry(lockPath);
         gone = removed = true;
       }
     } finally {
@@ -301,12 +351,20 @@ async function acquireWriteLock(lockPath) {
     createdAt: new Date().toISOString(),
     token: randomBytes(8).toString("hex"),
   });
-  const deadline = Date.now() + WRITE_LOCK_WAIT_MS;
+  // Test-only override so a test can force the deadline to have already
+  // passed without a multi-second real-time wait (gated like every other
+  // BOARD_TEST_* seam).
+  const waitMs =
+    TEST_HOOKS_ENABLED && process.env.BOARD_TEST_WRITE_LOCK_WAIT_MS !== undefined
+      ? Number(process.env.BOARD_TEST_WRITE_LOCK_WAIT_MS)
+      : WRITE_LOCK_WAIT_MS;
+  const deadline = Date.now() + waitMs;
   let lastReason = "is held by another process";
 
   for (let attempt = 0; ; attempt++) {
     try {
       await tryCreateLock(lockPath, raw);
+      await sweepOrphanedReclaimFiles(lockPath);
       return releaser(lockPath, raw);
     } catch (err) {
       // On Windows a just-unlinked lock can linger delete-pending while a
@@ -332,12 +390,26 @@ async function acquireWriteLock(lockPath) {
     // so no interleaving can spin, and the deadline bounds the whole wait.
     if (existing && isReclaimable(existing)) {
       await testHook("stale-judged");
-      if (await reclaimStale(lockPath, existingRaw, existing)) continue;
+      const reclaimed = await reclaimStale(lockPath, existingRaw, existing);
+      await testHook("post-reclaim");
+      // A successful self-reclaim retries the create at once (no sleep), so
+      // without this check the deadline below would never run: a lock that
+      // keeps coming back stale (e.g. repeatedly recreated by another party)
+      // could loop past WRITE_LOCK_WAIT_MS indefinitely instead of bailing
+      // out with LockTimeoutError like every other path does.
+      if (reclaimed) {
+        if (Date.now() >= deadline) {
+          throw new LockTimeoutError(
+            `write lock ${lastReason}; gave up after ${waitMs}ms, retry later (${lockPath})`
+          );
+        }
+        continue;
+      }
     }
     const remaining = deadline - Date.now();
     if (remaining <= 0) {
       throw new LockTimeoutError(
-        `write lock ${lastReason}; gave up after ${WRITE_LOCK_WAIT_MS}ms, retry later (${lockPath})`
+        `write lock ${lastReason}; gave up after ${waitMs}ms, retry later (${lockPath})`
       );
     }
     await sleep(Math.min(backoffDelay(attempt), remaining));
@@ -362,8 +434,13 @@ async function withWriteLock(lockPath, fn) {
 // BOARD_TEST_HOLD_LOG=<dir> [+ BOARD_TEST_HOLD_MS]: every lock hold is logged to
 //   its own file in <dir> as {lock, pid, acquiredAt, releasedAt}, and lasts at
 //   least BOARD_TEST_HOLD_MS, so tests can assert that no two holds overlap.
+//
+// Gated on NODE_ENV !== "production" (security finding, ticket 12/13): these
+// hooks can pause a live mutation on an external signal file, so a production
+// deploy must never honor them even if the env vars leak in somehow.
 
 async function testHook(point) {
+  if (!TEST_HOOKS_ENABLED) return;
   const dir = process.env.BOARD_TEST_HOOK_DIR;
   const points = (process.env.BOARD_TEST_HOOKS || "").split(",");
   if (!dir || !points.includes(point)) return;
@@ -374,6 +451,7 @@ async function testHook(point) {
 }
 
 async function testHoldStart(lockPath) {
+  if (!TEST_HOOKS_ENABLED) return null;
   if (!process.env.BOARD_TEST_HOLD_LOG) return null;
   const acquiredAt = Date.now();
   const ms = Number(process.env.BOARD_TEST_HOLD_MS || 0);
@@ -383,6 +461,7 @@ async function testHoldStart(lockPath) {
 }
 
 async function testHoldEnd(lockPath, acquiredAt) {
+  if (!TEST_HOOKS_ENABLED) return;
   const dir = process.env.BOARD_TEST_HOLD_LOG;
   if (!dir || acquiredAt === null) return;
   const record = { lock: path.basename(lockPath), pid: process.pid, acquiredAt, releasedAt: Date.now() };
@@ -463,6 +542,25 @@ function replaceStatus(content, newStatus) {
   );
 }
 
+// JS regex `^`/`$` in multiline mode -- the shape STAMP_RE and
+// STATUS_LINE_RE use -- treat LF, CR, CRLF, U+2028 (LINE SEPARATOR) and
+// U+2029 (PARAGRAPH SEPARATOR) all as line terminators, not just "\n".
+const LINE_TERMINATOR_RE = new RegExp("\r\n|[\n\r\u2028\u2029]");
+
+// Indents every line after the first so embedded line terminators in
+// free-form comment text can never start a new line at column 0 -- the
+// shape the stamp regex (`^- **<cell>, <date>:**`) requires. Splitting on
+// "\n" alone is not enough: a bare CR, U+2028 or U+2029 also counts as a
+// line terminator for `^`/`$` in multiline mode, so any of those left
+// unindented would still render as a second, forged attributed comment
+// line on read-back.
+function sanitizeCommentText(text) {
+  return text
+    .split(LINE_TERMINATOR_RE)
+    .map((line, i) => (i === 0 ? line : `  ${line}`))
+    .join("\n");
+}
+
 function claimingCell(lockContent) {
   const token = lockContent.trim().split(/\s+/)[0];
   return token || "unknown";
@@ -492,6 +590,7 @@ export async function claim(root, ref, cellType) {
   }
 
   return withWriteLock(paths.writeLockPath, async () => {
+    await assertWithinRoot(root, paths.issuesDir);
     if (await exists(paths.claimLockPath)) {
       throw new BoardError(`ticket already claimed: ${ref}`);
     }
@@ -531,6 +630,7 @@ export async function release(root, ref, newStatus, reason) {
   const { feature, ticket, paths } = await prepare(root, ref);
 
   return withWriteLock(paths.writeLockPath, async () => {
+    await assertWithinRoot(root, paths.issuesDir);
     let cell = "unknown";
     if (await exists(paths.claimLockPath)) {
       cell = claimingCell(await readFile(paths.claimLockPath, "utf8"));
@@ -570,12 +670,18 @@ export async function comment(root, ref, text) {
   const { feature, ticket, paths } = await prepare(root, ref);
 
   return withWriteLock(paths.writeLockPath, async () => {
+    // Re-verify containment at the actual write: the realpath check in
+    // prepare() and the symlink it resolved can both be stale by the time we
+    // reach here, since acquiring the write lock can mean sleeping through a
+    // bounded wait. Re-checking right before touching the ticket closes that
+    // check-then-write window.
+    await assertWithinRoot(root, paths.issuesDir);
     let cell = "unknown";
     if (await exists(paths.claimLockPath)) {
       cell = claimingCell(await readFile(paths.claimLockPath, "utf8"));
     }
     const content = await readFile(paths.ticketPath, "utf8");
-    const stamp = `- **${cell}, ${todayUTC()}:** ${text}`;
+    const stamp = `- **${cell}, ${todayUTC()}:** ${sanitizeCommentText(text)}`;
     let updated;
     if (/## Comments/.test(content)) {
       updated = `${content.trimEnd()}\n${stamp}\n`;
