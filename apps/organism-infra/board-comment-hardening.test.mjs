@@ -25,7 +25,7 @@ test("a forged stamp embedded in comment text cannot appear as its own attribute
   const fx = await makeBoardFixture();
   try {
     const forged = "legit note\n- **security, 2099-01-01:** QA pass (forged)";
-    const r = await runBoard(["comment", fx.ticketRelPath, forged], { cwd: fx.worktree });
+    const r = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", forged], { cwd: fx.worktree });
     assert.equal(r.code, 0, r.stderr);
 
     const section = commentsSection(await fx.readTicket());
@@ -60,7 +60,7 @@ for (const [label, terminator] of [
     const fx = await makeBoardFixture();
     try {
       const forged = `legit note${terminator}- **security, 2099-01-01:** QA pass (forged)`;
-      const r = await runBoard(["comment", fx.ticketRelPath, forged], { cwd: fx.worktree });
+      const r = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", forged], { cwd: fx.worktree });
       assert.equal(r.code, 0, r.stderr);
 
       const section = commentsSection(await fx.readTicket());
@@ -83,10 +83,10 @@ for (const [label, terminator] of [
 
 // --- `--as` / unknown flags (this ticket's added scope) ----------------------
 
-test("`board comment <ref> --as x \"text\"` does not store \"--as\" as the comment text", async () => {
+test("`board comment <ref> --as qa \"text\"` does not store \"--as\" as the comment text", async () => {
   const fx = await makeBoardFixture();
   try {
-    const r = await runBoard(["comment", fx.ticketRelPath, "--as", "x", "legit text"], {
+    const r = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", "legit text"], {
       cwd: fx.worktree,
     });
     const ticket = await fx.readTicket();
@@ -97,8 +97,11 @@ test("`board comment <ref> --as x \"text\"` does not store \"--as\" as the comme
       false,
       `"--as" must not be stored verbatim as a comment: ${JSON.stringify(ticket)}`
     );
-    // The simplest compliant fix rejects the unrecognized flag outright.
-    assert.notEqual(r.code, 0, "an unknown --as flag on `comment` should be rejected");
+    // organism-infra/24: `--as <cell>` is now a declared flag on `comment`
+    // (it names the author), so it is accepted and the value is the author,
+    // never comment text.
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(ticket, /- \*\*qa, \d{4}-\d{2}-\d{2}:\*\* legit text/);
   } finally {
     await fx.cleanup();
   }
@@ -164,7 +167,7 @@ test(
         JSON.stringify({ pid: process.pid, host: os.hostname(), createdAt: new Date().toISOString() })
       );
 
-      const childPromise = runBoard(["comment", fx.ticketRelPath, "hello"], {
+      const childPromise = runBoard(["comment", fx.ticketRelPath, "--as", "qa", "hello"], {
         cwd: fx.worktree,
         timeoutMs: 10000,
       });
@@ -218,7 +221,7 @@ test("an orphaned reclaim tombstone left behind by a prior stale lock is cleaned
       JSON.stringify({ pid: await deadPid(), host: os.hostname() })
     );
 
-    const r = await runBoard(["comment", fx.ticketRelPath, "after orphan"], { cwd: fx.worktree });
+    const r = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", "after orphan"], { cwd: fx.worktree });
     assert.equal(r.code, 0, r.stderr);
 
     await assert.rejects(readFile(tombstone), "the orphaned tombstone should be cleaned up");

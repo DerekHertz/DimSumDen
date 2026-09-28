@@ -360,7 +360,7 @@ test("oversized comment args are rejected without hanging or partial writes", as
     // OS's own command-line length limit so the failure comes from the CLI's
     // own validation, not from the shell/OS refusing to spawn the process.
     const huge = "x".repeat(20_000);
-    const { code } = await runBoard(["comment", fx.ticketRelPath, huge], {
+    const { code } = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", huge], {
       cwd: fx.worktree,
       timeoutMs: 10000,
     });

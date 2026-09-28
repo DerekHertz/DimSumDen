@@ -669,9 +669,25 @@ async function prepare(root, ref) {
 // (qa set in-review during a specify claim) exploited -- is rejected too.
 const CLAIM_MODES = new Set(["specify", "verify"]);
 
+// organism-infra/24 security fix: identity is self-declared, but it must at
+// least name a real cell, so it can never carry newlines or forged markup.
+const KNOWN_CELLS = new Set([
+  "product", "architect", "orchestrator", "developer", "scout",
+  "debugger", "qa", "security", "designer",
+]);
+
+function checkKnownCell(name, what) {
+  if (typeof name !== "string" || !KNOWN_CELLS.has(name)) {
+    throw new BoardError(
+      `invalid ${what}: ${JSON.stringify(name)} (allowed: ${[...KNOWN_CELLS].join(", ")})`
+    );
+  }
+}
+
 export async function claim(root, ref, cellType, options = {}) {
   const { mode } = options;
   checkArgLength(cellType, "cell type");
+  checkKnownCell(cellType, "cell type");
   checkArgLength(mode, "mode");
   if (mode !== undefined && !CLAIM_MODES.has(mode)) {
     throw new BoardError(
@@ -724,6 +740,60 @@ export async function claim(root, ref, cellType, options = {}) {
   });
 }
 
+// organism-infra/24: take over an existing claim lock in one command. Claim
+// locks carry no pid, so "stale" is not decidable mechanically: any existing
+// lock may be taken over. With no lock there is nothing to take over (use
+// `claim`). The ticket status stays `claimed`.
+export async function reclaim(root, ref, cellType, options = {}) {
+  const { mode, reason } = options;
+  checkArgLength(cellType, "cell type");
+  checkKnownCell(cellType, "cell type");
+  if (cellType === "orchestrator") {
+    throw new BoardError("reclaim as orchestrator is refused (only orchestrator may resolve; use claim on an unlocked ticket)");
+  }
+  if (typeof reason !== "string" || reason.trim() === "") {
+    throw new BoardError("reclaim requires --reason <text>");
+  }
+  checkArgLength(reason, "reason");
+  checkArgLength(mode, "mode");
+  if (mode !== undefined && !CLAIM_MODES.has(mode)) {
+    throw new BoardError(`invalid mode: ${mode} (allowed: ${[...CLAIM_MODES].join(", ")})`);
+  }
+  if (cellType === "qa" && mode === undefined) {
+    throw new BoardError(
+      `--mode is required for cell "qa" (allowed: ${[...CLAIM_MODES].join(", ")})`
+    );
+  }
+  const { feature, ticket, paths } = await prepare(root, ref);
+
+  return withWriteLock(paths.writeLockPath, async () => {
+    await assertWithinRoot(root, paths.issuesDir);
+    if (!(await exists(paths.claimLockPath))) {
+      throw new BoardError(`nothing to reclaim: ${ref} has no claim lock (use claim)`);
+    }
+    const previous = claimingCell(await readFile(paths.claimLockPath, "utf8"));
+    const content = await readFile(paths.ticketPath, "utf8");
+    const status = readStatus(content);
+    await commitWithEvent(paths.eventsPath, async () => {
+      await atomicWrite(
+        paths.claimLockPath,
+        `${cellType} ${new Date().toISOString()}${mode ? ` ${mode}` : ""}\n`
+      );
+    }, {
+      feature,
+      ticket,
+      cell: cellType,
+      mode: mode ?? null,
+      op: "reclaim",
+      reason,
+      previous_cell: previous,
+      from_status: status,
+      to_status: status,
+    });
+    return { status };
+  });
+}
+
 // organism-infra/18: `--status in-review|resolved` is gated by ADR 0009
 // decisions 2 and 4 -- a bad transition for the calling cell's mode (qa in
 // `specify` mode never sets ticket status itself), and a missing/invalid
@@ -733,10 +803,13 @@ export async function claim(root, ref, cellType, options = {}) {
 const HANDOFF_GATED_STATUSES = new Set(["in-review", "resolved"]);
 
 export async function release(root, ref, newStatus, reason, options = {}) {
-  const { force } = options;
+  const { force, keepStatus } = options;
   checkArgLength(newStatus, "status");
   checkArgLength(reason, "reason");
-  if (!STATUSES.includes(newStatus)) {
+  if (keepStatus && newStatus !== undefined) {
+    throw new BoardError("--keep-status and --status are mutually exclusive");
+  }
+  if (!keepStatus && !STATUSES.includes(newStatus)) {
     throw new BoardError(`invalid status: ${newStatus}`);
   }
   if (force && !reason) {
@@ -752,6 +825,14 @@ export async function release(root, ref, newStatus, reason, options = {}) {
       const lockContent = await readFile(paths.claimLockPath, "utf8");
       cell = claimingCell(lockContent);
       mode = claimingMode(lockContent);
+    }
+
+    // organism-infra/24: only an orchestrator claim may resolve a ticket.
+    // Unlike the handoff check, --force does not bypass this rule.
+    if (newStatus === "resolved" && cell !== "orchestrator") {
+      throw new BoardError(
+        `invalid status transition: a claim held by ${cell} cannot release ${ref} at resolved (only the orchestrator resolves)`
+      );
     }
 
     if (HANDOFF_GATED_STATUSES.has(newStatus)) {
@@ -780,7 +861,9 @@ export async function release(root, ref, newStatus, reason, options = {}) {
 
     const content = await readFile(paths.ticketPath, "utf8");
     const fromStatus = readStatus(content);
-    let updated = replaceStatus(content, newStatus);
+    // --keep-status: free the lock and leave the status line untouched.
+    const toStatus = keepStatus ? fromStatus : newStatus;
+    let updated = keepStatus ? content : replaceStatus(content, newStatus);
     if (reason) {
       updated = `${updated.trimEnd()}\n- **${cell}, ${todayUTC()}:** ${reason}\n`;
     }
@@ -791,7 +874,7 @@ export async function release(root, ref, newStatus, reason, options = {}) {
         cell,
         op: "release",
         from_status: fromStatus,
-        to_status: newStatus,
+        to_status: toStatus,
       },
     ];
     // Only log an override when `--force` actually bypassed something (the
@@ -805,7 +888,7 @@ export async function release(root, ref, newStatus, reason, options = {}) {
       await atomicWrite(paths.ticketPath, updated);
       await unlink(paths.claimLockPath).catch(() => {});
     }, events);
-    return { status: newStatus };
+    return { status: toStatus };
   });
 }
 
@@ -818,8 +901,10 @@ export async function getStatus(root, ref) {
   return readStatus(content);
 }
 
-export async function comment(root, ref, text) {
+export async function comment(root, ref, text, options = {}) {
+  const { as } = options;
   checkArgLength(text, "comment");
+  checkArgLength(as, "author");
   const { feature, ticket, paths } = await prepare(root, ref);
 
   return withWriteLock(paths.writeLockPath, async () => {
@@ -829,9 +914,23 @@ export async function comment(root, ref, text) {
     // bounded wait. Re-checking right before touching the ticket closes that
     // check-then-write window.
     await assertWithinRoot(root, paths.issuesDir);
-    let cell = "unknown";
+    // organism-infra/24: author is --as when given, else the claim lock's cell; with
+    // neither the comment is rejected rather than stamped "unknown".
+    let cell = as;
+    if (cell !== undefined) checkKnownCell(cell, "author");
     if (await exists(paths.claimLockPath)) {
-      cell = claimingCell(await readFile(paths.claimLockPath, "utf8"));
+      const lockCell = claimingCell(await readFile(paths.claimLockPath, "utf8"));
+      if (cell !== undefined && cell !== lockCell) {
+        throw new BoardError(
+          `comment rejected: --as ${cell} does not match the claim lock's cell (${lockCell})`
+        );
+      }
+      cell = lockCell;
+    }
+    if (!cell) {
+      throw new BoardError(
+        `comment rejected: no claim lock on ${ref} and no --as <cell> to name the author`
+      );
     }
     const content = await readFile(paths.ticketPath, "utf8");
     const stamp = `- **${cell}, ${todayUTC()}:** ${sanitizeCommentText(text)}`;

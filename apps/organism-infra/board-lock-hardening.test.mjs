@@ -61,7 +61,7 @@ test("acquireWriteLock's deadline still bounds the wait after a successful self-
     // (shrunk) deadline has already elapsed: a client that only checks the
     // deadline on the sleep/backoff path -- not after a self-reclaim -- would
     // ignore that and keep going instead of giving up.
-    const child = runBoard(["comment", fx.ticketRelPath, "attempt"], {
+    const child = runBoard(["comment", fx.ticketRelPath, "--as", "qa", "attempt"], {
       cwd: fx.worktree,
       env: {
         BOARD_TEST_HOOK_DIR: hookDir,
@@ -101,7 +101,7 @@ for (const code of ["EPERM", "EBUSY", "EACCES"]) {
       const dead = await deadPid();
       await writeFile(fx.writeLockPath, staleLockJson(dead));
 
-      const r = await runBoard(["comment", fx.ticketRelPath, `after ${code}`], {
+      const r = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", `after ${code}`], {
         cwd: fx.worktree,
         env: { BOARD_TEST_FORCE_UNLINK_ERR: code, BOARD_TEST_FORCE_UNLINK_COUNT: "2" },
       });
@@ -121,7 +121,7 @@ test("the reclaim unlink still fails once a non-retryable error is injected", as
     const dead = await deadPid();
     await writeFile(fx.writeLockPath, staleLockJson(dead));
 
-    const r = await runBoard(["comment", fx.ticketRelPath, "should not land"], {
+    const r = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", "should not land"], {
       cwd: fx.worktree,
       env: { BOARD_TEST_FORCE_UNLINK_ERR: "ENOTDIR", BOARD_TEST_FORCE_UNLINK_COUNT: "1" },
     });
@@ -140,7 +140,7 @@ test("BOARD_TEST_HOLD_LOG is ignored when NODE_ENV is production", async () => {
   const fx = await makeBoardFixture();
   const holdDir = await mkdtemp(path.join(os.tmpdir(), "board-holds-"));
   try {
-    const r = await runBoard(["comment", fx.ticketRelPath, "prod run"], {
+    const r = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", "prod run"], {
       cwd: fx.worktree,
       env: { BOARD_TEST_HOLD_LOG: holdDir, NODE_ENV: "production" },
     });
@@ -159,7 +159,7 @@ test("BOARD_TEST_HOLD_LOG still works outside production (control)", async () =>
   const fx = await makeBoardFixture();
   const holdDir = await mkdtemp(path.join(os.tmpdir(), "board-holds-"));
   try {
-    const r = await runBoard(["comment", fx.ticketRelPath, "dev run"], {
+    const r = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", "dev run"], {
       cwd: fx.worktree,
       env: { BOARD_TEST_HOLD_LOG: holdDir },
     });
