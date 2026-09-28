@@ -53,6 +53,10 @@ async function main() {
       return;
     }
     case "comment": {
+      const flagArg = rest.find((arg) => arg.startsWith("--"));
+      if (flagArg) {
+        throw new BoardError(`unrecognized flag on comment: ${flagArg}`);
+      }
       const [ref, text] = rest;
       await comment(root, ref, text);
       console.log(`commented on ${ref}`);

@@ -13,6 +13,7 @@ import {
   open,
   mkdir,
   link,
+  readdir,
 } from "node:fs/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import { execFileSync } from "node:child_process";
@@ -228,6 +229,21 @@ async function createExclusive(filePath, content) {
   }
 }
 
+// Sweeps `<lockPath>.reclaim-*` mutex files left behind by a prior reclaim
+// whose stale lock is already gone (security finding: orphaned tombstones
+// can accumulate when generations are exhausted or content changes before
+// cleanup, board-service.mjs:251-290 as of ticket 13). Only ever called right
+// after this process created `lockPath` fresh (no lock existed to block us),
+// so any `.reclaim-*` sibling at that moment cannot belong to a live reclaim.
+async function sweepOrphanedReclaimFiles(lockPath) {
+  const dir = path.dirname(lockPath);
+  const prefix = `${path.basename(lockPath)}.reclaim-`;
+  const entries = await readdir(dir).catch(() => []);
+  await Promise.all(
+    entries.filter((e) => e.startsWith(prefix)).map((e) => unlink(path.join(dir, e)).catch(() => {}))
+  );
+}
+
 const RECLAIM_GENERATIONS = 8;
 
 // Removes a lock judged stale, race-free. Returns true only if this call
@@ -307,6 +323,7 @@ async function acquireWriteLock(lockPath) {
   for (let attempt = 0; ; attempt++) {
     try {
       await tryCreateLock(lockPath, raw);
+      await sweepOrphanedReclaimFiles(lockPath);
       return releaser(lockPath, raw);
     } catch (err) {
       // On Windows a just-unlinked lock can linger delete-pending while a
@@ -463,6 +480,15 @@ function replaceStatus(content, newStatus) {
   );
 }
 
+// Indents every line after the first so embedded newlines in free-form
+// comment text can never start a new line at column 0 -- the shape the
+// stamp regex (`^- **<cell>, <date>:**`) requires. Without this, comment
+// text containing e.g. "\n- **security, 2099-01-01:** ..." would render as
+// a second, forged attributed comment line.
+function sanitizeCommentText(text) {
+  return text.split("\n").map((line, i) => (i === 0 ? line : `  ${line}`)).join("\n");
+}
+
 function claimingCell(lockContent) {
   const token = lockContent.trim().split(/\s+/)[0];
   return token || "unknown";
@@ -492,6 +518,7 @@ export async function claim(root, ref, cellType) {
   }
 
   return withWriteLock(paths.writeLockPath, async () => {
+    await assertWithinRoot(root, paths.issuesDir);
     if (await exists(paths.claimLockPath)) {
       throw new BoardError(`ticket already claimed: ${ref}`);
     }
@@ -531,6 +558,7 @@ export async function release(root, ref, newStatus, reason) {
   const { feature, ticket, paths } = await prepare(root, ref);
 
   return withWriteLock(paths.writeLockPath, async () => {
+    await assertWithinRoot(root, paths.issuesDir);
     let cell = "unknown";
     if (await exists(paths.claimLockPath)) {
       cell = claimingCell(await readFile(paths.claimLockPath, "utf8"));
@@ -570,12 +598,18 @@ export async function comment(root, ref, text) {
   const { feature, ticket, paths } = await prepare(root, ref);
 
   return withWriteLock(paths.writeLockPath, async () => {
+    // Re-verify containment at the actual write: the realpath check in
+    // prepare() and the symlink it resolved can both be stale by the time we
+    // reach here, since acquiring the write lock can mean sleeping through a
+    // bounded wait. Re-checking right before touching the ticket closes that
+    // check-then-write window.
+    await assertWithinRoot(root, paths.issuesDir);
     let cell = "unknown";
     if (await exists(paths.claimLockPath)) {
       cell = claimingCell(await readFile(paths.claimLockPath, "utf8"));
     }
     const content = await readFile(paths.ticketPath, "utf8");
-    const stamp = `- **${cell}, ${todayUTC()}:** ${text}`;
+    const stamp = `- **${cell}, ${todayUTC()}:** ${sanitizeCommentText(text)}`;
     let updated;
     if (/## Comments/.test(content)) {
       updated = `${content.trimEnd()}\n${stamp}\n`;
