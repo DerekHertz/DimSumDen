@@ -26,6 +26,10 @@ function startDevServer(port) {
   return spawn("npm", ["run", "dev", "--", String(port)], {
     cwd: REPO_ROOT,
     shell: true,
+    // POSIX only: makes this child the leader of its own process group, so
+    // stopServer can signal the whole tree (sh -> npm -> node) at once. See
+    // stopServer for why the plain, non-detached child.kill() below isn't enough.
+    detached: process.platform !== "win32",
   });
 }
 
@@ -64,7 +68,19 @@ function stopServer(child) {
       // wrapper and orphan the real server. Kill the whole tree by pid instead.
       spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
     } else {
-      child.kill();
+      // child.kill() alone only signals the immediate shell (`sh -c "npm run dev
+      // ..."`), not npm's own child node process -- that node process (the real
+      // server) is left running, still holding the piped stdout/stderr open, which
+      // hangs `node --test` forever waiting for those pipes to close. Confirmed in
+      // CI run 36376905451 (test job stuck 36+ min; GitHub's own cleanup found the
+      // orphaned "npm run dev" process still alive at cancellation). startDevServer
+      // spawns this child detached (its own process group), so signal the whole
+      // group via the negative pid instead of just the immediate child.
+      try {
+        process.kill(-child.pid, "SIGTERM");
+      } catch {
+        child.kill();
+      }
     }
   });
 }

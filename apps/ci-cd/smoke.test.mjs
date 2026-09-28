@@ -20,11 +20,25 @@ function runSmoke(pages, { timeoutMs = 30000 } = {}) {
     const child = spawn("npm", ["run", "smoke", "--", ...pages], {
       cwd: REPO_ROOT,
       shell: true,
+      // POSIX only: own process group, so the timeout below can signal the whole
+      // tree (sh -> npm -> node -> the browser it launches), not just the shell.
+      // See dev-server.test.mjs's stopServer for the same fix and why it matters:
+      // child.kill() alone leaves the real process running and its stdio pipes
+      // open, which hangs `node --test` even after this promise settles.
+      detached: process.platform !== "win32",
     });
     let stdout = "";
     let stderr = "";
     const timer = setTimeout(() => {
-      child.kill();
+      if (process.platform === "win32") {
+        spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+      } else {
+        try {
+          process.kill(-child.pid, "SIGTERM");
+        } catch {
+          child.kill();
+        }
+      }
       reject(new Error(`npm run smoke did not finish within ${timeoutMs}ms`));
     }, timeoutMs);
 
