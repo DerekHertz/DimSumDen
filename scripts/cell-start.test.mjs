@@ -42,6 +42,8 @@ function makeFixture() {
   const main = path.join(dir, "main");
   mkdirSync(main);
   git(main, ["init", "-q", "-b", "main"]);
+  writeFileSync(path.join(main, "package.json"), "{}");
+  git(main, ["add", "package.json"]);
   const shaA = commitFile(main, "a.txt", "a", "A");
   git(main, ["switch", "-q", "-c", "prior"]);
   const shaB = commitFile(main, "tests.txt", "qa tests", "B qa tests");
@@ -198,4 +200,62 @@ test("orchestrator genome or dispatch docs describe scripts/cell-start.mjs", () 
   }
   const hit = files.filter((f) => existsSync(f) && readFileSync(f, "utf8").includes("cell-start"));
   assert.ok(hit.length > 0, "no orchestrator genome or docs/agents/*.md mentions cell-start");
+});
+
+// Security fix 1 (MEDIUM): npm ci must run in the worktree's toplevel, and a
+// base without a root package.json is refused before switching (else npm walks
+// up into the main checkout).
+function bareCommit(fx) {
+  git(fx.main, ["switch", "-q", "--orphan", "bare"]);
+  const sha = commitFile(fx.main, "z.txt", "z", "no package.json");
+  git(fx.main, ["switch", "-q", "main"]);
+  return sha;
+}
+
+test("npm ci runs with cwd at the worktree toplevel, even from a subdirectory", () =>
+  withFixture((fx) => {
+    const sub = path.join(fx.wt, "sub");
+    mkdirSync(sub);
+    const r = run(fx, sub, ["--base", fx.shaB, "--detach"]);
+    assert.equal(r.status, 0, r.stderr);
+    const calls = npmCalls(fx);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].split("|")[0], fx.wt);
+  }));
+
+test("a base without a root package.json is refused before switching or installing", () =>
+  withFixture((fx) => {
+    const bare = bareCommit(fx);
+    const before = git(fx.wt, ["rev-parse", "HEAD"]);
+    const r = run(fx, fx.wt, ["--base", bare, "--detach"]);
+    assertRefused(r);
+    assert.match(r.stderr, /package\.json/);
+    assert.equal(git(fx.wt, ["rev-parse", "HEAD"]), before);
+    assert.equal(npmCalls(fx).length, 0);
+  }));
+
+// Security fix 2 (LOW): worktree list read with -z so unusual paths do not break the check.
+test("main checkout is still refused when its path needs quoting in porcelain output", () => {
+  const fx = makeFixture();
+  try {
+    const odd = path.join(fx.dir, "mäin \"q\"");
+    git(fx.dir, ["clone", "-q", fx.main, odd]);
+    const r = run(fx, odd, ["--base", "HEAD", "--detach"]);
+    assertRefused(r);
+    assert.match(r.stderr, /main checkout/);
+  } finally {
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
+});
+
+test("a worktree at a path that needs quoting works", () => {
+  const fx = makeFixture();
+  try {
+    const odd = path.join(fx.main, ".claude", "worktrees", "agént \"q\"");
+    git(fx.main, ["worktree", "add", "-q", "--detach", odd, "main"]);
+    const r = run(fx, odd, ["--base", fx.shaB, "--detach"]);
+    assert.equal(r.status, 0, r.stderr);
+  } finally {
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
 });

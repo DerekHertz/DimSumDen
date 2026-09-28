@@ -41,9 +41,11 @@ const top = git(["rev-parse", "--show-toplevel"]);
 if (top.status !== 0) fail("not inside a git worktree");
 const toplevel = realpathSync(top.stdout.trim());
 
-const list = git(["worktree", "list", "--porcelain"]);
-const first = list.stdout.split("\n").find((l) => l.startsWith("worktree "));
-if (first && realpathSync(first.slice("worktree ".length)) === toplevel) {
+const list = git(["worktree", "list", "--porcelain", "-z"]);
+if (list.status !== 0) fail(`git worktree list failed: ${list.stderr.trim()}`);
+const first = list.stdout.split("\0").find((l) => l.startsWith("worktree "));
+if (!first) fail("git worktree list reported no worktrees");
+if (realpathSync(first.slice("worktree ".length)) === toplevel) {
   fail("this is the main checkout; run cell-start only inside a cell worktree");
 }
 
@@ -60,9 +62,14 @@ if (opts.branch) {
   if (exists.status === 0) fail(`branch ${opts.branch} already exists`);
 }
 
+// npm finds its project root by walking up from cwd; a base with no root
+// package.json would make it reinstall in the main checkout that nests this worktree.
+const hasPkg = git(["cat-file", "-e", `${base}:package.json`]);
+if (hasPkg.status !== 0) fail(`base ${base.slice(0, 12)} has no root package.json; refusing (npm ci would climb out of the worktree)`);
+
 const sw = git(opts.branch ? ["switch", "-q", "-c", opts.branch, base] : ["switch", "-q", "--detach", base]);
 if (sw.status !== 0) fail(`git switch failed: ${sw.stderr.trim()}`);
 
-const npm = spawnSync("npm", ["ci"], { stdio: "inherit" });
+const npm = spawnSync("npm", ["ci"], { stdio: "inherit", cwd: toplevel });
 if (npm.status !== 0) fail(`npm ci failed (exit ${npm.status ?? npm.signal})`);
 process.stdout.write(`cell-start: at ${base.slice(0, 12)} (${opts.branch ?? "detached"})\n`);
