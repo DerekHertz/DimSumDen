@@ -44,6 +44,7 @@ export async function makeBoardFixture({
   feature = "sample",
   ticket = "01-do-thing",
   status = "ready-for-agent",
+  content, // optional full ticket markdown, e.g. a real ticket copied verbatim
 } = {}) {
   counter += 1;
   const root = await mkdtemp(path.join(tmpdir(), `board-main-${counter}-`));
@@ -56,7 +57,7 @@ export async function makeBoardFixture({
   const tpath = ticketPath(root, feature, ticket);
   await writeFile(
     tpath,
-    `# ${ticket}\n\nStatus: ${status}\n\n- [ ] acceptance criterion\n\n## Comments\n`
+    content ?? `# ${ticket}\n\nStatus: ${status}\n\n- [ ] acceptance criterion\n\n## Comments\n`
   );
   git(root, ["add", "-A"]);
   git(root, ["commit", "-q", "-m", "seed fixture ticket"]);
