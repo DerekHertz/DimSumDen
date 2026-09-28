@@ -6,10 +6,12 @@
     "board": "apps/organism-infra/board.mjs"
   },
   "scripts": {
+    "pretest": "npm run check:bom",
     "test": "node --test \"apps/**/*.test.mjs\" \"packages/**/*.test.mjs\" \"scripts/**/*.test.mjs\"",
     "dev": "node apps/ci-cd/dev-server.mjs",
     "smoke": "node apps/ci-cd/smoke.mjs",
     "risk-check": "node scripts/risk-check.mjs",
+    "check:bom": "node scripts/bom-check.mjs",
     "board": "node apps/organism-infra/board.mjs"
   },
   "devDependencies": {
