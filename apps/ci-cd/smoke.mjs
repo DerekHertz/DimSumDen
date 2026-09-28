@@ -8,12 +8,33 @@
 // Uses Playwright (ci-cd/02 dependency decision). Prefers the browser already installed on the
 // machine (Chrome, then Edge) so this doesn't need its own Chromium download locally; CI installs
 // Chromium separately and this falls back to the Playwright-managed browser there.
-import { chromium } from "playwright";
 import { createDevServer, REPO_ROOT, FAVICON_PATH } from "./dev-server.mjs";
 
 const LAUNCH_CHANNELS = ["chrome", "msedge", undefined];
 
-async function launchBrowser() {
+// ci-cd/04: a fresh agent worktree never has node_modules, so the bare `import "playwright"`
+// below fails to resolve. That's not a bug in this script or a "pre-existing/unrelated"
+// failure -- it's a missing dependency, and it must say so in one line instead of dumping the
+// raw ERR_MODULE_NOT_FOUND stack. DependencyError carries that one line; the top-level handler
+// in main() prints only its message, never a stack, and still exits non-zero (never a skip).
+class DependencyError extends Error {}
+
+const MISSING_DEPENDENCY_MESSAGE =
+  "smoke: playwright not installed, run npm install && npx playwright install chromium";
+
+async function loadChromium() {
+  try {
+    const playwright = await import("playwright");
+    return playwright.chromium;
+  } catch (err) {
+    if (err?.code === "ERR_MODULE_NOT_FOUND") {
+      throw new DependencyError(MISSING_DEPENDENCY_MESSAGE);
+    }
+    throw err;
+  }
+}
+
+async function launchBrowser(chromium) {
   let lastError;
   for (const channel of LAUNCH_CHANNELS) {
     try {
@@ -21,6 +42,12 @@ async function launchBrowser() {
     } catch (err) {
       lastError = err;
     }
+  }
+  // Playwright's own message for a missing Chromium binary ("Executable doesn't exist at
+  // .../chromium-.../chrome-*") is the other half of "not installed": the package resolved
+  // but `npx playwright install chromium` was never run. Same one-line fix applies.
+  if (/executable doesn't exist/i.test(lastError?.message ?? "")) {
+    throw new DependencyError(MISSING_DEPENDENCY_MESSAGE);
   }
   throw new Error(
     `could not launch a browser (tried channels: ${LAUNCH_CHANNELS.filter(Boolean).join(", ")}, and the bundled Chromium). Last error: ${lastError?.message}`
@@ -92,6 +119,8 @@ async function main() {
     process.exit(1);
   }
 
+  const chromium = await loadChromium();
+
   const server = await startEphemeralServer();
   const { port } = server.address();
   const baseUrl = `http://127.0.0.1:${port}`;
@@ -99,7 +128,7 @@ async function main() {
   let browser;
   let anyFailed = false;
   try {
-    browser = await launchBrowser();
+    browser = await launchBrowser(chromium);
     for (const pagePath of pages) {
       const errorsByKind = await checkPage(browser, baseUrl, pagePath);
       if (errorsByKind.size === 0) {
@@ -121,6 +150,10 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err.stack ?? String(err));
+  if (err instanceof DependencyError) {
+    console.error(err.message);
+  } else {
+    console.error(err.stack ?? String(err));
+  }
   process.exit(1);
 });
