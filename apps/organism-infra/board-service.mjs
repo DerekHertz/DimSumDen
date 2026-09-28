@@ -20,6 +20,7 @@ import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
+import { validateState } from "./schemas.mjs";
 
 export const STATUSES = [
   "ready-for-agent",
@@ -477,11 +478,20 @@ async function testHoldEnd(lockPath, acquiredAt) {
 // deadlock. The events lock is taken before any ticket write: a timeout on
 // either lock leaves nothing written, so a ticket change and its event line
 // land together or not at all.
-async function commitWithEvent(eventsPath, writeTicket, event) {
+// `events` is a single event object (existing callers) or an array of them
+// (organism-infra/18: `release --force` logs both the ordinary release event
+// and a `kind:"override"` event in the same commit). Multiple events append
+// as consecutive, monotonically-sequenced lines under one lock hold.
+async function commitWithEvent(eventsPath, writeTicket, events) {
   await mkdir(path.dirname(eventsPath), { recursive: true });
+  const eventList = Array.isArray(events) ? events : [events];
   return withWriteLock(`${eventsPath}.write-lock.json`, async () => {
     await writeTicket();
-    return appendEventLocked(eventsPath, event);
+    const results = [];
+    for (const event of eventList) {
+      results.push(await appendEventLocked(eventsPath, event));
+    }
+    return results.length === 1 ? results[0] : results;
   });
 }
 
@@ -566,6 +576,52 @@ function claimingCell(lockContent) {
   return token || "unknown";
 }
 
+// organism-infra/18: a claim lock's optional third token records the calling
+// cell's `--mode` (e.g. `qa specify`), so `release` can tell a qa-specify
+// claim apart from qa-verify or a plain claim with no mode. Undefined when no
+// mode was given.
+function claimingMode(lockContent) {
+  return lockContent.trim().split(/\s+/)[2];
+}
+
+// organism-infra/18, ADR 0009 decisions 2 & 4: `release --status
+// in-review|resolved` must find the ticket's feature's newest handoff file
+// and validate its leading JSON State block. "Newest" is by mtime across
+// `.scratch/<feature>/handoffs/*.md` (qa's pinned convention, since handoffs
+// are filed per feature, not per ticket).
+async function validateHandoffState(root, feature) {
+  const handoffsDir = path.join(root, ".scratch", feature, "handoffs");
+  const entries = await readdir(handoffsDir, { withFileTypes: true }).catch(() => []);
+  const files = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name);
+  if (files.length === 0) {
+    return { ok: false, errors: [`no handoff file found under ${handoffsDir}`] };
+  }
+
+  let newestPath = null;
+  let newestMtime = -Infinity;
+  for (const name of files) {
+    const p = path.join(handoffsDir, name);
+    const s = await stat(p);
+    if (s.mtimeMs > newestMtime) {
+      newestMtime = s.mtimeMs;
+      newestPath = p;
+    }
+  }
+
+  const body = await readFile(newestPath, "utf8");
+  const match = /```json\s*([\s\S]*?)```/.exec(body);
+  if (!match) {
+    return { ok: false, errors: [`handoff ${newestPath} has no JSON State block`] };
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(match[1]);
+  } catch (err) {
+    return { ok: false, errors: [`handoff ${newestPath} State block is not valid JSON: ${err.message}`] };
+  }
+  return validateState(parsed);
+}
+
 function todayUTC() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -579,8 +635,10 @@ async function prepare(root, ref) {
   return { feature, ticket, paths };
 }
 
-export async function claim(root, ref, cellType) {
+export async function claim(root, ref, cellType, options = {}) {
+  const { mode } = options;
   checkArgLength(cellType, "cell type");
+  checkArgLength(mode, "mode");
   const { feature, ticket, paths } = await prepare(root, ref);
 
   // A taken claim lock fails fast, without waiting on the write lock. It is
@@ -605,7 +663,7 @@ export async function claim(root, ref, cellType) {
     await commitWithEvent(paths.eventsPath, async () => {
       await writeFile(
         paths.claimLockPath,
-        `${cellType} ${new Date().toISOString()}\n`,
+        `${cellType} ${new Date().toISOString()}${mode ? ` ${mode}` : ""}\n`,
         { encoding: "utf8", flag: "wx" }
       );
       await atomicWrite(paths.ticketPath, updated);
@@ -613,6 +671,7 @@ export async function claim(root, ref, cellType) {
       feature,
       ticket,
       cell: cellType,
+      mode: mode ?? null,
       op: "claim",
       from_status: fromStatus,
       to_status: "claimed",
@@ -621,37 +680,75 @@ export async function claim(root, ref, cellType) {
   });
 }
 
-export async function release(root, ref, newStatus, reason) {
+// organism-infra/18: `--status in-review|resolved` is gated by ADR 0009
+// decisions 2 and 4 -- a bad transition for the calling cell's mode (qa in
+// `specify` mode never sets ticket status itself), and a missing/invalid
+// handoff State block, are both hard-blocked unless `--force --reason "..."`
+// is given. A forced release still writes the release, but also logs a
+// `kind:"override"` events.jsonl line the orchestrator surfaces.
+const HANDOFF_GATED_STATUSES = new Set(["in-review", "resolved"]);
+
+export async function release(root, ref, newStatus, reason, options = {}) {
+  const { force } = options;
   checkArgLength(newStatus, "status");
   checkArgLength(reason, "reason");
   if (!STATUSES.includes(newStatus)) {
     throw new BoardError(`invalid status: ${newStatus}`);
+  }
+  if (force && !reason) {
+    throw new BoardError("--force requires --reason");
   }
   const { feature, ticket, paths } = await prepare(root, ref);
 
   return withWriteLock(paths.writeLockPath, async () => {
     await assertWithinRoot(root, paths.issuesDir);
     let cell = "unknown";
+    let mode;
     if (await exists(paths.claimLockPath)) {
-      cell = claimingCell(await readFile(paths.claimLockPath, "utf8"));
+      const lockContent = await readFile(paths.claimLockPath, "utf8");
+      cell = claimingCell(lockContent);
+      mode = claimingMode(lockContent);
     }
+
+    if (HANDOFF_GATED_STATUSES.has(newStatus) && !force) {
+      if (cell === "qa" && mode === "specify" && newStatus === "in-review") {
+        throw new BoardError(
+          `invalid status transition: a claim held by qa in "specify" mode cannot release ${ref} at in-review` +
+            ` (qa-specify never sets ticket status itself; use --force --reason to override)`
+        );
+      }
+      const handoffCheck = await validateHandoffState(root, feature);
+      if (!handoffCheck.ok) {
+        throw new BoardError(
+          `release blocked: ${ref} has no valid handoff State block: ${handoffCheck.errors.join("; ")}` +
+            ` (use --force --reason to override)`
+        );
+      }
+    }
+
     const content = await readFile(paths.ticketPath, "utf8");
     const fromStatus = readStatus(content);
     let updated = replaceStatus(content, newStatus);
     if (reason) {
       updated = `${updated.trimEnd()}\n- **${cell}, ${todayUTC()}:** ${reason}\n`;
     }
+    const events = [
+      {
+        feature,
+        ticket,
+        cell,
+        op: "release",
+        from_status: fromStatus,
+        to_status: newStatus,
+      },
+    ];
+    if (force) {
+      events.push({ feature, ticket, cell, op: "release", kind: "override", reason });
+    }
     await commitWithEvent(paths.eventsPath, async () => {
       await atomicWrite(paths.ticketPath, updated);
       await unlink(paths.claimLockPath).catch(() => {});
-    }, {
-      feature,
-      ticket,
-      cell,
-      op: "release",
-      from_status: fromStatus,
-      to_status: newStatus,
-    });
+    }, events);
     return { status: newStatus };
   });
 }

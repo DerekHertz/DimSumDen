@@ -17,6 +17,7 @@ import {
   makeBoardFixture,
   runBoard,
   deadPid,
+  writeValidHandoff,
 } from "./board-fixture.mjs";
 
 function todayUTC() {
@@ -223,6 +224,7 @@ test("release is one atomic call: sets status and deletes the claim lock togethe
   const fx = await makeBoardFixture();
   try {
     await runBoard(["claim", fx.ticketRelPath, "qa"], { cwd: fx.worktree });
+    await writeValidHandoff(fx);
     const { code } = await runBoard(
       ["release", fx.ticketRelPath, "--status", "in-review"],
       { cwd: fx.worktree }
@@ -267,6 +269,7 @@ test("every mutating call appends exactly one events.jsonl line matching the ADR
     assert.match(String(event.cell), /qa/);
     assert.equal(event.op, "claim");
 
+    await writeValidHandoff(fx);
     await runBoard(["release", fx.ticketRelPath, "--status", "in-review"], {
       cwd: fx.worktree,
     });

@@ -34,6 +34,32 @@ export function eventsPath(root) {
   return path.join(root, ".scratch", "events.jsonl");
 }
 
+// organism-infra/18: `release --status in-review|resolved` now requires a
+// valid handoff State block (docs/adr/0009-mechanical-checks-for-most-skipped-rules.md
+// decision 4). Tests written before that gate existed release to in-review
+// purely to exercise locking/concurrency/formatting behavior unrelated to the
+// handoff itself, so they use this helper to satisfy the gate without
+// duplicating board-cli-hardening.test.mjs's own State-block fixtures.
+export function validStateJson(overrides = {}) {
+  return {
+    ticket: "sample/01-do-thing",
+    current_step: "test setup",
+    artifacts: [],
+    decisions: [],
+    failures: [],
+    pending: [],
+    ...overrides,
+  };
+}
+
+export async function writeValidHandoff(fx, { filename = "00-setup.md", overrides = {} } = {}) {
+  const dir = path.join(fx.root, ".scratch", fx.feature, "handoffs");
+  await mkdir(dir, { recursive: true });
+  const body =
+    "```json\n" + JSON.stringify(validStateJson(overrides)) + "\n```\n\n## Summary\n\nfixture handoff\n";
+  await writeFile(path.join(dir, filename), body, "utf8");
+}
+
 function git(cwd, args) {
   return execFileSync("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"] }).toString();
 }
