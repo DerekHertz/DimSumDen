@@ -34,7 +34,17 @@ function git(root, args) {
   return execFileSync("git", args, { cwd: root, encoding: "utf8" });
 }
 
-function resolveP(p) {
+const DISPOSITIONS = {
+  LOCKED: "locked",
+  DIRTY: "dirty",
+  UNMERGED: "unmerged",
+  REMOVABLE: "removable",
+};
+
+// Resolves a path to an absolute, forward-slashed form with no trailing
+// slash, so paths from git output and from `path.join` compare equal
+// regardless of platform separators or trailing slashes.
+function normalizedAbsolutePath(p) {
   return path.resolve(p).replace(/\\/g, "/").replace(/\/$/, "");
 }
 
@@ -79,8 +89,8 @@ function isAncestorOfMain(root, sha, mainTip) {
 }
 
 function determineMainTip(root, entries) {
-  const rootResolved = resolveP(root);
-  const mainEntry = entries.find((e) => resolveP(e.worktreePath) === rootResolved);
+  const rootResolved = normalizedAbsolutePath(root);
+  const mainEntry = entries.find((e) => normalizedAbsolutePath(e.worktreePath) === rootResolved);
   let mainBranch = "main";
   if (mainEntry && mainEntry.branch) {
     mainBranch = mainEntry.branch.replace(/^refs\/heads\//, "");
@@ -90,16 +100,25 @@ function determineMainTip(root, entries) {
 
 function main() {
   const { root, apply } = parseArgs(process.argv.slice(2));
-  const rootResolved = resolveP(root);
+  const rootResolved = normalizedAbsolutePath(root);
 
   const raw = git(root, ["worktree", "list", "--porcelain"]);
   const entries = parseWorktreeList(raw);
+
+  const isMainCheckout = entries.some((e) => normalizedAbsolutePath(e.worktreePath) === rootResolved);
+  if (!isMainCheckout) {
+    console.error(
+      `worktree-gc: --root ${root} is not the main checkout (git worktree list does not list it). Refusing to run from inside a worktree.`
+    );
+    return 1;
+  }
+
   const mainTip = determineMainTip(root, entries);
 
-  const worktreesRoot = resolveP(path.join(root, ".claude", "worktrees")) + "/";
+  const worktreesRoot = normalizedAbsolutePath(path.join(root, ".claude", "worktrees")) + "/";
 
   const candidates = entries.filter((e) => {
-    const resolved = resolveP(e.worktreePath);
+    const resolved = normalizedAbsolutePath(e.worktreePath);
     if (resolved === rootResolved) return false;
     return (resolved + "/").startsWith(worktreesRoot);
   });
@@ -109,16 +128,16 @@ function main() {
     const name = path.basename(entry.worktreePath);
     let disposition;
     if (entry.locked) {
-      disposition = "locked";
+      disposition = DISPOSITIONS.LOCKED;
     } else if (isDirty(entry.worktreePath)) {
-      disposition = "dirty";
+      disposition = DISPOSITIONS.DIRTY;
     } else if (!isAncestorOfMain(root, entry.headSha, mainTip)) {
-      disposition = "unmerged";
+      disposition = DISPOSITIONS.UNMERGED;
     } else {
-      disposition = "removable";
+      disposition = DISPOSITIONS.REMOVABLE;
     }
 
-    if (disposition === "removable" && apply) {
+    if (disposition === DISPOSITIONS.REMOVABLE && apply) {
       git(root, ["worktree", "remove", entry.worktreePath]);
       lines.push(`${name}: removed (was clean, merged into main)`);
     } else {
@@ -131,6 +150,8 @@ function main() {
   } else {
     console.log(lines.join("\n"));
   }
+
+  return 0;
 }
 
-main();
+process.exit(main());
