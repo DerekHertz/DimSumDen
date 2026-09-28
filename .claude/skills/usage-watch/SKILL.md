@@ -3,7 +3,7 @@ name: usage-watch
 description: Check plan usage and wind work down before the limit hits. Use at every dispatch decision, when a cell returns, and every 30 minutes or so in a long session. If the 5-hour window is at or above 80%, start wrapping up.
 ---
 
-Read usage with `mcp__ccd_session_mgmt__get_usage` (main session only; the `5-hour limit` window's `percentUsed`). If the tool isn't available (for example in a subagent), ask the main session or the user for the number rather than guessing.
+Read usage with `mcp__ccd_session_mgmt__get_usage` (main session only; the `5-hour limit` window's `percentUsed`). The desktop app doesn't provide that tool to WSL sessions, so there run `node scripts/usage.mjs`: it prints `{"5-hour":{"percent","resets_at"},"weekly":{...}}` and exits 1 on any failure (if it reports no token, the user needs to log in to `claude` in WSL). If both fail, or you're a subagent, ask the main session or the user for the number rather than guessing.
 
 The user is on the **Pro** plan. If `get_usage` reports a different plan (e.g. it reported "Max" on 2026-09-27, likely stale), warn the user rather than silently trusting it.
 
