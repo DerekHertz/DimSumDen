@@ -669,9 +669,25 @@ async function prepare(root, ref) {
 // (qa set in-review during a specify claim) exploited -- is rejected too.
 const CLAIM_MODES = new Set(["specify", "verify"]);
 
+// organism-infra/24 security fix: identity is self-declared, but it must at
+// least name a real cell, so it can never carry newlines or forged markup.
+const KNOWN_CELLS = new Set([
+  "product", "architect", "orchestrator", "developer", "scout",
+  "debugger", "qa", "security", "designer",
+]);
+
+function checkKnownCell(name, what) {
+  if (typeof name !== "string" || !KNOWN_CELLS.has(name)) {
+    throw new BoardError(
+      `invalid ${what}: ${JSON.stringify(name)} (allowed: ${[...KNOWN_CELLS].join(", ")})`
+    );
+  }
+}
+
 export async function claim(root, ref, cellType, options = {}) {
   const { mode } = options;
   checkArgLength(cellType, "cell type");
+  checkKnownCell(cellType, "cell type");
   checkArgLength(mode, "mode");
   if (mode !== undefined && !CLAIM_MODES.has(mode)) {
     throw new BoardError(
@@ -729,8 +745,16 @@ export async function claim(root, ref, cellType, options = {}) {
 // lock may be taken over. With no lock there is nothing to take over (use
 // `claim`). The ticket status stays `claimed`.
 export async function reclaim(root, ref, cellType, options = {}) {
-  const { mode } = options;
+  const { mode, reason } = options;
   checkArgLength(cellType, "cell type");
+  checkKnownCell(cellType, "cell type");
+  if (cellType === "orchestrator") {
+    throw new BoardError("reclaim as orchestrator is refused (only orchestrator may resolve; use claim on an unlocked ticket)");
+  }
+  if (typeof reason !== "string" || reason.trim() === "") {
+    throw new BoardError("reclaim requires --reason <text>");
+  }
+  checkArgLength(reason, "reason");
   checkArgLength(mode, "mode");
   if (mode !== undefined && !CLAIM_MODES.has(mode)) {
     throw new BoardError(`invalid mode: ${mode} (allowed: ${[...CLAIM_MODES].join(", ")})`);
@@ -761,6 +785,7 @@ export async function reclaim(root, ref, cellType, options = {}) {
       cell: cellType,
       mode: mode ?? null,
       op: "reclaim",
+      reason,
       previous_cell: previous,
       from_status: status,
       to_status: status,
@@ -892,8 +917,15 @@ export async function comment(root, ref, text, options = {}) {
     // organism-infra/24: author is --as when given, else the claim lock's cell; with
     // neither the comment is rejected rather than stamped "unknown".
     let cell = as;
-    if (!cell && (await exists(paths.claimLockPath))) {
-      cell = claimingCell(await readFile(paths.claimLockPath, "utf8"));
+    if (cell !== undefined) checkKnownCell(cell, "author");
+    if (await exists(paths.claimLockPath)) {
+      const lockCell = claimingCell(await readFile(paths.claimLockPath, "utf8"));
+      if (cell !== undefined && cell !== lockCell) {
+        throw new BoardError(
+          `comment rejected: --as ${cell} does not match the claim lock's cell (${lockCell})`
+        );
+      }
+      cell = lockCell;
     }
     if (!cell) {
       throw new BoardError(

@@ -271,7 +271,7 @@ test("concurrent comment and release on one ticket lose no updates and leave the
     await writeValidHandoff(fx);
 
     const ops = [];
-    for (let i = 0; i < 6; i++) ops.push({ kind: "comment", text: `parallel comment ${i}`, args: ["comment", fx.ticketRelPath, "--as", "qa", `parallel comment ${i}`] });
+    for (let i = 0; i < 6; i++) ops.push({ kind: "comment", text: `parallel comment ${i}`, args: ["comment", fx.ticketRelPath, "--as", "developer", `parallel comment ${i}`] });
     ops.push({ kind: "release", text: "parallel release A", args: ["release", fx.ticketRelPath, "--status", "in-review", "--reason", "parallel release A"] });
     ops.push({ kind: "release", text: "parallel release B", args: ["release", fx.ticketRelPath, "--status", "blocked", "--reason", "parallel release B"] });
 

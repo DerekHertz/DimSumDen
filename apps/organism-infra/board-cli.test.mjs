@@ -304,7 +304,7 @@ test("board comment is stamped with the claiming cell's type and today's date", 
   try {
     await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], { cwd: fx.worktree });
     const { code } = await runBoard(
-      ["comment", fx.ticketRelPath, "--as", "qa", "hello from qa"],
+      ["comment", fx.ticketRelPath, "hello from qa"],
       { cwd: fx.worktree }
     );
     assert.equal(code, 0);

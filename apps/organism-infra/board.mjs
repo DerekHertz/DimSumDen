@@ -58,9 +58,9 @@ async function main() {
       return;
     }
     case "reclaim": {
-      const { positional, flags } = parseFlags(rest, { allowed: ["mode"] });
+      const { positional, flags } = parseFlags(rest, { allowed: ["mode", "reason"] });
       const [ref, cellType] = positional;
-      const result = await reclaim(root, ref, cellType, { mode: flags.mode });
+      const result = await reclaim(root, ref, cellType, { mode: flags.mode, reason: flags.reason });
       console.log(`reclaimed ${ref} for ${cellType}: ${result.status}`);
       return;
     }

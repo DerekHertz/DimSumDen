@@ -83,10 +83,10 @@ for (const [label, terminator] of [
 
 // --- `--as` / unknown flags (this ticket's added scope) ----------------------
 
-test("`board comment <ref> --as x \"text\"` does not store \"--as\" as the comment text", async () => {
+test("`board comment <ref> --as qa \"text\"` does not store \"--as\" as the comment text", async () => {
   const fx = await makeBoardFixture();
   try {
-    const r = await runBoard(["comment", fx.ticketRelPath, "--as", "x", "legit text"], {
+    const r = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", "legit text"], {
       cwd: fx.worktree,
     });
     const ticket = await fx.readTicket();
@@ -101,7 +101,7 @@ test("`board comment <ref> --as x \"text\"` does not store \"--as\" as the comme
     // (it names the author), so it is accepted and the value is the author,
     // never comment text.
     assert.equal(r.code, 0, r.stderr);
-    assert.match(ticket, /- \*\*x, \d{4}-\d{2}-\d{2}:\*\* legit text/);
+    assert.match(ticket, /- \*\*qa, \d{4}-\d{2}-\d{2}:\*\* legit text/);
   } finally {
     await fx.cleanup();
   }

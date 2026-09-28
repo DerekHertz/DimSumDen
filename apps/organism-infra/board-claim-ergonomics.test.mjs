@@ -88,7 +88,7 @@ test("`board reclaim <ref> <cell>` takes over an existing claim in one command",
     const first = await runBoard(["claim", fx.ticketRelPath, "developer"], { cwd: fx.worktree });
     assert.equal(first.code, 0, first.stderr);
 
-    const r = await runBoard(["reclaim", fx.ticketRelPath, "security"], { cwd: fx.worktree });
+    const r = await runBoard(["reclaim", fx.ticketRelPath, "security", "--reason", "holder gone"], { cwd: fx.worktree });
     assert.equal(r.code, 0, `reclaim should succeed: ${r.stderr}`);
 
     const lock = await readFile(fx.claimLockPath, "utf8");
