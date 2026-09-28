@@ -16,7 +16,7 @@ import {
 } from "node:fs/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import { execFileSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 
@@ -216,25 +216,77 @@ function isReclaimable(existing) {
   return sameHost && !alive && ageMs > WRITE_LOCK_AGE_FLOOR_MS;
 }
 
-// Tombstone-renames a lock judged stale. Only one racing reclaimer's rename
-// can succeed. But if another reclaimer already replaced the stale lock with
-// a fresh one between our read and our rename, we renamed the wrong file:
-// detect that by content and put it back with an exclusive link, which never
-// overwrites a lock created since. Returns true only if the stale lock is gone.
-async function tombstoneStale(lockPath, staleRaw) {
-  const tombstone = `${lockPath}.tombstone-${process.pid}-${Date.now()}-${randomBytes(4).toString("hex")}`;
+// Creates `filePath` exclusively with its full content in one step (temp file
+// plus hard link), so the file is never observed empty or half-written.
+async function createExclusive(filePath, content) {
+  const tmp = `${filePath}.${process.pid}-${randomBytes(4).toString("hex")}.tmp`;
+  await writeFile(tmp, content, "utf8");
   try {
-    await rename(lockPath, tombstone);
-  } catch {
-    return false; // someone else reclaimed or released it first
+    await link(tmp, filePath);
+  } finally {
+    await unlink(tmp).catch(() => {});
   }
-  const taken = await readFile(tombstone, "utf8").catch(() => null);
-  const wasStale = taken === staleRaw;
-  if (!wasStale) {
-    await link(tombstone, lockPath).catch(() => {});
+}
+
+const RECLAIM_GENERATIONS = 8;
+
+// Removes a lock judged stale, race-free. Returns true only if this call
+// removed it. Invariant argument: .scratch/organism-infra/handoffs/13-developer.md.
+//
+// Reclaimers of one stale lock serialize on a reclaim mutex named after that
+// lock's exact content: `<lock>.reclaim-<hash(staleRaw)>-<g>`, created
+// exclusively. Holding it, we re-read the lock and remove it only if it is
+// still byte-identical to what we judged stale and still meets the reclaim
+// rules. Nothing else can change the lock file in between: its owner is dead,
+// releasers only remove their own token, acquirers only create at an empty
+// path, and every other reclaimer of this content is shut out by the mutex
+// (reclaimers of other content see different bytes and do nothing).
+//
+// A mutex holder that crashes would block reclaim forever, so its rule: if
+// generation g is held by a dead pid on this host, move on to g+1. A process
+// holds generation g only if every lower generation's holder was dead when it
+// looked, and dead stays dead, so at most one live process holds any
+// generation. Mutex files are deleted only after the stale lock is gone, when
+// holding one no longer lets anyone remove anything.
+async function reclaimStale(lockPath, staleRaw, stale) {
+  const id = createHash("sha256").update(staleRaw).digest("hex").slice(0, 16);
+  const mine = JSON.stringify({ pid: process.pid, host: os.hostname() });
+  const mutexPath = (g) => `${lockPath}.reclaim-${id}-${g}`;
+
+  for (let g = 0; g < RECLAIM_GENERATIONS; g++) {
+    try {
+      await createExclusive(mutexPath(g), mine);
+    } catch (err) {
+      if (err.code !== "EEXIST") return false;
+      const holderRaw = await readFile(mutexPath(g), "utf8").catch(() => null);
+      if (holderRaw === null) return false; // just cleaned up: the stale lock is gone
+      let holder = null;
+      try {
+        holder = JSON.parse(holderRaw);
+      } catch {
+        return false;
+      }
+      if (holder && holder.host === os.hostname() && !isPidAlive(holder.pid)) continue;
+      return false; // a live reclaimer is on it: back off
+    }
+
+    let gone = false;
+    let removed = false;
+    try {
+      const current = await readFile(lockPath, "utf8").catch(() => null);
+      gone = current !== staleRaw;
+      if (!gone && isReclaimable(stale)) {
+        await testHook("reclaim-gap");
+        await unlink(lockPath);
+        gone = removed = true;
+      }
+    } finally {
+      const cleanup = gone ? Array.from({ length: g + 1 }, (_, i) => mutexPath(i)) : [mutexPath(g)];
+      await Promise.all(cleanup.map((p) => unlink(p).catch(() => {})));
+    }
+    return removed;
   }
-  await unlink(tombstone).catch(() => {});
-  return wasStale;
+  return false;
 }
 
 // Acquires the per-ticket write lock (ADR 0008 decision 2). A live lock is
@@ -257,7 +309,9 @@ async function acquireWriteLock(lockPath) {
       await tryCreateLock(lockPath, raw);
       return releaser(lockPath, raw);
     } catch (err) {
-      if (err.code !== "EEXIST") throw err;
+      // On Windows a just-unlinked lock can linger delete-pending while a
+      // reader has it open, and create then fails with EPERM: treat as busy.
+      if (!["EEXIST", "EPERM", "EACCES", "EBUSY"].includes(err.code)) throw err;
     }
 
     const existingRaw = await readFile(lockPath, "utf8").catch(() => null);
@@ -276,8 +330,9 @@ async function acquireWriteLock(lockPath) {
     // Retry the create at once only after removing a stale lock ourselves.
     // Every other path (live lock, lost reclaim race, vanished lock) sleeps,
     // so no interleaving can spin, and the deadline bounds the whole wait.
-    if (existing && isReclaimable(existing) && (await tombstoneStale(lockPath, existingRaw))) {
-      continue;
+    if (existing && isReclaimable(existing)) {
+      await testHook("stale-judged");
+      if (await reclaimStale(lockPath, existingRaw, existing)) continue;
     }
     const remaining = deadline - Date.now();
     if (remaining <= 0) {
@@ -291,11 +346,48 @@ async function acquireWriteLock(lockPath) {
 
 async function withWriteLock(lockPath, fn) {
   const release = await acquireWriteLock(lockPath);
+  const hold = await testHoldStart(lockPath);
   try {
     return await fn();
   } finally {
+    await testHoldEnd(lockPath, hold);
     await release();
   }
+}
+
+// --- Test seam (inert unless BOARD_TEST_* env vars are set) -----------------------
+// Lets tests force exact multi-process interleavings of the lock code.
+// BOARD_TEST_HOOK_DIR + BOARD_TEST_HOOKS=<point,...>: at each listed point the
+//   process writes <dir>/<point>.reached and waits (bounded) for <dir>/<point>.go.
+// BOARD_TEST_HOLD_LOG=<dir> [+ BOARD_TEST_HOLD_MS]: every lock hold is logged to
+//   its own file in <dir> as {lock, pid, acquiredAt, releasedAt}, and lasts at
+//   least BOARD_TEST_HOLD_MS, so tests can assert that no two holds overlap.
+
+async function testHook(point) {
+  const dir = process.env.BOARD_TEST_HOOK_DIR;
+  const points = (process.env.BOARD_TEST_HOOKS || "").split(",");
+  if (!dir || !points.includes(point)) return;
+  await writeFile(path.join(dir, `${point}.reached`), String(process.pid));
+  const go = path.join(dir, `${point}.go`);
+  const deadline = Date.now() + 15000;
+  while (!(await exists(go)) && Date.now() < deadline) await sleep(20);
+}
+
+async function testHoldStart(lockPath) {
+  if (!process.env.BOARD_TEST_HOLD_LOG) return null;
+  const acquiredAt = Date.now();
+  const ms = Number(process.env.BOARD_TEST_HOLD_MS || 0);
+  // Stretch only ticket-lock holds; the nested events lock stays short.
+  if (ms > 0 && !path.basename(lockPath).startsWith("events.")) await sleep(ms);
+  return acquiredAt;
+}
+
+async function testHoldEnd(lockPath, acquiredAt) {
+  const dir = process.env.BOARD_TEST_HOLD_LOG;
+  if (!dir || acquiredAt === null) return;
+  const record = { lock: path.basename(lockPath), pid: process.pid, acquiredAt, releasedAt: Date.now() };
+  const name = `hold-${process.pid}-${randomBytes(4).toString("hex")}.json`;
+  await writeFile(path.join(dir, name), JSON.stringify(record));
 }
 
 // --- Events ---------------------------------------------------------------------
