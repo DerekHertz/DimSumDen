@@ -719,7 +719,13 @@ export async function claim(root, ref, cellType, options = {}) {
     // header status line is refused without leaving a lock behind.
     const content = await readFile(paths.ticketPath, "utf8");
     const fromStatus = readStatus(content);
-    const updated = replaceStatus(content, "claimed");
+    // organism-infra/28: review cells (security, qa verify) claiming an
+    // in-review ticket leave it in-review while held; anyone else sets claimed.
+    const keepInReview =
+      fromStatus === "in-review" &&
+      (cellType === "security" || (cellType === "qa" && mode === "verify"));
+    const newStatus = keepInReview ? "in-review" : "claimed";
+    const updated = keepInReview ? content : replaceStatus(content, newStatus);
     await commitWithEvent(paths.eventsPath, async () => {
       await writeFile(
         paths.claimLockPath,
@@ -734,9 +740,9 @@ export async function claim(root, ref, cellType, options = {}) {
       mode: mode ?? null,
       op: "claim",
       from_status: fromStatus,
-      to_status: "claimed",
+      to_status: newStatus,
     });
-    return { status: "claimed" };
+    return { status: newStatus };
   });
 }
 
