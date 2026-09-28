@@ -64,16 +64,24 @@ export function validateState(input) {
   }
   const errors = checkRequiredKeys(input, STATE_KEYS, "state");
 
-  if ("pending" in input && Array.isArray(input.pending)) {
-    input.pending.forEach((item, index) => {
-      const hasNamedOwner =
-        isPlainObject(item) && typeof item.owner === "string" && item.owner.trim() !== "";
-      if (!hasNamedOwner) {
-        errors.push(
-          `state.pending[${index}] must name an owning cell: {item, owner} with a non-empty "owner"`
-        );
-      }
-    });
+  if ("pending" in input) {
+    if (!Array.isArray(input.pending)) {
+      errors.push('state.pending must be an array of {item, owner} objects');
+    } else {
+      input.pending.forEach((item, index) => {
+        const hasNamedOwner =
+          isPlainObject(item) &&
+          typeof item.item === "string" &&
+          item.item.trim() !== "" &&
+          typeof item.owner === "string" &&
+          item.owner.trim() !== "";
+        if (!hasNamedOwner) {
+          errors.push(
+            `state.pending[${index}] must name an owning cell: {item, owner}, both non-empty strings`
+          );
+        }
+      });
+    }
   }
 
   return errors.length ? { ok: false, errors } : { ok: true };
