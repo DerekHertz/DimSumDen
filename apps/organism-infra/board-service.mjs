@@ -9,12 +9,14 @@ import {
   rename,
   unlink,
   stat,
-  lstat,
   realpath,
   open,
   mkdir,
+  link,
 } from "node:fs/promises";
+import { setTimeout as sleep } from "node:timers/promises";
 import { execFileSync } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 
@@ -29,11 +31,27 @@ export const STATUSES = [
 
 const MAX_ARG_LEN = 4000;
 const WRITE_LOCK_AGE_FLOOR_MS = 5000;
+// Total time a mutation waits on a live write lock before giving up.
+const WRITE_LOCK_WAIT_MS = 2500;
+const BACKOFF_START_MS = 20;
+const BACKOFF_CAP_MS = 400;
+// Windows refuses a rename over a file another process has open.
+const RENAME_RETRY_MS = 1000;
 
 export class BoardError extends Error {
   constructor(message) {
     super(message);
     this.name = "BoardError";
+  }
+}
+
+// The write lock stayed held for the whole bounded wait. The CLI maps this to
+// exit code 75 (EX_TEMPFAIL): retrying later may succeed.
+export class LockTimeoutError extends BoardError {
+  constructor(message) {
+    super(message);
+    this.name = "LockTimeoutError";
+    this.exitCode = 75;
   }
 }
 
@@ -130,10 +148,36 @@ export function boardPaths(root, feature, ticket) {
 
 // --- Atomic writes -------------------------------------------------------------
 
+// Full-jitter exponential backoff: a random delay in [1, min(cap, start*2^n)].
+function backoffDelay(attempt) {
+  const ceiling = Math.min(BACKOFF_CAP_MS, BACKOFF_START_MS * 2 ** attempt);
+  return Math.max(1, Math.round(Math.random() * ceiling));
+}
+
+const RETRYABLE_RENAME = new Set(["EPERM", "EBUSY", "EACCES"]);
+
+async function renameWithRetry(from, to) {
+  const deadline = Date.now() + RENAME_RETRY_MS;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await rename(from, to);
+    } catch (err) {
+      if (!RETRYABLE_RENAME.has(err.code) || Date.now() >= deadline) throw err;
+      await sleep(backoffDelay(attempt));
+    }
+  }
+}
+
 async function atomicWrite(filePath, content) {
-  const tmp = `${filePath}.tmp`;
+  // Unique temp name: two writers never share (and clobber) one temp file.
+  const tmp = `${filePath}.${process.pid}-${randomBytes(4).toString("hex")}.tmp`;
   await writeFile(tmp, content, "utf8");
-  await rename(tmp, filePath);
+  try {
+    await renameWithRetry(tmp, filePath);
+  } catch (err) {
+    await unlink(tmp).catch(() => {});
+    throw err;
+  }
 }
 
 // --- Write lock -----------------------------------------------------------------
@@ -147,106 +191,276 @@ function isPidAlive(pid) {
   }
 }
 
-async function tryCreateLock(lockPath, payload) {
+async function tryCreateLock(lockPath, raw) {
   const handle = await open(lockPath, "wx");
   try {
-    await handle.writeFile(JSON.stringify(payload));
+    await handle.writeFile(raw);
   } finally {
     await handle.close();
   }
 }
 
-async function acquireWriteLock(lockPath) {
-  const payload = {
-    pid: process.pid,
-    host: os.hostname(),
-    createdAt: new Date().toISOString(),
+// Removes the lock only if it is still ours (token match), so a release can
+// never delete a lock another process has since taken.
+function releaser(lockPath, raw) {
+  return async () => {
+    const current = await readFile(lockPath, "utf8").catch(() => null);
+    if (current === raw) await unlink(lockPath).catch(() => {});
   };
-  try {
-    await tryCreateLock(lockPath, payload);
-    return async () => unlink(lockPath).catch(() => {});
-  } catch (err) {
-    if (err.code !== "EEXIST") throw err;
-  }
+}
 
-  let existing;
-  try {
-    existing = JSON.parse(await readFile(lockPath, "utf8"));
-  } catch {
-    throw new BoardError("write lock is held and unreadable");
-  }
-
+function isReclaimable(existing) {
   const sameHost = existing.host === os.hostname();
   const alive = isPidAlive(existing.pid);
   const ageMs = Date.now() - Date.parse(existing.createdAt);
-  const reclaimable = sameHost && !alive && ageMs > WRITE_LOCK_AGE_FLOOR_MS;
+  return sameHost && !alive && ageMs > WRITE_LOCK_AGE_FLOOR_MS;
+}
 
-  if (!reclaimable) {
-    throw new BoardError("write lock is held by another process");
-  }
-
-  const tombstone = `${lockPath}.tombstone-${process.pid}-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2)}`;
+// Creates `filePath` exclusively with its full content in one step (temp file
+// plus hard link), so the file is never observed empty or half-written.
+async function createExclusive(filePath, content) {
+  const tmp = `${filePath}.${process.pid}-${randomBytes(4).toString("hex")}.tmp`;
+  await writeFile(tmp, content, "utf8");
   try {
-    await rename(lockPath, tombstone);
-  } catch {
-    throw new BoardError("write lock was reclaimed by another process");
+    await link(tmp, filePath);
+  } finally {
+    await unlink(tmp).catch(() => {});
   }
+}
 
-  try {
-    await tryCreateLock(lockPath, payload);
-  } catch {
-    throw new BoardError("write lock was recreated by another process");
+const RECLAIM_GENERATIONS = 8;
+
+// Removes a lock judged stale, race-free. Returns true only if this call
+// removed it. Invariant argument: .scratch/organism-infra/handoffs/13-developer.md.
+//
+// Reclaimers of one stale lock serialize on a reclaim mutex named after that
+// lock's exact content: `<lock>.reclaim-<hash(staleRaw)>-<g>`, created
+// exclusively. Holding it, we re-read the lock and remove it only if it is
+// still byte-identical to what we judged stale and still meets the reclaim
+// rules. Nothing else can change the lock file in between: its owner is dead,
+// releasers only remove their own token, acquirers only create at an empty
+// path, and every other reclaimer of this content is shut out by the mutex
+// (reclaimers of other content see different bytes and do nothing).
+//
+// A mutex holder that crashes would block reclaim forever, so its rule: if
+// generation g is held by a dead pid on this host, move on to g+1. A process
+// holds generation g only if every lower generation's holder was dead when it
+// looked, and dead stays dead, so at most one live process holds any
+// generation. Mutex files are deleted only after the stale lock is gone, when
+// holding one no longer lets anyone remove anything.
+async function reclaimStale(lockPath, staleRaw, stale) {
+  const id = createHash("sha256").update(staleRaw).digest("hex").slice(0, 16);
+  const mine = JSON.stringify({ pid: process.pid, host: os.hostname() });
+  const mutexPath = (g) => `${lockPath}.reclaim-${id}-${g}`;
+
+  for (let g = 0; g < RECLAIM_GENERATIONS; g++) {
+    try {
+      await createExclusive(mutexPath(g), mine);
+    } catch (err) {
+      if (err.code !== "EEXIST") return false;
+      const holderRaw = await readFile(mutexPath(g), "utf8").catch(() => null);
+      if (holderRaw === null) return false; // just cleaned up: the stale lock is gone
+      let holder = null;
+      try {
+        holder = JSON.parse(holderRaw);
+      } catch {
+        return false;
+      }
+      if (holder && holder.host === os.hostname() && !isPidAlive(holder.pid)) continue;
+      return false; // a live reclaimer is on it: back off
+    }
+
+    let gone = false;
+    let removed = false;
+    try {
+      const current = await readFile(lockPath, "utf8").catch(() => null);
+      gone = current !== staleRaw;
+      if (!gone && isReclaimable(stale)) {
+        await testHook("reclaim-gap");
+        await unlink(lockPath);
+        gone = removed = true;
+      }
+    } finally {
+      const cleanup = gone ? Array.from({ length: g + 1 }, (_, i) => mutexPath(i)) : [mutexPath(g)];
+      await Promise.all(cleanup.map((p) => unlink(p).catch(() => {})));
+    }
+    return removed;
   }
-  return async () => unlink(lockPath).catch(() => {});
+  return false;
+}
+
+// Acquires the per-ticket write lock (ADR 0008 decision 2). A live lock is
+// waited on with bounded, full-jitter exponential backoff (sleeping, never
+// spinning) and never stolen; after WRITE_LOCK_WAIT_MS it throws
+// LockTimeoutError. Reclaim rules are unchanged: same host, dead pid, and
+// older than the age floor.
+async function acquireWriteLock(lockPath) {
+  const raw = JSON.stringify({
+    pid: process.pid,
+    host: os.hostname(),
+    createdAt: new Date().toISOString(),
+    token: randomBytes(8).toString("hex"),
+  });
+  const deadline = Date.now() + WRITE_LOCK_WAIT_MS;
+  let lastReason = "is held by another process";
+
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await tryCreateLock(lockPath, raw);
+      return releaser(lockPath, raw);
+    } catch (err) {
+      // On Windows a just-unlinked lock can linger delete-pending while a
+      // reader has it open, and create then fails with EPERM: treat as busy.
+      if (!["EEXIST", "EPERM", "EACCES", "EBUSY"].includes(err.code)) throw err;
+    }
+
+    const existingRaw = await readFile(lockPath, "utf8").catch(() => null);
+    let existing = null;
+    if (existingRaw !== null) {
+      try {
+        existing = JSON.parse(existingRaw);
+        if (!existing || typeof existing !== "object") throw new Error("not a lock object");
+        lastReason = `is held by pid ${existing.pid} on ${existing.host}`;
+      } catch {
+        // Mid-write by its creator, or corrupt: treat as held.
+        lastReason = "is held and unreadable";
+      }
+    }
+
+    // Retry the create at once only after removing a stale lock ourselves.
+    // Every other path (live lock, lost reclaim race, vanished lock) sleeps,
+    // so no interleaving can spin, and the deadline bounds the whole wait.
+    if (existing && isReclaimable(existing)) {
+      await testHook("stale-judged");
+      if (await reclaimStale(lockPath, existingRaw, existing)) continue;
+    }
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      throw new LockTimeoutError(
+        `write lock ${lastReason}; gave up after ${WRITE_LOCK_WAIT_MS}ms, retry later (${lockPath})`
+      );
+    }
+    await sleep(Math.min(backoffDelay(attempt), remaining));
+  }
 }
 
 async function withWriteLock(lockPath, fn) {
   const release = await acquireWriteLock(lockPath);
+  const hold = await testHoldStart(lockPath);
   try {
     return await fn();
   } finally {
+    await testHoldEnd(lockPath, hold);
     await release();
   }
 }
 
+// --- Test seam (inert unless BOARD_TEST_* env vars are set) -----------------------
+// Lets tests force exact multi-process interleavings of the lock code.
+// BOARD_TEST_HOOK_DIR + BOARD_TEST_HOOKS=<point,...>: at each listed point the
+//   process writes <dir>/<point>.reached and waits (bounded) for <dir>/<point>.go.
+// BOARD_TEST_HOLD_LOG=<dir> [+ BOARD_TEST_HOLD_MS]: every lock hold is logged to
+//   its own file in <dir> as {lock, pid, acquiredAt, releasedAt}, and lasts at
+//   least BOARD_TEST_HOLD_MS, so tests can assert that no two holds overlap.
+
+async function testHook(point) {
+  const dir = process.env.BOARD_TEST_HOOK_DIR;
+  const points = (process.env.BOARD_TEST_HOOKS || "").split(",");
+  if (!dir || !points.includes(point)) return;
+  await writeFile(path.join(dir, `${point}.reached`), String(process.pid));
+  const go = path.join(dir, `${point}.go`);
+  const deadline = Date.now() + 15000;
+  while (!(await exists(go)) && Date.now() < deadline) await sleep(20);
+}
+
+async function testHoldStart(lockPath) {
+  if (!process.env.BOARD_TEST_HOLD_LOG) return null;
+  const acquiredAt = Date.now();
+  const ms = Number(process.env.BOARD_TEST_HOLD_MS || 0);
+  // Stretch only ticket-lock holds; the nested events lock stays short.
+  if (ms > 0 && !path.basename(lockPath).startsWith("events.")) await sleep(ms);
+  return acquiredAt;
+}
+
+async function testHoldEnd(lockPath, acquiredAt) {
+  const dir = process.env.BOARD_TEST_HOLD_LOG;
+  if (!dir || acquiredAt === null) return;
+  const record = { lock: path.basename(lockPath), pid: process.pid, acquiredAt, releasedAt: Date.now() };
+  const name = `hold-${process.pid}-${randomBytes(4).toString("hex")}.json`;
+  await writeFile(path.join(dir, name), JSON.stringify(record));
+}
+
 // --- Events ---------------------------------------------------------------------
 
-async function appendEvent(eventsPath, event) {
+// events.jsonl is shared by every ticket, so the per-ticket write lock does
+// not serialize it. A board-wide events lock (same bounded wait and reclaim
+// rules) guards it. Lock order is always ticket lock, then events lock, so no
+// deadlock. The events lock is taken before any ticket write: a timeout on
+// either lock leaves nothing written, so a ticket change and its event line
+// land together or not at all.
+async function commitWithEvent(eventsPath, writeTicket, event) {
+  await mkdir(path.dirname(eventsPath), { recursive: true });
+  return withWriteLock(`${eventsPath}.write-lock.json`, async () => {
+    await writeTicket();
+    return appendEventLocked(eventsPath, event);
+  });
+}
+
+// Caller holds the events lock. A whole-file temp write plus rename, not an
+// `a`-flag append: O_APPEND is not an atomic append on Windows, and the
+// rename means a reader never sees a torn line.
+async function appendEventLocked(eventsPath, event) {
+  const current = await readFile(eventsPath, "utf8").catch((err) => {
+    if (err.code === "ENOENT") return "";
+    throw err;
+  });
   let lastSeq = 0;
-  if (await exists(eventsPath)) {
-    const content = await readFile(eventsPath, "utf8");
-    const lines = content.trim().split("\n").filter(Boolean);
-    if (lines.length > 0) {
-      try {
-        lastSeq = JSON.parse(lines[lines.length - 1]).seq ?? 0;
-      } catch {
-        lastSeq = 0;
-      }
+  const lines = current.trim().split("\n").filter(Boolean);
+  if (lines.length > 0) {
+    try {
+      lastSeq = JSON.parse(lines[lines.length - 1]).seq ?? 0;
+    } catch {
+      lastSeq = 0;
     }
-  } else {
-    await mkdir(path.dirname(eventsPath), { recursive: true });
   }
   const full = { seq: lastSeq + 1, ts: new Date().toISOString(), ...event };
-  const line = `${JSON.stringify(full)}\n`;
-  const current = (await exists(eventsPath)) ? await readFile(eventsPath, "utf8") : "";
-  await atomicWrite(eventsPath, current + line);
+  const prefix = current === "" || current.endsWith("\n") ? current : `${current}\n`;
+  await atomicWrite(eventsPath, `${prefix}${JSON.stringify(full)}\n`);
   return full;
 }
 
 // --- Ticket helpers ---------------------------------------------------------------
 
+// The header status line: `**Status:** value` (the real format) or plain
+// `Status: value`, at the start of a line, before the first `## ` section.
+// Status text mid-line in body prose, or anywhere under ## Comments, never
+// matches.
+const STATUS_LINE_RE = /^(\*\*Status:\*\*|\*\*Status\*\*:|Status:)([ \t]*)([^\s*]+)/m;
+
+function findStatus(content) {
+  const section = /^## /m.exec(content);
+  const header = section ? content.slice(0, section.index) : content;
+  const m = STATUS_LINE_RE.exec(header);
+  if (!m) return undefined;
+  return { index: m.index, label: m[1], gap: m[2] || " ", value: m[3], length: m[0].length };
+}
+
 function readStatus(content) {
-  const match = content.match(/Status:\s*(\S+)/);
-  return match ? match[1] : undefined;
+  return findStatus(content)?.value;
 }
 
 function replaceStatus(content, newStatus) {
-  if (/Status:\s*\S+/.test(content)) {
-    return content.replace(/Status:\s*\S+/, `Status: ${newStatus}`);
+  const found = findStatus(content);
+  if (!found) {
+    throw new BoardError("ticket has no header status line (**Status:** <value>)");
   }
-  return content;
+  return (
+    content.slice(0, found.index) +
+    found.label +
+    found.gap +
+    newStatus +
+    content.slice(found.index + found.length)
+  );
 }
 
 function claimingCell(lockContent) {
@@ -271,6 +485,12 @@ export async function claim(root, ref, cellType) {
   checkArgLength(cellType, "cell type");
   const { feature, ticket, paths } = await prepare(root, ref);
 
+  // A taken claim lock fails fast, without waiting on the write lock. It is
+  // checked again under the write lock, which is the authoritative check.
+  if (await exists(paths.claimLockPath)) {
+    throw new BoardError(`ticket already claimed: ${ref}`);
+  }
+
   return withWriteLock(paths.writeLockPath, async () => {
     if (await exists(paths.claimLockPath)) {
       throw new BoardError(`ticket already claimed: ${ref}`);
@@ -278,15 +498,19 @@ export async function claim(root, ref, cellType) {
     if (!(await exists(paths.ticketPath))) {
       throw new BoardError(`ticket not found: ${ref}`);
     }
-    await writeFile(
-      paths.claimLockPath,
-      `${cellType} ${new Date().toISOString()}\n`,
-      "utf8"
-    );
+    // Read and validate before creating the claim lock, so a ticket with no
+    // header status line is refused without leaving a lock behind.
     const content = await readFile(paths.ticketPath, "utf8");
     const fromStatus = readStatus(content);
-    await atomicWrite(paths.ticketPath, replaceStatus(content, "claimed"));
-    await appendEvent(paths.eventsPath, {
+    const updated = replaceStatus(content, "claimed");
+    await commitWithEvent(paths.eventsPath, async () => {
+      await writeFile(
+        paths.claimLockPath,
+        `${cellType} ${new Date().toISOString()}\n`,
+        { encoding: "utf8", flag: "wx" }
+      );
+      await atomicWrite(paths.ticketPath, updated);
+    }, {
       feature,
       ticket,
       cell: cellType,
@@ -317,9 +541,10 @@ export async function release(root, ref, newStatus, reason) {
     if (reason) {
       updated = `${updated.trimEnd()}\n- **${cell}, ${todayUTC()}:** ${reason}\n`;
     }
-    await atomicWrite(paths.ticketPath, updated);
-    await unlink(paths.claimLockPath).catch(() => {});
-    await appendEvent(paths.eventsPath, {
+    await commitWithEvent(paths.eventsPath, async () => {
+      await atomicWrite(paths.ticketPath, updated);
+      await unlink(paths.claimLockPath).catch(() => {});
+    }, {
       feature,
       ticket,
       cell,
@@ -357,8 +582,7 @@ export async function comment(root, ref, text) {
     } else {
       updated = `${content.trimEnd()}\n\n## Comments\n${stamp}\n`;
     }
-    await atomicWrite(paths.ticketPath, updated);
-    await appendEvent(paths.eventsPath, {
+    await commitWithEvent(paths.eventsPath, () => atomicWrite(paths.ticketPath, updated), {
       feature,
       ticket,
       cell,

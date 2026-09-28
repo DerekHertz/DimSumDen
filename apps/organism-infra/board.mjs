@@ -77,5 +77,7 @@ main().catch((err) => {
   } else {
     console.error(`board: unexpected error: ${err.stack || err}`);
   }
-  process.exitCode = 1;
+  // 75 (EX_TEMPFAIL) when the write lock stayed held for the whole bounded
+  // wait, so callers can tell "retry later" from a real error (1).
+  process.exitCode = err instanceof BoardError && err.exitCode ? err.exitCode : 1;
 });
