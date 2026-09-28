@@ -1,6 +1,6 @@
-# Agent Office
+﻿# Dim Sum Den
 
-A personal control room for observing and steering AI agents across the software development life cycle. The team is modeled as an organism.
+Formerly Agent Office. A personal control room for observing and steering AI agents across the software development life cycle. The team is modeled as an organism.
 
 ## Structure
 
