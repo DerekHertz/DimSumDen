@@ -710,19 +710,24 @@ export async function release(root, ref, newStatus, reason, options = {}) {
       mode = claimingMode(lockContent);
     }
 
-    if (HANDOFF_GATED_STATUSES.has(newStatus) && !force) {
+    if (HANDOFF_GATED_STATUSES.has(newStatus)) {
+      // Ticket 18 only names `--force` as an override for the handoff
+      // State-block check (item 3), never for this transition rule (item
+      // 2): qa-specify never sets ticket status itself, full stop.
       if (cell === "qa" && mode === "specify" && newStatus === "in-review") {
         throw new BoardError(
           `invalid status transition: a claim held by qa in "specify" mode cannot release ${ref} at in-review` +
-            ` (qa-specify never sets ticket status itself; use --force --reason to override)`
+            ` (qa-specify never sets ticket status itself)`
         );
       }
-      const handoffCheck = await validateHandoffState(root, feature);
-      if (!handoffCheck.ok) {
-        throw new BoardError(
-          `release blocked: ${ref} has no valid handoff State block: ${handoffCheck.errors.join("; ")}` +
-            ` (use --force --reason to override)`
-        );
+      if (!force) {
+        const handoffCheck = await validateHandoffState(root, feature);
+        if (!handoffCheck.ok) {
+          throw new BoardError(
+            `release blocked: ${ref} has no valid handoff State block: ${handoffCheck.errors.join("; ")}` +
+              ` (use --force --reason to override)`
+          );
+        }
       }
     }
 
@@ -742,7 +747,11 @@ export async function release(root, ref, newStatus, reason, options = {}) {
         to_status: newStatus,
       },
     ];
-    if (force) {
+    // Only log an override when `--force` actually bypassed something (the
+    // handoff-state check, gated on in-review/resolved): a force flag on an
+    // ungated status has nothing to override and must not pollute the audit
+    // trail with a spurious event.
+    if (force && HANDOFF_GATED_STATUSES.has(newStatus)) {
       events.push({ feature, ticket, cell, op: "release", kind: "override", reason });
     }
     await commitWithEvent(paths.eventsPath, async () => {
