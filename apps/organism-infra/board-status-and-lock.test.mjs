@@ -188,6 +188,47 @@ test("a taken claim lock fails fast even while the write lock is held", async ()
 
 // --- Concurrency -----------------------------------------------------------------
 
+test("concurrent mutations on different tickets never collide on seq or lose an event line", async () => {
+  const fx = await makeBoardFixture({ content: REAL_02 });
+  try {
+    const N = 10;
+    const refs = [];
+    for (let i = 0; i < N; i++) {
+      const ticket = `${String(20 + i)}-parallel`;
+      await writeFile(path.join(path.dirname(fx.ticketPath), `${ticket}.md`), REAL_02);
+      refs.push(`${fx.feature}/${ticket}`);
+    }
+    // Mix of ops so every mutating path appends under contention.
+    const results = await Promise.all(
+      refs.map((ref, i) => {
+        const args =
+          i % 3 === 0
+            ? ["comment", ref, `cross-ticket ${i}`]
+            : i % 3 === 1
+              ? ["claim", ref, "developer"]
+              : ["release", ref, "--status", "in-review", "--reason", `cross-ticket ${i}`];
+        return runBoard(args, { cwd: fx.worktree, timeoutMs: 20000 });
+      })
+    );
+    results.forEach((r, i) => assert.equal(r.code, 0, `op ${i}: ${r.stderr}`));
+
+    const raw = await readFile(fx.eventsPath, "utf8");
+    const lines = raw.split("\n").filter(Boolean);
+    assert.equal(lines.length, N, "one event line per mutation, none lost");
+    const evs = lines.map((l) => JSON.parse(l)); // throws on a torn line
+    assert.deepEqual(evs.map((e) => e.seq), Array.from({ length: N }, (_, i) => i + 1));
+    assert.deepEqual(
+      evs.map((e) => e.ticket).sort(),
+      refs.map((r) => r.split("/")[1]).sort(),
+      "exactly one event per ticket"
+    );
+    const leftovers = (await readdir(path.dirname(fx.eventsPath))).filter((f) => /\.tmp$|write-lock/.test(f));
+    assert.deepEqual(leftovers, []);
+  } finally {
+    await fx.cleanup();
+  }
+});
+
 test("concurrent comment and release on one ticket lose no updates and leave the file intact", async () => {
   const fx = await makeBoardFixture({ content: REAL_13.replace("**Status:** claimed", "**Status:** ready-for-agent") });
   try {

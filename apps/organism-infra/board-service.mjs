@@ -300,11 +300,22 @@ async function withWriteLock(lockPath, fn) {
 
 // --- Events ---------------------------------------------------------------------
 
+// events.jsonl is shared by every ticket, so the per-ticket write lock does
+// not serialize it. A board-wide events lock (same bounded wait and reclaim
+// rules) guards read-last-seq-and-append. Lock order is always ticket lock,
+// then events lock, and the events lock is held only here, so no deadlock.
+// The append is a whole-file temp write plus rename under the lock rather
+// than an `a`-flag append: O_APPEND is not an atomic append on Windows, and
+// the rename also means a reader never sees a torn line.
 async function appendEvent(eventsPath, event) {
-  let lastSeq = 0;
-  if (await exists(eventsPath)) {
-    const content = await readFile(eventsPath, "utf8");
-    const lines = content.trim().split("\n").filter(Boolean);
+  await mkdir(path.dirname(eventsPath), { recursive: true });
+  return withWriteLock(`${eventsPath}.write-lock.json`, async () => {
+    const current = await readFile(eventsPath, "utf8").catch((err) => {
+      if (err.code === "ENOENT") return "";
+      throw err;
+    });
+    let lastSeq = 0;
+    const lines = current.trim().split("\n").filter(Boolean);
     if (lines.length > 0) {
       try {
         lastSeq = JSON.parse(lines[lines.length - 1]).seq ?? 0;
@@ -312,14 +323,11 @@ async function appendEvent(eventsPath, event) {
         lastSeq = 0;
       }
     }
-  } else {
-    await mkdir(path.dirname(eventsPath), { recursive: true });
-  }
-  const full = { seq: lastSeq + 1, ts: new Date().toISOString(), ...event };
-  const line = `${JSON.stringify(full)}\n`;
-  const current = (await exists(eventsPath)) ? await readFile(eventsPath, "utf8") : "";
-  await atomicWrite(eventsPath, current + line);
-  return full;
+    const full = { seq: lastSeq + 1, ts: new Date().toISOString(), ...event };
+    const prefix = current === "" || current.endsWith("\n") ? current : `${current}\n`;
+    await atomicWrite(eventsPath, `${prefix}${JSON.stringify(full)}\n`);
+    return full;
+  });
 }
 
 // --- Ticket helpers ---------------------------------------------------------------
