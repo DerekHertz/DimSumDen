@@ -584,42 +584,69 @@ function claimingMode(lockContent) {
   return lockContent.trim().split(/\s+/)[2];
 }
 
-// organism-infra/18, ADR 0009 decisions 2 & 4: `release --status
-// in-review|resolved` must find the ticket's feature's newest handoff file
-// and validate its leading JSON State block. "Newest" is by mtime across
-// `.scratch/<feature>/handoffs/*.md` (qa's pinned convention, since handoffs
-// are filed per feature, not per ticket).
-async function validateHandoffState(root, feature) {
+// organism-infra/18, ADR 0009 decisions 2 & 4, hardened after security's
+// fix-1 bounce: `release --status in-review|resolved` must find a handoff
+// bound to *the ticket being released*, not just newest-by-mtime across the
+// whole feature. Two-stage filter:
+//   1. Only filenames starting with the ticket's "NN-" prefix are considered
+//      at all (handoffs live in `.scratch/<feature>/handoffs/*.md`, named
+//      per the handoff skill's own `<NN>-<cell>[-<n>].md` convention).
+//   2. Among those, only a file whose parsed State block's `ticket` field
+//      equals the ref being released -- either the full slug
+//      (`<feature>/<ticket>`) or the short `<feature>/<NN>` form -- is a
+//      candidate. mtime is only the tie-break *within* that set: this repo
+//      runs every cell in a fresh git worktree, and `git checkout` resets
+//      mtimes, so mtime alone is never a stable "most recent" signal.
+// Refuses (no candidate) rather than falling back to some other file, so a
+// release can never silently pass the gate on an unrelated or stale handoff.
+async function validateHandoffState(root, feature, ticket) {
   const handoffsDir = path.join(root, ".scratch", feature, "handoffs");
+  const nnMatch = /^(\d{2})-/.exec(ticket);
+  const prefix = nnMatch ? `${nnMatch[1]}-` : null;
   const entries = await readdir(handoffsDir, { withFileTypes: true }).catch(() => []);
-  const files = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name);
+  const files = entries
+    .filter((e) => e.isFile() && e.name.endsWith(".md") && prefix && e.name.startsWith(prefix))
+    .map((e) => e.name);
   if (files.length === 0) {
-    return { ok: false, errors: [`no handoff file found under ${handoffsDir}`] };
+    return {
+      ok: false,
+      errors: [
+        `no handoff file found for ${feature}/${ticket} under ${handoffsDir} (expected a filename starting with "${prefix}")`,
+      ],
+    };
   }
 
-  let newestPath = null;
-  let newestMtime = -Infinity;
+  const fullRef = `${feature}/${ticket}`;
+  const shortRef = `${feature}/${nnMatch[1]}`;
+  const candidates = [];
   for (const name of files) {
     const p = path.join(handoffsDir, name);
     const s = await stat(p);
-    if (s.mtimeMs > newestMtime) {
-      newestMtime = s.mtimeMs;
-      newestPath = p;
+    const body = await readFile(p, "utf8");
+    const match = /```json\s*([\s\S]*?)```/.exec(body);
+    if (!match) continue;
+    let parsed;
+    try {
+      parsed = JSON.parse(match[1]);
+    } catch {
+      continue;
+    }
+    if (parsed && (parsed.ticket === fullRef || parsed.ticket === shortRef)) {
+      candidates.push({ path: p, mtimeMs: s.mtimeMs, parsed });
     }
   }
 
-  const body = await readFile(newestPath, "utf8");
-  const match = /```json\s*([\s\S]*?)```/.exec(body);
-  if (!match) {
-    return { ok: false, errors: [`handoff ${newestPath} has no JSON State block`] };
+  if (candidates.length === 0) {
+    return {
+      ok: false,
+      errors: [
+        `no handoff matching "${prefix}*.md" under ${handoffsDir} has a State block bound to "${fullRef}" (or "${shortRef}")`,
+      ],
+    };
   }
-  let parsed;
-  try {
-    parsed = JSON.parse(match[1]);
-  } catch (err) {
-    return { ok: false, errors: [`handoff ${newestPath} State block is not valid JSON: ${err.message}`] };
-  }
-  return validateState(parsed);
+
+  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return validateState(candidates[0].parsed);
 }
 
 function todayUTC() {
@@ -635,10 +662,27 @@ async function prepare(root, ref) {
   return { feature, ticket, paths };
 }
 
+// organism-infra/18 fix-1 (security HIGH #2): `--mode` is self-reported, so
+// it must be constrained at the claim itself, not trusted later at release.
+// An unrecognized mode string is rejected for every cell (not just qa), and
+// a qa claim without `--mode` at all -- the exact gap the original incident
+// (qa set in-review during a specify claim) exploited -- is rejected too.
+const CLAIM_MODES = new Set(["specify", "verify"]);
+
 export async function claim(root, ref, cellType, options = {}) {
   const { mode } = options;
   checkArgLength(cellType, "cell type");
   checkArgLength(mode, "mode");
+  if (mode !== undefined && !CLAIM_MODES.has(mode)) {
+    throw new BoardError(
+      `invalid mode: ${mode} (allowed: ${[...CLAIM_MODES].join(", ")})`
+    );
+  }
+  if (cellType === "qa" && mode === undefined) {
+    throw new BoardError(
+      `--mode is required for cell "qa" (allowed: ${[...CLAIM_MODES].join(", ")})`
+    );
+  }
   const { feature, ticket, paths } = await prepare(root, ref);
 
   // A taken claim lock fails fast, without waiting on the write lock. It is
@@ -713,15 +757,18 @@ export async function release(root, ref, newStatus, reason, options = {}) {
     if (HANDOFF_GATED_STATUSES.has(newStatus)) {
       // Ticket 18 only names `--force` as an override for the handoff
       // State-block check (item 3), never for this transition rule (item
-      // 2): qa-specify never sets ticket status itself, full stop.
-      if (cell === "qa" && mode === "specify" && newStatus === "in-review") {
+      // 2). Security fix-1 (HIGH #2): a qa release to in-review is allowed
+      // only for a *verify* claim -- allow-listing "specify" alone left any
+      // other mode (including none, before claim required one) sail
+      // through, which is the exact incident this ticket exists to close.
+      if (cell === "qa" && newStatus === "in-review" && mode !== "verify") {
         throw new BoardError(
-          `invalid status transition: a claim held by qa in "specify" mode cannot release ${ref} at in-review` +
-            ` (qa-specify never sets ticket status itself)`
+          `invalid status transition: a claim held by qa in mode "${mode ?? "none"}" cannot release ${ref} at in-review` +
+            ` (only a qa claim in "verify" mode may)`
         );
       }
       if (!force) {
-        const handoffCheck = await validateHandoffState(root, feature);
+        const handoffCheck = await validateHandoffState(root, feature, ticket);
         if (!handoffCheck.ok) {
           throw new BoardError(
             `release blocked: ${ref} has no valid handoff State block: ${handoffCheck.errors.join("; ")}` +

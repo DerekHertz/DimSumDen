@@ -202,7 +202,7 @@ test("a taken claim lock fails fast even while the write lock is held", async ()
     await writeFile(fx.claimLockPath, "developer 2026-09-27T00:00:00.000Z\n");
     await writeFile(fx.writeLockPath, liveLock());
     const started = Date.now();
-    const result = await runBoard(["claim", fx.ticketRelPath, "qa"], { cwd: fx.worktree, timeoutMs: 10000 });
+    const result = await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], { cwd: fx.worktree, timeoutMs: 10000 });
     const elapsed = Date.now() - started;
     assert.equal(result.code, 1, result.stderr);
     assert.match(result.stderr, /already claimed/);
@@ -225,7 +225,13 @@ test("concurrent mutations on different tickets never collide on seq or lose an 
       await writeFile(path.join(path.dirname(fx.ticketPath), `${ticket}.md`), REAL_02);
       refs.push(`${fx.feature}/${ticket}`);
     }
-    await writeValidHandoff(fx);
+    // organism-infra/18 fix-1: release now binds the handoff it reads to the
+    // ticket being released (by filename prefix + State.ticket match), so
+    // each of the 10 parallel tickets here needs its own matching handoff,
+    // not the one shared fixture handoff this loop used to write once.
+    for (const ref of refs) {
+      await writeValidHandoff(fx, { ticket: ref.split("/")[1] });
+    }
     // Mix of ops so every mutating path appends under contention.
     const results = await Promise.all(
       refs.map((ref, i) => {

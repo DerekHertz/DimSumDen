@@ -27,7 +27,14 @@ function parseFlags(args, { allowed = null, boolean = [] } = {}) {
       if (boolean.includes(name)) {
         flags[name] = true;
       } else {
-        flags[name] = args[i + 1];
+        // organism-infra/18 fix-1 (security low finding): a flag value can
+        // never start with "--" -- otherwise `--reason --force` silently
+        // swallows `--force` as the literal reason text instead of erroring.
+        const value = args[i + 1];
+        if (value === undefined || value.startsWith("--")) {
+          throw new BoardError(`--${name} requires a value`);
+        }
+        flags[name] = value;
         i++;
       }
     } else {

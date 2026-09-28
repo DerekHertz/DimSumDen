@@ -52,12 +52,24 @@ export function validStateJson(overrides = {}) {
   };
 }
 
-export async function writeValidHandoff(fx, { filename = "00-setup.md", overrides = {} } = {}) {
+// organism-infra/18 fix-1 (security HIGH #1): release now only considers a
+// handoff (a) whose filename starts with the released ticket's "NN-" prefix
+// and (b) whose State block `ticket` field names that exact ticket -- so the
+// default filename and `ticket` field here are both derived from `fx.ticket`
+// (or the `ticket` override, for a fixture exercising several tickets in one
+// feature) instead of a fixed "00-setup.md" / "sample/01-do-thing". Every
+// existing caller that doesn't pass `ticket` uses `fx`'s own default ticket,
+// so for them this is a setup-only rename, not a behavior change.
+export async function writeValidHandoff(fx, { filename, ticket = fx.ticket, overrides = {} } = {}) {
   const dir = path.join(fx.root, ".scratch", fx.feature, "handoffs");
   await mkdir(dir, { recursive: true });
+  const nn = /^(\d{2})-/.exec(ticket)?.[1] ?? "00";
+  const name = filename ?? `${nn}-setup.md`;
   const body =
-    "```json\n" + JSON.stringify(validStateJson(overrides)) + "\n```\n\n## Summary\n\nfixture handoff\n";
-  await writeFile(path.join(dir, filename), body, "utf8");
+    "```json\n" +
+    JSON.stringify(validStateJson({ ticket: `${fx.feature}/${ticket}`, ...overrides })) +
+    "\n```\n\n## Summary\n\nfixture handoff\n";
+  await writeFile(path.join(dir, name), body, "utf8");
 }
 
 function git(cwd, args) {
