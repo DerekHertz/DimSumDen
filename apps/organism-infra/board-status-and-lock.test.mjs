@@ -136,7 +136,7 @@ test("a held live write lock fails in bounded time with the distinct lock-timeou
   try {
     await writeFile(fx.writeLockPath, liveLock());
     const started = Date.now();
-    const result = await runBoard(["comment", fx.ticketRelPath, "blocked by lock"], {
+    const result = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", "blocked by lock"], {
       cwd: fx.worktree,
       timeoutMs: 10000,
     });
@@ -158,7 +158,7 @@ test("a write lock released mid-wait lets the waiting command succeed", async ()
   const fx = await makeBoardFixture({ content: REAL_13 });
   try {
     await writeFile(fx.writeLockPath, liveLock());
-    const pending = runBoard(["comment", fx.ticketRelPath, "after the wait"], {
+    const pending = runBoard(["comment", fx.ticketRelPath, "--as", "qa", "after the wait"], {
       cwd: fx.worktree,
       timeoutMs: 10000,
     });
@@ -181,7 +181,7 @@ test("a held events lock times out release/comment with 75 and changes neither t
     await writeFile(eventsLock, liveLock());
     for (const args of [
       ["release", fx.ticketRelPath, "--status", "in-review", "--reason", "should not land"],
-      ["comment", fx.ticketRelPath, "should not land"],
+      ["comment", fx.ticketRelPath, "--as", "qa", "should not land"],
     ]) {
       const r = await runBoard(args, { cwd: fx.worktree, timeoutMs: 10000 });
       assert.equal(r.code, LOCK_TIMEOUT_EXIT, `${args[0]}: ${r.stderr}`);
@@ -237,7 +237,7 @@ test("concurrent mutations on different tickets never collide on seq or lose an 
       refs.map((ref, i) => {
         const args =
           i % 3 === 0
-            ? ["comment", ref, `cross-ticket ${i}`]
+            ? ["comment", ref, "--as", "qa", `cross-ticket ${i}`]
             : i % 3 === 1
               ? ["claim", ref, "developer"]
               : ["release", ref, "--status", "in-review", "--reason", `cross-ticket ${i}`];
@@ -271,7 +271,7 @@ test("concurrent comment and release on one ticket lose no updates and leave the
     await writeValidHandoff(fx);
 
     const ops = [];
-    for (let i = 0; i < 6; i++) ops.push({ kind: "comment", text: `parallel comment ${i}`, args: ["comment", fx.ticketRelPath, `parallel comment ${i}`] });
+    for (let i = 0; i < 6; i++) ops.push({ kind: "comment", text: `parallel comment ${i}`, args: ["comment", fx.ticketRelPath, "--as", "qa", `parallel comment ${i}`] });
     ops.push({ kind: "release", text: "parallel release A", args: ["release", fx.ticketRelPath, "--status", "in-review", "--reason", "parallel release A"] });
     ops.push({ kind: "release", text: "parallel release B", args: ["release", fx.ticketRelPath, "--status", "blocked", "--reason", "parallel release B"] });
 

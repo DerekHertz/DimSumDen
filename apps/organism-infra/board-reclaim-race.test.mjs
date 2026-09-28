@@ -69,7 +69,7 @@ test("three-way stale reclaim: a reclaimer never takes a live lock, so holds nev
     const stalePid = JSON.parse(stale).pid;
     await writeFile(fx.writeLockPath, stale);
     const run = (text, env) =>
-      runBoard(["comment", fx.ticketRelPath, text], {
+      runBoard(["comment", fx.ticketRelPath, "--as", "qa", text], {
         cwd: fx.worktree,
         env: { BOARD_TEST_HOLD_LOG: holdDir, ...env },
         timeoutMs: 30000,
@@ -123,7 +123,7 @@ test("a reclaimer that crashed holding the reclaim mutex does not block reclaim 
     const id = createHash("sha256").update(stale).digest("hex").slice(0, 16);
     const crashed = JSON.stringify({ pid: await deadPid(), host: os.hostname() });
     await writeFile(`${fx.writeLockPath}.reclaim-${id}-0`, crashed);
-    const r = await runBoard(["comment", fx.ticketRelPath, "after crash"], { cwd: fx.worktree });
+    const r = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", "after crash"], { cwd: fx.worktree });
     assert.equal(r.code, 0, r.stderr);
     const leftovers = (await readdir(path.dirname(fx.ticketPath))).filter((f) => /write-lock/.test(f));
     assert.deepEqual(leftovers, [], "mutex files are cleaned up once the stale lock is gone");
@@ -140,7 +140,7 @@ test("stress: many processes reclaiming one stale lock hold it one at a time", a
     const N = 12;
     const results = await Promise.all(
       Array.from({ length: N }, (_, i) =>
-        runBoard(["comment", fx.ticketRelPath, `stress ${i}`], {
+        runBoard(["comment", fx.ticketRelPath, "--as", "qa", `stress ${i}`], {
           cwd: fx.worktree,
           env: { BOARD_TEST_HOLD_LOG: holdDir, BOARD_TEST_HOLD_MS: "40" },
           timeoutMs: 30000,

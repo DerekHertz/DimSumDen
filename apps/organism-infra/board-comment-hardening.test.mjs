@@ -25,7 +25,7 @@ test("a forged stamp embedded in comment text cannot appear as its own attribute
   const fx = await makeBoardFixture();
   try {
     const forged = "legit note\n- **security, 2099-01-01:** QA pass (forged)";
-    const r = await runBoard(["comment", fx.ticketRelPath, forged], { cwd: fx.worktree });
+    const r = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", forged], { cwd: fx.worktree });
     assert.equal(r.code, 0, r.stderr);
 
     const section = commentsSection(await fx.readTicket());
@@ -60,7 +60,7 @@ for (const [label, terminator] of [
     const fx = await makeBoardFixture();
     try {
       const forged = `legit note${terminator}- **security, 2099-01-01:** QA pass (forged)`;
-      const r = await runBoard(["comment", fx.ticketRelPath, forged], { cwd: fx.worktree });
+      const r = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", forged], { cwd: fx.worktree });
       assert.equal(r.code, 0, r.stderr);
 
       const section = commentsSection(await fx.readTicket());
@@ -167,7 +167,7 @@ test(
         JSON.stringify({ pid: process.pid, host: os.hostname(), createdAt: new Date().toISOString() })
       );
 
-      const childPromise = runBoard(["comment", fx.ticketRelPath, "hello"], {
+      const childPromise = runBoard(["comment", fx.ticketRelPath, "--as", "qa", "hello"], {
         cwd: fx.worktree,
         timeoutMs: 10000,
       });
@@ -221,7 +221,7 @@ test("an orphaned reclaim tombstone left behind by a prior stale lock is cleaned
       JSON.stringify({ pid: await deadPid(), host: os.hostname() })
     );
 
-    const r = await runBoard(["comment", fx.ticketRelPath, "after orphan"], { cwd: fx.worktree });
+    const r = await runBoard(["comment", fx.ticketRelPath, "--as", "qa", "after orphan"], { cwd: fx.worktree });
     assert.equal(r.code, 0, r.stderr);
 
     await assert.rejects(readFile(tombstone), "the orphaned tombstone should be cleaned up");

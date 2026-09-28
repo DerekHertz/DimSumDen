@@ -5,6 +5,7 @@ import {
   resolveRoot,
   claim,
   release,
+  reclaim,
   getStatus,
   comment,
   list,
@@ -56,13 +57,23 @@ async function main() {
       console.log(`claimed ${ref}: ${result.status}`);
       return;
     }
+    case "reclaim": {
+      const { positional, flags } = parseFlags(rest, { allowed: ["mode"] });
+      const [ref, cellType] = positional;
+      const result = await reclaim(root, ref, cellType, { mode: flags.mode });
+      console.log(`reclaimed ${ref} for ${cellType}: ${result.status}`);
+      return;
+    }
     case "release": {
       const { positional, flags } = parseFlags(rest, {
-        allowed: ["status", "reason", "force"],
-        boolean: ["force"],
+        allowed: ["status", "reason", "force", "keep-status"],
+        boolean: ["force", "keep-status"],
       });
       const [ref] = positional;
-      const result = await release(root, ref, flags.status, flags.reason, { force: !!flags.force });
+      const result = await release(root, ref, flags.status, flags.reason, {
+        force: !!flags.force,
+        keepStatus: !!flags["keep-status"],
+      });
       console.log(`released ${ref}: ${result.status}`);
       return;
     }
@@ -74,12 +85,10 @@ async function main() {
       return;
     }
     case "comment": {
-      const flagArg = rest.find((arg) => arg.startsWith("--"));
-      if (flagArg) {
-        throw new BoardError(`unrecognized flag on comment: ${flagArg}`);
-      }
-      const [ref, text] = rest;
-      await comment(root, ref, text);
+      // Only `--as` is a flag on comment; any other "--x" is rejected.
+      const { positional, flags } = parseFlags(rest, { allowed: ["as"] });
+      const [ref, text] = positional;
+      await comment(root, ref, text, { as: flags.as });
       console.log(`commented on ${ref}`);
       return;
     }
