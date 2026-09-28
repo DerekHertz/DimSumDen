@@ -268,6 +268,39 @@ test("--apply ignores a merged, clean worktree that lives outside .claude/worktr
   }
 });
 
+test("--root pointed at a linked worktree (not the main checkout) is refused, and nothing is touched", () => {
+  const root = initRepo();
+  try {
+    const wtDir = addBranchWorktree(root, "merged-clean");
+    commitFile(wtDir, "feature.txt", "done\n");
+    fastForwardMainTo(root, "merged-clean");
+
+    // `git worktree list --porcelain` lists every worktree of the repo
+    // (main first, then each linked one) no matter which directory it's
+    // run from. So running gc with --root pointed at the linked worktree
+    // itself must still be refused, not silently accepted just because
+    // that path appears somewhere in the list.
+    let code;
+    let stdout;
+    try {
+      stdout = execFileSync("node", [SCRIPT, "--root", wtDir, "--apply"], {
+        cwd: wtDir,
+        encoding: "utf8",
+      });
+      code = 0;
+    } catch (err) {
+      code = err.status ?? 1;
+      stdout = (err.stdout ?? "") + (err.stderr ?? "");
+    }
+
+    assert.notEqual(code, 0, "must refuse to run with --root set to a linked worktree");
+    assert.match(stdout, /not the main checkout/i);
+    assert.ok(existsSync(wtDir), "nothing should be removed when the guard refuses to run");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("without --apply, nothing is ever deleted even when every candidate is removable", () => {
   const root = initRepo();
   try {

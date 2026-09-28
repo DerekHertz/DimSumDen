@@ -105,7 +105,13 @@ function main() {
   const raw = git(root, ["worktree", "list", "--porcelain"]);
   const entries = parseWorktreeList(raw);
 
-  const isMainCheckout = entries.some((e) => normalizedAbsolutePath(e.worktreePath) === rootResolved);
+  // `git worktree list --porcelain` always lists the main checkout first,
+  // regardless of which worktree it's run from (see board-service.mjs's
+  // resolveRoot, which relies on the same ordering). So the only way to
+  // tell "this is the main checkout" from "this is some worktree of the
+  // repo" is to compare against entries[0], not to check membership in the
+  // whole list -- every worktree, including this one, is always a member.
+  const isMainCheckout = entries.length > 0 && normalizedAbsolutePath(entries[0].worktreePath) === rootResolved;
   if (!isMainCheckout) {
     console.error(
       `worktree-gc: --root ${root} is not the main checkout (git worktree list does not list it). Refusing to run from inside a worktree.`
