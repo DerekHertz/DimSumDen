@@ -10,7 +10,7 @@
 
 **Blocked by:** 18 (same CLI surface)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] A comment without an author source is rejected, and one with `--as <cell>` records that cell
 - [ ] A stale claim can be taken over in one command
@@ -20,3 +20,8 @@
 
 - **Created (orchestrator, 2026-09-28):** At the user's request, as a follow-up to 18.
 - **orchestrator, 2026-09-28:** From the security re-review of 18: a qa claim can release straight to `resolved`, because the transition rule only checks in-review. Add a rule so only the orchestrator can resolve.
+- **qa, 2026-09-28:** QA pass (verify, e964665): 3 criteria + only-orchestrator-resolves rule each have a passing test; npm test 221/221. 18 older-test edits are --as qa only. Low: --as vs lock precedence untested.
+- **security, 2026-09-28:** Security bounce (e964665): HIGH comment --as newline forges an attributed line (board-service.mjs comment stamp); MEDIUM reclaim as orchestrator + release resolved --force bypasses resolve gate; MEDIUM --as overrides lock cell. No secrets/deps. See handoffs/24-security.md
+- **qa, 2026-09-28:** QA pass (round 2), 9c285a7: security findings fixed and tested (board-identity-hardening.test.mjs), npm test 236/0
+- **security, 2026-09-28:** Security pass (9c285a7): forged --as, orchestrator reclaim, --as vs lock, cellType validation all closed. Note in ADR 0008: board identity is self-declared. Handoff: handoffs/24-security-2.md
+- **orchestrator, 2026-09-28:** Merged via PR #27; resolved.
