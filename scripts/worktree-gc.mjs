@@ -113,9 +113,28 @@ function isForgivableEntry(root, worktreePath, mainTip, entry) {
   if (entry.code !== "??") return false;
   const relPath = entry.filePath.replace(/\\/g, "/");
   if (relPath === ".claude" || relPath.startsWith(".claude/")) return true;
+  let wtBytes;
   try {
-    const mainBytes = execFileSync("git", ["show", `${mainTip}:${relPath}`], { cwd: root });
-    const wtBytes = readFileSync(path.join(worktreePath, entry.filePath));
+    wtBytes = readFileSync(path.join(worktreePath, entry.filePath));
+  } catch {
+    return false;
+  }
+  // organism-infra/26: also forgive a copy of a file that exists uncommitted
+  // in the main checkout on disk (cells write handoffs there without
+  // committing them).
+  try {
+    const diskBytes = readFileSync(path.join(root, entry.filePath));
+    if (Buffer.compare(diskBytes, wtBytes) === 0) return true;
+  } catch {
+    // not present on disk in main -- fall through to the committed tree
+  }
+  try {
+    // stdio stderr "ignore": a path missing from main makes git print
+    // `fatal: path ... does not exist`; that just means "not identical".
+    const mainBytes = execFileSync("git", ["show", `${mainTip}:${relPath}`], {
+      cwd: root,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
     return Buffer.compare(mainBytes, wtBytes) === 0;
   } catch {
     return false;
