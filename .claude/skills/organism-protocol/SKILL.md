@@ -22,7 +22,8 @@ Your final report to the orchestrator stays under about 300 words: the verdict, 
 
 1. Claim with `npm run board -- claim <feature>/<NN-slug> <cell-type>`. It creates the lock atomically, sets `Status: claimed`, and fails if another cell holds the ticket.
 2. If the claim fails, the ticket is taken: pick another or hand off. Never delete another cell's lock.
-3. Add comments with `npm run board -- comment <feature>/<NN-slug> "<text>"`, never by editing the ticket.
+3. Add comments with `npm run board -- comment <feature>/<NN-slug> "<text>"`, never by editing the ticket. With a lock held, the author is your lock's cell. With no lock, pass `--as <cell-type>`; with a lock, `--as` must match your cell.
+   - Take over a dead holder's lock with `board reclaim <ref> <cell-type> --reason "..."`, never as `orchestrator`. Free a lock without changing status with `board release <ref> --keep-status`.
 4. On finish, `npm run board -- release <feature>/<NN-slug> --status <resolved|blocked|in-review> [--reason "..."]`. On a code ticket, cells in the review relay (`qa`, `developer`, `security`) never set `resolved`: a developer releases at `in-review`, and `qa` and `security` leave the status as it is and write their verdict with `board comment`.
 
 ## Brain gates (stop and ask the user)
