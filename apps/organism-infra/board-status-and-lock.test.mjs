@@ -169,6 +169,30 @@ test("a write lock released mid-wait lets the waiting command succeed", async ()
   }
 });
 
+test("a held events lock times out release/comment with 75 and changes neither the ticket nor events.jsonl", async () => {
+  const fx = await makeBoardFixture({ content: REAL_13 });
+  const eventsLock = `${fx.eventsPath}.write-lock.json`;
+  try {
+    const seed = '{"seq":1,"ts":"2026-09-27T00:00:00.000Z","op":"seed"}\n';
+    await writeFile(fx.eventsPath, seed);
+    await writeFile(eventsLock, liveLock());
+    for (const args of [
+      ["release", fx.ticketRelPath, "--status", "in-review", "--reason", "should not land"],
+      ["comment", fx.ticketRelPath, "should not land"],
+    ]) {
+      const r = await runBoard(args, { cwd: fx.worktree, timeoutMs: 10000 });
+      assert.equal(r.code, LOCK_TIMEOUT_EXIT, `${args[0]}: ${r.stderr}`);
+      assert.equal(await fx.readTicket(), REAL_13, `${args[0]} must not write the ticket`);
+      assert.equal(await readFile(fx.eventsPath, "utf8"), seed, `${args[0]} must not append an event`);
+    }
+    assert.ok(await exists(eventsLock), "the live events lock is never stolen");
+    assert.equal(await exists(fx.writeLockPath), false, "the ticket lock is released after the timeout");
+  } finally {
+    await unlink(eventsLock).catch(() => {});
+    await fx.cleanup();
+  }
+});
+
 test("a taken claim lock fails fast even while the write lock is held", async () => {
   const fx = await makeBoardFixture({ content: REAL_13 });
   try {

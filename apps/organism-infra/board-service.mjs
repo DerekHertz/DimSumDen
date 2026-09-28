@@ -302,32 +302,39 @@ async function withWriteLock(lockPath, fn) {
 
 // events.jsonl is shared by every ticket, so the per-ticket write lock does
 // not serialize it. A board-wide events lock (same bounded wait and reclaim
-// rules) guards read-last-seq-and-append. Lock order is always ticket lock,
-// then events lock, and the events lock is held only here, so no deadlock.
-// The append is a whole-file temp write plus rename under the lock rather
-// than an `a`-flag append: O_APPEND is not an atomic append on Windows, and
-// the rename also means a reader never sees a torn line.
-async function appendEvent(eventsPath, event) {
+// rules) guards it. Lock order is always ticket lock, then events lock, so no
+// deadlock. The events lock is taken before any ticket write: a timeout on
+// either lock leaves nothing written, so a ticket change and its event line
+// land together or not at all.
+async function commitWithEvent(eventsPath, writeTicket, event) {
   await mkdir(path.dirname(eventsPath), { recursive: true });
   return withWriteLock(`${eventsPath}.write-lock.json`, async () => {
-    const current = await readFile(eventsPath, "utf8").catch((err) => {
-      if (err.code === "ENOENT") return "";
-      throw err;
-    });
-    let lastSeq = 0;
-    const lines = current.trim().split("\n").filter(Boolean);
-    if (lines.length > 0) {
-      try {
-        lastSeq = JSON.parse(lines[lines.length - 1]).seq ?? 0;
-      } catch {
-        lastSeq = 0;
-      }
-    }
-    const full = { seq: lastSeq + 1, ts: new Date().toISOString(), ...event };
-    const prefix = current === "" || current.endsWith("\n") ? current : `${current}\n`;
-    await atomicWrite(eventsPath, `${prefix}${JSON.stringify(full)}\n`);
-    return full;
+    await writeTicket();
+    return appendEventLocked(eventsPath, event);
   });
+}
+
+// Caller holds the events lock. A whole-file temp write plus rename, not an
+// `a`-flag append: O_APPEND is not an atomic append on Windows, and the
+// rename means a reader never sees a torn line.
+async function appendEventLocked(eventsPath, event) {
+  const current = await readFile(eventsPath, "utf8").catch((err) => {
+    if (err.code === "ENOENT") return "";
+    throw err;
+  });
+  let lastSeq = 0;
+  const lines = current.trim().split("\n").filter(Boolean);
+  if (lines.length > 0) {
+    try {
+      lastSeq = JSON.parse(lines[lines.length - 1]).seq ?? 0;
+    } catch {
+      lastSeq = 0;
+    }
+  }
+  const full = { seq: lastSeq + 1, ts: new Date().toISOString(), ...event };
+  const prefix = current === "" || current.endsWith("\n") ? current : `${current}\n`;
+  await atomicWrite(eventsPath, `${prefix}${JSON.stringify(full)}\n`);
+  return full;
 }
 
 // --- Ticket helpers ---------------------------------------------------------------
@@ -404,13 +411,14 @@ export async function claim(root, ref, cellType) {
     const content = await readFile(paths.ticketPath, "utf8");
     const fromStatus = readStatus(content);
     const updated = replaceStatus(content, "claimed");
-    await writeFile(
-      paths.claimLockPath,
-      `${cellType} ${new Date().toISOString()}\n`,
-      { encoding: "utf8", flag: "wx" }
-    );
-    await atomicWrite(paths.ticketPath, updated);
-    await appendEvent(paths.eventsPath, {
+    await commitWithEvent(paths.eventsPath, async () => {
+      await writeFile(
+        paths.claimLockPath,
+        `${cellType} ${new Date().toISOString()}\n`,
+        { encoding: "utf8", flag: "wx" }
+      );
+      await atomicWrite(paths.ticketPath, updated);
+    }, {
       feature,
       ticket,
       cell: cellType,
@@ -441,9 +449,10 @@ export async function release(root, ref, newStatus, reason) {
     if (reason) {
       updated = `${updated.trimEnd()}\n- **${cell}, ${todayUTC()}:** ${reason}\n`;
     }
-    await atomicWrite(paths.ticketPath, updated);
-    await unlink(paths.claimLockPath).catch(() => {});
-    await appendEvent(paths.eventsPath, {
+    await commitWithEvent(paths.eventsPath, async () => {
+      await atomicWrite(paths.ticketPath, updated);
+      await unlink(paths.claimLockPath).catch(() => {});
+    }, {
       feature,
       ticket,
       cell,
@@ -481,8 +490,7 @@ export async function comment(root, ref, text) {
     } else {
       updated = `${content.trimEnd()}\n\n## Comments\n${stamp}\n`;
     }
-    await atomicWrite(paths.ticketPath, updated);
-    await appendEvent(paths.eventsPath, {
+    await commitWithEvent(paths.eventsPath, () => atomicWrite(paths.ticketPath, updated), {
       feature,
       ticket,
       cell,
