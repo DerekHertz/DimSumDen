@@ -97,8 +97,11 @@ test("`board comment <ref> --as x \"text\"` does not store \"--as\" as the comme
       false,
       `"--as" must not be stored verbatim as a comment: ${JSON.stringify(ticket)}`
     );
-    // The simplest compliant fix rejects the unrecognized flag outright.
-    assert.notEqual(r.code, 0, "an unknown --as flag on `comment` should be rejected");
+    // organism-infra/24: `--as <cell>` is now a declared flag on `comment`
+    // (it names the author), so it is accepted and the value is the author,
+    // never comment text.
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(ticket, /- \*\*x, \d{4}-\d{2}-\d{2}:\*\* legit text/);
   } finally {
     await fx.cleanup();
   }
