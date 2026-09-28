@@ -17,6 +17,7 @@ import {
   makeBoardFixture,
   runBoard,
   deadPid,
+  writeValidHandoff,
 } from "./board-fixture.mjs";
 
 function todayUTC() {
@@ -37,7 +38,7 @@ async function exists(p) {
 test("board claim from a worktree writes only to the main checkout's board (resolved via git worktree list)", async () => {
   const fx = await makeBoardFixture();
   try {
-    const { code } = await runBoard(["claim", fx.ticketRelPath, "qa"], {
+    const { code } = await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], {
       cwd: fx.worktree,
     });
     assert.equal(code, 0, "claim from a worktree should succeed");
@@ -60,7 +61,7 @@ test("board claim resolves the main checkout via $ORGANISM_ROOT even when cwd is
   const fx = await makeBoardFixture();
   try {
     const scratchCwd = os.tmpdir();
-    const { code } = await runBoard(["claim", fx.ticketRelPath, "qa"], {
+    const { code } = await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], {
       cwd: scratchCwd,
       env: { ORGANISM_ROOT: fx.root },
     });
@@ -78,7 +79,7 @@ test("two concurrent claims of the same ticket: exactly one wins", async () => {
   const fx = await makeBoardFixture();
   try {
     const [a, b] = await Promise.all([
-      runBoard(["claim", fx.ticketRelPath, "qa"], { cwd: fx.worktree }),
+      runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], { cwd: fx.worktree }),
       runBoard(["claim", fx.ticketRelPath, "developer"], { cwd: fx.worktree }),
     ]);
     const winners = [a, b].filter((r) => r.code === 0);
@@ -109,7 +110,7 @@ test("a live write lock (same host, alive pid) is never stolen by a concurrent m
     };
     await writeFile(fx.writeLockPath, JSON.stringify(liveLock));
 
-    const result = await runBoard(["claim", fx.ticketRelPath, "qa"], {
+    const result = await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], {
       cwd: fx.worktree,
       timeoutMs: 5000,
     });
@@ -140,7 +141,7 @@ test("a stale write lock (dead pid, same host, past the age floor) is reclaimed 
     };
     await writeFile(fx.writeLockPath, JSON.stringify(staleLock));
 
-    const { code } = await runBoard(["claim", fx.ticketRelPath, "qa"], {
+    const { code } = await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], {
       cwd: fx.worktree,
     });
     assert.equal(code, 0, "claim should reclaim a stale write lock and succeed");
@@ -163,7 +164,7 @@ test("a fresh write lock with a dead pid is not reclaimed before the age floor",
     };
     await writeFile(fx.writeLockPath, JSON.stringify(freshLock));
 
-    const result = await runBoard(["claim", fx.ticketRelPath, "qa"], {
+    const result = await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], {
       cwd: fx.worktree,
       timeoutMs: 5000,
     });
@@ -186,7 +187,7 @@ test("a write lock from a different host is never auto-reclaimed", async () => {
     };
     await writeFile(fx.writeLockPath, JSON.stringify(otherHostLock));
 
-    const result = await runBoard(["claim", fx.ticketRelPath, "qa"], {
+    const result = await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], {
       cwd: fx.worktree,
       timeoutMs: 5000,
     });
@@ -205,7 +206,7 @@ test("claim locks never auto-expire, regardless of age", async () => {
   try {
     await writeFile(fx.claimLockPath, "developer 2000-01-01T00:00:00Z\n");
 
-    const { code } = await runBoard(["claim", fx.ticketRelPath, "qa"], {
+    const { code } = await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], {
       cwd: fx.worktree,
     });
     assert.notEqual(code, 0, "an old claim lock must still block a new claim");
@@ -222,7 +223,8 @@ test("claim locks never auto-expire, regardless of age", async () => {
 test("release is one atomic call: sets status and deletes the claim lock together", async () => {
   const fx = await makeBoardFixture();
   try {
-    await runBoard(["claim", fx.ticketRelPath, "qa"], { cwd: fx.worktree });
+    await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], { cwd: fx.worktree });
+    await writeValidHandoff(fx);
     const { code } = await runBoard(
       ["release", fx.ticketRelPath, "--status", "in-review"],
       { cwd: fx.worktree }
@@ -239,7 +241,7 @@ test("release is one atomic call: sets status and deletes the claim lock togethe
 test("release rejects a status not in docs/agents/issue-tracker.md's set", async () => {
   const fx = await makeBoardFixture();
   try {
-    await runBoard(["claim", fx.ticketRelPath, "qa"], { cwd: fx.worktree });
+    await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], { cwd: fx.worktree });
     const { code } = await runBoard(
       ["release", fx.ticketRelPath, "--status", "bogus-status"],
       { cwd: fx.worktree }
@@ -256,7 +258,7 @@ test("release rejects a status not in docs/agents/issue-tracker.md's set", async
 test("every mutating call appends exactly one events.jsonl line matching the ADR schema", async () => {
   const fx = await makeBoardFixture();
   try {
-    await runBoard(["claim", fx.ticketRelPath, "qa"], { cwd: fx.worktree });
+    await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], { cwd: fx.worktree });
     let lines = (await readFile(fx.eventsPath, "utf8")).trim().split("\n").filter(Boolean);
     assert.equal(lines.length, 1);
     let event = JSON.parse(lines[0]);
@@ -267,6 +269,7 @@ test("every mutating call appends exactly one events.jsonl line matching the ADR
     assert.match(String(event.cell), /qa/);
     assert.equal(event.op, "claim");
 
+    await writeValidHandoff(fx);
     await runBoard(["release", fx.ticketRelPath, "--status", "in-review"], {
       cwd: fx.worktree,
     });
@@ -284,7 +287,7 @@ test("every mutating call appends exactly one events.jsonl line matching the ADR
 test("board claim does not leave temp files behind after an atomic write", async () => {
   const fx = await makeBoardFixture();
   try {
-    await runBoard(["claim", fx.ticketRelPath, "qa"], { cwd: fx.worktree });
+    await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], { cwd: fx.worktree });
     const { readdir } = await import("node:fs/promises");
     const files = await readdir(path.dirname(fx.ticketPath));
     const leftoverTemp = files.filter((f) => /\.tmp$|~$/.test(f));
@@ -299,7 +302,7 @@ test("board claim does not leave temp files behind after an atomic write", async
 test("board comment is stamped with the claiming cell's type and today's date", async () => {
   const fx = await makeBoardFixture();
   try {
-    await runBoard(["claim", fx.ticketRelPath, "qa"], { cwd: fx.worktree });
+    await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], { cwd: fx.worktree });
     const { code } = await runBoard(
       ["comment", fx.ticketRelPath, "hello from qa"],
       { cwd: fx.worktree }
@@ -352,7 +355,7 @@ test("path-traversal in the feature segment is rejected before any file access",
 test("oversized comment args are rejected without hanging or partial writes", async () => {
   const fx = await makeBoardFixture();
   try {
-    await runBoard(["claim", fx.ticketRelPath, "qa"], { cwd: fx.worktree });
+    await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], { cwd: fx.worktree });
     // Large enough to trip any reasonable arg-size cap, but still under the
     // OS's own command-line length limit so the failure comes from the CLI's
     // own validation, not from the shell/OS refusing to spawn the process.
@@ -396,7 +399,7 @@ test("a symlink under .scratch that escapes the board root is rejected", async (
 test("board status prints the ticket's current status", async () => {
   const fx = await makeBoardFixture();
   try {
-    await runBoard(["claim", fx.ticketRelPath, "qa"], { cwd: fx.worktree });
+    await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], { cwd: fx.worktree });
     const { code, stdout } = await runBoard(["status", fx.ticketRelPath], {
       cwd: fx.worktree,
     });

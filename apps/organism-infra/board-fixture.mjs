@@ -34,6 +34,44 @@ export function eventsPath(root) {
   return path.join(root, ".scratch", "events.jsonl");
 }
 
+// organism-infra/18: `release --status in-review|resolved` now requires a
+// valid handoff State block (docs/adr/0009-mechanical-checks-for-most-skipped-rules.md
+// decision 4). Tests written before that gate existed release to in-review
+// purely to exercise locking/concurrency/formatting behavior unrelated to the
+// handoff itself, so they use this helper to satisfy the gate without
+// duplicating board-cli-hardening.test.mjs's own State-block fixtures.
+export function validStateJson(overrides = {}) {
+  return {
+    ticket: "sample/01-do-thing",
+    current_step: "test setup",
+    artifacts: [],
+    decisions: [],
+    failures: [],
+    pending: [],
+    ...overrides,
+  };
+}
+
+// organism-infra/18 fix-1 (security HIGH #1): release now only considers a
+// handoff (a) whose filename starts with the released ticket's "NN-" prefix
+// and (b) whose State block `ticket` field names that exact ticket -- so the
+// default filename and `ticket` field here are both derived from `fx.ticket`
+// (or the `ticket` override, for a fixture exercising several tickets in one
+// feature) instead of a fixed "00-setup.md" / "sample/01-do-thing". Every
+// existing caller that doesn't pass `ticket` uses `fx`'s own default ticket,
+// so for them this is a setup-only rename, not a behavior change.
+export async function writeValidHandoff(fx, { filename, ticket = fx.ticket, overrides = {} } = {}) {
+  const dir = path.join(fx.root, ".scratch", fx.feature, "handoffs");
+  await mkdir(dir, { recursive: true });
+  const nn = /^(\d{2})-/.exec(ticket)?.[1] ?? "00";
+  const name = filename ?? `${nn}-setup.md`;
+  const body =
+    "```json\n" +
+    JSON.stringify(validStateJson({ ticket: `${fx.feature}/${ticket}`, ...overrides })) +
+    "\n```\n\n## Summary\n\nfixture handoff\n";
+  await writeFile(path.join(dir, name), body, "utf8");
+}
+
 function git(cwd, args) {
   return execFileSync("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"] }).toString();
 }

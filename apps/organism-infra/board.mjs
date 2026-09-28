@@ -11,16 +11,32 @@ import {
   BoardError,
 } from "./board-service.mjs";
 
-function parseFlags(args) {
+// organism-infra/18: `allowed` declares a subcommand's flag set; any other
+// `--flag` is a hard error naming the bad flag, never silently absorbed as
+// positional/text content. `boolean` flags (e.g. `--force`) take no value.
+function parseFlags(args, { allowed = null, boolean = [] } = {}) {
   const positional = [];
   const flags = {};
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg.startsWith("--")) {
       const name = arg.slice(2);
-      const value = args[i + 1];
-      flags[name] = value;
-      i++;
+      if (allowed && !allowed.includes(name)) {
+        throw new BoardError(`unrecognized flag: --${name}`);
+      }
+      if (boolean.includes(name)) {
+        flags[name] = true;
+      } else {
+        // organism-infra/18 fix-1 (security low finding): a flag value can
+        // never start with "--" -- otherwise `--reason --force` silently
+        // swallows `--force` as the literal reason text instead of erroring.
+        const value = args[i + 1];
+        if (value === undefined || value.startsWith("--")) {
+          throw new BoardError(`--${name} requires a value`);
+        }
+        flags[name] = value;
+        i++;
+      }
     } else {
       positional.push(arg);
     }
@@ -34,20 +50,25 @@ async function main() {
 
   switch (command) {
     case "claim": {
-      const [ref, cellType] = rest;
-      const result = await claim(root, ref, cellType);
+      const { positional, flags } = parseFlags(rest, { allowed: ["mode"] });
+      const [ref, cellType] = positional;
+      const result = await claim(root, ref, cellType, { mode: flags.mode });
       console.log(`claimed ${ref}: ${result.status}`);
       return;
     }
     case "release": {
-      const { positional, flags } = parseFlags(rest);
+      const { positional, flags } = parseFlags(rest, {
+        allowed: ["status", "reason", "force"],
+        boolean: ["force"],
+      });
       const [ref] = positional;
-      const result = await release(root, ref, flags.status, flags.reason);
+      const result = await release(root, ref, flags.status, flags.reason, { force: !!flags.force });
       console.log(`released ${ref}: ${result.status}`);
       return;
     }
     case "status": {
-      const [ref] = rest;
+      const { positional } = parseFlags(rest, { allowed: [] });
+      const [ref] = positional;
       const status = await getStatus(root, ref);
       console.log(status);
       return;
@@ -63,7 +84,7 @@ async function main() {
       return;
     }
     case "list": {
-      const { flags } = parseFlags(rest);
+      const { flags } = parseFlags(rest, { allowed: ["feature", "status"] });
       const results = await list(root, { feature: flags.feature, status: flags.status });
       for (const r of results) {
         console.log(`${r.feature}/${r.ticket}\t${r.status ?? ""}`);
