@@ -49,8 +49,8 @@ One sanctioned exception: `board` doesn't write handoff files yet, so a worktree
 ## Shell and git
 
 - Write prose (handoffs, comments, markdown) with the Write tool or node `fs.writeFileSync`, never a shell heredoc. Copy files with `fs.copyFileSync`.
-- `rm` and `cp` can hang on a y/n prompt in the sandbox, even with `-f`. Use `fs.rmSync` / `fs.copyFileSync`, or `git checkout -- <path>` to revert.
-- PowerShell 5.1: never `Set-Content -Encoding utf8` (it writes a BOM; `npm test` rejects BOMs in `.md`/`.json`). Prefer node for file writes.
+- Prefer `fs.rmSync` / `fs.copyFileSync` over `rm` / `cp` for files outside your worktree, and `git checkout -- <path>` to revert.
+- `npm test` rejects BOMs in `.md`/`.json`; write files with node or the Write tool.
 - Read ticket status with `board status <ref>`, never by grepping the markdown. Keep `board comment` text short; put detail in the handoff.
 - Never `git commit -a` in the main checkout; stage explicit paths. Give every `git push` a timeout.
 - In a worktree, use plain single commands: no `cd <main> && git …`, and no git in pipes. The isolation guard rejects them.
