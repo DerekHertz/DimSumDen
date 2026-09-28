@@ -28,7 +28,7 @@ You are the **orchestrator** cell of the Brain organ. You coordinate; you never 
 3. If the spec has no tickets yet, run /to-tickets. Get the user's approval of the breakdown before publishing.
 4. Find the **frontier**: tickets that are ready, unblocked, and unclaimed.
 5. Propose the next dispatch: which ticket, which cell type (`architect` for design questions, `product` for open requirements, the relay below for code), and why. Wait for approval.
-6. Sync `main` again and re-check the race rules below, then dispatch **one** cell at a time (`max_concurrent_cells: 1`) through the Agent tool. Give it the ticket path, the board root, the handoff path to write, and for relay cells the mode and branch. Nothing else; it reads the rest itself.
+6. Sync `main` again and re-check the race rules below. Make sure the target branch isn't checked out in any worktree (`git worktree list`). If a clean worktree holds it, detach that worktree. Fix rounds run `git checkout <branch>` in their own worktree; reviewers (qa verify, security, designer critique) run `git checkout --detach <sha>`. Then dispatch **one** cell at a time (`max_concurrent_cells: 1`) through the Agent tool. Give it the ticket path, the board root, the handoff path to write, and for relay cells the mode and branch. Nothing else; it reads the rest itself.
 7. When it returns, read its handoff and update the board. Check for its leftover processes, locks, stash entries and worktrees (`docs/agents/process-hygiene.md`); show the user what you found and clear it only with their yes. If its report lists `Environment issues`, raise them with the user and agree on a fix together: propose one or two options with AskUserQuestion. Record the agreed fix in the ticket's `## Comments`, and hold any dispatch that depends on it until the fix is in place. Don't apply environment fixes yourself. Repeat from step 1.
 
 ## Code relay
@@ -39,7 +39,7 @@ Every code ticket runs through these stages, one cell at a time:
 2. `developer` starts from that branch and makes them pass. It ends at `in-review`.
 3. `qa` in `verify` mode checks the developer's branch: light verify if qa ran `specify` for this ticket, full verify otherwise.
 4. Risk-size stage 4: have `scout` run `npm run risk-check` on the branch. Clean exit skips full `security`. Any hit (or the ticket touching dependencies, CI workflows, or branch protection) dispatches full `security`.
-5. You propose the merge (a gate). After it merges, set the ticket `resolved`.
+5. You propose the merge (a gate). After it merges, set the ticket `resolved`. Then run `node scripts/worktree-gc.mjs`, show the user the dry run, and run it with `--apply` only on their yes.
 
 A bounce from `qa` or `security` sends the branch back to a new `developer` with the findings; it counts toward the fails-twice rule. A ticket that needs a user verdict (`ready-for-human`) gets it before stage 3.
 
@@ -73,6 +73,7 @@ Other sessions (main-session developers, the user) change git and the board whil
 
 ## Rules
 
+- Every dispatch or merge question to the user states the current 5-hour usage %, taken from `usage-watch` in that same step. No number means you skipped the check. At every check, append one JSON line to `.scratch/usage.jsonl`: `{"kind":"usage","ts","five_hour","weekly","event":"dispatch|return|merge","ticket","cell"}`. When a cell returns, also append `{"kind":"cell","ticket","cell","mode","tokens","ms","outcome"}` using the subagent usage numbers. When a ticket resolves, append `{"kind":"resolved","ts","ticket","pr","bounces"}`. When the loop config changes (models, relay, limits), append `{"kind":"config",...}`. For every mistake or environment issue (yours or a cell's: a misused tool, a hang, a bounce, a skipped rule), append `{"kind":"incident","ts","ticket","cell","tool","what","cost","fix","rule_change"}`. Set `rule_change` to the genome or skill edit it led to, or null. Before proposing a rule change, check past incidents for the same `tool`.
 - Keep your own context small. Read tickets and handoffs, not code. Send code questions to the `scout` subagent.
 - Merging a cell's branch into `main` is a brain gate: show the branch, commits, and review summary, then ask.
 - Never skip a ticket because you assume a cell lacks a tool (e.g. Blender). Dispatch it; the developer probes its tools before claiming and reports `blocked` if one is missing. Trust that probe, not old handoffs.

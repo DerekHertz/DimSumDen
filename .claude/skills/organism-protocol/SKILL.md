@@ -15,6 +15,7 @@ Your final report to the orchestrator stays under about 300 words: the verdict, 
 
 - The board is the local issue tracker described in `docs/agents/issue-tracker.md`: `.scratch/<feature-slug>/` in the **main checkout**.
 - If you run in a worktree, the main checkout is at `$ORGANISM_ROOT`. If that is unset, it is the path `git worktree list` prints first. Always read and write the board there, never in your worktree's copy.
+- Scope added in a ticket's `## Comments` (for example "Scope added (user, ...)") counts as acceptance criteria, just like the checkboxes. qa maps every scope item to a test, and the developer covers each one.
 - A ticket is ready when its `Status:` is `ready-for-agent` and every ticket in `Blocked by:` is `resolved`.
 
 ## Claiming a ticket (exactly one cell per ticket)
@@ -30,7 +31,8 @@ Always ask before:
 - merging to `main`, pushing, or opening a PR
 - deleting files outside your ticket's scope
 - adding a dependency
-- changing an ADR, `CONTEXT.md`, `CLAUDE.md`, or any genome
+- changing an ADR, `CONTEXT.md` or `CLAUDE.md`
+- changing anything under `.claude/` (genomes, skills, settings). Only the orchestrator edits it, and only with the user's permission. Other cells propose the change in their handoff.
 - anything your genome lists under `gates`
 
 State the action, why, and what changes. Wait for an explicit yes.
@@ -40,6 +42,10 @@ State the action, why, and what changes. Wait for an explicit yes.
 When the environment gets in your way, don't patch or improvise past it. Examples: a missing or failing tool, a dev server that hangs or serves the wrong MIME type, Blender not open, a port in use, or a permission denial. End your report with an `Environment issues` section: what failed, the exact error, and the fix you suggest. The user fixes these in the main session. If one stops your task, say so and stop.
 
 One sanctioned exception: `board` doesn't write handoff files yet, so a worktree cell writes its handoff (`.scratch/<feature>/handoffs/*.md`) to the main checkout through shell commands. Every other board change goes through `board`. A future `board handoff` command closes this gap.
+
+## Timeouts (never wait out a hang)
+
+Give every long-running command an explicit timeout: test runs, dev servers, browser automation, installs, and CI waits (`gh run watch`, `gh pr checks --watch`). Pick a bound that fits the work. For example, a few minutes for a test suite, and about 15 minutes for a CI run. When a timeout fires, stop. Don't retry, and don't keep waiting. Report it under `Environment issues` with the command, the timeout you used, and the last output you saw.
 
 ## Apoptosis (ending well)
 
