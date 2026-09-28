@@ -1,4 +1,4 @@
-# Agent Office
+# Dim Sum Den (formerly Agent Office)
 
 A local web app for observing and steering AI agents across the SDLC, modeled as an organism. Vocabulary lives in `CONTEXT.md`; use its terms. Decisions live in `docs/adr/`.
 
