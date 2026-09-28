@@ -1,0 +1,136 @@
+#!/usr/bin/env node
+// organism-infra/05: worktree lifecycle cleanup. Removes clean agent
+// worktrees under <root>/.claude/worktrees/ whose HEAD is already on main
+// (fast-forward merged, or a detached checkout of an ancestor commit), and
+// reports dirty, locked, or unmerged ones without touching them.
+//
+// Usage: node scripts/worktree-gc.mjs [--root <repoRoot>] [--apply]
+//
+//   --root <repoRoot>  Path to the main checkout (defaults to cwd). Must be
+//                       the main checkout, not one of the worktrees.
+//   --apply            Actually remove removable worktrees. Without it, this
+//                       is a dry run: reports dispositions, deletes nothing.
+//
+// See .scratch/organism-infra/issues/05-dispatch-into-existing-branch.md
+// ("Scope approved", 2026-09-27) for the rule this implements.
+import { execFileSync } from "node:child_process";
+import path from "node:path";
+
+function parseArgs(argv) {
+  let root = process.cwd();
+  let apply = false;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--root") {
+      root = argv[++i];
+    } else if (arg === "--apply") {
+      apply = true;
+    }
+  }
+  return { root, apply };
+}
+
+function git(root, args) {
+  return execFileSync("git", args, { cwd: root, encoding: "utf8" });
+}
+
+function resolveP(p) {
+  return path.resolve(p).replace(/\\/g, "/").replace(/\/$/, "");
+}
+
+// Parses `git worktree list --porcelain` into an array of
+// { worktreePath, headSha, branch (or null if detached), locked, lockReason }.
+function parseWorktreeList(raw) {
+  const blocks = raw.split(/\n\n+/).filter((b) => b.trim().length > 0);
+  return blocks.map((block) => {
+    const lines = block.split("\n");
+    const entry = { worktreePath: null, headSha: null, branch: null, locked: false, lockReason: "" };
+    for (const line of lines) {
+      if (line.startsWith("worktree ")) {
+        entry.worktreePath = line.slice("worktree ".length).trim();
+      } else if (line.startsWith("HEAD ")) {
+        entry.headSha = line.slice("HEAD ".length).trim();
+      } else if (line.startsWith("branch ")) {
+        entry.branch = line.slice("branch ".length).trim();
+      } else if (line === "detached") {
+        entry.branch = null;
+      } else if (line.startsWith("locked")) {
+        entry.locked = true;
+        entry.lockReason = line.slice("locked".length).trim();
+      }
+    }
+    return entry;
+  });
+}
+
+function isDirty(worktreePath) {
+  const status = git(worktreePath, ["status", "--porcelain"]);
+  return status.trim().length > 0;
+}
+
+function isAncestorOfMain(root, sha, mainTip) {
+  try {
+    git(root, ["merge-base", "--is-ancestor", sha, mainTip]);
+    return true;
+  } catch (err) {
+    if (err.status === 1) return false;
+    throw err;
+  }
+}
+
+function determineMainTip(root, entries) {
+  const rootResolved = resolveP(root);
+  const mainEntry = entries.find((e) => resolveP(e.worktreePath) === rootResolved);
+  let mainBranch = "main";
+  if (mainEntry && mainEntry.branch) {
+    mainBranch = mainEntry.branch.replace(/^refs\/heads\//, "");
+  }
+  return git(root, ["rev-parse", mainBranch]).trim();
+}
+
+function main() {
+  const { root, apply } = parseArgs(process.argv.slice(2));
+  const rootResolved = resolveP(root);
+
+  const raw = git(root, ["worktree", "list", "--porcelain"]);
+  const entries = parseWorktreeList(raw);
+  const mainTip = determineMainTip(root, entries);
+
+  const worktreesRoot = resolveP(path.join(root, ".claude", "worktrees")) + "/";
+
+  const candidates = entries.filter((e) => {
+    const resolved = resolveP(e.worktreePath);
+    if (resolved === rootResolved) return false;
+    return (resolved + "/").startsWith(worktreesRoot);
+  });
+
+  const lines = [];
+  for (const entry of candidates) {
+    const name = path.basename(entry.worktreePath);
+    let disposition;
+    if (entry.locked) {
+      disposition = "locked";
+    } else if (isDirty(entry.worktreePath)) {
+      disposition = "dirty";
+    } else if (!isAncestorOfMain(root, entry.headSha, mainTip)) {
+      disposition = "unmerged";
+    } else {
+      disposition = "removable";
+    }
+
+    if (disposition === "removable" && apply) {
+      git(root, ["worktree", "remove", entry.worktreePath]);
+      lines.push(`${name}: removed (was clean, merged into main)`);
+    } else {
+      lines.push(`${name}: ${disposition}${entry.locked && entry.lockReason ? ` (${entry.lockReason})` : ""}`);
+    }
+  }
+
+  if (lines.length === 0) {
+    console.log("no agent worktrees found under .claude/worktrees/");
+  } else {
+    console.log(lines.join("\n"));
+  }
+}
+
+main();
