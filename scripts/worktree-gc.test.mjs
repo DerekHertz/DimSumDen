@@ -301,6 +301,153 @@ test("--root pointed at a linked worktree (not the main checkout) is refused, an
   }
 });
 
+// organism-infra/16: acceptance tests for the worktree-gc auto-clean and
+// branch-delete rules, per the ticket's three code criteria
+// (.scratch/organism-infra/issues/16-worktree-lifecycle.md):
+//
+//   1. gc auto-removes a merged worktree whose only dirty files are
+//      byte-identical to main's (or .claude/ local config).
+//   2. gc keeps and reports (one-line diff summary) a worktree with a
+//      unique change.
+//   3. gc deletes the merged branch for the resolved ticket.
+//
+// These extend the CLI surface documented above: none of it changes shape,
+// but "dirty" is no longer a blanket "never touch" bucket -- some dirty
+// worktrees are forgivable. Assumed (not confirmed with the user): a dirty
+// file is forgivable if (a) it is untracked in the worktree and its bytes
+// exactly match the file at the same repo-relative path in main's tree, or
+// (b) its repo-relative path starts with `.claude/`, regardless of content.
+// A worktree with only forgivable dirty files is otherwise treated exactly
+// like a clean one (removable when merged, kept when unmerged/locked). A
+// worktree with any other dirty file stays "dirty" and its report line
+// grows a one-line diff summary (this suite only asserts the changed
+// filename and some insertion/deletion count appear -- the developer picks
+// the exact wording). On removal, gc also deletes the worktree's local
+// branch (`git branch -d`); a detached-HEAD reviewer checkout has no branch
+// to delete and removal must not fail because of that.
+//
+// As of this commit, scripts/worktree-gc.mjs implements neither forgiveness
+// nor branch deletion, so each of these three should fail on an assertion
+// (forgivable dirty worktree still reported/kept dirty; no diff summary in
+// the dirty report line; branch still listed after removal) -- not on a
+// module-load or fixture error.
+
+function branchExists(root, branch) {
+  return git(root, ["branch", "--list", branch]).trim().length > 0;
+}
+
+test("--apply removes a merged worktree whose only dirty files are untracked copies byte-identical to main's, or live under .claude/", () => {
+  const root = initRepo();
+  try {
+    const wtDir = addBranchWorktree(root, "merged-forgivable");
+    commitFile(wtDir, "feature.txt", "done\n");
+    fastForwardMainTo(root, "merged-forgivable");
+
+    // main moves ahead by one commit after the merge (e.g. a later ticket's
+    // handoff), adding a file the worktree never had tracked.
+    commitFile(root, ".scratch/handoffs/note.md", "handoff content\n");
+
+    // An untracked copy of that same file, byte-identical, left behind in
+    // the worktree (the "handoff copies identical to main's" case from the
+    // ticket).
+    mkdirSync(path.join(wtDir, ".scratch", "handoffs"), { recursive: true });
+    writeFileSync(path.join(wtDir, ".scratch", "handoffs", "note.md"), "handoff content\n");
+
+    // An untracked .claude/ local-config file with content that does NOT
+    // match anything on main -- still forgivable because it's under
+    // .claude/, not because of its content.
+    mkdirSync(path.join(wtDir, ".claude"), { recursive: true });
+    writeFileSync(path.join(wtDir, ".claude", "settings.local.json"), '{"unique":"to-this-worktree"}\n');
+
+    const { code, stdout } = runGc(root, ["--apply"]);
+    assert.equal(code, 0, stdout);
+    assert.equal(
+      existsSync(wtDir),
+      false,
+      "a merged worktree whose only dirty files are byte-identical to main's or under .claude/ should be auto-removed"
+    );
+    assert.ok(
+      !worktreePaths(root).some((p) => p === path.resolve(wtDir)),
+      "git should no longer list the removed worktree"
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("--apply keeps a worktree with a unique change and reports a one-line diff summary for it", () => {
+  const root = initRepo();
+  try {
+    const wtDir = addBranchWorktree(root, "merged-unique-change");
+    commitFile(wtDir, "feature.txt", "done\n");
+    fastForwardMainTo(root, "merged-unique-change");
+
+    // An untracked file with content that matches nothing on main -- a real
+    // unique change, not a forgivable copy.
+    writeFileSync(path.join(wtDir, "scratch-note.txt"), "unpublished idea\n");
+
+    const { code, stdout } = runGc(root, ["--apply"]);
+    assert.equal(code, 0, stdout);
+    assert.ok(existsSync(wtDir), "a worktree with a unique change must never be removed");
+    assert.match(stdout, /merged-unique-change/);
+    assert.match(stdout, /dirty/i);
+    assert.match(
+      stdout,
+      /scratch-note\.txt/,
+      "the report should name the file holding the unique change"
+    );
+    assert.match(
+      stdout,
+      /\+\d|insertion|added|\d+ line/i,
+      "the report should include a one-line diff summary (e.g. an insertion count), not just the word 'dirty'"
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("--apply deletes the branch of a merged worktree it removes", () => {
+  const root = initRepo();
+  try {
+    const wtDir = addBranchWorktree(root, "merged-branch-to-delete");
+    commitFile(wtDir, "feature.txt", "done\n");
+    fastForwardMainTo(root, "merged-branch-to-delete");
+
+    assert.ok(
+      branchExists(root, "merged-branch-to-delete"),
+      "sanity check: the branch should exist before gc runs"
+    );
+
+    const { code, stdout } = runGc(root, ["--apply"]);
+    assert.equal(code, 0, stdout);
+    assert.equal(existsSync(wtDir), false, "the merged worktree should be removed");
+    assert.equal(
+      branchExists(root, "merged-branch-to-delete"),
+      false,
+      "gc should delete the now-merged branch along with the worktree"
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("without --apply, a worktree with a unique change is reported dirty but its branch is left alone", () => {
+  const root = initRepo();
+  try {
+    const wtDir = addBranchWorktree(root, "dry-run-branch-kept");
+    commitFile(wtDir, "feature.txt", "done\n");
+    fastForwardMainTo(root, "dry-run-branch-kept");
+    writeFileSync(path.join(wtDir, "scratch-note.txt"), "unpublished idea\n");
+
+    const { code } = runGc(root); // no --apply
+    assert.equal(code, 0);
+    assert.ok(existsSync(wtDir));
+    assert.ok(branchExists(root, "dry-run-branch-kept"), "a dry run must never delete a branch");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("without --apply, nothing is ever deleted even when every candidate is removable", () => {
   const root = initRepo();
   try {
