@@ -53,6 +53,10 @@ function startDevServer(port) {
   return spawn("npm", ["run", "dev", "--", String(port)], {
     cwd: REPO_ROOT,
     shell: true,
+    // POSIX only: makes this child the leader of its own process group, so
+    // stopServer can signal the whole tree (sh -> npm -> node) at once. See
+    // stopServer for why the plain, non-detached child.kill() below isn't enough.
+    detached: process.platform !== "win32",
   });
 }
 
@@ -90,7 +94,15 @@ function stopServer(child) {
       // orphan the server. Kill the whole tree by pid instead.
       spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
     } else {
-      child.kill();
+      // See dev-server.test.mjs: child.kill() only signals the immediate shell, not
+      // npm's node child, so the real server survives and keeps stdio pipes open --
+      // that's what hung the test job for 36+ min in CI run 36376905451. Signal the
+      // whole process group (startDevServer spawns detached) via the negative pid.
+      try {
+        process.kill(-child.pid, "SIGTERM");
+      } catch {
+        child.kill();
+      }
     }
   });
 }
