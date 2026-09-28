@@ -8,10 +8,10 @@ Write a handoff document so a fresh cell can continue the work without reading t
 
 Save it on the board, not in the OS temp dir: `.scratch/<feature-slug>/handoffs/<NN>-<cell-type>.md`, where `<NN>` is the ticket number you worked. If there is no ticket, use `.scratch/_handoffs/<YYYY-MM-DD>-<cell-type>.md`. Overwrite an earlier handoff from the same cell type on the same ticket. Then append a one-line pointer to the ticket's `## Comments`.
 
-Keep it under 60 lines. Start the file with a fenced `json` State block (ADR 0009 decision 4). `board release --status in-review|resolved` parses the first `json` fence in the ticket's newest handoff and refuses the release if it's missing or invalid:
+Keep it under 60 lines. Start the file with a fenced `json` State block (ADR 0009 decision 4). `board release --status in-review|resolved` parses the `json` State block of the ticket's handoffs and refuses the release if none is valid. The block must name its author: `"cell"` (your cell type) and, for moded cells, `"mode"` (e.g. qa `specify` or `verify`). A handoff whose `cell`/`mode` differ from your claim, or that was written before your claim, doesn't count (ADR 0008 decision 11). Write the handoff after claiming and before releasing:
 
 ```json
-{"ticket": "<feature>/<NN>", "current_step": "one line: where the work stands",
+{"ticket": "<feature>/<NN>", "cell": "<your cell type>", "mode": "<mode, if any>", "current_step": "one line: where the work stands",
  "artifacts": ["paths you changed or wrote"], "decisions": ["choices not in an ADR or the ticket"],
  "failures": ["what failed or was refused, or leave empty"],
  "pending": [{"item": "what's left", "owner": "<next cell type>"}]}
