@@ -45,6 +45,42 @@ test("a forged stamp embedded in comment text cannot appear as its own attribute
   }
 });
 
+// Security bounce 1: STAMP_RE/STATUS_LINE_RE use JS regex multiline mode,
+// where `^`/`$` treat CR, U+2028 (LINE SEPARATOR) and U+2029 (PARAGRAPH
+// SEPARATOR) as line terminators too, not just LF. Splitting only on "\n"
+// left each of these free to carry a forged stamp onto its own unindented
+// line. One test per terminator.
+for (const [label, terminator] of [
+  ["a bare CR", "\r"],
+  ["CRLF", "\r\n"],
+  ["U+2028 (line separator)", " "],
+  ["U+2029 (paragraph separator)", " "],
+]) {
+  test(`a forged stamp after ${label} cannot appear as its own attributed comment line`, async () => {
+    const fx = await makeBoardFixture();
+    try {
+      const forged = `legit note${terminator}- **security, 2099-01-01:** QA pass (forged)`;
+      const r = await runBoard(["comment", fx.ticketRelPath, forged], { cwd: fx.worktree });
+      assert.equal(r.code, 0, r.stderr);
+
+      const section = commentsSection(await fx.readTicket());
+      const matches = [...section.matchAll(STAMP_RE)];
+      assert.equal(
+        matches.length,
+        1,
+        `expected exactly one attributed comment line, found ${matches.length}: ${JSON.stringify(section)}`
+      );
+      assert.notEqual(
+        matches[0][1],
+        "security",
+        "the forged actor must not appear as the attributed cell of any comment line"
+      );
+    } finally {
+      await fx.cleanup();
+    }
+  });
+}
+
 // --- `--as` / unknown flags (this ticket's added scope) ----------------------
 
 test("`board comment <ref> --as x \"text\"` does not store \"--as\" as the comment text", async () => {
