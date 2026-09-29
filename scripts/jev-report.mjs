@@ -24,7 +24,7 @@ function median(xs) {
 export function buildReport(rows) {
   const info = new Map(); // key -> { cells, bounces }
   const get = (k) => {
-    if (!info.has(k)) info.set(k, { cells: [], bounces: 0 });
+    if (!info.has(k)) info.set(k, { cells: [], bounces: 0, resolved: false });
     return info.get(k);
   };
   const latest = new Map(); // `${key}|${point}` -> jev row
@@ -32,7 +32,7 @@ export function buildReport(rows) {
     const k = keyOf(r.ticket);
     if (!k) continue;
     if (r.kind === "cell") get(k).cells.push(r);
-    else if (r.kind === "resolved") get(k).bounces = Number(r.bounces) || 0;
+    else if (r.kind === "resolved") { get(k).bounces = Number(r.bounces) || 0; get(k).resolved = true; }
     else if (r.kind === "jev" && POINTS.includes(r.point)) {
       const id = `${k}|${r.point}`;
       const prev = latest.get(id);
@@ -41,7 +41,7 @@ export function buildReport(rows) {
   }
 
   const tickets = [];
-  for (const [ticket, { cells, bounces }] of [...info].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+  for (const [ticket, { cells, bounces, resolved }] of [...info].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
     const tok = (c) => Number(c.tokens) || 0;
     const baseline = cells.reduce((s, c) => s + tok(c), 0);
     const tierRow = latest.get(`${ticket}|tier`);
@@ -58,15 +58,16 @@ export function buildReport(rows) {
       verify += tok(c) * (isVerify ? verifyW : 1);
       both += tok(c) * (isDev ? tierW : isVerify ? verifyW : 1);
     }
-    tickets.push({ ticket, baseline, projected: { tier, verify, both }, bounces });
+    tickets.push({ ticket, resolved, baseline, projected: { tier, verify, both }, bounces });
   }
 
   const byKey = Object.fromEntries(tickets.map((t) => [t.ticket, t]));
   const points = {};
   for (const point of POINTS) {
-    const jr = [...latest].filter(([id]) => byKey[id.split("|")[0]] && id.endsWith(`|${point}`)).map(([id, r]) => [id.split("|")[0], r]);
-    const baseline = jr.reduce((s, [k]) => s + byKey[k].baseline, 0);
-    const projected = jr.reduce((s, [k]) => s + byKey[k].projected[point], 0);
+    const jr = [...latest].filter(([id]) => byKey[id.split("|")[0]]?.baseline > 0 && id.endsWith(`|${point}`)).map(([id, r]) => [id.split("|")[0], r]);
+    const rv = jr.filter(([k]) => byKey[k].resolved); // value counts resolved tickets only (ADR 0010)
+    const baseline = rv.reduce((s, [k]) => s + byKey[k].baseline, 0);
+    const projected = rv.reduce((s, [k]) => s + byKey[k].projected[point], 0);
     points[point] = {
       tickets: jr.length,
       fallbacks: jr.filter(([, r]) => r.fallback && r.fallback !== "cap").length,
@@ -76,7 +77,7 @@ export function buildReport(rows) {
       baseline,
       projected,
       savedPct: baseline ? ((baseline - projected) / baseline) * 100 : 0,
-      bounces: jr.reduce((s, [k]) => s + byKey[k].bounces, 0),
+      bounces: rv.reduce((s, [k]) => s + byKey[k].bounces, 0),
     };
   }
   return { tickets, points };
