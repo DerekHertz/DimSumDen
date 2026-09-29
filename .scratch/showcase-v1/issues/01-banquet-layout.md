@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** in-review
+**Status:** claimed
 
 - [ ] A pure placement module maps cell type and slot index to a position, with unit tests for every station, the Pass perches, and overflow widening
 - [ ] Lazy susan shows one basket per frontier ticket and updates live
@@ -20,3 +20,4 @@
 - **Environment (user, 2026-09-29):** cloud Chromium 1194 does not match Playwright 1243, so smoke:ui cannot run in the cloud session. Agreed fix: the user runs the browser verification in WSL. qa verify here covers unit tests and build; browser check is the user's.
 - **User browser check (WSL, 2026-09-29):** layout works. Fix round asks: (1) the banquet table reads as a bucket (tapered bowl); make it a larger, flat round tabletop on a short base or legs, with the lazy susan a thin disc on top; (2) add camera controls: horizontal pan (x only) by drag and arrow keys, and zoom by wheel or +/- within limits, so cells at the back stalls can be seen; keyboard reachable, respects reduced motion (no easing).
 - **User (2026-09-29), same fix round:** stall roofs don't connect to the posts; seat each roof on its four post tops.
+- **User (2026-09-29), same fix round:** fog covers Bao since he moved back; fog must start behind him.
