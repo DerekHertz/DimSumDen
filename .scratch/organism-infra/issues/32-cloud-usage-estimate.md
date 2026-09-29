@@ -11,7 +11,7 @@
 
 **Blocked by:** None
 
-**Status:** claimed
+**Status:** ready-for-agent
 
 - [ ] With fixture transcripts and readings, the estimate matches a hand-computed value
 - [ ] With no readings, it prints weighted tokens and a null credit estimate
@@ -23,3 +23,5 @@
 - **Probe (orchestrator, 2026-09-29):** in the window from 59 to 48 credits (20:26Z to 21:38Z), 20 transcripts gave 1.57M new input (including cache writes), 41.4M cache reads and 79k output. That is about 6.4M weighted tokens, or roughly 580k weighted tokens per credit. One window only, so calibrate on more readings. The session ingress token is not a usage API; don't use it.
 - **Decision (user, 2026-09-29):** wants a usage check that works in cloud sessions.
 - **Scope note (user, 2026-09-29):** the cloud credits are a temporary gifted pool, and regular subscription tokens come later. Keep the credit calibration optional. The durable parts are the weighted token meter and the context.mjs fix. When on subscription, check whether cloud sessions can read the 5-hour window at all before building more.
+- **qa, 2026-09-29:** qa specify: tests on organism-infra/32-tests (7dabe25), scripts/usage-estimate.test.mjs, 6 red 1 guard. usage-watch skill diff is human-verified. context.mjs cause unverified; see handoff.
+- **Probe (orchestrator, 2026-09-29):** `context.mjs` works in cloud when run from the main checkout root (it reported 297k, 29.75%). My earlier null came from running it with the cwd inside `~/.claude/projects`. So the real bug is that it depends on the cwd: run from a worktree or subdirectory, it slugs the wrong path. qa's worktree-cwd test is the right target, and selecting by `CLAUDE_CODE_SESSION_ID` is a good addition.

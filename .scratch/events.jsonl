@@ -241,3 +241,7 @@
 {"seq":241,"ts":"2026-09-29T21:49:22.612Z","feature":"organism-infra","ticket":"30-handoff-error-shows-skeleton","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":242,"ts":"2026-09-29T21:49:22.704Z","feature":"organism-infra","ticket":"30-handoff-error-shows-skeleton","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
 {"seq":243,"ts":"2026-09-29T21:58:56.125Z","feature":"organism-infra","ticket":"32-cloud-usage-estimate","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":244,"ts":"2026-09-29T21:59:46.348Z","feature":"herald","ticket":"02-herald-genome","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":245,"ts":"2026-09-29T22:00:25.980Z","feature":"organism-infra","ticket":"32-cloud-usage-estimate","cell":"qa","op":"comment","text":"qa specify: tests on organism-infra/32-tests (7dabe25), scripts/usage-estimate.test.mjs, 6 red 1 guard. usage-watch skill diff is human-verified. context.mjs cause unverified; see handoff."}
+{"seq":246,"ts":"2026-09-29T22:00:28.156Z","feature":"organism-infra","ticket":"32-cloud-usage-estimate","cell":"qa","op":"release","from_status":"claimed","to_status":"ready-for-agent","force":false}
+{"seq":247,"ts":"2026-09-29T22:00:45.322Z","feature":"herald","ticket":"02-herald-genome","cell":"qa","op":"release","from_status":"claimed","to_status":"ready-for-agent","force":false}
