@@ -2,7 +2,7 @@
 // Bao hosts at the back, one plush per cell at its station slot, a lazy susan of baskets on the
 // table (one per frontier ticket). Poses come from the character director; placement is pure
 // (banquet-layout.mjs). Only the lazy susan turns.
-import { Component, Suspense, useEffect, useMemo, useRef } from "react";
+import { Component, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -15,6 +15,7 @@ import { Backdrop } from "./Backdrop.jsx";
 import { Market } from "./Market.jsx";
 import { TallyFace } from "./TallyFace.jsx";
 import { BAO, parsePerch, placeCell, stationOf } from "./banquet-layout.mjs";
+import { ROAMER_TYPES, approachFor, roamObstacles, stepRoamer } from "./roam.mjs";
 
 // Each prop glb is fetched and parsed once, then cloned per plush.
 const propGlbs = createAssetCache((url) => new GLTFLoader().loadAsync(url));
@@ -80,7 +81,9 @@ function plushGeometryFor(geometry) {
   return g;
 }
 
-function Figure({ id, gltf, director, pose, cellType, position, scale, lod, selected, onSelect, stage }) {
+// `anchorId` names the figure for chips and selection (default: its id); null hides it from both, as for an idle roamer.
+// `fadeRef.current` is an opacity in 0..1, read every frame (the reduced-motion cross-fade).
+function Figure({ id, gltf, director, pose, cellType, position, scale, lod, selected, onSelect, stage, anchorId = id, fadeRef }) {
   const root = useRef();
   const object = useMemo(() => {
     const o = cloneSkinned(gltf.scene);
@@ -146,6 +149,17 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
       s.clip = cmd.clip;
       s.loop = cmd.loop;
     }
+    if (fadeRef && fadeRef.current !== s.opacity) {
+      const v = fadeRef.current;
+      object.traverse((n) => {
+        if (!n.material) return;
+        n.material.userData.baseTransparent ??= n.material.transparent;
+        n.material.transparent = n.material.userData.baseTransparent || v < 1;
+        n.material.opacity = v;
+        n.material.needsUpdate = true;
+      });
+      s.opacity = v;
+    }
     if (s.action) s.action.paused = reducedMotion();
     mixer.update(dt);
     if (atlas) {
@@ -153,22 +167,22 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
       const i = atlas.frames[cmd.face] ?? atlas.frames[atlas.defaultFrame];
       if (face?.material?.map) face.material.map.offset.set((i % atlas.cols) / atlas.cols, Math.floor(i / atlas.cols) / atlas.rows);
     }
-    if (stage && root.current) {
+    if (stage && anchorId && root.current) {
       const top = new THREE.Vector3();
       root.current.getWorldPosition(top);
       top.y += new THREE.Box3().setFromObject(root.current).getSize(new THREE.Vector3()).y * 1.05;
-      stage.anchors.set(id, top);
+      stage.anchors.set(anchorId, top);
     }
   });
 
-  useEffect(() => () => stage?.anchors.delete(id), [stage, id]);
+  useEffect(() => () => { if (anchorId) stage?.anchors.delete(anchorId); }, [stage, anchorId]);
 
   return (
     <group
       ref={root}
       position={position}
       scale={scale}
-      onClick={onSelect ? (e) => { e.stopPropagation(); onSelect(id); } : undefined}
+      onClick={onSelect ? (e) => { e.stopPropagation(); onSelect(anchorId); } : undefined}
       onPointerOver={onSelect ? () => { document.body.style.cursor = "pointer"; } : undefined}
       onPointerOut={onSelect ? () => { document.body.style.cursor = ""; } : undefined}
       userData={{ selected }}
@@ -224,13 +238,37 @@ function DenFigures({ cells, baskets, handoffs, selected, onSelect, stage }) {
     for (const c of cells) n[stationOf(c.cellType)] = (n[stationOf(c.cellType)] ?? 0) + 1;
     return n;
   }, [cells]);
+  const obstacles = useMemo(() => roamObstacles(counts), [counts]);
+  // One panda per roamer type is always in the scene: the first cell of a type is that panda (it walks
+  // to its slot and back); further cells of the type stand at the stall as before.
+  const firstOf = {};
+  for (const c of cells) if (ROAMER_TYPES.includes(c.cellType) && !firstOf[c.cellType]) firstOf[c.cellType] = c;
+  const placed = (c) => {
+    const { station, slot } = parsePerch(c.perch);
+    const at = placeCell(c.cellType, slot, counts[station]);
+    return { at, station };
+  };
   return (
     <>
       <Market baskets={baskets} handoffs={handoffs} cells={cells} counts={counts} />
       <Figure id="bao" gltf={gltf} director={director} pose="idle" position={BAO.position} scale={BAO.scale} stage={null} />
-      {cells.map((c) => {
-        const { station, slot } = parsePerch(c.perch);
-        const at = placeCell(c.cellType, slot, counts[station]);
+      {ROAMER_TYPES.map((type) => (
+        <RoamFigure
+          key={type}
+          type={type}
+          cell={firstOf[type]}
+          place={firstOf[type] ? placed(firstOf[type]) : null}
+          obstacles={obstacles}
+          gltf={gltf}
+          director={director}
+          footLift={footLift}
+          selected={selected}
+          onSelect={onSelect}
+          stage={stage}
+        />
+      ))}
+      {cells.filter((c) => firstOf[c.cellType] !== c).map((c) => {
+        const { at } = placed(c);
         const p = [at.x, at.y + footLift, at.z];
         return (
           <Figure
@@ -250,5 +288,53 @@ function DenFigures({ cells, baskets, handoffs, selected, onSelect, stage }) {
         );
       })}
     </>
+  );
+}
+
+// An idle panda roams the grass (roam.mjs); when its type has a cell it walks to the slot, works with
+// that cell's pose, and walks out again when the cell goes. Reduced motion cross-fades instead.
+function RoamFigure({ type, cell, place, obstacles, gltf, director, footLift, selected, onSelect, stage }) {
+  const outer = useRef();
+  const fade = useRef(1);
+  const motion = useRef(undefined);
+  const [pose, setPose] = useState("idle");
+  const inputs = useRef({});
+  inputs.current = { cell, place, obstacles };
+  useFrame((state, dt) => {
+    const { cell: c, place: pl, obstacles: obs } = inputs.current;
+    const now = performance.now() / 1000;
+    const slot = pl ? { x: pl.at.x, y: pl.at.y, z: pl.at.z } : null;
+    const next = stepRoamer(motion.current, {
+      seed: type, slot, approach: pl ? approachFor(pl.station, pl.at) : undefined, working: Boolean(c),
+      now, dt: Math.min(dt, 0.1), obstacles: obs, reduced: reducedMotion(),
+    });
+    motion.current = next;
+    fade.current = next.opacity;
+    const bob = next.moving && next.y === 0 ? Math.abs(Math.sin(now * 7)) * 0.04 : 0;
+    if (outer.current) {
+      outer.current.position.set(next.x, next.y + bob, next.z);
+      outer.current.rotation.y = next.heading;
+    }
+    const want = next.phase === "working" && c ? c.pose : "idle";
+    setPose((p) => (p === want ? p : want));
+  });
+  return (
+    <group ref={outer}>
+      <Figure
+        id={`roam:${type}`}
+        anchorId={cell?.ref ?? null}
+        gltf={gltf}
+        director={director}
+        pose={pose}
+        cellType={type}
+        position={[0, footLift, 0]}
+        scale={PLUSH_SCALE}
+        lod
+        selected={Boolean(cell) && selected === cell.ref}
+        onSelect={cell && !cell.synthetic ? onSelect : undefined}
+        stage={stage}
+        fadeRef={fade}
+      />
+    </group>
   );
 }
