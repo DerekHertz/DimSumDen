@@ -149,3 +149,5 @@
 {"seq":149,"ts":"2026-09-29T19:34:35.123Z","feature":"showcase-v1","ticket":"01-banquet-layout","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":150,"ts":"2026-09-29T19:34:35.559Z","feature":"showcase-v1","ticket":"01-banquet-layout","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
 {"seq":151,"ts":"2026-09-29T19:35:04.905Z","feature":"showcase-v1","ticket":"02-low-poly-grove","cell":"developer","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":152,"ts":"2026-09-29T19:38:56.614Z","feature":"showcase-v1","ticket":"02-low-poly-grove","cell":"developer","op":"release","from_status":"claimed","to_status":"in-review","force":false}
+{"seq":153,"ts":"2026-09-29T19:39:01.195Z","feature":"showcase-v1","ticket":"04-message-passing","cell":"developer","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
