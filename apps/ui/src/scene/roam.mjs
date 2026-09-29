@@ -50,6 +50,8 @@ export function roamObstacles(counts = {}) {
     rectAround(BAO.position[0], BAO.position[2], BAO_HALF[0], BAO_HALF[1]),
     { kind: "circle", x: CUB_BASKET.x, z: CUB_BASKET.z, r: CUB_BASKET_RADIUS + PAD },
     rectAround(0, CUB_ROW_Z, stallWidth(counts.cubs ?? 0) / 2, CUB_HALF_DEPTH),
+    // The Tally stele: plinth footprint plus 0.1, then padded like the rest.
+    { kind: "rect", x0: 0.85, x1: 2.15, z0: 3.1, z1: 3.7 },
   ];
   for (const [station, c] of Object.entries(STALL_CENTERS)) {
     const n = counts[station] ?? 0;

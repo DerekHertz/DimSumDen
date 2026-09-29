@@ -10,19 +10,16 @@ export const RAIL = { x: 0, y: 2.66, z: BAO.position[2], width: 1.3, height: 0.0
 export const BELL = { x: 0.5, y: RAIL.y + RAIL.height / 2, z: BAO.position[2] };
 
 /**
- * Tally (showcase-v1/07): a stone stele on the leafy mound behind Bao, to his right, raised up the slope.
- * groundY is the mound surface under it (grove mound: centre (0, -6), radius 3.2, height 1.8, z squashed to
- * half the radius). The plinth bottom sits 0.1 below groundY; the tablet stands on the plinth top.
+ * Tally (showcase-v1/07): a stone stele on the front floor beside the Cubs basket, to its right, turned
+ * toward the camera. The plinth bottom sits 0.02 below groundY; the tablet stands on the plinth top.
  */
-const TALLY_X = 2.3;
-const TALLY_Z = -6.0;
-const MOUND_Q = 1 - (TALLY_X / 3.2) ** 2 - ((TALLY_Z + 6.0) / 1.6) ** 2;
 export const TALLY = {
-  x: TALLY_X,
-  z: TALLY_Z,
-  groundY: 1.8 * Math.sqrt(MOUND_Q),
-  plinth: { width: 0.9, height: 0.2, depth: 0.35 },
-  tablet: { width: 0.7, height: 1.0, depth: 0.12 },
+  x: 1.5,
+  z: 3.4,
+  groundY: 0,
+  rotationY: -Math.atan2(1.5, 8.1), // the face turns toward the default camera
+  plinth: { width: 1.1, height: 0.25, depth: 0.4 },
+  tablet: { width: 0.9, height: 1.3, depth: 0.14 },
 };
 
 export const TABLE = { x: 0, z: 0, radius: 1.3, height: 0.7 };

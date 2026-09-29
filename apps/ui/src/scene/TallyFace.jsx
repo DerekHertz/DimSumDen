@@ -1,5 +1,5 @@
 // Tally (showcase-v1/07): a stone stele, an upright engraved tablet on a low plinth, on the leafy
-// mound behind Bao. The face is a canvas texture drawn from the pure view-model in tally-face.mjs:
+// floor beside the Cubs basket. The face is a canvas texture drawn from the pure view-model in tally-face.mjs:
 // the three small charts as glowing qi-teal lines, like carved characters catching light, stacked
 // down the tablet. Clicking it opens the Dashboard; the keyboard route is the "Tally" chip in
 // ChipLayer. Static: the face redraws only when the metrics change.
@@ -12,7 +12,7 @@ const PLINTH = "#3d403d";
 const QI = "#3aced3";
 const FACE_PX = { w: 336, h: 480 };
 const B = TALLY;
-const BASE_Y = B.groundY - 0.1; // plinth bottom, a little sunk into the mound
+const BASE_Y = B.groundY - 0.02; // plinth bottom, a hair sunk so no gap shows
 const TABLET_Y = BASE_Y + B.plinth.height; // tablet bottom
 
 function glow(ctx, on) {
@@ -107,7 +107,7 @@ export function TallyFace({ face, onOpen, stage }) {
 
   useEffect(() => {
     if (!stage) return undefined;
-    stage.anchors.set("__tally", new THREE.Vector3(B.x, TABLET_Y + B.tablet.height + 0.1, B.z));
+    stage.anchors.set("__tally", new THREE.Vector3(B.x, TABLET_Y + B.tablet.height + 0.27, B.z));
     return () => stage.anchors.delete("__tally");
   }, [stage]);
 
@@ -115,6 +115,7 @@ export function TallyFace({ face, onOpen, stage }) {
     <group
       name="tally"
       position={[B.x, 0, B.z]}
+      rotation={[0, B.rotationY, 0]}
       onClick={onOpen ? (e) => { e.stopPropagation(); onOpen(); } : undefined}
       onPointerOver={onOpen ? () => { document.body.style.cursor = "pointer"; } : undefined}
       onPointerOut={onOpen ? () => { document.body.style.cursor = ""; } : undefined}
