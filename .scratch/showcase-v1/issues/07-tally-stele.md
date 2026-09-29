@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** claimed
+**Status:** in-review
 
 - [ ] Stele geometry and placement in the layout module, with a unit test that its footprint is on the mound and nothing in the market is occluded by it from the default camera
 - [ ] Face renders the three charts in qi teal on stone; accessible name unchanged
