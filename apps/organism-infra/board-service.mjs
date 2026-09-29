@@ -819,7 +819,7 @@ export async function reclaim(root, ref, cellType, options = {}) {
 // handoff State block, are both hard-blocked unless `--force --reason "..."`
 // is given. A forced release still writes the release, but also logs a
 // `kind:"override"` events.jsonl line the orchestrator surfaces.
-const HANDOFF_GATED_STATUSES = new Set(["in-review", "resolved"]);
+// organism-infra/30: the gate covers every status except `blocked`.
 
 // organism-infra/48: the resolved row is scripted, not hand-written. Bounces are
 // the ticket's comment events recorded with --verdict bounce.
@@ -892,6 +892,30 @@ async function appendResolvedRow(root, eventsPath, ref, pr) {
   await appendUsageLine(root, JSON.stringify(row) + "\n");
 }
 
+// organism-infra/30: a filled-in State block for the rejection message, so a
+// cell can fix a bad handoff in one retry. cell/mode come from the claim lock.
+function stateSkeleton(feature, ticket, cell, mode) {
+  const state = { ticket: `${feature}/${ticket}`, cell: cell ?? "<cell>" };
+  if (mode !== undefined) state.mode = mode;
+  state.current_step = "<what is done and where the work stands>";
+  state.artifacts = [];
+  state.decisions = [];
+  state.failures = [];
+  state.pending = [];
+  return "\nExpected State block (copy, fill in, and retry):\n```json\n" + JSON.stringify(state, null, 2) + "\n```";
+}
+
+async function claimSkeleton(paths, feature, ticket) {
+  let cell;
+  let mode;
+  if (await exists(paths.claimLockPath)) {
+    const lockContent = await readFile(paths.claimLockPath, "utf8");
+    cell = claimingCell(lockContent);
+    mode = claimingMode(lockContent);
+  }
+  return stateSkeleton(feature, ticket, cell, mode);
+}
+
 export async function release(root, ref, newStatus, reason, options = {}) {
   const { force, keepStatus } = options;
   const pr = validatePrFlag(options.pr);
@@ -931,8 +955,9 @@ export async function release(root, ref, newStatus, reason, options = {}) {
       );
     }
 
-    if (HANDOFF_GATED_STATUSES.has(newStatus) || keepStatus) {
-      // organism-infra/30: --keep-status runs the same handoff gate.
+    if (newStatus !== "blocked") {
+      // organism-infra/30: every release except blocked needs a handoff;
+      // --keep-status runs the same handoff gate.
       // Ticket 18 only names `--force` as an override for the handoff
       // State-block check (item 3), never for this transition rule (item
       // 2). Security fix-1 (HIGH #2): a qa release to in-review is allowed
@@ -962,7 +987,8 @@ export async function release(root, ref, newStatus, reason, options = {}) {
         if (!handoffCheck.ok) {
           throw new BoardError(
             `release blocked: ${ref} has no valid handoff State block: ${handoffCheck.errors.join("; ")}` +
-              ` (use --force --reason to override)`
+              ` (use --force --reason to override)` +
+              stateSkeleton(feature, ticket, cell === "unknown" ? undefined : cell, mode)
           );
         }
       }
@@ -1001,7 +1027,7 @@ export async function release(root, ref, newStatus, reason, options = {}) {
     // handoff-state check, gated on in-review/resolved): a force flag on an
     // ungated status has nothing to override and must not pollute the audit
     // trail with a spurious event.
-    if (force && (HANDOFF_GATED_STATUSES.has(newStatus) || keepStatus)) {
+    if (force && newStatus !== "blocked") {
       events.push({ feature, ticket, cell, op: "release", kind: "override", reason });
     }
     await commitWithEvent(paths.eventsPath, async () => {
@@ -1073,7 +1099,9 @@ export async function publishHandoff(root, ref, fromFile, options = {}) {
   }
   const nn = /^(\d{2})-/.exec(ticket)[1];
   if (!parsed || (parsed.ticket !== `${feature}/${ticket}` && parsed.ticket !== `${feature}/${nn}`)) {
-    throw new BoardError(`handoff State block must name ticket ${feature}/${ticket}`);
+    throw new BoardError(
+      `handoff State block must name ticket ${feature}/${ticket}` + (await claimSkeleton(paths, feature, ticket))
+    );
   }
   const dir = path.join(root, ".scratch", feature, "handoffs");
   await assertWithinRoot(root, dir);
