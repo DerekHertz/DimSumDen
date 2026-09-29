@@ -580,3 +580,10 @@
 {"kind":"resolved","ts":"2026-09-29T23:12:16.917Z","ticket":"organism-infra/37-trim-genome-tools","pr":77,"bounces":0}
 {"kind":"usage","ts":"2026-09-29T23:27:51Z","five_hour":null,"weekly":null,"event":"dispatch","ticket":"organism-infra/51+58","cell":"qa"}
 {"kind":"context","ts":"2026-09-29T23:27:51Z","session":"be225f9f","context_tokens":75000,"percent":7.5,"event":"dispatch"}
+{"kind":"jev","ts":"2026-09-29T23:30:20.794Z","ticket":"organism-infra/58-jev-verify-floor","point":"tier","pick":null,"actual":"sonnet","cost":0,"conf":null,"mode":"shadow","fallback":"no-key","ms":1,"model":"jev-1.13.0"}
+{"kind":"jev","ts":"2026-09-29T23:30:20.839Z","ticket":"organism-infra/51-handoff-validates-at-publish","point":"tier","pick":null,"actual":"sonnet","cost":0,"conf":null,"mode":"shadow","fallback":"no-key","ms":1,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T23:30:26.055Z","ticket":"organism-infra/58-jev-verify-floor","cell":"qa","mode":"specify","tokens":47832,"ms":55405,"outcome":"10 failing tests, 6cb0574"}
+{"kind":"cell","ts":"2026-09-29T23:30:26.129Z","ticket":"organism-infra/51-handoff-validates-at-publish","cell":"qa","mode":"specify","tokens":73846,"ms":137532,"outcome":"22 failing tests, 6e4bd79"}
+{"kind":"cell","ts":"2026-09-29T23:33:15.916Z","ticket":"organism-infra/58-jev-verify-floor","cell":"developer","tokens":46221,"ms":119484,"outcome":"in-review, a53b6d0 on organism-infra/58-impl"}
+{"kind":"cell","ts":"2026-09-29T23:33:57.636Z","ticket":"organism-infra/58-jev-verify-floor","cell":"developer","tokens":46221,"ms":119484,"outcome":"in-review, a53b6d0 on organism-infra/58-impl"}
+{"kind":"usage","ts":"2026-09-29T23:33:57Z","five_hour":0,"weekly":null,"cloud_credits":3,"event":"return","ticket":"organism-infra/58-jev-verify-floor","cell":"developer"}

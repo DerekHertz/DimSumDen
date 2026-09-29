@@ -19,3 +19,4 @@
 
 - **Created (orchestrator, 2026-09-29):** pipeline-retro fix #2, approved by the user.
 - **orchestrator, 2026-09-29:** Retro 2026-09-29 (user-approved): raised to P0, before dimsumden-ui-v0/04. Scope added: (a) board handoff fills cell/mode from the claim lock when missing and rejects a file with no JSON State block at publish; (b) the lock holder may overwrite its own earlier draft instead of getting 'different cell/mode' (6 incidents across tickets 02-03 left stray 02-developer.md, 02-qa-verify.md, 03-security.md); (c) scripts/usage.mjs prints 'run claude /login' on HTTP 401.
+- **qa, 2026-09-29:** qa specify: failing tests on organism-infra/51-tests @ 6e4bd79; see handoffs/51-qa-specify.md. No human-verified criteria.
