@@ -18,6 +18,12 @@ try {
   const creds = JSON.parse(readFileSync(join(homedir(), ".claude", ".credentials.json"), "utf8"));
   token = creds.claudeAiOauth?.accessToken;
 } catch {
+  if (process.env.CLAUDE_CODE_REMOTE) {
+    // Cloud sessions have no credentials: estimate from transcripts (ticket 32).
+    const { estimate } = await import("./usage-estimate.mjs");
+    console.log(JSON.stringify(estimate()));
+    process.exit(0);
+  }
   fail("could not read Claude Code credentials");
 }
 if (!token) fail("no OAuth access token found");
