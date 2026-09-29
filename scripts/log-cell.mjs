@@ -3,12 +3,13 @@
 // Usage: node scripts/log-cell.mjs --ticket <feature>/<NN-slug> --cell <type> [--mode <m>]
 //          --tokens <int> --ms <int> --outcome "<text>"
 // Root is $ORGANISM_ROOT, else the current directory. Any rejection exits 1 and writes nothing.
-import { closeSync, constants, existsSync, mkdirSync, openSync, writeSync } from "node:fs";
+import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, writeSync } from "node:fs";
 import path from "node:path";
 
 const CELLS = ["product", "architect", "orchestrator", "developer", "scout", "debugger", "qa", "security", "designer"];
 const REF_RE = /^([a-z0-9-]+)\/([A-Za-z0-9][A-Za-z0-9._-]*)$/;
-const FLAGS = ["ticket", "cell", "mode", "tokens", "ms", "outcome"];
+const FLAGS = ["ticket", "cell", "mode", "tokens", "ms", "outcome", "failures"];
+const TOOLS = ["bash-guard", "board-claim", "board-release", "board-comment", "board-handoff", "handoff-state", "git", "npm", "write", "ci", "other"];
 
 function fail(msg) {
   console.error(`log-cell: ${msg}`);
@@ -35,6 +36,21 @@ if (f.mode !== undefined && !f.mode.trim()) fail("--mode must be non-empty when 
 if (f.outcome.length > 500) fail("--outcome must be at most 500 characters");
 if (f.mode !== undefined && f.mode.length > 32) fail("--mode must be at most 32 characters");
 
+// --failures "<tool>:<what>;..." (organism-infra/50): validated before anything is written.
+const incidents = [];
+if (f.failures !== undefined) {
+  for (const item of f.failures.split(";")) {
+    const i = item.indexOf(":");
+    if (i < 0) fail(`--failures item needs <tool>:<what>, got ${JSON.stringify(item)}`);
+    const tool = item.slice(0, i).trim();
+    const what = item.slice(i + 1);
+    if (!TOOLS.includes(tool)) fail(`--failures tool must be one of ${TOOLS.join(", ")}, got ${JSON.stringify(tool)}`);
+    if (!what.trim()) fail("--failures what must be non-empty");
+    if (what.length > 300) fail("--failures what must be at most 300 characters");
+    incidents.push({ tool, what });
+  }
+}
+
 const root = path.resolve(process.env.ORGANISM_ROOT || process.cwd());
 if (!existsSync(path.join(root, ".scratch", m[1], "issues", `${m[2]}.md`))) fail(`ticket not found: ${f.ticket}`);
 
@@ -48,7 +64,12 @@ const row = {
   ms: Number(f.ms),
   outcome: f.outcome,
 };
-mkdirSync(path.join(root, ".scratch"), { recursive: true });
+const scratch = path.join(root, ".scratch");
+if (existsSync(scratch) && lstatSync(scratch).isSymbolicLink()) fail(".scratch is a symlink; refusing to write through it");
+mkdirSync(scratch, { recursive: true });
+const incidentRows = incidents.map(({ tool, what }) => ({
+  kind: "incident", ts: row.ts, ticket: f.ticket, cell: f.cell, tool, what, cost: null, fix: null, rule_change: null, source: "cell-report",
+}));
 // O_NOFOLLOW: a symlinked usage.jsonl is refused (organism-infra/49).
 let fd;
 try {
@@ -57,7 +78,7 @@ try {
   fail(`cannot open usage.jsonl (${err.code}); symlinks are refused`);
 }
 try {
-  writeSync(fd, JSON.stringify(row) + "\n");
+  writeSync(fd, [row, ...incidentRows].map((r) => JSON.stringify(r) + "\n").join(""));
 } finally {
   closeSync(fd);
 }
