@@ -17,3 +17,5 @@
 ## Comments
 - **Showcase sprint (user, 2026-09-29):** ship a demoable v1 tonight. Relay is developer then qa verify; risk-check decides security. Mockups: https://claude.ai/artifact/LQjpimx1jfX5bjZEoTo3za
 - **qa, 2026-09-29:** QA pass on unit tests and build. Needs user eye: click and Enter open the Dashboard with tables. smoke:ui not run here.
+- **security, 2026-09-29:** Security pass. Risk-check hits are the word board only. BoardFace.jsx draws metrics via canvas fillText, no innerHTML; metrics-state.js is a GET /metrics fetch, no new endpoint. No findings.
+- **User browser check (2026-09-29):** npm test 760/760 and smoke:ui pass locally. Fix round: board click scrolls the page away; move Today's board next to Bao; bell floats above head; orchestrator missing from crown (always show); black platforms to wood; label the cub basket.
