@@ -41,8 +41,8 @@ A new cell type, **herald**, that on demand reads the organism's own record and 
 - **Tools:** read-only on the repo (Read, Grep, Glob), Write for the draft file, Skill, and Agent to dispatch `scout`. No Bash, no WebFetch, no GitHub write tools. Merged-PR facts come through `scout` (git log or the GitHub MCP read tools). Herald itself holds no tool that can post.
 - **Inputs:** `.scratch/usage.jsonl` (per-cell tokens, time, incidents, retros); handoffs under `.scratch/*/handoffs/`; ADRs in `docs/adr/`; `docs/agents/cloud-sessions.md`; merged PRs; the showcase-v1 story and screenshots; the user's brief. Verbose reading (large `usage.jsonl`, many handoffs) goes to `scout`, which returns a summary with source pointers.
 - **Output:** one draft file per run, 1 to 3 paragraphs of post text, plus a short header with title, series and number (if any), channel (LinkedIn or blog), suggested image, and a sources list. The header is metadata for the user and is not part of the post text.
-- **Draft location (default, unconfirmed):** `.scratch/herald/drafts/<series>-<NN>-<slug>.md`, e.g. `dim-sum-den-01-inspiration.md`. One-off posts use `single-<slug>.md`. The board is already the tracked place for cell output. The user copies the text out.
-- **Image sourcing (default, unconfirmed):** herald only references screenshots already in the repo and names one suggested image per post. It never captures. When ci-cd/05's screenshot script exists, its output directory becomes another place herald may reference, with no herald change. If no suitable image exists, the draft says "no image" rather than blocking.
+- **Draft location (user, 2026-09-29):** outside the repo. Herald writes the draft to the session scratchpad (or a path the user names) and prints the text in its report. Nothing is committed. The user saves drafts locally.
+- **Image sourcing (user, 2026-09-29):** herald only references screenshots already in the repo and names one suggested image per post. It never captures. When ci-cd/05's screenshot script exists, its output directory becomes another place herald may reference, with no herald change. If no suitable image exists, the draft says "no image" rather than blocking.
 - **Trigger:** on demand only. The user or orchestrator dispatches herald with a topic and, for a series, the series and number. No hook, no post-merge trigger.
 - **Never publishes:** publishing, posting, pushing, opening a PR and sending to any channel are outside herald. Its genome lists "handing the draft to the user" as its only exit, and the user's own posting is out of band. Any request to post is refused and returned to the user.
 - **Privacy rules the genome states:** no credentials, no email addresses, no personal data; keep internal file paths out of post text unless they help the story.
@@ -53,12 +53,12 @@ A new cell type, **herald**, that on demand reads the organism's own record and 
   2. **How we iterated:** from Agent Office to Dim Sum Den, the relay of cells, the showcase-v1 story (mound stele, "floating and small", moved beside the Cubs basket) as a small example of steering by feedback. Sources: showcase-v1 handoffs, ADRs 0012 and 0013, screenshots.
   3. **How it speeds up development:** measured cost and time per step (cloud cost table), the relay of qa, developer and security, mechanical checks, and the cloud session flow. Sources: `usage.jsonl`, `docs/agents/cloud-sessions.md`, ADR 0009.
   4. **What we learned:** friction and fixes (board commits from cells, resuming a finished cell loses its worktree, browser tests in cloud, retro items). Sources: incidents in `usage.jsonl`, retros, the friction list in `cloud-sessions.md`.
-- **Glossary (proposed, not yet written; `CONTEXT.md` is a pass gate):**
+- **Glossary (user approved 2026-09-29, written to `CONTEXT.md` under Communication):**
   - **Herald**: The cell type that drafts public posts about the organism and what it builds. It writes a draft file and never publishes. _Avoid_: Marketer, publisher, PR bot
   - **Draft**: One herald output file, 1 to 3 paragraphs plus a source header, for the user to edit and post. _Avoid_: Post (a post is what the user publishes), article
   - **Post series**: An ordered set of related drafts, such as the first four. _Avoid_: Campaign
 
-  Add these under a new **Communication** heading in `CONTEXT.md` once the user approves.
+
 - **ADR:** none required. The choices are reversible and easy to explain. If the user later allows herald to publish, that would need an ADR.
 
 ## Testing Decisions
@@ -83,8 +83,8 @@ A new cell type, **herald**, that on demand reads the organism's own record and 
 ## Further Notes
 
 - **Open decisions for the user (defaults taken above):**
-  1. Draft location: `.scratch/herald/drafts/` (default) versus a tracked docs folder or outside the repo.
-  2. Image sourcing: reference existing screenshots only (default) versus requesting new ones from the designer after ci-cd/05.
+  1. Draft location: resolved, outside the repo.
+  2. Image sourcing: resolved, existing screenshots only for now.
 - **Suggested ticket shape (for the orchestrator, not a breakdown):** one ticket for the genome diff and its mechanical checks, one for the draft-shape check, and four series drafts as dry runs after the genome is applied. The series drafts are blocked on the genome edit being applied with the user's permission.
-- **Terms to add:** see the glossary above; not written to `CONTEXT.md` because that is a pass gate and the user was not reachable in this session.
+- **Terms:** approved and added to `CONTEXT.md`.
 - Herald's own drafts should not quote the user's private brief text verbatim beyond what the user wrote for public use.
