@@ -178,3 +178,4 @@
 {"kind":"resolved","ts":"2026-09-29T22:13:19.909Z","ticket":"organism-infra/32-cloud-usage-estimate","pr":69,"bounces":0}
 {"kind":"usage","ts":"2026-09-29T22:13:34Z","five_hour":null,"weekly":null,"cloud_credits_est":34.2,"event":"merge","ticket":"organism-infra/32-cloud-usage-estimate","cell":null}
 {"kind":"cell","ts":"2026-09-29T22:14:21.757Z","ticket":"herald/02-herald-genome","cell":"security","tokens":50067,"ms":100857,"outcome":"pass; M1 bare Agent can reach scout's Bash; M2 narrow secret patterns"}
+{"kind":"incident","ts":"2026-09-29T22:17:09Z","ticket":"ci-cd/05-cloud-browser-tests","cell":"orchestrator","tool":"board-claim","what":"orchestrator named tickets 05a/05b; board TICKET_RE requires NN-slug, so claim failed","cost":"30k tokens, one wasted qa dispatch","fix":"renamed to 05 and 06","rule_change":null}

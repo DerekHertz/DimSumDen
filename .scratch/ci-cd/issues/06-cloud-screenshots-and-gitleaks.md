@@ -1,4 +1,4 @@
-# 05b: Cloud screenshots for the designer, and gitleaks in cloud
+# 06: Cloud screenshots for the designer, and gitleaks in cloud
 
 **Type:** feature
 
@@ -9,7 +9,7 @@
 2. A screenshot script: starts the UI dev server, opens the default camera, saves PNGs at desktop and mobile widths, both themes, reduced motion, into a given directory.
 3. Designer genome (gated `.claude/` edit, user applies): in cloud, review mode uses the script when the browser pane tools are absent.
 
-**Blocked by:** 05a
+**Blocked by:** 05
 
 **Status:** ready-for-agent
 

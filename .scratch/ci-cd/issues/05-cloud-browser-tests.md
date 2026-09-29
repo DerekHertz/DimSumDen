@@ -1,4 +1,4 @@
-# 05a: Browser tests pass in cloud on the preinstalled Chromium
+# 05: Browser tests pass in cloud on the preinstalled Chromium
 
 **Type:** feature
 
@@ -16,4 +16,4 @@
 
 ## Comments
 - **Probe (orchestrator, 2026-09-29):** Playwright 1.63 launched chromium-1194 by `executablePath` with the swiftshader flags, and WebGL2 was available.
-- **Decision (user, 2026-09-29):** split 05; run 05a first.
+- **Decision (user, 2026-09-29):** split the old 05; run this one first (renamed from 05a: the board needs two-digit ticket numbers).
