@@ -156,3 +156,7 @@
 {"seq":156,"ts":"2026-09-29T19:49:29.984Z","feature":"showcase-v1","ticket":"03-todays-board","cell":"developer","op":"release","from_status":"claimed","to_status":"in-review","force":false}
 {"seq":157,"ts":"2026-09-29T19:49:30.257Z","feature":"showcase-v1","ticket":"05-name-and-font","cell":"developer","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
 {"seq":158,"ts":"2026-09-29T19:51:58.071Z","feature":"showcase-v1","ticket":"05-name-and-font","cell":"developer","op":"release","from_status":"claimed","to_status":"in-review","force":false}
+{"seq":159,"ts":"2026-09-29T19:55:16.298Z","feature":"showcase-v1","ticket":"02-low-poly-grove","cell":"qa","mode":"verify","op":"claim","from_status":"in-review","to_status":"in-review"}
+{"seq":160,"ts":"2026-09-29T19:55:16.603Z","feature":"showcase-v1","ticket":"03-todays-board","cell":"qa","mode":"verify","op":"claim","from_status":"in-review","to_status":"in-review"}
+{"seq":161,"ts":"2026-09-29T19:55:16.873Z","feature":"showcase-v1","ticket":"04-message-passing","cell":"qa","mode":"verify","op":"claim","from_status":"in-review","to_status":"in-review"}
+{"seq":162,"ts":"2026-09-29T19:55:17.139Z","feature":"showcase-v1","ticket":"05-name-and-font","cell":"qa","mode":"verify","op":"claim","from_status":"in-review","to_status":"in-review"}
