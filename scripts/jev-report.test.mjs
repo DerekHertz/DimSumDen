@@ -7,11 +7,11 @@
 //  - Ticket key = "<feature>/<NN>" (jev rows carry the full slug, cell/resolved rows may carry only NN).
 //  - A ticket is included only if it has at least one cell or resolved row.
 //  - One jev row per (ticket, point): the latest by ts.
-//  - Token weights (fixed before results are read): haiku 0.25, sonnet 1, opus 5.
+//  - Token weights (fixed before results are read): haiku 0.5, sonnet 1, opus 2 (ADR 0010).
 //    Baseline = every cell row's tokens at weight 1 (genome minimums).
-//    Counterfactual for `tier`: developer cell rows use weight of pick (sonnet 1, opus 5).
+//    Counterfactual for `tier`: developer cell rows use weight of pick (sonnet 1, opus 2).
 //    Counterfactual for `verify`: qa cell rows whose mode starts with "verify" use
-//    light -> 0.25, full -> 1. pick null/other or a fallback row -> baseline (weight 1).
+//    light -> 0.5, full -> 1. pick null/other or a fallback row -> baseline (weight 1).
 //  - report = { tickets: [{ticket, baseline, projected:{tier, verify, both}, bounces}] sorted by ticket,
 //               points: {tier|verify: {tickets, fallbacks (excluding cap), capFired, medianMs,
 //                        jevCost, baseline, projected, savedPct, bounces}} }
@@ -34,8 +34,8 @@ const jev = (ticket, point, pick, actual, extra = {}) => ({
 const cell = (ticket, c, mode, tokens) => ({ kind: "cell", ticket, cell: c, mode, tokens, ms: 1, outcome: "pass" });
 const resolved = (ticket, bounces) => ({ kind: "resolved", ts: "2026-09-29T02:00:00Z", ticket, pr: 1, bounces });
 
-// A f/01: tier sonnet, verify light. baseline 2200; verify-light projection 1900.
-// B f/02: tier opus, verify full.    baseline 2700; tier projection 10700.
+// A f/01: tier sonnet, verify light. baseline 2200; verify-light projection 2000.
+// B f/02: tier opus, verify full.    baseline 2700; tier projection 4700.
 // C f/03: tier timeout fallback, verify cap fallback. baseline 1000, unchanged.
 // D f/99: jev rows only (mistyped ref): excluded.
 const ROWS = [
@@ -70,12 +70,12 @@ test("counterfactual projection per ticket, joined across short and full refs", 
   assert.deepEqual(Object.keys(by).sort(), ["f/01", "f/02", "f/03"]);
   assert.equal(by["f/01"].baseline, 2200);
   assert.equal(by["f/01"].projected.tier, 2200);
-  assert.equal(by["f/01"].projected.verify, 1900);
-  assert.equal(by["f/01"].projected.both, 1900);
+  assert.equal(by["f/01"].projected.verify, 2000);
+  assert.equal(by["f/01"].projected.both, 2000);
   assert.equal(by["f/02"].baseline, 2700);
-  assert.equal(by["f/02"].projected.tier, 10700);
+  assert.equal(by["f/02"].projected.tier, 4700);
   assert.equal(by["f/02"].projected.verify, 2700);
-  assert.equal(by["f/02"].projected.both, 10700);
+  assert.equal(by["f/02"].projected.both, 4700);
   assert.equal(by["f/03"].baseline, 1000);
   assert.equal(by["f/03"].projected.both, 1000);
   assert.equal(by["f/01"].bounces, 0);
@@ -92,8 +92,8 @@ test("per-point exit-criteria numbers from fixture rows", async () => {
   assert.equal(points.tier.medianMs, 100);
   close(points.tier.jevCost, 0.002);
   assert.equal(points.tier.baseline, 5900);
-  assert.equal(points.tier.projected, 13900);
-  close(points.tier.savedPct, -135.59);
+  assert.equal(points.tier.projected, 7900);
+  close(points.tier.savedPct, -33.90);
   assert.equal(points.tier.bounces, 3);
 
   assert.equal(points.verify.tickets, 3);
@@ -102,8 +102,8 @@ test("per-point exit-criteria numbers from fixture rows", async () => {
   assert.equal(points.verify.medianMs, 200);
   close(points.verify.jevCost, 0.004);
   assert.equal(points.verify.baseline, 5900);
-  assert.equal(points.verify.projected, 5600);
-  close(points.verify.savedPct, 5.08);
+  assert.equal(points.verify.projected, 5700);
+  close(points.verify.savedPct, 3.39);
   assert.equal(points.verify.bounces, 3);
 });
 
@@ -126,10 +126,10 @@ test("CLI prints the exit-criteria table from a fixture file", () => {
   for (const word of ["tier", "verify", "coverage", "safety", "value", "spend"]) {
     assert.ok(out.toLowerCase().includes(word), `missing ${word}`);
   }
-  assert.ok(out.includes("5.1%"), "verify savings 5.1%");
-  assert.ok(out.includes("-135.6%"), "tier savings -135.6%");
+  assert.ok(out.includes("3.4%"), "verify savings 3.4%");
+  assert.ok(out.includes("-33.9%"), "tier savings -33.9%");
   for (const t of ["f/01", "f/02", "f/03"]) assert.ok(out.includes(t), t);
-  assert.ok(out.includes("2200") && out.includes("1900"), "per-ticket baseline and projection");
+  assert.ok(out.includes("2200") && out.includes("2000"), "per-ticket baseline and projection");
   assert.ok(!out.includes("f/99"), "excluded ticket must not appear");
 });
 
@@ -140,6 +140,6 @@ test("CLI --json prints the report object", () => {
   const res = spawnSync(process.execPath, [SCRIPT, "--usage", file, "--json"], { encoding: "utf8" });
   assert.equal(res.status, 0, res.stderr);
   const r = JSON.parse(res.stdout);
-  assert.equal(r.points.verify.projected, 5600);
+  assert.equal(r.points.verify.projected, 5700);
   assert.equal(r.tickets.length, 3);
 });
