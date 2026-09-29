@@ -869,6 +869,13 @@ export async function release(root, ref, newStatus, reason, options = {}) {
         );
       }
       if (!force) {
+        // organism-infra/45: no claim lock means no cell/mode/age binding, so
+        // a gated release without a claim is refused.
+        if (claimMtimeMs === undefined) {
+          throw new BoardError(
+            `release blocked: ${ref} has no claim lock; claim it first (use --force --reason to override)`
+          );
+        }
         const handoffCheck = await validateHandoffState(
           root,
           feature,

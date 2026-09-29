@@ -22,7 +22,10 @@ export const SECRET_PATTERNS = [
     name: "hardcoded API key/token/secret",
     re: /\b(api[_-]?key|token|secret)\b\s*[:=]\s*["'][A-Za-z0-9_\-/+]{12,}["']/i,
   },
-  { name: "hardcoded password= style credential", re: /\bpassword\s*[:=]\s*["'][^"']{3,}["']/i },
+  { name: "GitHub token", re: /\bghp_[A-Za-z0-9]{20,}/ },
+  { name: "sk- style API key", re: /\bsk-[A-Za-z0-9_-]{20,}/ },
+  { name: "Slack token", re: /\bxox[abp]-[A-Za-z0-9-]{10,}/ },
+  { name: "hardcoded password=style credential", re: /\bpassword\s*[:=]\s*["'][^"']{3,}["']/i },
 ];
 
 const CODE_RISK_PATTERNS = [
