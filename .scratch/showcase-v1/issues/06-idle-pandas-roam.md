@@ -16,3 +16,4 @@
 
 ## Comments
 - **Idea (user, 2026-09-29):** "it would be fun to have the idle pandas just roaming around. when an agent of that type gets called then they start working."
+- **qa, 2026-09-29:** QA pass: 773/778, 5 fails are browser smoke only (chromium missing in cloud, skipped). Criteria 1-2 map to roam.test.mjs; smoke:ui human-verified. See 06-qa-verify.md.

@@ -190,3 +190,6 @@
 {"seq":190,"ts":"2026-09-29T20:13:02.772Z","feature":"showcase-v1","ticket":"05-name-and-font","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
 {"seq":191,"ts":"2026-09-29T20:13:37.367Z","feature":"showcase-v1","ticket":"06-idle-pandas-roam","cell":"developer","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
 {"seq":192,"ts":"2026-09-29T20:20:22.321Z","feature":"showcase-v1","ticket":"06-idle-pandas-roam","cell":"developer","op":"release","from_status":"claimed","to_status":"in-review","force":false}
+{"seq":193,"ts":"2026-09-29T20:26:36.037Z","feature":"showcase-v1","ticket":"06-idle-pandas-roam","cell":"qa","mode":"verify","op":"claim","from_status":"in-review","to_status":"in-review"}
+{"seq":194,"ts":"2026-09-29T20:28:20.187Z","feature":"showcase-v1","ticket":"06-idle-pandas-roam","cell":"qa","op":"comment","text":"QA pass: 773/778, 5 fails are browser smoke only (chromium missing in cloud, skipped). Criteria 1-2 map to roam.test.mjs; smoke:ui human-verified. See 06-qa-verify.md.","verdict":"pass"}
+{"seq":195,"ts":"2026-09-29T20:28:27.693Z","feature":"showcase-v1","ticket":"06-idle-pandas-roam","cell":"qa","op":"release","from_status":"in-review","to_status":"in-review","force":false}

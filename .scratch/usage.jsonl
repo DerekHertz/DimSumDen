@@ -119,3 +119,5 @@
 {"kind":"incident","ts":"2026-09-29T23:55:00Z","ticket":"showcase-v1/06","cell":"developer","tool":"classifier","what":"auto-mode classifier returned no verdict on piped test commands several times","cost":"retries","fix":"retry or use Grep/Read","rule_change":null}
 {"kind":"cell","ts":"2026-09-29T20:20:53.525Z","ticket":"showcase-v1/06-idle-pandas-roam","cell":"developer","tokens":97338,"ms":441388,"outcome":"in-review at 83088ac; roam.mjs 16 tests; browser unverified"}
 {"kind":"usage","ts":"2026-09-29T20:26:20Z","five_hour":null,"weekly":null,"cloud_credits":59,"event":"dispatch","ticket":"showcase-v1/06-idle-pandas-roam","cell":"qa"}
+{"kind":"cell","ts":"2026-09-29T20:28:44.014Z","ticket":"showcase-v1/06-idle-pandas-roam","cell":"qa","mode":"verify","tokens":35938,"ms":130299,"outcome":"pass; smoke:ui skipped (cloud chromium), user WSL check"}
+{"kind":"incident","ts":"2026-09-29T20:28:44Z","ticket":"showcase-v1/06-idle-pandas-roam","cell":"qa","tool":"board handoff","what":"State block missing mode; first handoff file then blocked overwrite, published as -2","cost":"2 calls, stale file","fix":"orchestrator deleted stale file","rule_change":null}
