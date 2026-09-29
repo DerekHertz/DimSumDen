@@ -14,6 +14,8 @@ const DEFAULT_UI_DIR = fileURLToPath(new URL("../ui/dist", import.meta.url));
 
 const HOST = "127.0.0.1";
 const MAX_BODY = 4096;
+// 07 security forward: the panel renders agent text; forbid inline and foreign script.
+const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'";
 
 export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR } = {}) {
   let actualPort = port;
@@ -155,7 +157,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR } 
         return;
       }
     }
-    res.writeHead(200, { "Content-Type": contentTypeFor(file), "Cache-Control": "no-store" });
+    res.writeHead(200, { "Content-Type": contentTypeFor(file), "Cache-Control": "no-store", "Content-Security-Policy": CSP });
     res.end(req.method === "HEAD" ? undefined : body);
   }
   await new Promise((resolve, reject) => {
