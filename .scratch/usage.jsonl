@@ -143,3 +143,4 @@
 {"kind":"incident","ts":"2026-09-29T21:06:23Z","ticket":"showcase-v1/07-tally-stele","cell":"developer","tool":"board release","what":"handoff State block missing current_step/artifacts/decisions/failures; 4th State-block rejection this session","cost":"1 retry","fix":"republished","rule_change":"candidate: board handoff prints required json skeleton on error"}
 {"kind":"usage","ts":"2026-09-29T21:10:01Z","five_hour":null,"weekly":null,"cloud_credits":52,"event":"dispatch","ticket":"showcase-v1/07-tally-stele","cell":"qa"}
 {"kind":"cell","ts":"2026-09-29T21:13:29.210Z","ticket":"showcase-v1/07-tally-stele","cell":"qa","mode":"verify","tokens":39933,"ms":185761,"outcome":"light verify pass; fixture timeouts environmental"}
+{"kind":"usage","ts":"2026-09-29T21:13:53Z","five_hour":null,"weekly":null,"cloud_credits":52,"event":"dispatch","ticket":"showcase-v1/07-tally-stele","cell":"designer"}
