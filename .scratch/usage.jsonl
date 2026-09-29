@@ -114,3 +114,4 @@
 {"kind":"resolved","ts":"2026-09-29T20:13:01.370Z","ticket":"showcase-v1/03-todays-board","pr":62,"bounces":0}
 {"kind":"resolved","ts":"2026-09-29T20:13:02.072Z","ticket":"showcase-v1/04-message-passing","pr":62,"bounces":0}
 {"kind":"resolved","ts":"2026-09-29T20:13:02.775Z","ticket":"showcase-v1/05-name-and-font","pr":62,"bounces":0}
+{"kind":"usage","ts":"2026-09-29T23:40:00Z","cloud_credit_left":62,"event":"return","ticket":"showcase-v1/06","cell":"developer","source":"user-reported"}
