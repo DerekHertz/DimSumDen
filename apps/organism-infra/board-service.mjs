@@ -869,10 +869,13 @@ export async function logResolved(root, ref, prArg) {
   if (readStatus(content) !== "resolved") throw new BoardError(`${ref} is not resolved; no row written`);
   const isCode = /^\*\*Type:\*\*[ \t]*(feature|bug)\b/m.test(content);
   if (isCode && pr === undefined) throw new BoardError(`${ref} is a code ticket; --pr <number> is required`);
-  if (await usageHasResolvedRow(root, `${feature}/${ticket}`)) {
-    throw new BoardError(`a resolved row for ${feature}/${ticket} already exists in usage.jsonl`);
-  }
-  await appendResolvedRow(root, paths.eventsPath, ref, pr ?? null);
+  // organism-infra/50: the duplicate check and the append share the write lock.
+  await withWriteLock(paths.writeLockPath, async () => {
+    if (await usageHasResolvedRow(root, `${feature}/${ticket}`)) {
+      throw new BoardError(`a resolved row for ${feature}/${ticket} already exists in usage.jsonl`);
+    }
+    await appendResolvedRow(root, paths.eventsPath, ref, pr ?? null);
+  });
 }
 
 async function appendResolvedRow(root, eventsPath, ref, pr) {
@@ -1125,8 +1128,11 @@ export async function comment(root, ref, text, options = {}) {
     // neither the comment is rejected rather than stamped "unknown".
     let cell = as;
     if (cell !== undefined) checkKnownCell(cell, "author");
+    let lockMode;
     if (await exists(paths.claimLockPath)) {
-      const lockCell = claimingCell(await readFile(paths.claimLockPath, "utf8"));
+      const lockContent = await readFile(paths.claimLockPath, "utf8");
+      const lockCell = claimingCell(lockContent);
+      lockMode = claimingMode(lockContent);
       if (cell !== undefined && cell !== lockCell) {
         throw new BoardError(
           `comment rejected: --as ${cell} does not match the claim lock's cell (${lockCell})`
@@ -1138,6 +1144,13 @@ export async function comment(root, ref, text, options = {}) {
       throw new BoardError(
         `comment rejected: no claim lock on ${ref} and no --as <cell> to name the author`
       );
+    }
+    // organism-infra/50: a verdict needs the claim lock; a qa lock only in mode verify.
+    if (verdict !== undefined && !(await exists(paths.claimLockPath))) {
+      throw new BoardError(`comment rejected: --verdict needs a claim lock on ${ref} (claim it first)`);
+    }
+    if (verdict !== undefined && cell === "qa" && lockMode !== "verify") {
+      throw new BoardError("comment rejected: a qa verdict needs a claim lock held in mode verify");
     }
     if (verdict !== undefined && !VERDICT_CELLS.has(cell)) {
       throw new BoardError(

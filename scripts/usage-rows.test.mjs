@@ -78,6 +78,7 @@ test("release --status resolved --pr appends exactly one well-formed resolved ro
 test("bounces counts only comments recorded with --verdict bounce; free-text bounce and pass verdicts count 0", async () => {
   const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
   try {
+    await claimAndReady(fx);
     for (const [text, verdict] of [
       ["QA bounce: test x fails", "bounce"],
       ["QA pass", "pass"],
@@ -86,11 +87,10 @@ test("bounces counts only comments recorded with --verdict bounce; free-text bou
       ["QA bounce, typed without a verdict", undefined],
       ["Note: no bounce this time", undefined],
     ]) {
-      const args = ["comment", fx.ticketRelPath, ...(verdict ? ["--verdict", verdict] : []), text, "--as", "qa"];
+      const args = ["comment", fx.ticketRelPath, ...(verdict ? ["--verdict", verdict] : []), text];
       const c = await runBoard(args, { cwd: fx.worktree });
       assert.equal(c.code, 0, c.stderr);
     }
-    await claimAndReady(fx);
     const r = await resolve(fx, "--pr", "7");
     assert.equal(r.code, 0, r.stderr);
     const got = rows(fx.root).filter((x) => x.kind === "resolved");
@@ -104,8 +104,9 @@ test("bounces counts only comments recorded with --verdict bounce; free-text bou
 test("comment --verdict is recorded on the comment event", async () => {
   const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
   try {
+    await claimAndReady(fx);
     for (const v of ["pass", "bounce"]) {
-      const c = await runBoard(["comment", fx.ticketRelPath, "--verdict", v, `verdict ${v}`, "--as", "qa"], { cwd: fx.worktree });
+      const c = await runBoard(["comment", fx.ticketRelPath, "--verdict", v, `verdict ${v}`], { cwd: fx.worktree });
       assert.equal(c.code, 0, c.stderr);
     }
     const evs = readFileSync(fx.eventsPath, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l))
@@ -119,12 +120,14 @@ test("comment --verdict is recorded on the comment event", async () => {
 test("comment --verdict bogus is refused and writes nothing", async () => {
   const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
   try {
+    await claimAndReady(fx);
     const before = await fx.readTicket();
-    const c = await runBoard(["comment", fx.ticketRelPath, "--verdict", "bogus", "hello", "--as", "qa"], { cwd: fx.worktree });
+    const c = await runBoard(["comment", fx.ticketRelPath, "--verdict", "bogus", "hello"], { cwd: fx.worktree });
     assert.notEqual(c.code, 0);
     assert.match(c.stderr, /verdict/i);
     assert.equal(await fx.readTicket(), before);
-    assert.equal(existsSync(fx.eventsPath), false, "no event written");
+    const evs = readFileSync(fx.eventsPath, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+    assert.equal(evs.filter((e) => e.op === "comment").length, 0, "no comment event written");
   } finally {
     await fx.cleanup();
   }
@@ -134,7 +137,9 @@ test("bounces ignore other tickets' comments", async () => {
   const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
   try {
     await writeFile(path.join(fx.root, ".scratch", "sample", "issues", "02-other.md"), codeTicket("02-other"));
-    const c = await runBoard(["comment", "sample/02-other", "--verdict", "bounce", "QA bounce: nope", "--as", "qa"], { cwd: fx.worktree });
+    const k = await runBoard(["claim", "sample/02-other", "orchestrator"], { cwd: fx.worktree });
+    assert.equal(k.code, 0, k.stderr);
+    const c = await runBoard(["comment", "sample/02-other", "--verdict", "bounce", "QA bounce: nope"], { cwd: fx.worktree });
     assert.equal(c.code, 0, c.stderr);
     await claimAndReady(fx);
     const r = await resolve(fx, "--pr", "7");
