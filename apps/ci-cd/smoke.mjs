@@ -74,7 +74,7 @@ function isBrowserHousekeeping(url) {
  * evaluate, e.g. `import fs from "node:fs"`), a failed network request, and a non-2xx/3xx
  * response (a failed asset load).
  */
-async function checkPage(browser, baseUrl, pagePath) {
+async function checkPage(browser, baseUrl, pagePath, { absolute = false } = {}) {
   const firstByKind = new Map();
   const record = (kind, message) => {
     if (!firstByKind.has(kind)) firstByKind.set(kind, message);
@@ -98,7 +98,7 @@ async function checkPage(browser, baseUrl, pagePath) {
     }
   });
 
-  const url = `${baseUrl}/${String(pagePath).replace(/^\/+/, "")}`;
+  const url = absolute ? pagePath : `${baseUrl}/${String(pagePath).replace(/^\/+/, "")}`;
   try {
     await page.goto(url, { waitUntil: "load", timeout: 15000 });
     // give async module errors / late console output a moment to surface
@@ -113,24 +113,39 @@ async function checkPage(browser, baseUrl, pagePath) {
 }
 
 async function main() {
-  const pages = process.argv.slice(2);
-  if (pages.length === 0) {
-    console.error("usage: npm run smoke -- <page-path> [<page-path> ...]");
+  // dimsumden-ui-v0/13: `--url <absolute-url>` (repeatable) loads the URL as given and starts no
+  // repo dev server, for pages served elsewhere (the bridge's built UI).
+  const args = process.argv.slice(2);
+  const pages = [];
+  let absolute = false;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--url") {
+      if (args[i + 1] === undefined) {
+        console.error("smoke: --url needs a value");
+        process.exit(1);
+      }
+      absolute = true;
+      pages.push(args[++i]);
+    } else {
+      pages.push(args[i]);
+    }
+  }
+  if (pages.length === 0 || (absolute && pages.length !== args.filter((a) => a === "--url").length)) {
+    console.error("usage: npm run smoke -- <page-path> [<page-path> ...] | --url <absolute-url> [--url <absolute-url> ...]");
     process.exit(1);
   }
 
   const chromium = await loadChromium();
 
-  const server = await startEphemeralServer();
-  const { port } = server.address();
-  const baseUrl = `http://127.0.0.1:${port}`;
+  const server = absolute ? null : await startEphemeralServer();
+  const baseUrl = server ? `http://127.0.0.1:${server.address().port}` : "";
 
   let browser;
   let anyFailed = false;
   try {
     browser = await launchBrowser(chromium);
     for (const pagePath of pages) {
-      const errorsByKind = await checkPage(browser, baseUrl, pagePath);
+      const errorsByKind = await checkPage(browser, baseUrl, pagePath, { absolute });
       if (errorsByKind.size === 0) {
         console.log(`PASS ${pagePath}`);
         continue;
@@ -143,7 +158,7 @@ async function main() {
     }
   } finally {
     await browser?.close();
-    await new Promise((resolve) => server.close(resolve));
+    if (server) await new Promise((resolve) => server.close(resolve));
   }
 
   process.exit(anyFailed ? 1 : 0);
