@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // organism-infra/48: append one validated kind:"cell" row to .scratch/usage.jsonl (ADR 0008).
-// Usage: node scripts/log-cell.mjs --ticket <feature>/<NN-slug> --cell <type> [--mode <m>]
+// Usage: node scripts/log-cell.mjs --ticket <feature>/<NN-slug> --cell <type> [--mode <m>] [--model <id>]
 //          --tokens <int> --ms <int> --outcome "<text>"
 // Root is $ORGANISM_ROOT, else the current directory. Any rejection exits 1 and writes nothing.
 import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, writeSync } from "node:fs";
@@ -8,7 +8,7 @@ import path from "node:path";
 
 const CELLS = ["product", "architect", "orchestrator", "developer", "scout", "debugger", "qa", "security", "designer"];
 const REF_RE = /^([a-z0-9-]+)\/([A-Za-z0-9][A-Za-z0-9._-]*)$/;
-const FLAGS = ["ticket", "cell", "mode", "tokens", "ms", "outcome", "failures"];
+const FLAGS = ["ticket", "cell", "mode", "model", "tokens", "ms", "outcome", "failures"];
 const TOOLS = ["bash-guard", "board-claim", "board-release", "board-comment", "board-handoff", "handoff-state", "git", "npm", "write", "ci", "other"];
 
 function fail(msg) {
@@ -33,6 +33,8 @@ for (const n of ["tokens", "ms"]) {
 }
 if (!f.outcome || !f.outcome.trim()) fail("--outcome must be non-empty");
 if (f.mode !== undefined && !f.mode.trim()) fail("--mode must be non-empty when given");
+if (f.model !== undefined && !f.model.trim()) fail("--model must be non-empty when given");
+if (f.model !== undefined && f.model.length > 64) fail("--model must be at most 64 characters");
 if (f.outcome.length > 500) fail("--outcome must be at most 500 characters");
 if (f.mode !== undefined && f.mode.length > 32) fail("--mode must be at most 32 characters");
 
@@ -60,6 +62,7 @@ const row = {
   ticket: f.ticket,
   cell: f.cell,
   ...(f.mode !== undefined ? { mode: f.mode } : {}),
+  ...(f.model !== undefined ? { model: f.model } : {}),
   tokens: Number(f.tokens),
   ms: Number(f.ms),
   outcome: f.outcome,
