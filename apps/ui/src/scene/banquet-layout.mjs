@@ -8,6 +8,12 @@ const BAO_BOX = { minY: -1, size: [2, 2, 1.75] };
 /** The service bell on Bao's crown, beside the orchestrator's perch. */
 export const BELL = { x: 0.5, y: 2.85, z: BAO.position[2] };
 
+/**
+ * Today's board: a pagoda-roofed slate on tall posts, front right on the grass (showcase-v1/03). The slate
+ * hangs high (faceBottom) so the sight line from the default camera to the Pantry's cells passes under it.
+ */
+export const TODAYS_BOARD = { x: 2.9, z: 3.9, width: 1.8, depth: 0.3, faceBottom: 1.9, faceHeight: 1.0 };
+
 export const TABLE ={ x: 0, z: 0, radius: 1.3, height: 0.7 };
 export const CUB_BASKET = { x: 0, z: 3.4 };
 export const CUB_BASKET_RADIUS = 0.55;

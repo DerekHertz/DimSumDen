@@ -2,9 +2,12 @@
 // every frame and written straight to each button's style, so React does not re-render per frame.
 import { useEffect, useRef } from "react";
 import { chipModel, stackChips } from "./chip-model.mjs";
+import { BOARD_ARIA_LABEL, BOARD_LABEL } from "./board-face.mjs";
+
+export const BOARD_CHIP_ID = "__board";
 
 // `hearts` is a Set of cell refs that just received a handoff (showcase-v1/04): a heart bubble shows.
-export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts }) {
+export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, onOpenBoard }) {
   const nodes = useRef(new Map());
   useEffect(() => {
     let raf = 0;
@@ -35,6 +38,18 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts })
   const titles = new Map((tickets ?? []).map((t) => [t.ref, t.title]));
   return (
     <div className="chip-layer">
+      {onOpenBoard ? (
+        <button
+          type="button"
+          ref={(el) => (el ? nodes.current.set(BOARD_CHIP_ID, el) : nodes.current.delete(BOARD_CHIP_ID))}
+          className="chip chip-idle chip-board"
+          aria-label={BOARD_ARIA_LABEL}
+          style={{ visibility: "hidden" }}
+          onClick={onOpenBoard}
+        >
+          {BOARD_LABEL}
+        </button>
+      ) : null}
       {cells.map((c) => {
         const chip = chipModel(c, titles.get(c.ref));
         return (

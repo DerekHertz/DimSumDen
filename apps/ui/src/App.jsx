@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { CameraRig } from "./scene/CameraRig.jsx";
 import { Den } from "./scene/Den.jsx";
@@ -6,6 +6,9 @@ import { ChipLayer } from "./scene/ChipLayer.jsx";
 import { MAX_PLUSH, sceneFromState } from "./scene/scene-from-state.mjs";
 import { useLiveState } from "./live.js";
 import { demoRequested, useDemoSnapshot, useHandoffs } from "./handoff-state.js";
+import { useMetrics } from "./metrics-state.js";
+import { dashboardModel } from "./panel/dashboard-model.mjs";
+import { boardFace } from "./scene/board-face.mjs";
 import { trackedTickets } from "./scene/handoffs.mjs";
 import { UsageMeter, Queue, Detail, Gates } from "./panel/Panel.jsx";
 import { Dashboard } from "./panel/Dashboard.jsx";
@@ -49,6 +52,17 @@ export function App() {
   const stage = useMemo(() => ({ anchors: new Map(), camera: null, size: null }), []);
   const cells = useMemo(() => (snapshot ? sceneFromState(snapshot) : []), [snapshot]);
   const handoffs = useHandoffs(snapshot);
+  const { metrics, failed: metricsFailed, retry: retryMetrics } = useMetrics(metricsRevision);
+  const face = useMemo(() => boardFace(dashboardModel(metrics, { error: metricsFailed })), [metrics, metricsFailed]);
+  // Today's board opens the Dashboard section: scroll it into view and move focus to its heading.
+  const [dashboardOpens, setDashboardOpens] = useState(0);
+  const openDashboard = useCallback(() => setDashboardOpens((n) => n + 1), []);
+  useEffect(() => {
+    if (!dashboardOpens) return;
+    const heading = document.getElementById("h-dashboard");
+    heading?.scrollIntoView?.({ block: "start" });
+    heading?.focus?.();
+  }, [dashboardOpens]);
   const hearts = useMemo(() => new Set(handoffs.map((h) => h.ref)), [handoffs]);
   const baskets = useMemo(
     () => [...trackedTickets(snapshot)].map(([ref, t]) => ({ ref, station: t.station })),
@@ -63,10 +77,10 @@ export function App() {
           <ambientLight intensity={0.8} />
           <directionalLight position={[2, 4, 3]} intensity={1.2} />
           <Suspense fallback={null}>
-            <Den cells={cells} baskets={baskets} handoffs={handoffs} selected={selected} onSelect={setSelected} stage={stage} />
+            <Den cells={cells} baskets={baskets} handoffs={handoffs} boardFace={face} onOpenBoard={openDashboard} selected={selected} onSelect={setSelected} stage={stage} />
           </Suspense>
         </Canvas>
-        <ChipLayer cells={cells} hearts={hearts} tickets={snapshot?.tickets} selected={selected} onSelect={setSelected} stage={stage} />
+        <ChipLayer cells={cells} hearts={hearts} onOpenBoard={openDashboard} tickets={snapshot?.tickets} selected={selected} onSelect={setSelected} stage={stage} />
         {snapshot && cells.length === 0 ? <p className="scene-caption scene-empty">The den is quiet. No active tickets.</p> : null}
         {overflow > 0 ? <p className="scene-caption scene-more">+{overflow} more in queue</p> : null}
       </main>
@@ -80,12 +94,12 @@ export function App() {
         ) : (
           SECTIONS.filter(([id]) => id !== "gates" || gatesModel(snapshot).visible).map(([id, heading]) => (
             <section key={id} aria-labelledby={`h-${id}`} className="slot" data-slot={id}>
-              <h2 id={`h-${id}`}>{heading}{id === "gates" ? <span className="gate-count">{gatesModel(snapshot).count}</span> : null}</h2>
+              <h2 id={`h-${id}`} tabIndex={id === "dashboard" ? -1 : undefined}>{heading}{id === "gates" ? <span className="gate-count">{gatesModel(snapshot).count}</span> : null}</h2>
               {id === "usage" && snapshot ? <UsageMeter usage={snapshot.usage} /> : null}
               {id === "gates" ? <Gates snapshot={snapshot} /> : null}
               {id === "queue" && snapshot ? <Queue snapshot={snapshot} selected={selected} onSelect={setSelected} /> : null}
               {id === "detail" && snapshot ? <Detail snapshot={snapshot} selected={selected} /> : null}
-              {id === "dashboard" ? <Dashboard metricsRevision={metricsRevision} /> : null}
+              {id === "dashboard" ? <Dashboard metrics={metrics} failed={metricsFailed} onRetry={retryMetrics} /> : null}
             </section>
           ))
         )}
