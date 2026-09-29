@@ -6,6 +6,7 @@
  "pending": [
    {"item": "Batch fix round on showcase-v1/integration: page scroll on Tally click, move Tally next to Bao, bell onto the Pass rail, orchestrator always on crown, wood platforms, Cubs label, rename board to Tally", "owner": "done: d4df6ba"},
    {"item": "User browser check of the fix round, then PR for showcase-v1/integration, merge on green, resolve 02-05 with board release --status resolved --pr N", "owner": "orchestrator"},
+   {"item": "Tally clutters the scene (user, 2026-09-29): proposed fix is a low stone stele (engraved tablet on a stone base, charts as glowing qi lines on its face) on the leafy mound behind Bao, right side, raised and smaller, so nothing in the market is behind it. User to confirm stele vs pagoda slate; then a small developer ticket.", "owner": "orchestrator"},
    {"item": "Dispatch showcase-v1/06 idle pandas roam from updated main; its own PR", "owner": "orchestrator"},
    {"item": "Follow-ups: self-host Long Cang (offline smoke, IP leak), confirm dur-slow 700 ms, point clip missing, narrow risk-check board regex, batch handoff support in board, gitleaks in cloud", "owner": "orchestrator"},
    {"item": "PR 60 (board-only, draft) carries all board updates on claude/lucid-gates-42g8ft; merge it when the sprint settles", "owner": "orchestrator"},
