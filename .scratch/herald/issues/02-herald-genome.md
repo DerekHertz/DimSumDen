@@ -16,3 +16,4 @@
 
 ## Comments
 - **qa, 2026-09-29:** QA pass (light verify). 15/15 herald tests pass, tests unchanged since 8bc376f, genome matches spec. Only failures are 5 browser smoke tests (expected in cloud). Criterion 3 human-verified.
+- **security, 2026-09-29:** Security pass at 8e30269. No critical/high. M1 herald.md:4 Agent unrestricted (scout has Bash; settings auto-allow feature/ push and gh pr create), restrict to Agent(scout). M2 draft-check.mjs:8 secret patterns narrow (github_pat_, sk-, xox, private keys, JSON api_key missed). M3 herald.md:26 Write unscoped. L1 check is advisory. Fixtures split, no real creds. gitleaks not installed, used pattern grep. Detail in 02-security.md.
