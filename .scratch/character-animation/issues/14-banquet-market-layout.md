@@ -8,7 +8,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] ADR 0013 accepted with the anchor model for perches, stall slots, turntable and cub basket
 - [ ] Stall capacity and widening rule stated (cells per stall before it widens)

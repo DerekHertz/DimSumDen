@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** in-review
+**Status:** resolved
 
 - [ ] Stele geometry and placement in the layout module, with a unit test that its footprint is on the mound and nothing in the market is occluded by it from the default camera
 - [ ] Face renders the three charts in qi teal on stone; accessible name unchanged
@@ -25,3 +25,4 @@
 - **Browser check (user, 2026-09-29, 0dba375):** stele beside the Cubs basket looks right; approved as long as click opens it.
 - **qa, 2026-09-29:** QA pass at 0dba375: 780/785, only 5 browser smoke failures (cloud). Tests unchanged since 418020e. Details in handoffs/07-qa-verify.md
 - **designer, 2026-09-29:** Design bounce: stele passes; Tally pill renders detached (code anchor is right, runtime projection off, see handoff); face text 4.47:1, fill face with stone-deep. DS v14 published. handoffs/07-designer-review.md
+- **Browser check (user, 2026-09-29, a56a120):** pill centred on stele, click opens; risk-check clean. PR 64.

@@ -8,7 +8,7 @@
 
 **Blocked by:** 14
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Assets export as glb and load in the scene at the anchors ADR 0013 defines
 - [ ] Stall widens per the ADR's capacity rule

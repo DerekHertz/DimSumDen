@@ -8,7 +8,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Scene uses the `grove-*` tokens; no hex values typed in scene code
 - [ ] Station labels over the grove sit on a rice-paper pill and meet 3:1 at 24px+

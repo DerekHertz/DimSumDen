@@ -15,3 +15,5 @@
 - **qa, 2026-09-28:** QA pass: 243/243 tests, specify tests unchanged, diff matches criteria.
 - **security, 2026-09-28:** Security pass at b39f990. Claim change only widens nothing: lock exclusivity, reclaim, resolve and release gates untouched; identity spoof gains no capability. 2 low/info notes (lock not status signals a review in flight; stale reclaim comment at board-service.mjs:752). See handoffs/28-security.md.
 - **Resolved (orchestrator, 2026-09-28):** Merged as PR #29. ADR 0008 decision 10, issue-tracker and organism-protocol updated. Stale comment at board-service.mjs:752 left for a code ticket.
+- **Evidence (orchestrator, 2026-09-29):** `release --keep-status` from a non-review claim left status `claimed` instead of the prior status (designer on showcase-v1/07, qa specify on organism-infra/30).
+- **Retro (user-approved, 2026-09-29):** also let `board comment --verdict` accept designer pass/bounce (the genome counts a design bounce like a qa bounce), and make `--keep-status` restore the status from before the claim (left `claimed` 3 times on 2026-09-29).
