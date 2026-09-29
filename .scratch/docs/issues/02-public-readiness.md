@@ -21,3 +21,4 @@
 
 ## Comments
 - **Decisions (user, 2026-09-29):** MIT; Meshy paid tier (courtesy note only); no history rewrite; run the fixes as one ticket.
+- **Blocker (2026-09-29):** the developer's `git rm` of the two creator screenshots was denied by the permission classifier. Item 2 is left to the user, and items 1, 3 and 4 go ahead without it.
