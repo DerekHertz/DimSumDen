@@ -10,10 +10,20 @@ export const RAIL = { x: 0, y: 2.66, z: BAO.position[2], width: 1.3, height: 0.0
 export const BELL = { x: 0.5, y: RAIL.y + RAIL.height / 2, z: BAO.position[2] };
 
 /**
- * Tally: a pagoda-roofed slate on tall posts left of Bao, between him and the back-left Steamers stall (showcase-v1/03). The slate
- * hangs high (faceBottom) so the sight line from the default camera to Steamers cells passes under it.
+ * Tally (showcase-v1/07): a stone stele on the leafy mound behind Bao, to his right, raised up the slope.
+ * groundY is the mound surface under it (grove mound: centre (0, -6), radius 3.2, height 1.8, z squashed to
+ * half the radius). The plinth bottom sits 0.1 below groundY; the tablet stands on the plinth top.
  */
-export const TALLY = { x: -3.0, z: 0.3, width: 1.6, depth: 0.3, faceBottom: 2.35, faceHeight: 1.0 };
+const TALLY_X = 2.3;
+const TALLY_Z = -6.0;
+const MOUND_Q = 1 - (TALLY_X / 3.2) ** 2 - ((TALLY_Z + 6.0) / 1.6) ** 2;
+export const TALLY = {
+  x: TALLY_X,
+  z: TALLY_Z,
+  groundY: 1.8 * Math.sqrt(MOUND_Q),
+  plinth: { width: 0.9, height: 0.2, depth: 0.35 },
+  tablet: { width: 0.7, height: 1.0, depth: 0.12 },
+};
 
 export const TABLE = { x: 0, z: 0, radius: 1.3, height: 0.7 };
 export const CUB_BASKET = { x: 0, z: 3.4 };
