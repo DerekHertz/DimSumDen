@@ -13,3 +13,6 @@
 - [ ] The draft-shape check passes on a good fixture and fails on each bad one
 - [ ] A test asserts the genome's tools exclude Bash, WebFetch and GitHub write tools
 - [ ] The genome is delivered as a diff for the user to apply (`.claude/` gate)
+
+## Comments
+- **qa, 2026-09-29:** QA pass (light verify). 15/15 herald tests pass, tests unchanged since 8bc376f, genome matches spec. Only failures are 5 browser smoke tests (expected in cloud). Criterion 3 human-verified.
