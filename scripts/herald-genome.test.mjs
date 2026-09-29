@@ -1,6 +1,6 @@
 // herald/02: the herald genome (.claude/agents/herald.md) must be a cell that
 // cannot publish. Parses the front matter and checks the tool list: read-only
-// on the repo, Write for the draft, Agent to dispatch scout, and no Bash,
+// on the repo, Write for the draft, Agent(scout) only to dispatch scout (no bare Agent), and no Bash,
 // WebFetch, or GitHub write tools. Also checks name, model and station basics.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -36,10 +36,20 @@ test("herald genome front matter names the cell 'herald' on sonnet", () => {
   assert.equal(fm.model, "sonnet");
 });
 
-test("herald tools include what it needs: Read, Grep, Glob, Write, Agent, Skill", () => {
+test("herald tools include what it needs: Read, Grep, Glob, Write, Agent(scout), Skill", () => {
   const t = tools();
-  for (const need of ["Read", "Grep", "Glob", "Write", "Agent", "Skill"]) {
+  for (const need of ["Read", "Grep", "Glob", "Write", "Agent(scout)", "Skill"]) {
     assert.ok(t.includes(need), `missing ${need} in ${t.join(", ")}`);
+  }
+});
+
+test("herald may dispatch only scout: no bare Agent, any Agent(...) names only scout", () => {
+  const t = tools();
+  assert.ok(!t.includes("Agent"), `bare Agent must not be in herald tools: ${t.join(", ")}`);
+  const agents = t.filter((x) => /^Agent\b/.test(x));
+  assert.ok(agents.length > 0, "herald has no Agent(scout) entry");
+  for (const a of agents) {
+    assert.equal(a, "Agent(scout)", `${a} must be Agent(scout)`);
   }
 });
 
