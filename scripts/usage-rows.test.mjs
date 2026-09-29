@@ -167,7 +167,7 @@ test("non-code ticket (Type: design) may resolve without --pr, row has pr:null",
     content: "# 01-do-thing\n\n**Type:** design\n\n**Status:** ready-for-agent\n\n## Comments\n",
   });
   try {
-    await claimAndReady(fx, "architect");
+    await claimAndReady(fx, "orchestrator"); // ADR 0008 decision 9: only an orchestrator claim may resolve
     const r = await resolve(fx);
     assert.equal(r.code, 0, r.stderr);
     const got = rows(fx.root).filter((x) => x.kind === "resolved");
