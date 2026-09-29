@@ -24,19 +24,24 @@
 // setup error.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdir, writeFile, readFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile, utimes } from "node:fs/promises";
 import path from "node:path";
 import { makeBoardFixture, runBoard, eventsPath } from "./board-fixture.mjs";
 
 async function writeHandoff(root, feature, filename, body) {
   const dir = path.join(root, ".scratch", feature, "handoffs");
   await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, filename), body, "utf8");
+  const p = path.join(dir, filename);
+  await writeFile(p, body, "utf8");
+  // organism-infra/35: the gate wants a handoff newer than the claim.
+  const later = new Date(Date.now() + 60_000);
+  await utimes(p, later, later);
 }
 
 function stateBlock(overrides = {}) {
   const state = {
     ticket: "sample/01-do-thing",
+    cell: "developer",
     current_step: "qa wrote failing tests",
     artifacts: ["apps/organism-infra/board-cli-hardening.test.mjs"],
     decisions: [],
@@ -177,6 +182,7 @@ test("`board release --status in-review` is rejected when the handoff's State bl
 
     const state = {
       ticket: "sample/01-do-thing",
+      cell: "developer",
       current_step: "developer made tests pass",
       artifacts: [],
       decisions: [],

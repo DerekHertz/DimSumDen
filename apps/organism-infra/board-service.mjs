@@ -599,7 +599,7 @@ function claimingMode(lockContent) {
 //      mtimes, so mtime alone is never a stable "most recent" signal.
 // Refuses (no candidate) rather than falling back to some other file, so a
 // release can never silently pass the gate on an unrelated or stale handoff.
-async function validateHandoffState(root, feature, ticket) {
+async function validateHandoffState(root, feature, ticket, claim) {
   const handoffsDir = path.join(root, ".scratch", feature, "handoffs");
   const nnMatch = /^(\d{2})-/.exec(ticket);
   const prefix = nnMatch ? `${nnMatch[1]}-` : null;
@@ -632,6 +632,13 @@ async function validateHandoffState(root, feature, ticket) {
       continue;
     }
     if (parsed && (parsed.ticket === fullRef || parsed.ticket === shortRef)) {
+      // organism-infra/35: the handoff must come from the releasing cell (and
+      // mode), written after the current claim -- not an earlier hop's file.
+      if (claim) {
+        if (parsed.cell !== claim.cell) continue;
+        if (claim.mode !== undefined && parsed.mode !== claim.mode) continue;
+        if (claim.mtimeMs !== undefined && s.mtimeMs < claim.mtimeMs) continue;
+      }
       candidates.push({ path: p, mtimeMs: s.mtimeMs, parsed });
     }
   }
@@ -640,7 +647,10 @@ async function validateHandoffState(root, feature, ticket) {
     return {
       ok: false,
       errors: [
-        `no handoff matching "${prefix}*.md" under ${handoffsDir} has a State block bound to "${fullRef}" (or "${shortRef}")`,
+        `no handoff matching "${prefix}*.md" under ${handoffsDir} has a State block bound to "${fullRef}" (or "${shortRef}")` +
+          (claim
+            ? ` with cell "${claim.cell}"${claim.mode ? ` mode "${claim.mode}"` : ""}, written after the claim`
+            : ""),
       ],
     };
   }
@@ -827,10 +837,12 @@ export async function release(root, ref, newStatus, reason, options = {}) {
     await assertWithinRoot(root, paths.issuesDir);
     let cell = "unknown";
     let mode;
+    let claimMtimeMs;
     if (await exists(paths.claimLockPath)) {
       const lockContent = await readFile(paths.claimLockPath, "utf8");
       cell = claimingCell(lockContent);
       mode = claimingMode(lockContent);
+      claimMtimeMs = (await stat(paths.claimLockPath)).mtimeMs;
     }
 
     // organism-infra/24: only an orchestrator claim may resolve a ticket.
@@ -855,7 +867,12 @@ export async function release(root, ref, newStatus, reason, options = {}) {
         );
       }
       if (!force) {
-        const handoffCheck = await validateHandoffState(root, feature, ticket);
+        const handoffCheck = await validateHandoffState(
+          root,
+          feature,
+          ticket,
+          claimMtimeMs === undefined ? undefined : { cell, mode, mtimeMs: claimMtimeMs }
+        );
         if (!handoffCheck.ok) {
           throw new BoardError(
             `release blocked: ${ref} has no valid handoff State block: ${handoffCheck.errors.join("; ")}` +
@@ -881,6 +898,7 @@ export async function release(root, ref, newStatus, reason, options = {}) {
         op: "release",
         from_status: fromStatus,
         to_status: toStatus,
+        force: Boolean(force),
       },
     ];
     // Only log an override when `--force` actually bypassed something (the
