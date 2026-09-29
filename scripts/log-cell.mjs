@@ -3,7 +3,7 @@
 // Usage: node scripts/log-cell.mjs --ticket <feature>/<NN-slug> --cell <type> [--mode <m>]
 //          --tokens <int> --ms <int> --outcome "<text>"
 // Root is $ORGANISM_ROOT, else the current directory. Any rejection exits 1 and writes nothing.
-import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { closeSync, constants, existsSync, mkdirSync, openSync, writeSync } from "node:fs";
 import path from "node:path";
 
 const CELLS = ["product", "architect", "orchestrator", "developer", "scout", "debugger", "qa", "security", "designer"];
@@ -32,6 +32,8 @@ for (const n of ["tokens", "ms"]) {
 }
 if (!f.outcome || !f.outcome.trim()) fail("--outcome must be non-empty");
 if (f.mode !== undefined && !f.mode.trim()) fail("--mode must be non-empty when given");
+if (f.outcome.length > 500) fail("--outcome must be at most 500 characters");
+if (f.mode !== undefined && f.mode.length > 32) fail("--mode must be at most 32 characters");
 
 const root = path.resolve(process.env.ORGANISM_ROOT || process.cwd());
 if (!existsSync(path.join(root, ".scratch", m[1], "issues", `${m[2]}.md`))) fail(`ticket not found: ${f.ticket}`);
@@ -47,4 +49,15 @@ const row = {
   outcome: f.outcome,
 };
 mkdirSync(path.join(root, ".scratch"), { recursive: true });
-appendFileSync(path.join(root, ".scratch", "usage.jsonl"), JSON.stringify(row) + "\n");
+// O_NOFOLLOW: a symlinked usage.jsonl is refused (organism-infra/49).
+let fd;
+try {
+  fd = openSync(path.join(root, ".scratch", "usage.jsonl"), constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | constants.O_NOFOLLOW, 0o644);
+} catch (err) {
+  fail(`cannot open usage.jsonl (${err.code}); symlinks are refused`);
+}
+try {
+  writeSync(fd, JSON.stringify(row) + "\n");
+} finally {
+  closeSync(fd);
+}

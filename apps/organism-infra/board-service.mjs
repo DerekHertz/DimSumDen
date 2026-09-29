@@ -17,6 +17,7 @@ import {
   lstat,
   appendFile,
 } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -735,7 +736,7 @@ export async function claim(root, ref, cellType, options = {}) {
     // in-review ticket leave it in-review while held; anyone else sets claimed.
     const keepInReview =
       fromStatus === "in-review" &&
-      (cellType === "security" || (cellType === "qa" && mode === "verify"));
+      (cellType === "security" || (cellType === "qa" && (mode === "verify" || mode === "specify")));
     const newStatus = keepInReview ? "in-review" : "claimed";
     const updated = keepInReview ? content : replaceStatus(content, newStatus);
     await commitWithEvent(paths.eventsPath, async () => {
@@ -830,6 +831,50 @@ function validatePrFlag(pr) {
   return Number(pr);
 }
 
+// organism-infra/49: append one line to usage.jsonl, refusing a symlink
+// (O_NOFOLLOW) so a planted link cannot redirect the write.
+export async function appendUsageLine(root, line) {
+  await mkdir(path.join(root, ".scratch"), { recursive: true });
+  const fh = await open(
+    path.join(root, ".scratch", "usage.jsonl"),
+    fsConstants.O_WRONLY | fsConstants.O_APPEND | fsConstants.O_CREAT | fsConstants.O_NOFOLLOW,
+    0o644
+  );
+  try {
+    await fh.write(line);
+  } finally {
+    await fh.close();
+  }
+}
+
+async function usageHasResolvedRow(root, ref) {
+  const raw = await readFile(path.join(root, ".scratch", "usage.jsonl"), "utf8").catch(() => "");
+  for (const l of raw.split("\n")) {
+    if (!l) continue;
+    try {
+      const r = JSON.parse(l);
+      if (r.kind === "resolved" && r.ticket === ref) return true;
+    } catch {}
+  }
+  return false;
+}
+
+// organism-infra/49: redo a lost resolved row (scripts/log-resolved.mjs).
+export async function logResolved(root, ref, prArg) {
+  const pr = validatePrFlag(prArg);
+  const { feature, ticket, paths } = await prepare(root, ref);
+  const content = await readFile(paths.ticketPath, "utf8").catch(() => {
+    throw new BoardError(`ticket not found: ${ref}`);
+  });
+  if (readStatus(content) !== "resolved") throw new BoardError(`${ref} is not resolved; no row written`);
+  const isCode = /^\*\*Type:\*\*[ \t]*(feature|bug)\b/m.test(content);
+  if (isCode && pr === undefined) throw new BoardError(`${ref} is a code ticket; --pr <number> is required`);
+  if (await usageHasResolvedRow(root, `${feature}/${ticket}`)) {
+    throw new BoardError(`a resolved row for ${feature}/${ticket} already exists in usage.jsonl`);
+  }
+  await appendResolvedRow(root, paths.eventsPath, ref, pr ?? null);
+}
+
 async function appendResolvedRow(root, eventsPath, ref, pr) {
   const { feature, ticket } = parseTicketRef(ref);
   const raw = await readFile(eventsPath, "utf8").catch(() => "");
@@ -841,13 +886,15 @@ async function appendResolvedRow(root, eventsPath, ref, pr) {
     if (e.op === "comment" && e.feature === feature && e.ticket === ticket && e.verdict === "bounce") bounces++;
   }
   const row = { kind: "resolved", ts: new Date().toISOString(), ticket: `${feature}/${ticket}`, pr, bounces };
-  await mkdir(path.join(root, ".scratch"), { recursive: true });
-  await appendFile(path.join(root, ".scratch", "usage.jsonl"), JSON.stringify(row) + "\n");
+  await appendUsageLine(root, JSON.stringify(row) + "\n");
 }
 
 export async function release(root, ref, newStatus, reason, options = {}) {
   const { force, keepStatus } = options;
   const pr = validatePrFlag(options.pr);
+  if (pr !== undefined && (keepStatus || newStatus !== "resolved")) {
+    throw new BoardError("--pr is only valid when releasing with --status resolved");
+  }
   checkArgLength(newStatus, "status");
   checkArgLength(reason, "reason");
   if (keepStatus && newStatus !== undefined) {
@@ -959,7 +1006,14 @@ export async function release(root, ref, newStatus, reason, options = {}) {
       await unlink(paths.claimLockPath).catch(() => {});
     }, events);
     if (newStatus === "resolved") {
-      await appendResolvedRow(root, paths.eventsPath, ref, resolvedPr);
+      try {
+        await appendResolvedRow(root, paths.eventsPath, ref, resolvedPr);
+      } catch (err) {
+        throw new BoardError(
+          `${ref} is resolved, but the usage.jsonl resolved row was NOT written (${err.code ?? err.message}); ` +
+            `redo it with: node scripts/log-resolved.mjs --ticket ${feature}/${ticket}${resolvedPr === null ? "" : ` --pr ${resolvedPr}`}`
+        );
+      }
     }
     return { status: toStatus };
   });
@@ -1049,6 +1103,8 @@ export async function getStatus(root, ref) {
   return readStatus(content);
 }
 
+const VERDICT_CELLS = new Set(["qa", "security", "orchestrator"]);
+
 export async function comment(root, ref, text, options = {}) {
   const { as, verdict } = options;
   if (verdict !== undefined && verdict !== "pass" && verdict !== "bounce") {
@@ -1081,6 +1137,11 @@ export async function comment(root, ref, text, options = {}) {
     if (!cell) {
       throw new BoardError(
         `comment rejected: no claim lock on ${ref} and no --as <cell> to name the author`
+      );
+    }
+    if (verdict !== undefined && !VERDICT_CELLS.has(cell)) {
+      throw new BoardError(
+        `comment rejected: --verdict is only accepted from qa, security or orchestrator, not ${cell}`
       );
     }
     const content = await readFile(paths.ticketPath, "utf8");
