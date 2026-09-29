@@ -60,6 +60,15 @@ describe("bridge static CSP", () => {
     assert.match(connect, /'self'/);
   });
 
+
+  test("glb textures load: connect-src and img-src permit blob:, img-src permits data:, script-src stays 'self'", async () => {
+    const csp = (await fetch(`${bridge.url}/`)).headers.get("content-security-policy");
+    assert.match(directive(csp, "connect-src") ?? "", /blob:/);
+    assert.match(directive(csp, "img-src") ?? "", /blob:/);
+    assert.match(directive(csp, "img-src") ?? "", /data:/);
+    assert.doesNotMatch(directive(csp, "script-src"), /blob:|data:/);
+  });
+
   test("the missing-asset 404 and the API routes keep working", async () => {
     assert.equal((await fetch(`${bridge.url}/assets/missing.js`)).status, 404);
     assert.equal((await fetch(`${bridge.url}/state`)).status, 200);
