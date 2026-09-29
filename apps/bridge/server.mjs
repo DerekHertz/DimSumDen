@@ -8,6 +8,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { REQUEST_KINDS, appendRequestLine } from "./requests-log.mjs";
 import { createHub } from "./watch.mjs";
+import { computeMetrics, parseJsonl } from "../../scripts/metrics.mjs";
 import { contentTypeFor } from "../ci-cd/dev-server.mjs";
 
 const DEFAULT_UI_DIR = fileURLToPath(new URL("../ui/dist", import.meta.url));
@@ -52,6 +53,10 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR } 
       res.end(JSON.stringify(snap));
       return;
     }
+    if (req.method === "GET" && pathname === "/metrics") {
+      const [usageLines, eventLines] = await Promise.all(["usage.jsonl", "events.jsonl"].map((f) => readRows(path.join(root, ".scratch", f))));
+      return reply(res, 200, computeMetrics({ usageLines, eventLines }));
+    }
     if (req.method === "GET" && pathname === "/events") {
       await hub.connect(req, res);
       return;
@@ -70,6 +75,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR } 
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("not found");
   }
+  const readRows = (file) => readFile(file, "utf8").then(parseJsonl, () => []);
   const reply = (res, status, obj, extra = {}) => {
     res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store", ...extra });
     res.end(JSON.stringify(obj));
