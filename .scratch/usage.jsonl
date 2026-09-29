@@ -129,3 +129,4 @@
 {"kind":"cell","ts":"2026-09-29T20:41:34.569Z","ticket":"showcase-v1/07-tally-stele","cell":"qa","mode":"specify","tokens":52766,"ms":94548,"outcome":"11 tests at 354f368; 9 red"}
 {"kind":"incident","ts":"2026-09-29T20:41:34Z","ticket":"showcase-v1/07-tally-stele","cell":"qa","tool":"board claim","what":"claimed after cell-start and after writing tests, not before work","cost":"race window only","fix":null,"rule_change":null}
 {"kind":"jev","ts":"2026-09-29T20:41:37.036Z","ticket":"showcase-v1/07-tally-stele","point":"tier","pick":null,"actual":"sonnet","cost":0,"conf":null,"mode":"shadow","fallback":"no-key","ms":0,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-09-29T20:42:10Z","five_hour":null,"weekly":null,"cloud_credits":56,"event":"dispatch","ticket":"showcase-v1/07-tally-stele","cell":"developer"}
