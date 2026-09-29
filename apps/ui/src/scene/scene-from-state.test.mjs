@@ -102,12 +102,12 @@ for (const [name, over, cellType] of typeCases) {
   });
 }
 
-test("perch: region from cell type, slot is 0-based index within the region in output order", async () => {
+test("perch: station from cell type (ADR 0013), slot is 0-based index within the station in output order", async () => {
   const cells = [
-    ["orchestrator", "crown#0"], ["product", "crown#1"], ["architect", "crown#2"],
-    ["developer", "shoulder#0"], ["scout", "shoulder#1"], ["debugger", "shoulder#2"],
-    ["qa", "knee#0"], ["security", "knee#1"],
-    ["designer", "grass#0"],
+    ["orchestrator", "orchestrator#0"], ["product", "product#0"], ["architect", "architect#0"],
+    ["developer", "steamers#0"], ["scout", "steamers#1"], ["debugger", "steamers#2"],
+    ["qa", "tea#0"], ["security", "pantry#0"],
+    ["designer", "front-of-house#0"],
   ];
   const tickets = cells.map(([cell], i) => ticket(i + 1, { status: "claimed", holder: claimedBy(cell) }));
   const out = await scene(snap(tickets));
@@ -121,7 +121,7 @@ test("perch: slot counts per region are independent", async () => {
     ticket(3, { holder: claimedBy("developer") }),
     ticket(4, { holder: claimedBy("qa") }),
   ]));
-  assert.deepEqual(out.map((c) => c.perch), ["shoulder#0", "knee#0", "shoulder#1", "knee#1"]);
+  assert.deepEqual(out.map((c) => c.perch), ["steamers#0", "tea#0", "steamers#1", "tea#1"]);
 });
 
 test("order: active tickets by ref, then frontier tickets in frontier order", async () => {
@@ -138,7 +138,7 @@ test("order: active tickets by ref, then frontier tickets in frontier order", as
 test("order does not depend on input ticket order", async () => {
   const a = [ticket(2, { holder: claimedBy("developer") }), ticket(1, { holder: claimedBy("developer") })];
   const out = await scene(snap(a));
-  assert.deepEqual(out.map((c) => [c.ref, c.perch]), [["f/01-t", "shoulder#0"], ["f/02-t", "shoulder#1"]]);
+  assert.deepEqual(out.map((c) => [c.ref, c.perch]), [["f/01-t", "steamers#0"], ["f/02-t", "steamers#1"]]);
 });
 
 test("cap: at most 12 cells, active tickets win over frontier tickets", async () => {
@@ -173,8 +173,8 @@ test("worked example from ADR 0011 decision 7", async () => {
     ticket(7, { ref: "dimsumden-ui-v0/07-ui-shell", status: "ready-for-agent", ready: false, blockedBy: [{ ref: "dimsumden-ui-v0/05-bridge-events", status: "ready-for-agent" }] }),
   ], ["dimsumden-ui-v0/04-bridge-state"]));
   assert.deepEqual(brief(out), [
-    { ref: "organism-infra/28-review-claims-keep-in-review", cellType: "security", status: "in-review", perch: "knee#0", pose: "waiting_on_user" },
+    { ref: "organism-infra/28-review-claims-keep-in-review", cellType: "security", status: "in-review", perch: "pantry#0", pose: "waiting_on_user" },
     // cellType: lastCell "orchestrator" per the cellType rule (the ADR JSON sketch shows developer; the rule text governs).
-    { ref: "dimsumden-ui-v0/04-bridge-state", cellType: "orchestrator", status: "ready-for-agent", perch: "crown#0", pose: "waiting_on_user" },
+    { ref: "dimsumden-ui-v0/04-bridge-state", cellType: "orchestrator", status: "ready-for-agent", perch: "orchestrator#0", pose: "waiting_on_user" },
   ]);
 });

@@ -154,3 +154,4 @@ body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-w
 .chart-error { color: var(--alarm); }
 .link-btn { background: none; border: 0; padding: 0; color: var(--qi); text-decoration: underline; cursor: pointer; font: inherit; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.scene:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }

@@ -1,14 +1,10 @@
+import { stationOf } from "./banquet-layout.mjs";
+
 // ADR 0011 decision 7: sceneFromState(snapshot) -> SceneCell[]. Pure; no three, React or DOM.
 export const MAX_PLUSH = 12;
 
 const ACTIVE_STATUSES = new Set(["claimed", "in-review", "blocked", "ready-for-human"]);
 const ARCHITECT_TYPES = new Set(["design", "design-question", "design-direction", "decision", "prototype"]);
-const REGION = {
-  orchestrator: "crown", product: "crown", architect: "crown",
-  developer: "shoulder", scout: "shoulder", debugger: "shoulder",
-  qa: "knee", security: "knee",
-  designer: "grass",
-};
 
 function cellTypeOf(t) {
   if (t.holder?.cell) return t.holder.cell;
@@ -47,9 +43,9 @@ export function sceneFromState(snapshot) {
   const slots = {};
   return [...active, ...queued].slice(0, MAX_PLUSH).map((t) => {
     const cellType = cellTypeOf(t);
-    const region = REGION[cellType] ?? "grass";
-    const slot = slots[region] ?? 0;
-    slots[region] = slot + 1;
-    return { ref: t.ref, cellType, status: t.status, perch: `${region}#${slot}`, pose: poseOf(t) };
+    const station = stationOf(cellType); // ADR 0013: perch is "<station>#<slot>"
+    const slot = slots[station] ?? 0;
+    slots[station] = slot + 1;
+    return { ref: t.ref, cellType, status: t.status, perch: `${station}#${slot}`, pose: poseOf(t) };
   });
 }

@@ -1,5 +1,6 @@
 import { Suspense, useMemo, useState } from "react";
 import { Canvas } from "@react-three/fiber";
+import { CameraRig } from "./scene/CameraRig.jsx";
 import { Den } from "./scene/Den.jsx";
 import { ChipLayer } from "./scene/ChipLayer.jsx";
 import { MAX_PLUSH, sceneFromState } from "./scene/scene-from-state.mjs";
@@ -44,12 +45,13 @@ export function App() {
   const overflow = snapshot ? Math.max(0, activeCount(snapshot) - MAX_PLUSH) : 0;
   return (
     <div className="shell">
-      <main aria-label="Den scene" className="scene">
-        <Canvas aria-hidden="true" camera={{ position: [0, 1.2, 10], fov: 35 }} onPointerMissed={() => setSelected(null)}>
+      <main aria-label="Den scene" aria-keyshortcuts="ArrowLeft ArrowRight + -" tabIndex={0} className="scene">
+        <Canvas aria-hidden="true" camera={{ position: [0, 4.2, 11.5], fov: 38, rotation: [-0.2, 0, 0] }} onPointerMissed={() => setSelected(null)}>
+          <CameraRig />
           <ambientLight intensity={0.8} />
           <directionalLight position={[2, 4, 3]} intensity={1.2} />
           <Suspense fallback={null}>
-            <Den cells={cells} selected={selected} onSelect={setSelected} stage={stage} />
+            <Den cells={cells} frontier={snapshot?.frontier ?? []} selected={selected} onSelect={setSelected} stage={stage} />
           </Suspense>
         </Canvas>
         <ChipLayer cells={cells} tickets={snapshot?.tickets} selected={selected} onSelect={setSelected} stage={stage} />

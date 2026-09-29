@@ -1,5 +1,7 @@
-// Renderer for the SceneCell list (ADR 0011 decision 7): Bao seated at the centre, one plush per
-// cell at its perch. Poses come from the character director; nothing new is animated.
+// Renderer for the SceneCell list (ADR 0011 decision 7) in the banquet market layout (ADR 0013):
+// Bao hosts at the back, one plush per cell at its station slot, a lazy susan of baskets on the
+// table (one per frontier ticket). Poses come from the character director; placement is pure
+// (banquet-layout.mjs). Only the lazy susan turns.
 import { Component, Suspense, useEffect, useMemo, useRef } from "react";
 import { useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
@@ -10,33 +12,13 @@ import { PROP_ASSETS } from "../assets/panda-contract.mjs";
 import { averageAttribute, clusterSimplify, dominantBones } from "./plush-lod.mjs";
 import { createAssetCache } from "./asset-cache.mjs";
 import { Backdrop } from "./Backdrop.jsx";
+import { Market } from "./Market.jsx";
+import { BAO, parsePerch, placeCell, stationOf } from "./banquet-layout.mjs";
 
 // Each prop glb is fetched and parsed once, then cloned per plush.
 const propGlbs = createAssetCache((url) => new GLTFLoader().loadAsync(url));
 
 const PLUSH_SCALE = 0.3;
-// Perch anchors as fractions of Bao's bounding box (x of width, y of height, z of depth).
-const ANCHORS = {
-  crown: [[0, 1.02, 0], [-0.4, 0.96, 0], [0.4, 0.96, 0]],
-  shoulder: [[-0.55, 0.72, 0.1], [0.55, 0.72, 0.1], [-0.7, 0.62, 0.1]],
-  knee: [[-0.4, 0.3, 0.6], [0.4, 0.3, 0.6]],
-  grass: [[-1.1, 0, 0.7], [-0.75, 0, 0.9], [0.75, 0, 0.9], [1.1, 0, 0.7], [-1.4, 0, 0.4], [1.4, 0, 0.4]],
-};
-
-export function anchorFor(perch, bbox) {
-  const [region, slotText] = perch.split("#");
-  let list = ANCHORS[region] ?? ANCHORS.grass;
-  let slot = Number(slotText);
-  if (slot >= list.length) {
-    slot -= list.length;
-    list = ANCHORS.grass;
-  }
-  const [fx, fy, fz] = list[slot % list.length];
-  const size = bbox.getSize(new THREE.Vector3());
-  const c = bbox.getCenter(new THREE.Vector3());
-  return new THREE.Vector3(c.x + fx * size.x, bbox.min.y + fy * size.y, c.z + fz * size.z);
-}
-
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function useDirector() {
@@ -105,11 +87,13 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
       if (lod && n.isSkinnedMesh) n.geometry = plushGeometryFor(n.geometry);
       if (n.material) {
         n.material = n.material.clone();
+        // Bao sits far back; the backdrop fog would grey him out, so he ignores it.
+        if (id === "bao") n.material.fog = false;
         if (n.material.map) n.material.map = n.material.map.clone();
       }
     });
     return o;
-  }, [gltf, lod]);
+  }, [gltf, lod, id]);
   const mixer = useMemo(() => new THREE.AnimationMixer(object), [object]);
   const state = useRef({ clip: null, loop: null, action: null, pose: null });
   const atlas = useMemo(() => gltf.parser.json.nodes.find((n) => n.name === "face")?.extras?.faceAtlas, [gltf]);
@@ -223,7 +207,7 @@ class FiguresBoundary extends Component {
   }
 }
 
-function DenFigures({ cells, selected, onSelect, stage }) {
+function DenFigures({ cells, frontier, selected, onSelect, stage }) {
   const gltf = useLoader(GLTFLoader, "/models/panda.glb");
   const director = useDirector();
   const { camera, size } = useThree();
@@ -231,12 +215,21 @@ function DenFigures({ cells, selected, onSelect, stage }) {
     stage.camera = camera;
     stage.size = size;
   }, [stage, camera, size]);
-  const bbox = useMemo(() => new THREE.Box3().setFromObject(gltf.scene), [gltf]);
+  // Bao's rest-pose feet sit at his box minimum; a plush's origin is its centre, so lift by its half height.
+  const footLift = useMemo(() => -new THREE.Box3().setFromObject(gltf.scene).min.y * PLUSH_SCALE, [gltf]);
+  const counts = useMemo(() => {
+    const n = {};
+    for (const c of cells) n[stationOf(c.cellType)] = (n[stationOf(c.cellType)] ?? 0) + 1;
+    return n;
+  }, [cells]);
   return (
     <>
-      <Figure id="bao" gltf={gltf} director={director} pose="idle" position={[0, 0, 0]} scale={1} stage={null} />
+      <Market frontier={frontier} counts={counts} />
+      <Figure id="bao" gltf={gltf} director={director} pose="idle" position={BAO.position} scale={BAO.scale} stage={null} />
       {cells.map((c) => {
-        const p = anchorFor(c.perch, bbox);
+        const { station, slot } = parsePerch(c.perch);
+        const at = placeCell(c.cellType, slot, counts[station]);
+        const p = [at.x, at.y + footLift, at.z];
         return (
           <Figure
             key={c.ref}
