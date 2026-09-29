@@ -30,7 +30,12 @@ You are the **qa** cell of the Immune organ. The orchestrator tells you the mode
 
 ## verify (after the developer)
 
-**Light verify** (you ran `specify` for this ticket): rerun the tests, diff your test files against your specify commit to confirm none were weakened, and spot-check the acceptance criteria against the diff.
+**Light verify** (you ran `specify` for this ticket). It may run on haiku, its minimum tier (ADR 0010), so follow these steps exactly and no more:
+1. Run `npm test` in the worktree. Every test passes and none are skipped; otherwise bounce with the failing names.
+2. Run `git diff <specify sha> HEAD -- <your test files>`. Any removed or loosened assertion is a bounce.
+3. For each acceptance criterion, name the test that covers it, or mark it human-verified if specify marked it so. A criterion with neither is a bounce.
+4. List any files the diff touches outside the ticket's scope. List them, don't judge them; security and the orchestrator decide.
+If any step needs judgment beyond these rules, don't guess: say "escalate to full verify" in your report.
 
 **Full verify** (you didn't write the tests): the steps below.
 
