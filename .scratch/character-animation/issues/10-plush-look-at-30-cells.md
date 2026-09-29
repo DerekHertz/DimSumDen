@@ -2,6 +2,8 @@
 
 **What to build:** The plush look (fuzzy, soft, no ink outlines) holds in the browser with 30 cells. It uses baked fuzz in the textures plus a rim-light shader, with no fur shells in the web build. Distant cells follow the update policy from 02's ADR.
 
+**Priority:** P3
+
 **Blocked by:** 02, 04
 
 **Status:** ready-for-agent

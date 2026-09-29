@@ -72,3 +72,6 @@
 {"kind":"incident","ts":"2026-09-28T22:00:00Z","ticket":"organism-infra/25","cell":"qa","tool":"cp -f","what":"interactive overwrite prompt despite -f; used git checkout","class":"friction"}
 {"kind":"incident","ts":"2026-09-28T22:00:00Z","ticket":"organism-infra/25","cell":"developer","tool":"board release","what":"handoff lacked State block; added and retried","class":"friction"}
 {"kind":"incident","ts":"2026-09-28T22:00:00Z","ticket":"organism-infra/25","cell":"security","tool":"gitleaks","what":"not installed; manual grep instead","class":"environment"}
+{"kind":"usage","ts":"2026-09-29T19:05:00Z","five_hour":81,"weekly":88,"event":"dispatch","ticket":"showcase-v1/01","cell":"developer","source":"user-reported"}
+{"kind":"config","ts":"2026-09-29T19:08:00Z","change":"user override: dispatch at 81% five-hour for showcase-v1 sprint; relay developer -> qa verify -> risk-check"}
+{"kind":"jev","ts":"2026-09-29T19:03:06.758Z","ticket":"showcase-v1/01-banquet-layout","point":"tier","pick":null,"actual":"sonnet","cost":0,"conf":null,"mode":"shadow","fallback":"no-key","ms":13,"model":"jev-1.13.0"}
