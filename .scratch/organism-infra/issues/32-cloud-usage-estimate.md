@@ -11,7 +11,7 @@
 
 **Blocked by:** None
 
-**Status:** in-review
+**Status:** resolved
 
 - [ ] With fixture transcripts and readings, the estimate matches a hand-computed value
 - [ ] With no readings, it prints weighted tokens and a null credit estimate

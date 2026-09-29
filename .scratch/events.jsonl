@@ -259,3 +259,5 @@
 {"seq":259,"ts":"2026-09-29T22:11:22.539Z","feature":"herald","ticket":"02-herald-genome","cell":"qa","op":"comment","text":"QA pass (light verify). 15/15 herald tests pass, tests unchanged since 8bc376f, genome matches spec. Only failures are 5 browser smoke tests (expected in cloud). Criterion 3 human-verified.","verdict":"pass"}
 {"seq":260,"ts":"2026-09-29T22:11:25.411Z","feature":"herald","ticket":"02-herald-genome","cell":"qa","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":261,"ts":"2026-09-29T22:12:35.355Z","feature":"herald","ticket":"02-herald-genome","cell":"security","mode":null,"op":"claim","from_status":"in-review","to_status":"in-review"}
+{"seq":262,"ts":"2026-09-29T22:13:19.801Z","feature":"organism-infra","ticket":"32-cloud-usage-estimate","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
+{"seq":263,"ts":"2026-09-29T22:13:19.906Z","feature":"organism-infra","ticket":"32-cloud-usage-estimate","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
