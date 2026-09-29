@@ -7,7 +7,7 @@
  "pending": [
    
    {"item": "User: flip repo visibility to public; add PW_CHROMIUM_PATH to the cloud environment setup script; optionally add a real den screenshot for the README", "owner": "user"},
-   {"item": "Merge draft PR 60 (board branch) or retire it; the board lives on claude/lucid-gates-42g8ft", "owner": "orchestrator"},
+ 
    {"item": "Follow-ups: 37 low findings (organism-protocol 'generic agent type' wording, roam.test 'eight roamer types' title, designer Artifact tool); @agent-office/character-director scope rename; self-host the font; organism-infra/60 cell-start claims; herald/03-06 series drafts on demand", "owner": "orchestrator"},
    {"item": "Frontier from the merged board: organism-infra 51, 55, 54, 58, 57; dimsumden-ui-v0/16 theme toggle; 43 Jev shadow exit review (42 calls, $0.0038 so far)", "owner": "orchestrator"},
    {"item": "Retro candidates logged in usage.jsonl since the last retro row: board fork, scout turn budget, npm test before gated pushes, State-block rejections (fixed by 59)", "owner": "orchestrator"}]}
@@ -16,6 +16,8 @@
 # Handoff: orchestrator (cloud), 2026-09-29, session 2
 
 **Done:** 15 PRs merged (63-76, and 77 (1f4ce3d)). The repo is public-ready: MIT, README, gitleaks clean, and third-party refs removed. The herald cell and voice guide are in. Relay autonomy and two-cell concurrency are live. The debugger role is retired.
+
+**Board:** PR 60 merged (ca44ab6, merge commit, so the branch continues). Keep using claude/lucid-gates-42g8ft and merge main into it after each merge.
 
 **Next:** pick from the frontier above, with 51 first (handoff validates at publish, building on 59).
 
