@@ -87,11 +87,13 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
       if (lod && n.isSkinnedMesh) n.geometry = plushGeometryFor(n.geometry);
       if (n.material) {
         n.material = n.material.clone();
+        // Bao sits far back; the backdrop fog would grey him out, so he ignores it.
+        if (id === "bao") n.material.fog = false;
         if (n.material.map) n.material.map = n.material.map.clone();
       }
     });
     return o;
-  }, [gltf, lod]);
+  }, [gltf, lod, id]);
   const mixer = useMemo(() => new THREE.AnimationMixer(object), [object]);
   const state = useRef({ clip: null, loop: null, action: null, pose: null });
   const atlas = useMemo(() => gltf.parser.json.nodes.find((n) => n.name === "face")?.extras?.faceAtlas, [gltf]);
