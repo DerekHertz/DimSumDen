@@ -1,6 +1,6 @@
 // Renderer for the SceneCell list (ADR 0011 decision 7): Bao seated at the centre, one plush per
 // cell at its perch. Poses come from the character director; nothing new is animated.
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Component, Suspense, useEffect, useMemo, useRef } from "react";
 import { useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -199,11 +199,28 @@ export function Den(props) {
   return (
     <>
       <Backdrop />
-      <Suspense fallback={null}>
-        <DenFigures {...props} />
-      </Suspense>
+      <FiguresBoundary>
+        <Suspense fallback={null}>
+          <DenFigures {...props} />
+        </Suspense>
+      </FiguresBoundary>
     </>
   );
+}
+
+// A failed panda.glb load throws from useLoader; without a boundary React unmounts the whole app.
+// The figures drop out and the backdrop stays.
+class FiguresBoundary extends Component {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(err) {
+    console.error("Den figures failed to load:", err);
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
 }
 
 function DenFigures({ cells, selected, onSelect, stage }) {
