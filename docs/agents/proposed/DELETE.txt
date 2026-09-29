@@ -1,0 +1,10 @@
+.claude/agents/debugger.md
+
+# Pending user confirmation that they do not invoke these as /commands (ticket 37 decision).
+# Delete only after the user confirms:
+.claude/skills/grill-me
+.claude/skills/grill-with-docs
+.claude/skills/wayfinder
+.claude/skills/writing-for-agents
+# NOT proposed: .claude/skills/code-review. /implement and tdd invoke it by name.
+# Also update .claude/skills/VENDORED.md rows for whatever is deleted.

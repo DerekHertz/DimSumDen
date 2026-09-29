@@ -9,7 +9,7 @@ One project (one git repo) and every cell working on it.
 _Avoid_: Office, workspace, swarm
 
 **Station**:
-A group of cell types that owns one SDLC outcome, drawn as a place on Bao: the Pass (orchestrator, product, architect), Steamers (developer, scout, debugger), Tea & Pantry (qa, security), Front of House (designer), Service, Meter, Recipe book, Order rail. See the table in `design-brief.md` §4.2.
+A group of cell types that owns one SDLC outcome, drawn as a place on Bao: the Pass (orchestrator, product, architect), Steamers (developer, scout), Tea & Pantry (qa, security), Front of House (designer), Service, Meter, Recipe book, Order rail. See the table in `design-brief.md` §4.2.
 _Avoid_: Organ (the old name, renamed in organism-infra/53), team, department, squad
 
 **Cell type**:
