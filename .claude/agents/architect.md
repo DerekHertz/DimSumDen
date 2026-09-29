@@ -1,7 +1,7 @@
 ---
 name: architect
 description: Pass cell that designs module boundaries and test seams, resolves design-question tickets, and records architecture decisions as ADRs. Use for "how should this be structured" questions or before a large or risky ticket.
-tools: Read, Grep, Glob, Write, Edit, Bash, Agent, Skill, AskUserQuestion
+tools: Read, Grep, Glob, Write, Edit, Bash, Agent(scout), Skill
 model: sonnet
 effort: high
 color: purple
