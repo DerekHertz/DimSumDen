@@ -7,6 +7,11 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { createCharacterDirector } from "../../../../packages/character-director/src/director.mjs";
 import { PROP_ASSETS } from "../assets/panda-contract.mjs";
+import { averageAttribute, clusterSimplify } from "./plush-lod.mjs";
+import { createAssetCache } from "./asset-cache.mjs";
+
+// Each prop glb is fetched and parsed once, then cloned per plush.
+const props = createAssetCache((url) => new GLTFLoader().loadAsync(url));
 
 const PLUSH_SCALE = 0.3;
 // Perch anchors as fractions of Bao's bounding box (x of width, y of height, z of depth).
@@ -40,18 +45,73 @@ function useDirector() {
   );
 }
 
-function Figure({ id, gltf, director, pose, cellType, position, scale, selected, onSelect, stage }) {
+// One clustered copy of each skinned mesh's geometry, shared by every plush (plush-lod.mjs). The
+// face decal is small, so only meshes above LOD_MIN_VERTICES are simplified.
+const LOD_MIN_VERTICES = 10000;
+
+function simplifyGeometry(geometry) {
+  const pos = geometry.getAttribute("position");
+  const joints = geometry.getAttribute("skinIndex");
+  const weights = geometry.getAttribute("skinWeight");
+  const groups = new Int32Array(pos.count);
+  if (joints && weights) {
+    for (let v = 0; v < pos.count; v++) {
+      let best = 0;
+      for (let k = 1; k < 4; k++) if (weights.getComponent(v, k) > weights.getComponent(v, best)) best = k;
+      groups[v] = joints.getComponent(v, best);
+    }
+  }
+  const { keep, remap, index } = clusterSimplify({ positions: pos.array, index: geometry.index.array, groups });
+  const out = new THREE.BufferGeometry();
+  for (const [name, attr] of Object.entries(geometry.attributes)) {
+    const size = attr.itemSize;
+    let array;
+    if (name === "position" || name === "normal") {
+      array = averageAttribute(attr.array, size, remap, keep.length);
+    } else if (name === "color") {
+      // Averaged, so the fur colour does not turn speckled; stored back in the source's integer type.
+      array = attr.array.constructor.from(averageAttribute(attr.array, size, remap, keep.length), Math.round);
+    } else {
+      array = new attr.array.constructor(keep.length * size);
+      for (let j = 0; j < keep.length; j++) for (let k = 0; k < size; k++) array[j * size + k] = attr.array[keep[j] * size + k];
+    }
+    out.setAttribute(name, new THREE.BufferAttribute(array, size, attr.normalized));
+  }
+  if (out.getAttribute("normal")) {
+    const n = out.getAttribute("normal");
+    for (let j = 0; j < n.count; j++) {
+      const v = new THREE.Vector3().fromBufferAttribute(n, j).normalize();
+      n.setXYZ(j, v.x, v.y, v.z);
+    }
+  }
+  out.setIndex(new THREE.BufferAttribute(index, 1));
+  return out;
+}
+
+const plushGeometries = new WeakMap();
+function plushGeometryFor(geometry) {
+  if (geometry.getAttribute("position").count < LOD_MIN_VERTICES || !geometry.index) return geometry;
+  let g = plushGeometries.get(geometry);
+  if (!g) {
+    g = simplifyGeometry(geometry);
+    plushGeometries.set(geometry, g);
+  }
+  return g;
+}
+
+function Figure({ id, gltf, director, pose, cellType, position, scale, lod, selected, onSelect, stage }) {
   const root = useRef();
   const object = useMemo(() => {
     const o = cloneSkinned(gltf.scene);
     o.traverse((n) => {
+      if (lod && n.isSkinnedMesh) n.geometry = plushGeometryFor(n.geometry);
       if (n.material) {
         n.material = n.material.clone();
         if (n.material.map) n.material.map = n.material.map.clone();
       }
     });
     return o;
-  }, [gltf]);
+  }, [gltf, lod]);
   const mixer = useMemo(() => new THREE.AnimationMixer(object), [object]);
   const state = useRef({ clip: null, loop: null, action: null, pose: null });
   const atlas = useMemo(() => gltf.parser.json.nodes.find((n) => n.name === "face")?.extras?.faceAtlas, [gltf]);
@@ -70,7 +130,7 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, selected,
     if (!spec) return undefined;
     let added = null;
     let cancelled = false;
-    new GLTFLoader().loadAsync(`/models/${spec.file}`).then((p) => {
+    props.get(`/models/${spec.file}`).then((p) => {
       const socket = object.getObjectByName(spec.socket);
       if (cancelled || !socket) return;
       added = p.scene.clone(true);
@@ -160,6 +220,7 @@ export function Den({ cells, selected, onSelect, stage }) {
             cellType={c.cellType}
             position={p}
             scale={PLUSH_SCALE}
+            lod
             selected={selected === c.ref}
             onSelect={onSelect}
             stage={stage}
