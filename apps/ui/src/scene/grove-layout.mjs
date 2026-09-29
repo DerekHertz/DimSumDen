@@ -1,10 +1,10 @@
 // showcase-v1/02: pure layout of the low-poly bamboo grove. No three, React or DOM. Seeded, so the
 // same seed always plants the same grove. +z is toward the camera; everything stands behind Bao.
 
-export const GROVE_COUNTS = { far: 30, mid: 22, near: 12, leavesPerStalk: 3, tufts: 14 };
+export const GROVE_COUNTS = { far: 44, mid: 32, near: 18, leavesPerStalk: 3, tufts: 18 };
 
-/** Sway period in seconds; never faster than dur-breath (2800 ms). */
-export const SWAY_PERIOD_S = 2.8;
+/** Sway period in seconds: much slower than dur-breath (2800 ms), a gentle drift rather than a wave. */
+export const SWAY_PERIOD_S = 8;
 const SWAY_MAX = 0.03;
 
 /** Rotation (radians) the layers lean by at time t; zero under reduced motion. */
@@ -29,7 +29,7 @@ const LAYERS = {
   mid: { z: [-9, -6.5], h: [5, 7], r: 0.12, minX: 2.2 },
   near: { z: [-5.2, -4.0], h: [4.5, 6], r: 0.16, minX: 2.8 },
 };
-const HALF_WIDTH = 16;
+const HALF_WIDTH = 26; // the camera can pan to x = 9, so the grove reaches well past the widest stall
 
 export function groveLayout(seed = 1) {
   const rand = rng(seed);
@@ -73,7 +73,7 @@ export function groveLayout(seed = 1) {
   const mound = { x: 0, z: -6.0, radius: 3.2, height: 1.8 };
 
   const tufts = Array.from({ length: GROVE_COUNTS.tufts }, () => ({
-    x: between(-9, 9),
+    x: between(-14, 14),
     z: between(-8, -4),
     size: between(0.25, 0.45),
     yaw: between(0, Math.PI * 2),

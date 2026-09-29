@@ -3,10 +3,12 @@
 // motion snaps straight to the target; otherwise the camera eases toward it.
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { cameraPosition, clampPan, clampZoom, dragPan, keyPan, keyZoom, wheelZoom } from "./camera-rig.mjs";
+import { cameraPosition, clampPan, clampZoom, dragPan, keyPan, keyZoom, panLimit, wheelZoom } from "./camera-rig.mjs";
 
 export function CameraRig() {
-  const { camera, gl } = useThree();
+  const { camera, gl, size } = useThree();
+  // The pan limit follows the viewport (aspect) and zoom; kept in a ref for the event handlers.
+  const limit = useRef(9);
   const target = useRef({ pan: 0, zoom: 1 });
   const now = useRef({ pan: 0, zoom: 1 });
 
@@ -18,14 +20,14 @@ export function CameraRig() {
     const onDown = (e) => { drag = { x: e.clientX }; el.setPointerCapture?.(e.pointerId); };
     const onMove = (e) => {
       if (!drag) return;
-      t.pan = dragPan(t.pan, e.clientX - drag.x, el.clientWidth || 1, t.zoom);
+      t.pan = dragPan(t.pan, e.clientX - drag.x, el.clientWidth || 1, t.zoom, limit.current);
       drag.x = e.clientX;
     };
     const onUp = (e) => { drag = null; el.releasePointerCapture?.(e.pointerId); };
     const onWheel = (e) => { e.preventDefault(); t.zoom = wheelZoom(t.zoom, e.deltaY); };
     const onKey = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const pan = keyPan(t.pan, e.key);
+      const pan = keyPan(t.pan, e.key, limit.current);
       const zoom = keyZoom(t.zoom, e.key);
       if (pan === t.pan && zoom === t.zoom && !["ArrowLeft", "ArrowRight", "+", "=", "-", "_"].includes(e.key)) return;
       e.preventDefault();
@@ -51,6 +53,8 @@ export function CameraRig() {
   useFrame((_, dt) => {
     const t = target.current;
     const n = now.current;
+    limit.current = panLimit(size.width / Math.max(size.height, 1), t.zoom);
+    t.pan = clampPan(t.pan, limit.current);
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
       n.pan = t.pan;
       n.zoom = t.zoom;
@@ -59,7 +63,7 @@ export function CameraRig() {
       n.pan += (t.pan - n.pan) * k;
       n.zoom += (t.zoom - n.zoom) * k;
     }
-    const [x, y, z] = cameraPosition(clampPan(n.pan), clampZoom(n.zoom));
+    const [x, y, z] = cameraPosition(clampPan(n.pan, limit.current), clampZoom(n.zoom));
     camera.position.set(x, y, z);
   });
   return null;

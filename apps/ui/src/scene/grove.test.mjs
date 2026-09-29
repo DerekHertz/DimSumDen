@@ -40,7 +40,7 @@ test("total triangles stay small (instances included)", () => {
     const per = (m.geometry.index ? m.geometry.index.count : m.geometry.getAttribute("position").count) / 3;
     tris += per * (m.isInstancedMesh ? m.count : 1);
   }
-  assert.ok(tris < 12000, `${tris} triangles`);
+  assert.ok(tris < 20000, `${tris} triangles`);
 });
 function g0() { return buildGrove(TOKENS, 1); }
 

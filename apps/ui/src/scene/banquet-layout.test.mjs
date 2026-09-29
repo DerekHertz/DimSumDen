@@ -43,27 +43,27 @@ test("Pass perches: a second cell of the same type steps 0.4 outward", async () 
 });
 
 test("stalls: Steamers back-left, Front of House back-right, Tea front-left, Pantry front-right", async () => {
-  near(await at("developer", 1), [-4.8, 0.6, -1.6], "steamers centre slot");
-  near(await at("designer", 1), [4.8, 0.6, -1.6], "front of house");
-  near(await at("qa", 1), [-4.8, 0.6, 2.2], "tea");
-  near(await at("security", 1), [4.8, 0.6, 2.2], "pantry");
+  near(await at("developer", 1), [-4.8, 1.1, -1.6], "steamers centre slot");
+  near(await at("designer", 1), [4.8, 1.1, -1.6], "front of house");
+  near(await at("qa", 1), [-4.0, 0.6, 2.2], "tea");
+  near(await at("security", 1), [4.0, 0.6, 2.2], "pantry");
 });
 
 test("developer, scout and debugger share the Steamers slots", async () => {
-  for (const c of ["developer", "scout", "debugger"]) near(await at(c, 0), [-5.55, 0.6, -1.6], c);
+  for (const c of ["developer", "scout", "debugger"]) near(await at(c, 0), [-5.55, 1.1, -1.6], c);
 });
 
 test("a stall's three slots are fixed anchors whatever the head count up to three", async () => {
   for (const count of [1, 2, 3, undefined]) {
-    near(await at("qa", 0, count), [-5.55, 0.6, 2.2], `slot 0 of ${count}`);
-    near(await at("qa", 2, count), [-4.05, 0.6, 2.2], `slot 2 of ${count}`);
+    near(await at("qa", 0, count), [-4.75, 0.6, 2.2], `slot 0 of ${count}`);
+    near(await at("qa", 2, count), [-3.25, 0.6, 2.2], `slot 2 of ${count}`);
   }
 });
 
 test("overflow: a stall with five cells widens outward along the front", async () => {
-  near(await at("security", 0, 5), [4.05, 0.6, 2.2]);
-  near(await at("security", 2, 5), [5.55, 0.6, 2.2]);
-  near(await at("security", 4, 5), [7.05, 0.6, 2.2]);
+  near(await at("security", 0, 5), [3.25, 0.6, 2.2]);
+  near(await at("security", 2, 5), [4.75, 0.6, 2.2]);
+  near(await at("security", 4, 5), [6.25, 0.6, 2.2]);
 });
 
 test("stallWidth is 2.25 up to three cells, then 0.75 per cell", async () => {
@@ -133,4 +133,42 @@ test("overflow widens outward: every stall's inner edge stays fixed, on both sid
 test("overflow, worked: Steamers with five cells grows left, its inner edge stays at -3.675", async () => {
   near([(await at("developer", 0, 5))[0]], [-7.05]);
   near([(await at("developer", 4, 5))[0]], [-4.05]);
+});
+
+// showcase-v1/04 (user browser check): the front stalls must not hide the back row from the default
+// camera at (0, 4.2, 11.5). The sight line to each back cell's feet has to clear the front roof.
+test("front-row roofs stay below the sight line from the default camera to every back-row cell", async () => {
+  const { STALL_CENTERS, stallCenterX, stallWidth, counterTop, stallRoof } = await load();
+  const cam = { x: 0, y: 4.2, z: 11.5 };
+  const roof = stallRoof("tea");
+  const apex = roof.eave + roof.rise;
+  for (const [back, front] of [["steamers", "tea"], ["front-of-house", "pantry"]]) {
+    const fz = STALL_CENTERS[front].z;
+    const fx = stallCenterX(front, 3);
+    const half = stallWidth(3) / 2;
+    for (const slot of [0, 1, 2]) {
+      const tx = (await at(back === "steamers" ? "developer" : "designer", slot))[0];
+      const ty = counterTop(back) + 0.15;
+      const tz = STALL_CENTERS[back].z;
+      for (let z = fz - 0.5; z <= fz + 0.5; z += 0.05) {
+        const f = (cam.z - z) / (cam.z - tz);
+        const x = cam.x + f * (tx - cam.x);
+        const y = cam.y + f * (ty - cam.y);
+        if (Math.abs(x - fx) <= half) assert.ok(y >= apex + 0.1, `${back} slot ${slot}: sight line y ${y.toFixed(2)} at z ${z.toFixed(2)} is under the ${front} roof apex ${apex}`);
+      }
+    }
+  }
+});
+
+test("the front stalls stand nearer the table than the back stalls, so the two rows stagger", async () => {
+  const { STALL_CENTERS } = await load();
+  assert.ok(Math.abs(STALL_CENTERS.tea.x) < Math.abs(STALL_CENTERS.steamers.x));
+  assert.ok(Math.abs(STALL_CENTERS.pantry.x) < Math.abs(STALL_CENTERS["front-of-house"].x));
+});
+
+test("a front stall's cells still fit under its low roof eave", async () => {
+  const { stallRoof, counterTop } = await load();
+  const cellHeight = 0.6; // plush scale 0.3 on a 2-unit panda
+  assert.ok(stallRoof("tea").eave - counterTop("tea") >= cellHeight + 0.15);
+  assert.equal(stallRoof("steamers"), undefined);
 });

@@ -5,6 +5,8 @@ import { Den } from "./scene/Den.jsx";
 import { ChipLayer } from "./scene/ChipLayer.jsx";
 import { MAX_PLUSH, sceneFromState } from "./scene/scene-from-state.mjs";
 import { useLiveState } from "./live.js";
+import { demoRequested, useDemoSnapshot, useHandoffs } from "./handoff-state.js";
+import { trackedTickets } from "./scene/handoffs.mjs";
 import { UsageMeter, Queue, Detail, Gates } from "./panel/Panel.jsx";
 import { Dashboard } from "./panel/Dashboard.jsx";
 import { gatesModel } from "./panel/gates-model.mjs";
@@ -37,11 +39,21 @@ function activeCount(snapshot) {
 }
 
 export function App() {
-  const { snapshot, connection, metricsRevision } = useLiveState();
-  const placeholder = panelPlaceholder(connection);
+  const live = useLiveState();
+  const [demo] = useState(demoRequested);
+  const demoSnapshot = useDemoSnapshot(demo);
+  const { connection, metricsRevision } = live;
+  const snapshot = demoSnapshot ?? live.snapshot;
+  const placeholder = demo ? null : panelPlaceholder(connection);
   const [selected, setSelected] = useState(null);
   const stage = useMemo(() => ({ anchors: new Map(), camera: null, size: null }), []);
   const cells = useMemo(() => (snapshot ? sceneFromState(snapshot) : []), [snapshot]);
+  const handoffs = useHandoffs(snapshot);
+  const hearts = useMemo(() => new Set(handoffs.map((h) => h.ref)), [handoffs]);
+  const baskets = useMemo(
+    () => [...trackedTickets(snapshot)].map(([ref, t]) => ({ ref, station: t.station })),
+    [snapshot],
+  );
   const overflow = snapshot ? Math.max(0, activeCount(snapshot) - MAX_PLUSH) : 0;
   return (
     <div className="shell">
@@ -51,10 +63,10 @@ export function App() {
           <ambientLight intensity={0.8} />
           <directionalLight position={[2, 4, 3]} intensity={1.2} />
           <Suspense fallback={null}>
-            <Den cells={cells} frontier={snapshot?.frontier ?? []} selected={selected} onSelect={setSelected} stage={stage} />
+            <Den cells={cells} baskets={baskets} handoffs={handoffs} selected={selected} onSelect={setSelected} stage={stage} />
           </Suspense>
         </Canvas>
-        <ChipLayer cells={cells} tickets={snapshot?.tickets} selected={selected} onSelect={setSelected} stage={stage} />
+        <ChipLayer cells={cells} hearts={hearts} tickets={snapshot?.tickets} selected={selected} onSelect={setSelected} stage={stage} />
         {snapshot && cells.length === 0 ? <p className="scene-caption scene-empty">The den is quiet. No active tickets.</p> : null}
         {overflow > 0 ? <p className="scene-caption scene-more">+{overflow} more in queue</p> : null}
       </main>

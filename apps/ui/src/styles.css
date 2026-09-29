@@ -31,6 +31,7 @@
   --radius-full: 9999px;
   --opacity-dim: 0.55;
   --dur-fast: 160ms;
+  --dur-slow: 700ms;
   --dur-breath: 2800ms;
   --grove-mist: #e3efd6;
   --grove-far: #b7d39d;
@@ -111,7 +112,9 @@ body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-w
 .scene-caption { position: absolute; margin: 0; color: var(--ink-muted); }
 .scene-empty { left: 0; right: 0; top: 50%; text-align: center; }
 .scene-more { left: var(--space-4); bottom: var(--space-4); font-size: 12px; }
-@media (prefers-reduced-motion: reduce) { .chip { transition: none; } }
+.chip-heart { position: absolute; left: 50%; bottom: calc(100% + 2px); width: 18px; height: 18px; margin-left: -9px; color: #d9707e; pointer-events: none; animation: heart-rise var(--dur-breath) var(--ease-soft) both; }
+@keyframes heart-rise { from { opacity: 0; transform: translateY(6px); } 20% { opacity: 1; } to { opacity: 1; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .chip { transition: none; } .chip-heart { animation: none; } }
 
 /* Panel (ticket 09) */
 .overline { margin: 0; font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }

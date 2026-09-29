@@ -3,7 +3,8 @@
 import { useEffect, useRef } from "react";
 import { chipModel, stackChips } from "./chip-model.mjs";
 
-export function ChipLayer({ cells, tickets, selected, onSelect, stage }) {
+// `hearts` is a Set of cell refs that just received a handoff (showcase-v1/04): a heart bubble shows.
+export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts }) {
   const nodes = useRef(new Map());
   useEffect(() => {
     let raf = 0;
@@ -50,6 +51,11 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage }) {
           >
             <span className="chip-glyph" aria-hidden="true" />
             {chip.label}
+            {hearts?.has(c.ref) ? (
+              <svg className="chip-heart" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.1 0 3.9 1.2 5.3 3.1 1.4-1.9 3.2-3.1 5.3-3.1 3.7 0 5.8 3.9 4.3 7.3C19.500 16.400 12 21 12 21z" />
+              </svg>
+            ) : null}
           </button>
         );
       })}

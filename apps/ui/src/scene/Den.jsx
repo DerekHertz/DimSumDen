@@ -207,7 +207,7 @@ class FiguresBoundary extends Component {
   }
 }
 
-function DenFigures({ cells, frontier, selected, onSelect, stage }) {
+function DenFigures({ cells, baskets, handoffs, selected, onSelect, stage }) {
   const gltf = useLoader(GLTFLoader, "/models/panda.glb");
   const director = useDirector();
   const { camera, size } = useThree();
@@ -224,7 +224,7 @@ function DenFigures({ cells, frontier, selected, onSelect, stage }) {
   }, [cells]);
   return (
     <>
-      <Market frontier={frontier} counts={counts} />
+      <Market baskets={baskets} handoffs={handoffs} cells={cells} counts={counts} />
       <Figure id="bao" gltf={gltf} director={director} pose="idle" position={BAO.position} scale={BAO.scale} stage={null} />
       {cells.map((c) => {
         const { station, slot } = parsePerch(c.perch);

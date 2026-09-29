@@ -14,7 +14,7 @@ test("counts per layer match GROVE_COUNTS", () => {
   for (const layer of ["far", "mid", "near"]) assert.equal(g[layer].length, GROVE_COUNTS[layer], layer);
   assert.equal(g.tufts.length, GROVE_COUNTS.tufts);
   assert.equal(g.leaves.length, (GROVE_COUNTS.mid + GROVE_COUNTS.near) * GROVE_COUNTS.leavesPerStalk);
-  assert.deepEqual(GROVE_COUNTS, { far: 30, mid: 22, near: 12, leavesPerStalk: 3, tufts: 14 });
+  assert.deepEqual(GROVE_COUNTS, { far: 44, mid: 32, near: 18, leavesPerStalk: 3, tufts: 18 });
 });
 
 test("layers sit at increasing depth: far behind mid behind near", () => {
@@ -52,7 +52,7 @@ test("stalks have node heights inside the stalk", () => {
 });
 
 test("sway is slower than dur-breath, bounded, and still under reduced motion", () => {
-  assert.ok(SWAY_PERIOD_S >= 2.8);
+  assert.ok(SWAY_PERIOD_S >= 2.8 * 2.5, "well slower than dur-breath");
   assert.equal(swayAngle(1.234, true), 0);
   for (let t = 0; t < 20; t += 0.1) assert.ok(Math.abs(swayAngle(t, false)) <= 0.03 + 1e-9);
   assert.ok(Math.abs(swayAngle(SWAY_PERIOD_S / 4, false)) > 0.005);

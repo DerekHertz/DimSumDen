@@ -5,13 +5,21 @@
 export const BAO = { position: [0, 1.4, -2.4], scale: 1.4 };
 const BAO_BOX = { minY: -1, size: [2, 2, 1.75] };
 
-export const TABLE = { x: 0, z: 0, radius: 1.3, height: 0.7 };
+/** The service bell on Bao's crown, beside the orchestrator's perch. */
+export const BELL = { x: 0.5, y: 2.85, z: BAO.position[2] };
+
+export const TABLE ={ x: 0, z: 0, radius: 1.3, height: 0.7 };
 export const CUB_BASKET = { x: 0, z: 3.4 };
 export const CUB_BASKET_RADIUS = 0.55;
 
 const STALL_SPACING = 0.75;
 const STALL_BASE_SLOTS = 3;
 const COUNTER_Y = 0.6;
+
+/** The back stalls stand on a low platform so their cells rise above the front row's roofs (default camera). */
+export const BACK_PLATFORM = 0.5;
+/** The front stalls carry a low roof; its apex stays under the sight line to the back counters. */
+export const FRONT_ROOF = { eave: 1.4, rise: 0.4 };
 
 /** Pass perches as fractions of Bao's box, plus which way extra cells of the same type step. */
 const PASS = {
@@ -22,10 +30,10 @@ const PASS = {
 const PASS_STEP = 0.4;
 
 const STALLS = {
-  steamers: { x: -4.8, z: -1.6, y: COUNTER_Y },
-  "front-of-house": { x: 4.8, z: -1.6, y: COUNTER_Y },
-  tea: { x: -4.8, z: 2.2, y: COUNTER_Y },
-  pantry: { x: 4.8, z: 2.2, y: COUNTER_Y },
+  steamers: { x: -4.8, z: -1.6, y: COUNTER_Y + BACK_PLATFORM, row: "back" },
+  "front-of-house": { x: 4.8, z: -1.6, y: COUNTER_Y + BACK_PLATFORM, row: "back" },
+  tea: { x: -4.0, z: 2.2, y: COUNTER_Y, row: "front" },
+  pantry: { x: 4.0, z: 2.2, y: COUNTER_Y, row: "front" },
   cubs: { x: 0, z: 4.6, y: 0 },
 };
 
@@ -38,6 +46,12 @@ const STATION = {
 export const STALL_CENTERS = Object.fromEntries(
   Object.entries(STALLS).filter(([k]) => k !== "cubs").map(([k, v]) => [k, { x: v.x, z: v.z }]),
 );
+
+/** Height of a stall's platform (0 for the front row) and the roof it carries, for the renderer. */
+export const stallPlatform = (station) => (STALLS[station]?.row === "back" ? BACK_PLATFORM : 0);
+export const stallRoof = (station) => (STALLS[station]?.row === "front" ? FRONT_ROOF : undefined);
+/** Counter top height in the world, where a stall's cells stand. */
+export const counterTop = (station) => STALLS[station].y;
 
 export function stationOf(cellType) {
   if (PASS[cellType]) return cellType;
@@ -61,6 +75,12 @@ export function stallCenterX(station, count = STALL_BASE_SLOTS) {
   const extra = stallWidth(count) - stallWidth(STALL_BASE_SLOTS);
   return stall.x + Math.sign(stall.x) * extra / 2;
 }
+
+/** A stall can hold every cell the scene shows (scene-from-state MAX_PLUSH). */
+export const MAX_STALL_CELLS = 12;
+
+/** Outer edge (|x|) of the widest stall: Steamers holding every cell. The camera must be able to reach it. */
+export const WIDEST_STALL_EDGE = Math.abs(stallCenterX("steamers", MAX_STALL_CELLS)) + stallWidth(MAX_STALL_CELLS) / 2;
 
 /**
  * @param {string} cellType
