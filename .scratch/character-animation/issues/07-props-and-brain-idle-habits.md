@@ -139,3 +139,4 @@
   - `prop-placement.mjs` is pure math, Node-test-only.
   See `handoffs/07-security.md`. Next: merge proposal.
 - **Resolved (orchestrator, 2026-09-27):** Merged to `main` via PR #7 (`eea046a`).
+- **Follow-up (user, 2026-09-29):** Pass props switch to kitchen props in ticket 16.

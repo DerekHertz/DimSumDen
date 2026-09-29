@@ -138,3 +138,4 @@
 {"seq":138,"ts":"2026-09-28T21:25:25.859Z","feature":"organism-infra","ticket":"27-wsl-trial","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"ready-for-agent"}
 {"seq":139,"ts":"2026-09-28T21:27:36.874Z","feature":"organism-infra","ticket":"27-wsl-trial","cell":"orchestrator","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
 {"seq":140,"ts":"2026-09-28T21:27:44.964Z","feature":"organism-infra","ticket":"27-wsl-trial","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved"}
+{"seq":141,"ts":"2026-09-29T19:03:27.934Z","feature":"showcase-v1","ticket":"01-banquet-layout","cell":"developer","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
