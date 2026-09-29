@@ -4,7 +4,7 @@ Verdict: Security pass (no critical or high findings). Branch organism-infra/32-
 
 ```json
 {
-  "ticket": "organism-infra/32-cloud-usage-estimate",
+  "ticket": "organism-infra/61-cloud-usage-estimate",
   "cell": "security",
   "current_step": "review complete; verdict Security pass, handoff published, ready to release",
   "artifacts": [
@@ -42,3 +42,5 @@ Verdict: Security pass (no critical or high findings). Branch organism-infra/32-
 2. scripts/usage-estimate.mjs:65, low/informational: last_reading.ts echoes the raw ts string from the log. Date.parse is lenient, so a non-ISO date-like string can pass through. Only rows that also carry numeric cloud_credits qualify. No action needed.
 
 No network exposure added (no daemon or listener in this diff). No shell-out in product code; the only spawn is in the test.
+
+- **Renumbered (orchestrator, 2026-09-29):** was cloud organism-infra/32; the local board used that number for a different ticket.

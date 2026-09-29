@@ -4,7 +4,7 @@ QA pass. Branch organism-infra/32-usage-estimate at 5b6bcbb, detached worktree.
 
 ```json
 {
-  "ticket": "organism-infra/32-cloud-usage-estimate",
+  "ticket": "organism-infra/61-cloud-usage-estimate",
   "cell": "qa",
   "mode": "verify",
   "current_step": "done: light verify pass",
@@ -25,3 +25,5 @@ QA pass. Branch organism-infra/32-usage-estimate at 5b6bcbb, detached worktree.
    - context.mjs in cloud: the two context.mjs tests (session id, worktree cwd)
    - usage-watch skill diff: human-verified (in developer handoff, not on branch)
 4. Files touched: scripts/context.mjs, scripts/usage-estimate.mjs, scripts/usage.mjs. All in scope.
+
+- **Renumbered (orchestrator, 2026-09-29):** was cloud organism-infra/32; the local board used that number for a different ticket.

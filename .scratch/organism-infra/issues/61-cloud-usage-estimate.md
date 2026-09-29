@@ -1,4 +1,4 @@
-# 32: Cloud usage estimate from session transcripts
+# 61: Cloud usage estimate from session transcripts
 
 **Type:** task
 
@@ -27,3 +27,5 @@
 - **Probe (orchestrator, 2026-09-29):** `context.mjs` works in cloud when run from the main checkout root (it reported 297k, 29.75%). My earlier null came from running it with the cwd inside `~/.claude/projects`. So the real bug is that it depends on the cwd: run from a worktree or subdirectory, it slugs the wrong path. qa's worktree-cwd test is the right target, and selecting by `CLAUDE_CODE_SESSION_ID` is a good addition.
 - **qa, 2026-09-29:** QA pass (light verify): 7/7 tests pass, tests unchanged since 7dabe25, 5 browser smoke fails expected in cloud. usage-watch skill diff human-verified. See 32-qa-verify.md
 - **security, 2026-09-29:** Security pass at 5b6bcbb. No critical/high. Low: scripts/context.mjs:56 CLAUDE_CODE_SESSION_ID unvalidated in path (reads only *.jsonl; suggest id regex + Number() on usage fields). Low: scripts/usage-estimate.mjs:65 echoes log ts string. Test spawn is benign (argv array, fixture HOME). gitleaks not installed; manual patch read found no secrets. See handoffs/32-security.md
+
+- **Renumbered (orchestrator, 2026-09-29):** was cloud organism-infra/32; the local board used that number for a different ticket.

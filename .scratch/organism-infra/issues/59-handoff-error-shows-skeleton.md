@@ -1,4 +1,4 @@
-# 30: Handoff rejections print the expected State block
+# 59: Handoff rejections print the expected State block
 
 **Type:** task
 
@@ -19,3 +19,5 @@
 - **Decision (user, 2026-09-29):** agreed.
 - **qa, 2026-09-29:** QA pass (light verify): 12/12 specify tests pass, test file unchanged, only board-service.mjs touched. 5 browser smoke failures expected in cloud.
 - **security, 2026-09-29:** Security pass. No critical/high. Low: board-service.mjs:892-919 skeleton echoes lock cell/mode unvalidated (defense in depth). gitleaks missing, pattern grep used (no hits). See handoffs/30-security.md.
+
+- **Renumbered (orchestrator, 2026-09-29):** was cloud organism-infra/30; the local board used that number for a different ticket.

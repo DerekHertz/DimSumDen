@@ -2,7 +2,7 @@
 
 ```json
 {
-  "ticket": "organism-infra/32-cloud-usage-estimate",
+  "ticket": "organism-infra/61-cloud-usage-estimate",
   "cell": "developer",
   "current_step": "implemented, tests green, pushed, in-review",
   "artifacts": [
@@ -41,3 +41,5 @@ Add to `.claude/skills/usage-watch/SKILL.md`, in the section on getting the read
 ```
 
 Note: usage-watch text was not read by me; adjust wording to its existing structure.
+
+- **Renumbered (orchestrator, 2026-09-29):** was cloud organism-infra/32; the local board used that number for a different ticket.

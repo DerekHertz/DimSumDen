@@ -4,7 +4,7 @@ Verdict: **Security pass**. No critical or high findings.
 
 ```json
 {
-  "ticket": "organism-infra/30-handoff-error-shows-skeleton",
+  "ticket": "organism-infra/59-handoff-error-shows-skeleton",
   "cell": "security",
   "current_step": "Security review of ad43f95 done: release gate and skeleton output reviewed, verdict pass, two low findings for the developer's discretion.",
   "artifacts": [
@@ -39,3 +39,5 @@ Verdict: **Security pass**. No critical or high findings.
 ## Comments
 
 Security pass.
+
+- **Renumbered (orchestrator, 2026-09-29):** was cloud organism-infra/30; the local board used that number for a different ticket.

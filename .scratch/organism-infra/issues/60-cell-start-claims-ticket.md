@@ -1,4 +1,4 @@
-# 31: cell-start claims the ticket
+# 60: cell-start claims the ticket
 
 **Type:** task
 
@@ -16,3 +16,5 @@
 
 ## Comments
 - **Retro (orchestrator, 2026-09-29):** qa claimed after writing and pushing tests twice on showcase-v1/07. Wording already says to claim first, so this is a code fix. User approved.
+
+- **Renumbered (orchestrator, 2026-09-29):** was cloud organism-infra/31; the local board used that number for a different ticket.

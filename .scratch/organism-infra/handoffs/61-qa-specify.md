@@ -1,10 +1,10 @@
 # 32-qa-specify
 
-**Cell:** qa | **Mode:** specify | **Ticket:** organism-infra/32-cloud-usage-estimate
+**Cell:** qa | **Mode:** specify | **Ticket:** organism-infra/61-cloud-usage-estimate
 
 ```json
 {
-  "ticket": "organism-infra/32-cloud-usage-estimate",
+  "ticket": "organism-infra/61-cloud-usage-estimate",
   "cell": "qa",
   "mode": "specify",
   "current_step": "tests committed and pushed; red confirmed",
@@ -36,3 +36,5 @@ Credit calibration is covered only by the fixture math; kept optional per the sc
 ## Red confirmation
 
 Run `node --test scripts/usage-estimate.test.mjs`: 6 fail, 1 passes. Failures: MODULE_NOT_FOUND for usage-estimate.mjs (3), usage.mjs exits 1 "could not read credentials" (1), context.mjs picks the wrong or null session (2). The passing one is the local-unchanged regression guard.
+
+- **Renumbered (orchestrator, 2026-09-29):** was cloud organism-infra/32; the local board used that number for a different ticket.
