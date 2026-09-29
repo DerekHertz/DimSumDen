@@ -18,7 +18,7 @@ test("stationOf maps every cell type to its station", async () => {
   const { stationOf } = await load();
   const table = {
     orchestrator: "orchestrator", product: "product", architect: "architect",
-    developer: "steamers", scout: "steamers", debugger: "steamers",
+    developer: "steamers", scout: "steamers",
     qa: "tea", security: "pantry", designer: "front-of-house",
     mystery: "cubs",
   };
@@ -49,8 +49,8 @@ test("stalls: Steamers back-left, Front of House back-right, Tea front-left, Pan
   near(await at("security", 1), [4.0, 0.6, 2.2], "pantry");
 });
 
-test("developer, scout and debugger share the Steamers slots", async () => {
-  for (const c of ["developer", "scout", "debugger"]) near(await at(c, 0), [-5.55, 1.1, -1.6], c);
+test("developer and scout share the Steamers slots", async () => {
+  for (const c of ["developer", "scout"]) near(await at(c, 0), [-5.55, 1.1, -1.6], c);
 });
 
 test("a stall's three slots are fixed anchors whatever the head count up to three", async () => {

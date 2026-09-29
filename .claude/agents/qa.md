@@ -1,7 +1,7 @@
 ---
 name: qa
 description: Tea & Pantry cell (the Taster) that turns a ticket's acceptance criteria into failing tests before a developer starts, then verifies the developer's branch before security review. Use in `specify` mode before dispatching a developer and in `verify` mode after one returns.
-tools: Read, Grep, Glob, Write, Edit, Bash, Agent, Skill
+tools: Read, Grep, Glob, Write, Edit, Bash, Agent(scout), Skill
 model: sonnet
 effort: medium
 color: green

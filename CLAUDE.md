@@ -8,7 +8,7 @@ Stack: Node ESM scripts (`.mjs`, tests via `node --test`); Vite is the only buil
 
 Cell types are defined by genomes in `.claude/agents/`, grouped into stations:
 - `product`, `architect`, `orchestrator` (Pass)
-- `developer`, `scout`, `debugger` (Steamers)
+- `developer`, `scout` (Steamers)
 - `qa`, `security` (Tea & Pantry)
 - `designer`, `herald` (Front of House); herald drafts public posts, the user publishes
 

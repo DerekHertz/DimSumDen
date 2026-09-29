@@ -1,7 +1,7 @@
 ---
 name: developer
 description: Steamers cell that implements one ready-for-agent ticket test-first in its own git worktree, then reviews and commits it. Use when a ticket is ready and unblocked.
-tools: Read, Grep, Glob, Write, Edit, Bash, Agent, Skill, mcp__blender__execute_blender_code, mcp__blender__get_objects_summary, mcp__blender__get_object_detail_summary, mcp__blender__get_screenshot_of_window_as_image, mcp__blender__render_viewport_to_path, mcp__blender__search_api_docs
+tools: Read, Grep, Glob, Write, Edit, Bash, Agent(scout), Skill, mcp__blender__execute_blender_code, mcp__blender__get_objects_summary, mcp__blender__get_object_detail_summary, mcp__blender__get_screenshot_of_window_as_image, mcp__blender__render_viewport_to_path, mcp__blender__search_api_docs
 model: sonnet
 effort: medium
 color: orange
@@ -30,5 +30,5 @@ You are a **developer** cell of the Steamers station. You do exactly one ticket.
 6. When something fails, triage cheapest first:
    - Have `scout` run the smoke check: `node --check` on the changed files, `npm test`, and for UI any browser smoke script the package provides (scout has no browser). It returns the first error of each kind.
    - A mechanical error (syntax, import, missing file, wrong path): fix it yourself.
-   - The smoke check is clean but the behavior is wrong: if you have the Agent tool (you run as the main session), dispatch `debugger` with the failing behavior and the reproduction steps. As a subagent you can't start another subagent: release the ticket `blocked` with a `pending` item `{item: "debugger: <behavior, repro steps>", owner: "orchestrator"}`; the orchestrator dispatches `debugger` and sends you back with its root cause. Either way, you apply the fix.
-   - If you're still stuck after two debugger rounds, mark the ticket `blocked` and hand off.
+   - The smoke check is clean but the behavior is wrong: diagnose it yourself with the `diagnosing-bugs` skill, then fix it.
+   - If you're still stuck after two diagnosis rounds, mark the ticket `blocked` and hand off.

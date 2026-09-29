@@ -59,7 +59,7 @@ const STALLS = {
 };
 
 const STATION = {
-  developer: "steamers", scout: "steamers", debugger: "steamers",
+  developer: "steamers", scout: "steamers",
   qa: "tea", security: "pantry", designer: "front-of-house",
 };
 

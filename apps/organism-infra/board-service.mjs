@@ -686,7 +686,7 @@ const CLAIM_MODES = new Set(["specify", "verify"]);
 // least name a real cell, so it can never carry newlines or forged markup.
 const KNOWN_CELLS = new Set([
   "product", "architect", "orchestrator", "developer", "scout",
-  "debugger", "qa", "security", "designer",
+  "qa", "security", "designer",
 ]);
 
 function checkKnownCell(name, what) {

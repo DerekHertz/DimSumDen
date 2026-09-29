@@ -43,7 +43,7 @@ Organism (one project / repo)
 |---|---|---|---|---|
 | **The Pass** | Brain | User (head chef), orchestrator, product, architect | Intent, planning, decomposition, approvals | Crown: lacquered pass rail, ticket rail of order slips, the service bell |
 | **Order rail** | Nervous system | Dispatcher, event bus, task board | Signals and handoffs between cells | The *paths* slips travel between stations, not a zone |
-| **Steamers** | Muscles | Developer, scout, debugger | Writing code | Shoulders and arms: bamboo steamer stacks; the scout's lantern is the pantry run. Largest station |
+| **Steamers** | Muscles | Developer, scout | Writing code | Shoulders and arms: bamboo steamer stacks; the scout's lantern is the pantry run. Largest station |
 | **Tea & Pantry** | Immune + Liver/kidneys | QA (tea master, tastes), security (door warden, checks the pantry seal), static analysis | Filtering defects and rejecting threats | Knees and lap: tea tray, and a small pantry door by the knee |
 | **Front of House** | Skin | Designer, accessibility, docs | User-facing surface | Grass in front: serving cart and menu stand |
 | **Service** | Heart | Release, CI/CD, changelog | Shipping verified work | [OPEN] Where plated dishes leave the Pass; rhythm follows CI cadence |
