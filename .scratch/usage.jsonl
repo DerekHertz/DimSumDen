@@ -84,3 +84,4 @@
 {"kind":"config","ts":"2026-09-29T19:15:00Z","change":"user authorizes orchestrator to merge PRs once CI is green (showcase sprint); PR 59 merged on that basis"}
 {"kind":"cell","ts":"2026-09-29T19:09:37.483Z","ticket":"showcase-v1/01-banquet-layout","cell":"developer","tokens":74370,"ms":368200,"outcome":"in-review; 13 placement tests; smoke:ui not run (playwright chromium 1243 missing, 1194 installed)"}
 {"kind":"incident","ts":"2026-09-29T19:30:00Z","ticket":"showcase-v1/01","cell":"developer","tool":"playwright","what":"Cloud /opt/pw-browsers has chromium 1194; repo playwright 1.63 wants 1243, so smoke, smoke:ui and 5 npm tests fail before launch","cost":"scene never seen in a browser by the cell","fix":"user verifies in WSL","rule_change":null}
+{"kind":"usage","ts":"2026-09-29T19:40:00Z","five_hour":null,"weekly":null,"cloud_credit_left":88,"event":"dispatch","ticket":"showcase-v1/01","cell":"developer","source":"user-reported"}
