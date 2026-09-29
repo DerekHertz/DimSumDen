@@ -5,6 +5,7 @@ import { ChipLayer } from "./scene/ChipLayer.jsx";
 import { MAX_PLUSH, sceneFromState } from "./scene/scene-from-state.mjs";
 import { useLiveState } from "./live.js";
 import { UsageMeter, Queue, Detail, Gates } from "./panel/Panel.jsx";
+import { Dashboard } from "./panel/Dashboard.jsx";
 import { gatesModel } from "./panel/gates-model.mjs";
 import { pillModel, panelPlaceholder } from "./state/connection.mjs";
 
@@ -35,7 +36,7 @@ function activeCount(snapshot) {
 }
 
 export function App() {
-  const { snapshot, connection } = useLiveState();
+  const { snapshot, connection, metricsRevision } = useLiveState();
   const placeholder = panelPlaceholder(connection);
   const [selected, setSelected] = useState(null);
   const stage = useMemo(() => ({ anchors: new Map(), camera: null, size: null }), []);
@@ -70,6 +71,7 @@ export function App() {
               {id === "gates" ? <Gates snapshot={snapshot} /> : null}
               {id === "queue" && snapshot ? <Queue snapshot={snapshot} selected={selected} onSelect={setSelected} /> : null}
               {id === "detail" && snapshot ? <Detail snapshot={snapshot} selected={selected} /> : null}
+              {id === "dashboard" ? <Dashboard metricsRevision={metricsRevision} /> : null}
             </section>
           ))
         )}
