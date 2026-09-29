@@ -8,7 +8,7 @@
 
 **Blocked by:** 01, 04
 
-**Status:** claimed
+**Status:** in-review
 
 - [ ] A pure roaming module (seed, time, obstacles -> position) with unit tests: stays inside the grass area, avoids obstacle footprints, deterministic for a seed, speed cap
 - [ ] Called-to-work and released transitions tested (idle -> walking to slot -> working -> walking out -> idle)
