@@ -16,3 +16,4 @@
 
 ## Comments
 - **Decision (user, 2026-09-29):** Tally clutters the scene as a pagoda slate; make it a stone stele on the mound behind Bao, right side.
+- **designer, 2026-09-29:** UI spec (designer): stele at x 2.3, z -6.0 on mound (groundY from mound ellipse ~1.25), tablet 0.7x1.0x0.12 on plinth 0.9x0.2x0.35; stone #4a4d4a both themes; charts as dark --qi #3aced3 glowing strokes; name, pill, click/Enter unchanged; occlusion test = projected left edge right of Bao + footprint inside mound. Full spec: handoffs/07-designer.md

@@ -123,3 +123,4 @@
 {"kind":"incident","ts":"2026-09-29T20:28:44Z","ticket":"showcase-v1/06-idle-pandas-roam","cell":"qa","tool":"board handoff","what":"State block missing mode; first handoff file then blocked overwrite, published as -2","cost":"2 calls, stale file","fix":"orchestrator deleted stale file","rule_change":null}
 {"kind":"resolved","ts":"2026-09-29T20:34:10.929Z","ticket":"showcase-v1/06-idle-pandas-roam","pr":63,"bounces":0}
 {"kind":"usage","ts":"2026-09-29T20:37:01Z","five_hour":null,"weekly":null,"cloud_credits":57,"event":"dispatch","ticket":"showcase-v1/07-tally-stele","cell":"designer"}
+{"kind":"incident","ts":"2026-09-29T20:38:54Z","ticket":"showcase-v1/07-tally-stele","cell":"designer","tool":"board release","what":"release --status ready-for-agent succeeded with no valid handoff published after the claim (handoff call failed first in the same chain)","cost":"protocol gap; handoff republished","fix":"designer republished","rule_change":null}
