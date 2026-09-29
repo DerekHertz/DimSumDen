@@ -69,6 +69,18 @@ describe("bridge static CSP", () => {
     assert.doesNotMatch(directive(csp, "script-src"), /blob:|data:/);
   });
 
+  test("Long Cang loads (showcase-v1/05): style-src permits fonts.googleapis.com, font-src fonts.gstatic.com, nothing wider", async () => {
+    const csp = (await fetch(`${bridge.url}/`)).headers.get("content-security-policy");
+    assert.match(directive(csp, "style-src") ?? "", /https:\/\/fonts\.googleapis\.com/);
+    assert.match(directive(csp, "font-src") ?? "", /https:\/\/fonts\.gstatic\.com/);
+    assert.match(directive(csp, "font-src") ?? "", /'self'/);
+    for (const name of ["style-src", "font-src", "script-src", "connect-src", "img-src"]) {
+      assert.doesNotMatch(directive(csp, name) ?? "", /\*|https:(?!\/\/fonts\.g)/, `${name} has no wildcard or extra origin`);
+    }
+    assert.doesNotMatch(directive(csp, "script-src"), /fonts\.g/);
+    assert.doesNotMatch(directive(csp, "connect-src"), /fonts\.g/);
+  });
+
   test("the missing-asset 404 and the API routes keep working", async () => {
     assert.equal((await fetch(`${bridge.url}/assets/missing.js`)).status, 404);
     assert.equal((await fetch(`${bridge.url}/state`)).status, 200);

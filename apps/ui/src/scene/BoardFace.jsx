@@ -27,7 +27,7 @@ function drawFace(ctx, face) {
   ctx.strokeRect(6, 6, w - 12, h - 12);
   const t = px(face.titleRect);
   ctx.fillStyle = CHALK;
-  ctx.font = "600 30px sans-serif";
+  ctx.font = "34px 'Long Cang', cursive"; // display heading only; chart text stays sans
   ctx.textBaseline = "middle";
   ctx.fillText(face.title, t.x + 8, t.y + t.h / 2);
   for (const chart of face.charts) {
@@ -83,8 +83,15 @@ export function BoardFace({ face, onOpen, stage }) {
 
   useEffect(() => {
     if (!face) return;
-    drawFace(canvas.getContext("2d"), face);
-    texture.needsUpdate = true;
+    const draw = () => {
+      drawFace(canvas.getContext("2d"), face);
+      texture.needsUpdate = true;
+    };
+    draw();
+    // Redraw once Long Cang arrives, so the heading does not stay in the fallback face.
+    let live = true;
+    document.fonts?.load("34px 'Long Cang'").then(() => live && draw()).catch(() => {});
+    return () => { live = false; };
   }, [face, canvas, texture]);
 
   useEffect(() => {

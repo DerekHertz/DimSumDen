@@ -1,14 +1,26 @@
 // DOM status chips over each plush (drei is not approved): world anchors are projected to screen
 // every frame and written straight to each button's style, so React does not re-render per frame.
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import * as THREE from "three";
 import { chipModel, stackChips } from "./chip-model.mjs";
 import { BOARD_ARIA_LABEL, BOARD_LABEL } from "./board-face.mjs";
+import { stationLabels } from "./station-labels.mjs";
+import { stationOf } from "./banquet-layout.mjs";
 
 export const BOARD_CHIP_ID = "__board";
 
 // `hearts` is a Set of cell refs that just received a handoff (showcase-v1/04): a heart bubble shows.
 export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, onOpenBoard }) {
   const nodes = useRef(new Map());
+  // Station labels (showcase-v1/05): plain text on a rice-paper pill, placed over each stall roof.
+  const labelNodes = useRef(new Map());
+  const labels = useMemo(() => {
+    const counts = {};
+    for (const c of cells) counts[stationOf(c.cellType)] = (counts[stationOf(c.cellType)] ?? 0) + 1;
+    return stationLabels(counts);
+  }, [cells]);
+  const labelsRef = useRef(labels);
+  labelsRef.current = labels;
   useEffect(() => {
     let raf = 0;
     const loop = () => {
@@ -20,6 +32,14 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, o
           if (!a) continue;
           const v = a.clone().project(camera);
           pts.push({ ref, x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height });
+        }
+        for (const l of labelsRef.current) {
+          const el = labelNodes.current.get(l.id);
+          if (!el) continue;
+          const v = new THREE.Vector3(l.x, l.y, l.z).project(camera);
+          el.style.left = `${((v.x + 1) / 2) * size.width}px`;
+          el.style.top = `${((1 - v.y) / 2) * size.height}px`;
+          el.style.visibility = "visible";
         }
         const placed = stackChips(pts);
         for (const [ref, p] of placed) {
@@ -38,6 +58,16 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, o
   const titles = new Map((tickets ?? []).map((t) => [t.ref, t.title]));
   return (
     <div className="chip-layer">
+      {labels.map((l) => (
+        <span
+          key={l.id}
+          ref={(el) => (el ? labelNodes.current.set(l.id, el) : labelNodes.current.delete(l.id))}
+          className="station-label"
+          style={{ visibility: "hidden" }}
+        >
+          {l.text}
+        </span>
+      ))}
       {onOpenBoard ? (
         <button
           type="button"
