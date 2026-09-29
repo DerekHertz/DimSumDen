@@ -25,6 +25,7 @@ A living log of what works and what costs too much when the orchestrator runs in
 - **Usage numbers:** `usage.mjs` can't read credentials in the cloud, so the user reports cloud credits by hand. Log them as `cloud_credits` in the usage row.
 - **Board commits from cells:** the worktree guard blocks a cell from running `git` in the main checkout, so cells can't commit board files there. The orchestrator commits what they leave behind. Until that's fixed, the stop hook flags the uncommitted files while a cell is running.
 - **board CLI:** `claim <ref> <cellType>` takes the cell type as a positional argument, not a flag. Every item in a handoff's `pending` list must be `{item, owner}`, or `release` refuses the handoff. qa hit the same State-block check (it was missing `mode`) and had to publish its handoff as `-2`.
+- **Resuming a finished cell loses its worktree:** after a cell returns, its worktree is cleaned up, so a resumed cell (SendMessage) runs in the main checkout and `cell-start` refuses. Re-dispatch a fresh cell instead of resuming.
 - **5 browser tests fail in cloud `npm test`:** they need Chromium 1243. Consider skipping them when that browser is missing, or installing it in the environment's setup script.
 
 ## Worth considering
