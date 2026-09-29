@@ -11,7 +11,7 @@ import { PROP_ASSETS } from "../assets/panda-contract.mjs";
 const PLUSH_SCALE = 0.3;
 // Perch anchors as fractions of Bao's bounding box (x of width, y of height, z of depth).
 const ANCHORS = {
-  crown: [[0, 1.02, 0], [-0.2, 1.0, 0], [0.2, 1.0, 0]],
+  crown: [[0, 1.02, 0], [-0.4, 0.96, 0], [0.4, 0.96, 0]],
   shoulder: [[-0.55, 0.72, 0.1], [0.55, 0.72, 0.1], [-0.7, 0.62, 0.1]],
   knee: [[-0.4, 0.3, 0.6], [0.4, 0.3, 0.6]],
   grass: [[-1.1, 0, 0.7], [-0.75, 0, 0.9], [0.75, 0, 0.9], [1.1, 0, 0.7], [-1.4, 0, 0.4], [1.4, 0, 0.4]],
