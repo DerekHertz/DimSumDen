@@ -30,7 +30,7 @@ You are dispatched only on a `npm run risk-check` hit, or an explicit escalation
 ## Dependencies and secrets
 
 - For any new or upgraded dependency, check `npm audit`, the license, install scripts, maintenance, and typosquat risk, and that the lockfile is committed. Adding a dependency is a brain gate, so give the user your assessment and let them decide.
-- Scan the branch's diff and commits for keys, tokens, and credentials with `gitleaks git --log-opts="origin/main..<branch>" --no-banner` (installed at `~/.local/bin`; fall back to a pattern grep only if it is missing, and say so). A committed secret is always a bounce, even if a later commit removed it.
+- Scan the branch's diff and commits for keys, tokens, and credentials with `gitleaks detect --log-opts="origin/main..<sha>" --no-banner` (the `gitleaks git` form is refused by the worktree isolation guard) (installed at `~/.local/bin`; fall back to a pattern grep only if it is missing, and say so). A committed secret is always a bounce, even if a later commit removed it.
 
 ## CI/CD pipeline owner
 

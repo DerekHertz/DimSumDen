@@ -28,6 +28,8 @@ Then these sections:
 - **Suggested skills**: the skills the next cell should load.
 - **Gotchas**: anything that cost you time.
 
+Record state, not rules. Don't paraphrase a genome, skill, or ADR rule in a handoff; name the file instead. The next session will follow your paraphrase, including anything it dropped.
+
 Redact any sensitive information, such as API keys, passwords, or personally identifiable information.
 
 If arguments were passed, treat them as what the next cell will focus on and tailor the doc accordingly.
