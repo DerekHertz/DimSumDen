@@ -66,15 +66,23 @@ async function claimAndReady(fx, cell, mode) {
 }
 const release = (fx, ...extra) => runBoard(["release", fx.ticketRelPath, ...extra], { cwd: fx.worktree, env: env(fx) });
 
-// --- Criterion 1: verdict roles ---
+// --- Criterion 1: verdict roles (organism-infra/50: every verdict needs the matching claim lock) ---
+
+const lockArgs = (role) => (role === "qa" ? ["qa", "--mode", "verify"] : [role]);
+const claimAs = async (fx, role) => {
+  const c = await runBoard(["claim", fx.ticketRelPath, ...lockArgs(role)], { cwd: fx.worktree, env: env(fx) });
+  assert.equal(c.code, 0, c.stderr);
+};
+const commentEvents = (fx) => events(fx).filter((e) => e.op === "comment");
 
 for (const role of ["qa", "security", "orchestrator"]) {
-  test(`--verdict from ${role} is accepted and recorded`, async () => {
+  test(`--verdict from ${role} holding the claim lock is accepted and recorded`, async () => {
     const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
     try {
-      const c = await runBoard(["comment", fx.ticketRelPath, "--verdict", "pass", "ok", "--as", role], { cwd: fx.worktree });
+      await claimAs(fx, role);
+      const c = await runBoard(["comment", fx.ticketRelPath, "--verdict", "pass", "ok", "--as", role], { cwd: fx.worktree, env: env(fx) });
       assert.equal(c.code, 0, c.stderr);
-      assert.deepEqual(events(fx).filter((e) => e.op === "comment").map((e) => e.verdict), ["pass"]);
+      assert.deepEqual(commentEvents(fx).map((e) => e.verdict), ["pass"]);
     } finally {
       await fx.cleanup();
     }
@@ -82,14 +90,15 @@ for (const role of ["qa", "security", "orchestrator"]) {
 }
 
 for (const role of ["developer", "scout", "designer"]) {
-  test(`--verdict from ${role} is refused and writes nothing`, async () => {
+  test(`--verdict from ${role} holding the claim lock is refused and writes nothing`, async () => {
     const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
     try {
+      await claimAs(fx, role);
       const before = ticketText(fx);
-      const c = await runBoard(["comment", fx.ticketRelPath, "--verdict", "bounce", "forged", "--as", role], { cwd: fx.worktree });
+      const c = await runBoard(["comment", fx.ticketRelPath, "--verdict", "bounce", "forged", "--as", role], { cwd: fx.worktree, env: env(fx) });
       assert.notEqual(c.code, 0);
       assert.match(c.stderr, /verdict/i);
-      assert.equal(events(fx).filter((e) => e.op === "comment").length, 0);
+      assert.equal(commentEvents(fx).length, 0);
       assert.equal(ticketText(fx), before);
     } finally {
       await fx.cleanup();
@@ -161,8 +170,12 @@ test("a developer claim on an in-review ticket still sets claimed", async () => 
 
 // --- Criterion 3: lost resolved row ---
 
-async function failedResolve(fx) {
+async function failedResolve(fx, { verdict } = {}) {
   await claimAndReady(fx, "orchestrator");
+  if (verdict) {
+    const cm = await runBoard(["comment", fx.ticketRelPath, "--verdict", verdict, "QA " + verdict], { cwd: fx.worktree, env: env(fx) });
+    assert.equal(cm.code, 0, cm.stderr);
+  }
   // usage.jsonl as a directory makes the append fail after the release commits.
   mkdirSync(usagePath(fx.root), { recursive: true });
   return release(fx, "--status", "resolved", "--pr", "42");
@@ -184,9 +197,7 @@ test("failed resolved-row append is reported on stderr with non-zero exit, after
 test("log-resolved redoes the lost row with the release's row shape", async () => {
   const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
   try {
-    const cm = await runBoard(["comment", fx.ticketRelPath, "--verdict", "bounce", "QA bounce", "--as", "qa"], { cwd: fx.worktree });
-    assert.equal(cm.code, 0, cm.stderr);
-    await failedResolve(fx);
+    await failedResolve(fx, { verdict: "bounce" });
     rmSync(usagePath(fx.root), { recursive: true });
     const r = script(LOG_RESOLVED, ["--ticket", "sample/01-do-thing", "--pr", "42"], fx.root);
     assert.equal(r.status, 0, r.stderr);
