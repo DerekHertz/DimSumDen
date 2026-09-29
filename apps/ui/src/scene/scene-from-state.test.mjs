@@ -103,7 +103,7 @@ for (const [name, over, cellType] of typeCases) {
 test("perch: station from cell type (ADR 0013), slot is 0-based index within the station in output order", async () => {
   const cells = [
     ["orchestrator", "orchestrator#0"], ["product", "product#0"], ["architect", "architect#0"],
-    ["developer", "steamers#0"], ["scout", "steamers#1"], ["debugger", "steamers#2"],
+    ["developer", "steamers#0"], ["scout", "steamers#1"],
     ["qa", "tea#0"], ["security", "pantry#0"],
     ["designer", "front-of-house#0"],
   ];

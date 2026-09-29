@@ -14,10 +14,10 @@ The name and the metaphor come from dim sum: roles are grouped into stations of 
 
 ## How it works
 
-- **Agents and roles.** An agent is one running Claude Code session doing one ticket, usually in its own git worktree. Its role is set by a role definition: a markdown file in `.claude/agents/` that fixes its model, tools, skills and done criteria. There are ten roles: `product`, `architect`, `orchestrator`, `developer`, `scout`, `debugger`, `qa`, `security`, `designer` and `herald`.
+- **Agents and roles.** An agent is one running Claude Code session doing one ticket, usually in its own git worktree. Its role is set by a role definition: a markdown file in `.claude/agents/` that fixes its model, tools, skills and done criteria. There are nine roles: `product`, `architect`, `orchestrator`, `developer`, `scout`, `qa`, `security`, `designer` and `herald`.
 - **Stations.** Roles are grouped by the outcome they own:
   - the Pass (orchestrator, product, architect) decides and sequences;
-  - Steamers (developer, scout, debugger) build and dig;
+  - Steamers (developer, scout) build and dig;
   - Tea & Pantry (qa, security) test and guard;
   - Front of House (designer, herald) keeps things looking right and writes the public posts.
 - **The relay.** Code tickets are not a swarm ([ADR 0002](docs/adr/0002-relay-not-swarm.md)). qa writes failing tests, developer makes them pass, qa verifies, security reviews, then the orchestrator proposes the merge.

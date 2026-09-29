@@ -6,7 +6,7 @@
 import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, writeSync } from "node:fs";
 import path from "node:path";
 
-const CELLS = ["product", "architect", "orchestrator", "developer", "scout", "debugger", "qa", "security", "designer"];
+const CELLS = ["product", "architect", "orchestrator", "developer", "scout", "qa", "security", "designer"];
 const REF_RE = /^([a-z0-9-]+)\/([A-Za-z0-9][A-Za-z0-9._-]*)$/;
 const FLAGS = ["ticket", "cell", "mode", "model", "tokens", "ms", "outcome", "failures"];
 const TOOLS = ["bash-guard", "board-claim", "board-release", "board-comment", "board-handoff", "handoff-state", "git", "npm", "write", "ci", "other"];

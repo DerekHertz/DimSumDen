@@ -10,7 +10,7 @@ import {
 } from "./banquet-layout.mjs";
 
 /** Cell types that roam (the orchestrator stays on Bao's crown). */
-export const ROAMER_TYPES = ["product", "architect", "developer", "scout", "debugger", "qa", "security", "designer"];
+export const ROAMER_TYPES = ["product", "architect", "developer", "scout", "qa", "security", "designer"];
 
 /** The grass the pandas may stand on. */
 export const ROAM_BOUNDS = { x0: -8, x1: 8, z0: -3, z1: 6.5 };
@@ -35,7 +35,6 @@ const HOMES = {
   architect: { x: 7.2, z: 0.6 },
   developer: { x: -7.2, z: 3.6 },
   scout: { x: 7.2, z: 3.6 },
-  debugger: { x: -2.6, z: 4.0 },
   qa: { x: 2.6, z: 4.0 },
   security: { x: -5.0, z: 6.0 },
   designer: { x: 5.0, z: 6.0 },

@@ -20,7 +20,7 @@
 //   - log-cell row: {"kind":"cell","ts":<ISO>,"ticket","cell","mode"(only if given),"tokens":<number>,"ms":<number>,"outcome":<string>}.
 //     The ticket must exist at <root>/.scratch/<feature>/issues/<NN-slug>.md. tokens and ms must be
 //     non-negative integers; outcome non-empty; --cell one of the known cell types
-//     (product architect orchestrator developer scout debugger qa security designer).
+//     (product architect orchestrator developer scout qa security designer).
 //     Every rejection exits non-zero, explains on stderr, and writes nothing.
 //
 // Criterion map:

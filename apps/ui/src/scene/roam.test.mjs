@@ -105,7 +105,7 @@ test("idle pandas actually wander: each covers at least 1 unit of ground in 5 mi
 
 test("the eight roamer types start spread out (at least 3 apart) and never include the orchestrator", async () => {
   const { ROAMER_TYPES, roamHome } = await load();
-  assert.deepEqual([...ROAMER_TYPES].sort(), ["architect", "debugger", "designer", "developer", "product", "qa", "scout", "security"]);
+  assert.deepEqual([...ROAMER_TYPES].sort(), ["architect", "designer", "developer", "product", "qa", "scout", "security"]);
   for (const a of ROAMER_TYPES) for (const b of ROAMER_TYPES) {
     if (a >= b) continue;
     const pa = roamHome(a), pb = roamHome(b);
