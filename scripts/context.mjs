@@ -44,9 +44,32 @@ function lastUsageTokens(file) {
   return null;
 }
 
+// CLAUDE_CODE_SESSION_ID names this session's transcript; look for it under every
+// project dir, since the cwd may be a worktree or subdirectory with a different slug.
+function sessionTranscript(projects, id) {
+  let dirs = [];
+  try {
+    dirs = readdirSync(projects, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  for (const d of dirs) {
+    if (!d.isDirectory()) continue;
+    const file = path.join(projects, d.name, `${id}.jsonl`);
+    try {
+      return { file, session: id, mtime: statSync(file).mtimeMs };
+    } catch {
+      // not in this project dir
+    }
+  }
+  return null;
+}
+
 const home = process.env.HOME || os.homedir();
-const dir = path.join(home, ".claude", "projects", process.cwd().replace(/[^A-Za-z0-9]/g, "-"));
-const t = newestTranscript(dir);
+const projects = path.join(home, ".claude", "projects");
+const id = process.env.CLAUDE_CODE_SESSION_ID;
+const dir = path.join(projects, process.cwd().replace(/[^A-Za-z0-9]/g, "-"));
+const t = (id && sessionTranscript(projects, id)) || newestTranscript(dir);
 const tokens = t ? lastUsageTokens(t.file) : null;
 const percent = tokens === null ? null : Math.min(100, Math.round((tokens / WINDOW) * 10000) / 100);
 console.log(JSON.stringify({ session: t ? t.session : null, context_tokens: tokens, percent }));
