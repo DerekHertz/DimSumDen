@@ -18,3 +18,4 @@
 
 - **Created (orchestrator, 2026-09-29):** Retro fix; incident 2026-09-29T17:04:35Z.
 - **orchestrator, 2026-09-29:** Raised to P0; it gates verify going live (43 decision). Runs in parallel with 51.
+- **qa, 2026-09-29:** QA pass (light). Specify tests untouched; all criteria mapped; only smoke:ui fails, environmental (google fonts cert via proxy), not this branch.
