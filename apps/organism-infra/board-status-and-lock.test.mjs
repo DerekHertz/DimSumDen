@@ -57,6 +57,7 @@ test("status reads the real bold `**Status:** value` header line, not `**` or bo
 test("release on a real bold-format ticket rewrites only the header status value, keeping the format", async () => {
   const fx = await makeBoardFixture({ content: REAL_13 });
   try {
+    await writeFile(fx.claimLockPath, "developer 2026-09-27T00:00:00.000Z\n");
     await writeValidHandoff(fx);
     const { code, stderr } = await runBoard(["release", fx.ticketRelPath, "--status", "in-review"], {
       cwd: fx.worktree,
@@ -107,6 +108,7 @@ test("a line-start `Status:` under ## Comments is never read or replaced", async
   try {
     const status = await runBoard(["status", fx.ticketRelPath], { cwd: fx.worktree });
     assert.equal(status.stdout.trim(), "ready-for-agent");
+    await writeFile(fx.claimLockPath, "developer 2026-09-27T00:00:00.000Z\n");
     await writeValidHandoff(fx);
     const { code } = await runBoard(["release", fx.ticketRelPath, "--status", "in-review"], { cwd: fx.worktree });
     assert.equal(code, 0);
@@ -177,11 +179,12 @@ test("a held events lock times out release/comment with 75 and changes neither t
   try {
     const seed = '{"seq":1,"ts":"2026-09-27T00:00:00.000Z","op":"seed"}\n';
     await writeFile(fx.eventsPath, seed);
+    await writeFile(fx.claimLockPath, "developer 2026-09-27T00:00:00.000Z\n");
     await writeValidHandoff(fx);
     await writeFile(eventsLock, liveLock());
     for (const args of [
       ["release", fx.ticketRelPath, "--status", "in-review", "--reason", "should not land"],
-      ["comment", fx.ticketRelPath, "--as", "qa", "should not land"],
+      ["comment", fx.ticketRelPath, "--as", "developer", "should not land"],
     ]) {
       const r = await runBoard(args, { cwd: fx.worktree, timeoutMs: 10000 });
       assert.equal(r.code, LOCK_TIMEOUT_EXIT, `${args[0]}: ${r.stderr}`);
@@ -229,7 +232,10 @@ test("concurrent mutations on different tickets never collide on seq or lose an 
     // ticket being released (by filename prefix + State.ticket match), so
     // each of the 10 parallel tickets here needs its own matching handoff,
     // not the one shared fixture handoff this loop used to write once.
-    for (const ref of refs) {
+    for (const [i, ref] of refs.entries()) {
+      if (i % 3 === 2) {
+        await writeFile(path.join(path.dirname(fx.ticketPath), `${ref.split("/")[1]}.lock`), "developer 2026-09-27T00:00:00.000Z\n");
+      }
       await writeValidHandoff(fx, { ticket: ref.split("/")[1] });
     }
     // Mix of ops so every mutating path appends under contention.
@@ -281,7 +287,10 @@ test("concurrent comment and release on one ticket lose no updates and leave the
     let succeeded = 0;
     results.forEach((r, i) => {
       assert.equal(r.timedOut, false);
-      assert.ok([0, LOCK_TIMEOUT_EXIT].includes(r.code), `op ${i} failed uncleanly: ${r.code} ${r.stderr}`);
+      // organism-infra/45: release A (gated) is refused with 1 if release B
+      // already freed the claim lock, so a clean refusal is allowed for it.
+      const allowed = ops[i].kind === "release" ? [0, 1, LOCK_TIMEOUT_EXIT] : [0, LOCK_TIMEOUT_EXIT];
+      assert.ok(allowed.includes(r.code),`op ${i} failed uncleanly: ${r.code} ${r.stderr}`);
       const occurrences = ticket.split(ops[i].text).length - 1;
       assert.equal(occurrences, r.code === 0 ? 1 : 0, `op ${i} (${ops[i].text}) written ${occurrences} times`);
       if (r.code === 0) succeeded++;
