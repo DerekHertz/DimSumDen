@@ -156,3 +156,5 @@
 {"kind":"resolved","ts":"2026-09-29T21:34:52.102Z","ticket":"character-animation/17-stalls-table-and-cub-basket","pr":61,"bounces":0}
 {"kind":"resolved","ts":"2026-09-29T21:34:52.278Z","ticket":"character-animation/18-todays-board","pr":62,"bounces":0}
 {"kind":"usage","ts":"2026-09-29T21:35:41Z","five_hour":null,"weekly":null,"cloud_credits":49,"event":"dispatch","ticket":"organism-infra/30-handoff-error-shows-skeleton","cell":"qa"}
+{"kind":"cell","ts":"2026-09-29T21:37:30.554Z","ticket":"organism-infra/30-handoff-error-shows-skeleton","cell":"qa","mode":"specify","tokens":48165,"ms":89021,"outcome":"12 tests at 8bcc83f; 10 red"}
+{"kind":"jev","ts":"2026-09-29T21:37:30.611Z","ticket":"organism-infra/30-handoff-error-shows-skeleton","point":"tier","pick":null,"actual":"sonnet","cost":0,"conf":null,"mode":"shadow","fallback":"no-key","ms":1,"model":"jev-1.13.0"}
