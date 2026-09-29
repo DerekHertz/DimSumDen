@@ -6,10 +6,12 @@
 // Pinned contracts (the ticket leaves these open; the developer must follow them):
 //   - usage file: <root>/.scratch/usage.jsonl, root = $ORGANISM_ROOT (else cwd), as jev.mjs.
 //   - resolved row: {"kind":"resolved","ts":<ISO string>,"ticket":"<feature>/<NN-slug>","pr":<number|null>,"bounces":<int>}.
-//   - bounce count source: the number of op:"comment" events for that ticket in
-//     <root>/.scratch/events.jsonl whose `text` starts with "QA bounce" or "Security bounce"
-//     (case-insensitive). Comments that merely mention the words later in the text do not count.
-//     The developer documents this in ADR 0008.
+//   - bounce count source (structured verdict, coordinator change): `board comment <ref>
+//     --verdict pass|bounce "<text>"` records "verdict":"pass"|"bounce" on the op:"comment" event in
+//     <root>/.scratch/events.jsonl. Any other --verdict value is refused (non-zero, nothing written:
+//     no event, no ticket change). bounces = count of that ticket's comment events with verdict
+//     "bounce". Comments without --verdict count as nothing, whatever their text says.
+//     The developer documents this in ADR 0008 (the ADR must mention "verdict").
 //   - --pr: a positive integer. Required when the ticket's `**Type:**` is feature or bug (code
 //     tickets); a missing or non-numeric --pr then fails, writes no row, and leaves the claim.
 //     For other Types (e.g. design) --pr may be omitted and the row has pr:null.
@@ -24,7 +26,7 @@
 // Criterion map:
 //   1 resolved row on release   -> "release --status resolved --pr ..." tests (row, one only, bounces, pr rules, no row otherwise)
 //   2 log-cell valid/rejects    -> "log-cell ..." tests
-//   3 ADR updated               -> the ADR 0008 test (names log-cell, the resolved row, bounce, events.jsonl)
+//   3 ADR updated               -> the ADR 0008 test (names log-cell, the resolved row, bounce, verdict, events.jsonl)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -73,17 +75,19 @@ test("release --status resolved --pr appends exactly one well-formed resolved ro
   }
 });
 
-test("bounces counts QA and Security bounce comments from the board events, not incidental mentions", async () => {
+test("bounces counts only comments recorded with --verdict bounce; free-text bounce and pass verdicts count 0", async () => {
   const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
   try {
-    for (const text of [
-      "QA bounce: test x fails",
-      "QA pass",
-      "Security bounce: HIGH finding",
-      "qa bounce again",
-      "Note: no QA bounce this time",
+    for (const [text, verdict] of [
+      ["QA bounce: test x fails", "bounce"],
+      ["QA pass", "pass"],
+      ["Security bounce: HIGH finding", "bounce"],
+      ["security: BOUNCE", "bounce"],
+      ["QA bounce, typed without a verdict", undefined],
+      ["Note: no bounce this time", undefined],
     ]) {
-      const c = await runBoard(["comment", fx.ticketRelPath, text, "--as", "qa"], { cwd: fx.worktree });
+      const args = ["comment", fx.ticketRelPath, ...(verdict ? ["--verdict", verdict] : []), text, "--as", "qa"];
+      const c = await runBoard(args, { cwd: fx.worktree });
       assert.equal(c.code, 0, c.stderr);
     }
     await claimAndReady(fx);
@@ -97,11 +101,40 @@ test("bounces counts QA and Security bounce comments from the board events, not 
   }
 });
 
+test("comment --verdict is recorded on the comment event", async () => {
+  const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
+  try {
+    for (const v of ["pass", "bounce"]) {
+      const c = await runBoard(["comment", fx.ticketRelPath, "--verdict", v, `verdict ${v}`, "--as", "qa"], { cwd: fx.worktree });
+      assert.equal(c.code, 0, c.stderr);
+    }
+    const evs = readFileSync(fx.eventsPath, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l))
+      .filter((e) => e.op === "comment");
+    assert.deepEqual(evs.map((e) => e.verdict), ["pass", "bounce"]);
+  } finally {
+    await fx.cleanup();
+  }
+});
+
+test("comment --verdict bogus is refused and writes nothing", async () => {
+  const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
+  try {
+    const before = await fx.readTicket();
+    const c = await runBoard(["comment", fx.ticketRelPath, "--verdict", "bogus", "hello", "--as", "qa"], { cwd: fx.worktree });
+    assert.notEqual(c.code, 0);
+    assert.match(c.stderr, /verdict/i);
+    assert.equal(await fx.readTicket(), before);
+    assert.equal(existsSync(fx.eventsPath), false, "no event written");
+  } finally {
+    await fx.cleanup();
+  }
+});
+
 test("bounces ignore other tickets' comments", async () => {
   const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
   try {
     await writeFile(path.join(fx.root, ".scratch", "sample", "issues", "02-other.md"), codeTicket("02-other"));
-    const c = await runBoard(["comment", "sample/02-other", "QA bounce: nope", "--as", "qa"], { cwd: fx.worktree });
+    const c = await runBoard(["comment", "sample/02-other", "--verdict", "bounce", "QA bounce: nope", "--as", "qa"], { cwd: fx.worktree });
     assert.equal(c.code, 0, c.stderr);
     await claimAndReady(fx);
     const r = await resolve(fx, "--pr", "7");
@@ -261,5 +294,6 @@ test("ADR 0008 documents the scripted rows and where the bounce count comes from
   assert.match(text, /log-cell/);
   assert.match(text, /resolved/i);
   assert.match(text, /bounce/i);
+  assert.match(text, /verdict/i);
   assert.match(text, /events\.jsonl/);
 });
