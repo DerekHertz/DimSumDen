@@ -10,6 +10,7 @@
     "test": "node --test \"apps/**/*.test.mjs\" \"packages/**/*.test.mjs\" \"scripts/**/*.test.mjs\"",
     "dev": "node apps/ci-cd/dev-server.mjs",
     "smoke": "node apps/ci-cd/smoke.mjs",
+    "smoke:ui": "node apps/ci-cd/smoke-ui.mjs",
     "risk-check": "node scripts/risk-check.mjs",
     "check:bom": "node scripts/bom-check.mjs",
     "board": "node apps/organism-infra/board.mjs",
