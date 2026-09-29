@@ -88,3 +88,4 @@
 {"kind":"config","ts":"2026-09-29T19:50:00Z","change":"user: batch showcase-v1 02,04,03,05 in one developer run on showcase-v1/integration, commit per ticket, single qa verify at end; starts after 01 merges"}
 {"kind":"incident","ts":"2026-09-29T20:00:00Z","ticket":"showcase-v1/01","cell":"developer","tool":"board handoff","what":"Handoff rejected: State block missing ticket field; retry succeeded","cost":"one retry","fix":"cell added State block","rule_change":null}
 {"kind":"cell","ts":"2026-09-29T19:20:50.420Z","ticket":"showcase-v1/01-banquet-layout","cell":"developer","tokens":83588,"ms":292325,"outcome":"fix round: table, x-pan/zoom, roofs on posts, Bao out of fog; 13 new tests; browser unverified"}
+{"kind":"usage","ts":"2026-09-29T20:20:00Z","cloud_credit_left":85,"event":"dispatch","ticket":"showcase-v1/01","cell":"developer","source":"user-reported"}
