@@ -8,7 +8,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] Each genome's tools list is justified by its purpose
 - [ ] First-turn context measured before and after, logged here
