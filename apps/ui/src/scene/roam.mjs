@@ -6,7 +6,7 @@
 // cell type gets work: idle -> to-slot -> working -> out -> idle, with a reduced-motion variant that
 // stands still and fades between the grass and the stall instead of walking.
 import {
-  BAO, CUB_BASKET, CUB_BASKET_RADIUS, STALL_CENTERS, TABLE, TALLY, stallCenterX, stallWidth,
+  BAO, CUB_BASKET, CUB_BASKET_RADIUS, STALL_CENTERS, TABLE, stallCenterX, stallWidth,
 } from "./banquet-layout.mjs";
 
 /** Cell types that roam (the orchestrator stays on Bao's crown). */
@@ -43,14 +43,15 @@ const HOMES = {
 
 const rectAround = (cx, cz, hx, hz) => ({ kind: "rect", x0: cx - hx - PAD, x1: cx + hx + PAD, z0: cz - hz - PAD, z1: cz + hz + PAD });
 
-/** Footprints (padded by a panda's half width) of Bao, Tally, table, stalls, cub basket and cub row. */
+/** Footprints (padded by a panda's half width) of Bao, table, stalls, cub basket and cub row. */
 export function roamObstacles(counts = {}) {
   const out = [
     { kind: "circle", x: TABLE.x, z: TABLE.z, r: TABLE_TOP_RADIUS + PAD },
     rectAround(BAO.position[0], BAO.position[2], BAO_HALF[0], BAO_HALF[1]),
-    rectAround(TALLY.x, TALLY.z, TALLY.width / 2, TALLY.depth / 2),
     { kind: "circle", x: CUB_BASKET.x, z: CUB_BASKET.z, r: CUB_BASKET_RADIUS + PAD },
     rectAround(0, CUB_ROW_Z, stallWidth(counts.cubs ?? 0) / 2, CUB_HALF_DEPTH),
+    // The Tally stele: plinth footprint plus 0.1, then padded like the rest.
+    { kind: "rect", x0: 0.85, x1: 2.15, z0: 3.1, z1: 3.7 },
   ];
   for (const [station, c] of Object.entries(STALL_CENTERS)) {
     const n = counts[station] ?? 0;

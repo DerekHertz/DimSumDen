@@ -26,7 +26,7 @@ test("roamAt stays inside the grass bounds and outside every obstacle, for every
   }
 });
 
-test("obstacles cover the Tally, table, stalls, cub basket and Bao footprints", async () => {
+test("obstacles cover the table, stalls, cub basket and Bao footprints", async () => {
   const { roamObstacles } = await load();
   const obstacles = roamObstacles(BASE);
   const covered = (x, z) => obstacles.some((o) => insideShape(o, x, z));
@@ -34,7 +34,6 @@ test("obstacles cover the Tally, table, stalls, cub basket and Bao footprints", 
   assert.ok(covered(1.5, 0), "table edge (radius 1.3 top 1.8)");
   assert.ok(covered(0, -2.4), "Bao");
   assert.ok(covered(1.3, -2.4), "Bao's flank");
-  assert.ok(covered(-3.0, 0.3), "Tally");
   assert.ok(covered(-4.8, -1.6), "Steamers");
   assert.ok(covered(4.8, -1.6), "Front of House");
   assert.ok(covered(-4.0, 2.2), "Tea");

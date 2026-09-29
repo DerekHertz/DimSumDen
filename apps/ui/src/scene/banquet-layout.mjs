@@ -10,10 +10,24 @@ export const RAIL = { x: 0, y: 2.66, z: BAO.position[2], width: 1.3, height: 0.0
 export const BELL = { x: 0.5, y: RAIL.y + RAIL.height / 2, z: BAO.position[2] };
 
 /**
- * Tally: a pagoda-roofed slate on tall posts left of Bao, between him and the back-left Steamers stall (showcase-v1/03). The slate
- * hangs high (faceBottom) so the sight line from the default camera to Steamers cells passes under it.
+ * Tally (showcase-v1/07): a stone stele on the front floor beside the Cubs basket, to its right, turned
+ * toward the camera. The plinth bottom sits 0.02 below groundY; the tablet stands on the plinth top.
  */
-export const TALLY = { x: -3.0, z: 0.3, width: 1.6, depth: 0.3, faceBottom: 2.35, faceHeight: 1.0 };
+export const TALLY = {
+  x: 1.5,
+  z: 3.4,
+  groundY: 0,
+  rotationY: -Math.atan2(1.5, 8.1), // the face turns toward the default camera
+  plinth: { width: 1.1, height: 0.25, depth: 0.4 },
+  tablet: { width: 0.9, height: 1.3, depth: 0.14 },
+};
+
+/** World point the Tally pill hangs from: centred over the tablet top, 0.27 above it. */
+export const tallyAnchor = () => ({
+  x: TALLY.x,
+  y: TALLY.groundY - 0.02 + TALLY.plinth.height + TALLY.tablet.height + 0.27,
+  z: TALLY.z,
+});
 
 export const TABLE = { x: 0, z: 0, radius: 1.3, height: 0.7 };
 export const CUB_BASKET = { x: 0, z: 3.4 };
