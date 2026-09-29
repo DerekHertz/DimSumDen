@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** in-review
+**Status:** resolved
 
 - [ ] Grove geometry is instanced; a unit test covers the layout generator (deterministic seed, counts per layer)
 - [ ] Scene still meets the existing frame budget with 30 cells (plush LOD from dimsumden-ui-v0/15)

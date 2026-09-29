@@ -8,7 +8,7 @@
 
 **Blocked by:** 01
 
-**Status:** in-review
+**Status:** resolved
 
 - [ ] A pure handoff-derivation module (previous state, next state -> handoff list) with unit tests: station change, same-station change, new ticket, resolved ticket
 - [ ] Lazy susan turn and lantern or bell lighting driven by live events; a dev-scene fixture demonstrates a handoff

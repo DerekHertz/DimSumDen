@@ -180,3 +180,11 @@
 {"seq":180,"ts":"2026-09-29T19:59:07.158Z","feature":"showcase-v1","ticket":"03-todays-board","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":181,"ts":"2026-09-29T19:59:07.430Z","feature":"showcase-v1","ticket":"04-message-passing","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":182,"ts":"2026-09-29T19:59:07.712Z","feature":"showcase-v1","ticket":"05-name-and-font","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
+{"seq":183,"ts":"2026-09-29T20:13:00.200Z","feature":"showcase-v1","ticket":"02-low-poly-grove","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
+{"seq":184,"ts":"2026-09-29T20:13:00.654Z","feature":"showcase-v1","ticket":"02-low-poly-grove","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":185,"ts":"2026-09-29T20:13:00.915Z","feature":"showcase-v1","ticket":"03-todays-board","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
+{"seq":186,"ts":"2026-09-29T20:13:01.367Z","feature":"showcase-v1","ticket":"03-todays-board","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":187,"ts":"2026-09-29T20:13:01.640Z","feature":"showcase-v1","ticket":"04-message-passing","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
+{"seq":188,"ts":"2026-09-29T20:13:02.069Z","feature":"showcase-v1","ticket":"04-message-passing","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":189,"ts":"2026-09-29T20:13:02.298Z","feature":"showcase-v1","ticket":"05-name-and-font","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
+{"seq":190,"ts":"2026-09-29T20:13:02.772Z","feature":"showcase-v1","ticket":"05-name-and-font","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}

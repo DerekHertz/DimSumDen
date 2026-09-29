@@ -8,7 +8,7 @@
 
 **Blocked by:** 01
 
-**Status:** in-review
+**Status:** resolved
 
 - [ ] Board is a clickable, keyboard-reachable object with an accessible name
 - [ ] Opening it shows the existing Dashboard with its hidden data tables

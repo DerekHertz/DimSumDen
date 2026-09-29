@@ -110,3 +110,7 @@
 {"kind":"cell","ts":"2026-09-29T20:09:33.919Z","ticket":"showcase-v1/03-todays-board","cell":"developer","tokens":4819,"ms":43821,"outcome":"Tally moved left of Bao; bde5e70"}
 {"kind":"incident","ts":"2026-09-29T23:10:00Z","ticket":"showcase-v1/board","cell":"orchestrator","tool":"ci","what":"PR 60 test job timed out in smoke --url on a static fixture (45s); board-only diff; re-ran failed job once","cost":"one CI re-run","fix":"re-run","rule_change":null}
 {"kind":"incident","ts":"2026-09-29T23:10:00Z","ticket":"showcase-v1/board","cell":"orchestrator","tool":"npm test","what":"Local npm test in the main checkout scans leftover .claude/worktrees copies (organ-to-station test fails on their old prose)","cost":"misleading local failures","fix":"none yet; remove stale worktrees via worktree-gc with the user's yes","rule_change":"candidate: terminology test should skip .claude/worktrees"}
+{"kind":"resolved","ts":"2026-09-29T20:13:00.659Z","ticket":"showcase-v1/02-low-poly-grove","pr":62,"bounces":0}
+{"kind":"resolved","ts":"2026-09-29T20:13:01.370Z","ticket":"showcase-v1/03-todays-board","pr":62,"bounces":0}
+{"kind":"resolved","ts":"2026-09-29T20:13:02.072Z","ticket":"showcase-v1/04-message-passing","pr":62,"bounces":0}
+{"kind":"resolved","ts":"2026-09-29T20:13:02.775Z","ticket":"showcase-v1/05-name-and-font","pr":62,"bounces":0}
