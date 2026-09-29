@@ -8,6 +8,7 @@ import * as THREE from "three";
 import { TALLY } from "./banquet-layout.mjs";
 
 const TABLET = "#4a4d4a";
+const FACE = "#3d403d"; // stone-deep: qi text on it reads 5.48:1
 const PLINTH = "#3d403d";
 const QI = "#3aced3";
 const FACE_PX = { w: 336, h: 480 };
@@ -29,7 +30,7 @@ function line(ctx, x0, y0, x1, y1) {
 
 function drawFace(ctx, face) {
   const { w, h } = FACE_PX;
-  ctx.fillStyle = TABLET;
+  ctx.fillStyle = FACE;
   ctx.fillRect(0, 0, w, h);
   ctx.strokeStyle = QI;
   ctx.fillStyle = QI;
@@ -104,12 +105,6 @@ export function TallyFace({ face, onOpen, stage }) {
     document.fonts?.load("44px 'Long Cang'").then(() => live && draw()).catch(() => {});
     return () => { live = false; };
   }, [face, canvas, texture]);
-
-  useEffect(() => {
-    if (!stage) return undefined;
-    stage.anchors.set("__tally", new THREE.Vector3(B.x, TABLET_Y + B.tablet.height + 0.27, B.z));
-    return () => stage.anchors.delete("__tally");
-  }, [stage]);
 
   return (
     <group

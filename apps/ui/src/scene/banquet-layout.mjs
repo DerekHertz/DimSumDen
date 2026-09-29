@@ -22,6 +22,13 @@ export const TALLY = {
   tablet: { width: 0.9, height: 1.3, depth: 0.14 },
 };
 
+/** World point the Tally pill hangs from: centred over the tablet top, 0.27 above it. */
+export const tallyAnchor = () => ({
+  x: TALLY.x,
+  y: TALLY.groundY - 0.02 + TALLY.plinth.height + TALLY.tablet.height + 0.27,
+  z: TALLY.z,
+});
+
 export const TABLE = { x: 0, z: 0, radius: 1.3, height: 0.7 };
 export const CUB_BASKET = { x: 0, z: 3.4 };
 export const CUB_BASKET_RADIUS = 0.55;

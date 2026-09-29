@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { chipModel, stackChips } from "./chip-model.mjs";
 import { TALLY_ARIA_LABEL, TALLY_LABEL } from "./tally-face.mjs";
 import { stationLabels } from "./station-labels.mjs";
-import { stationOf } from "./banquet-layout.mjs";
+import { stationOf, tallyAnchor } from "./banquet-layout.mjs";
 
 export const TALLY_CHIP_ID = "__tally";
 
@@ -26,11 +26,14 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, o
     const loop = () => {
       const { camera, size } = stage;
       if (camera && size) {
+        // The camera moves in useFrame, before render; refresh its matrices so chips never lag it.
+        camera.updateMatrixWorld();
         const pts = [];
         for (const [ref] of nodes.current) {
-          const a = stage.anchors.get(ref);
+          // Tally hangs from a pure world point, not a registry entry that could go stale.
+          const a = ref === TALLY_CHIP_ID ? tallyAnchor() : stage.anchors.get(ref);
           if (!a) continue;
-          const v = a.clone().project(camera);
+          const v = (a.isVector3 ? a.clone() : new THREE.Vector3(a.x, a.y, a.z)).project(camera);
           pts.push({ ref, x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height });
         }
         for (const l of labelsRef.current) {
