@@ -17,6 +17,7 @@ A living log of what works and what costs too much when the orchestrator runs in
 | qa verify (full, ticket 06) | 36k | 130 s |
 | designer spec (ticket 07) | 55k | 100 s |
 | qa specify (ticket 07) | 53k | 95 s |
+| developer (ticket 07) | 51k | 144 s |
 | scout risk-check and merge-tree | 11k | 18 s |
 | Ticket 06, from qa verify to merge | about 2 cloud credits | about 10 min |
 

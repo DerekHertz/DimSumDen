@@ -200,3 +200,6 @@
 {"seq":200,"ts":"2026-09-29T20:38:25.607Z","feature":"showcase-v1","ticket":"07-tally-stele","cell":"designer","op":"release","from_status":"claimed","to_status":"ready-for-agent","force":false}
 {"seq":201,"ts":"2026-09-29T20:40:59.585Z","feature":"showcase-v1","ticket":"07-tally-stele","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
 {"seq":202,"ts":"2026-09-29T20:41:15.670Z","feature":"showcase-v1","ticket":"07-tally-stele","cell":"qa","op":"release","from_status":"claimed","to_status":"ready-for-agent","force":false}
+{"seq":203,"ts":"2026-09-29T20:43:15.072Z","feature":"showcase-v1","ticket":"07-tally-stele","cell":"developer","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":204,"ts":"2026-09-29T20:45:20.488Z","feature":"showcase-v1","ticket":"07-tally-stele","cell":"developer","op":"comment","text":"developer: tally-stele test 8 (no overlap with architect perch) contradicts pinned x/z/size; architect#0 perch projects inside the stele box. Not editing tests; qa to fix. Details in handoff 07-developer."}
+{"seq":205,"ts":"2026-09-29T20:45:20.702Z","feature":"showcase-v1","ticket":"07-tally-stele","cell":"developer","op":"release","from_status":"claimed","to_status":"blocked","force":false}

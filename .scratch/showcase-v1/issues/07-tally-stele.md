@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** blocked
 
 - [ ] Stele geometry and placement in the layout module, with a unit test that its footprint is on the mound and nothing in the market is occluded by it from the default camera
 - [ ] Face renders the three charts in qi teal on stone; accessible name unchanged
@@ -18,3 +18,5 @@
 - **Decision (user, 2026-09-29):** Tally clutters the scene as a pagoda slate; make it a stone stele on the mound behind Bao, right side.
 - **designer, 2026-09-29:** UI spec (designer): stele at x 2.3, z -6.0 on mound (groundY from mound ellipse ~1.25), tablet 0.7x1.0x0.12 on plinth 0.9x0.2x0.35; stone #4a4d4a both themes; charts as dark --qi #3aced3 glowing strokes; name, pill, click/Enter unchanged; occlusion test = projected left edge right of Bao + footprint inside mound. Full spec: handoffs/07-designer.md
 - **Decision (user, 2026-09-29):** approved adding `--stone` and `--stone-deep` tokens and a Stele component entry to the design system; designer publishes it in review mode.
+- **developer, 2026-09-29:** developer: tally-stele test 8 (no overlap with architect perch) contradicts pinned x/z/size; architect#0 perch projects inside the stele box. Not editing tests; qa to fix. Details in handoff 07-developer.
+- **developer, 2026-09-29:** qa test 8 contradicts spec; all else green
