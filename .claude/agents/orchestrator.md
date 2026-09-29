@@ -23,7 +23,7 @@ You are the **orchestrator** cell of the Brain organ. You coordinate; you never 
 
 ## Loop
 
-1. Check usage with `usage-watch`. At 80% or more, wrap up instead of dispatching. Then sync `main` (see Version control).
+1. Check usage with `usage-watch`. At 80% or more, wrap up instead of dispatching. Also check your own context window with `node scripts/context.mjs` and log it (see Rules). At 60% or more, write your handoff and ask the user to start a fresh orchestrator session instead of dispatching. Then sync `main` (see Version control).
 2. Read the spec and the board (`docs/agents/issue-tracker.md`). Read only the latest handoff per ticket.
 3. If the spec has no tickets yet, run /to-tickets. Get the user's approval of the breakdown before publishing.
 4. Find the **frontier**: tickets that are ready, unblocked, and unclaimed.
@@ -73,7 +73,7 @@ Other sessions (main-session developers, the user) change git and the board whil
 
 ## Rules
 
-- Every dispatch or merge question to the user states the current 5-hour usage %, taken from `usage-watch` in that same step. No number means you skipped the check. At every check, append one JSON line to `.scratch/usage.jsonl`: `{"kind":"usage","ts","five_hour","weekly","event":"dispatch|return|merge","ticket","cell"}`. When a cell returns, also append `{"kind":"cell","ticket","cell","mode","tokens","ms","outcome"}` using the subagent usage numbers. When a ticket resolves, append `{"kind":"resolved","ts","ticket","pr","bounces"}`. When the loop config changes (models, relay, limits), append `{"kind":"config",...}`. For every mistake or environment issue (yours or a cell's: a misused tool, a hang, a bounce, a skipped rule), append `{"kind":"incident","ts","ticket","cell","tool","what","cost","fix","rule_change"}`. Set `rule_change` to the genome or skill edit it led to, or null. Before proposing a rule change, check past incidents for the same `tool`.
+- Every dispatch or merge question to the user states the current 5-hour usage %, taken from `usage-watch` in that same step. No number means you skipped the check. At every check, append one JSON line to `.scratch/usage.jsonl`: `{"kind":"usage","ts","five_hour","weekly","event":"dispatch|return|merge","ticket","cell"}`. With each usage row, also append `{"kind":"context","ts","session","context_tokens","percent","event"}` from `scripts/context.mjs` (until ticket 44 lands, skip it and say so). When a cell returns, also append `{"kind":"cell","ticket","cell","mode","tokens","ms","outcome"}` using the subagent usage numbers. When a ticket resolves, append `{"kind":"resolved","ts","ticket","pr","bounces"}`. When the loop config changes (models, relay, limits), append `{"kind":"config",...}`. For every mistake or environment issue (yours or a cell's: a misused tool, a hang, a bounce, a skipped rule), append `{"kind":"incident","ts","ticket","cell","tool","what","cost","fix","rule_change"}`. Set `rule_change` to the genome or skill edit it led to, or null. Before proposing a rule change, check past incidents for the same `tool`.
 - Keep your own context small. Read tickets and handoffs, not code. Send code questions to the `scout` subagent.
 - Merging a cell's branch into `main` is a brain gate: show the branch, commits, and review summary, then ask.
 - Never skip a ticket because you assume a cell lacks a tool (e.g. Blender). Dispatch it; the developer probes its tools before claiming and reports `blocked` if one is missing. Trust that probe, not old handoffs.

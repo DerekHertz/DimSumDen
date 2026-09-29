@@ -81,6 +81,18 @@ _Avoid_: Shutdown, kill (kill is the user force-stopping a cell)
 The organism-wide caps on concurrent cells and plan usage.
 _Avoid_: Rate limiting, quotas
 
+**Minimum tier**:
+The lowest model a cell type may run on. It is the cell's genome model, except qa light verify, whose minimum is haiku. A Jev pick can raise a tier above the minimum, never lower it.
+_Avoid_: Floor model, base tier
+
+**Verify depth**:
+How hard qa verify looks at a developer's branch: `light` (run the tests, check the acceptance criteria) or `full`.
+_Avoid_: Review level
+
+**Shadow mode**:
+Jev's picks are logged next to what actually ran and never applied, until an exit review decides otherwise.
+_Avoid_: Dry run, trial
+
 ## Observation
 
 **Telemetry**:
