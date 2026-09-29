@@ -20,3 +20,4 @@
 - **Decision (user, 2026-09-29):** approved adding `--stone` and `--stone-deep` tokens and a Stele component entry to the design system; designer publishes it in review mode.
 - **developer, 2026-09-29:** developer: tally-stele test 8 (no overlap with architect perch) contradicts pinned x/z/size; architect#0 perch projects inside the stele box. Not editing tests; qa to fix. Details in handoff 07-developer.
 - **developer, 2026-09-29:** qa test 8 contradicts spec; all else green
+- **Decision (user, 2026-09-29, browser check of 462bab8):** stele on the mound looks floating and too small. Move it next to the Cubs basket. Supersedes the mound placement; test 8 (architect perch overlap) moot once moved.
