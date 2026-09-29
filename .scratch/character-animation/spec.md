@@ -89,3 +89,7 @@ One small hand-placed skeleton is shared by Bao and every cell, and one clip lib
 - Blender MCP calls time out on renders over about 30 s; queue with `bpy.app.timers.register`.
 - The plush origin is the model centre; place cells at surface + `CELL_SCALE`.
 - Source design: design system artifact (`motion.md`, `cell-types.md`) and `.scratch/_handoffs/2026-09-26-design.md`.
+
+## Layout update (2026-09-29)
+
+The user chose the banquet market layout (ADR 0013, proposed): only the Pass rides on Bao; other stations are market stalls around a banquet table whose lazy susan is the queue. Mockups: https://claude.ai/artifact/LQjpimx1jfX5bjZEoTo3za. New tickets 14 to 19; 05 and 06 rescoped.

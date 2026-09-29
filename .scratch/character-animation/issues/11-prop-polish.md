@@ -7,6 +7,8 @@
 - **Environment:** `dev-scene.mjs` sizes its renderer on the first frame, not only at load and on resize, so a newly opened Browser pane doesn't render an empty canvas.
 - **Optional LOWs:** end knobs on the scroll; a grip for the empty right paw in `blueprint_unroll`; the fan covering the cheek from the near three-quarter view.
 
+**Priority:** P3
+
 **Blocked by:** 07
 
 **Status:** ready-for-agent
