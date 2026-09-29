@@ -4,13 +4,14 @@ export const POST_BASE = 0.5; // counter top
 export const EAVE_Y = 1.7;
 export const UPTURN = 0.1;
 const RISE = 0.7;
-const POST_INSET = 0.05;
+export const POST_SIZE = 0.08;
+const POST_INSET = POST_SIZE / 2;
 
 export const postHeight = () => EAVE_Y + UPTURN - POST_BASE;
 
 /** Post centres (x, z), clockwise from back-left. */
 export function postPositions(width, depth) {
-  const x = width / 2;
+  const x = width / 2 - POST_INSET;
   const z = depth / 2 - POST_INSET;
   return [[-x, -z], [x, -z], [x, z], [-x, z]];
 }

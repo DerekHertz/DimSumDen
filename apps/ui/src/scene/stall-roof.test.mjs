@@ -4,10 +4,10 @@ import assert from "node:assert/strict";
 
 const load = () => import("./stall-roof.mjs");
 
-test("four posts stand at the stall corners, inset 0.05 from the front and back edges", async () => {
+test("four posts stand at the stall corners, inset by half a post (0.04) so footprints sit inside the counter", async () => {
   const { postPositions } = await load();
   assert.deepEqual(postPositions(2.25, 1), [
-    [-1.125, -0.45], [1.125, -0.45], [1.125, 0.45], [-1.125, 0.45],
+    [-1.085, -0.46], [1.085, -0.46], [1.085, 0.46], [-1.085, 0.46],
   ]);
 });
 
@@ -44,4 +44,12 @@ test("apex is centred and 0.7 above the eave; the triangles close the ring (8 tr
   assert.deepEqual(roofApex(), [0, 2.4, 0]);
   const tris = roofTriangles(2.25, 1);
   assert.equal(tris.length, 8 * 9);
+});
+
+test("every post footprint (0.08 square) lies inside the counter box", async () => {
+  const { postPositions, POST_SIZE } = await load();
+  for (const [x, z] of postPositions(2.25, 1)) {
+    assert.ok(Math.abs(x) + POST_SIZE / 2 <= 2.25 / 2 + 1e-9);
+    assert.ok(Math.abs(z) + POST_SIZE / 2 <= 1 / 2 + 1e-9);
+  }
 });

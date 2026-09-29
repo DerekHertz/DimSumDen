@@ -7,6 +7,7 @@ const BAO_BOX = { minY: -1, size: [2, 2, 1.75] };
 
 export const TABLE = { x: 0, z: 0, radius: 1.3, height: 0.7 };
 export const CUB_BASKET = { x: 0, z: 3.4 };
+export const CUB_BASKET_RADIUS = 0.55;
 
 const STALL_SPACING = 0.75;
 const STALL_BASE_SLOTS = 3;
@@ -14,18 +15,18 @@ const COUNTER_Y = 0.6;
 
 /** Pass perches as fractions of Bao's box, plus which way extra cells of the same type step. */
 const PASS = {
-  orchestrator: { frac: [0, 1.02, 0], step: 1 },
+  orchestrator: { frac: [0, 0.96, 0], step: 1 },
   product: { frac: [-0.55, 0.72, 0.1], step: -1 },
   architect: { frac: [0.55, 0.72, 0.1], step: 1 },
 };
 const PASS_STEP = 0.4;
 
 const STALLS = {
-  steamers: { x: -3.6, z: -1.6, y: COUNTER_Y },
-  "front-of-house": { x: 3.6, z: -1.6, y: COUNTER_Y },
-  tea: { x: -3.6, z: 2.2, y: COUNTER_Y },
-  pantry: { x: 3.6, z: 2.2, y: COUNTER_Y },
-  cubs: { x: 0, z: 3.9, y: 0 },
+  steamers: { x: -4.8, z: -1.6, y: COUNTER_Y },
+  "front-of-house": { x: 4.8, z: -1.6, y: COUNTER_Y },
+  tea: { x: -4.8, z: 2.2, y: COUNTER_Y },
+  pantry: { x: 4.8, z: 2.2, y: COUNTER_Y },
+  cubs: { x: 0, z: 4.6, y: 0 },
 };
 
 const STATION = {

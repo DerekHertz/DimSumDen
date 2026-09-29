@@ -4,8 +4,8 @@
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { CUB_BASKET, STALL_CENTERS, TABLE, stallWidth, susanBaskets } from "./banquet-layout.mjs";
-import { POST_BASE, postHeight, postPositions, roofTriangles } from "./stall-roof.mjs";
+import { CUB_BASKET, CUB_BASKET_RADIUS, STALL_CENTERS, TABLE, stallWidth, susanBaskets } from "./banquet-layout.mjs";
+import { POST_BASE, POST_SIZE, postHeight, postPositions, roofTriangles } from "./stall-roof.mjs";
 
 const TOP_RADIUS = 1.8;
 const TOP_THICKNESS = 0.1;
@@ -35,7 +35,7 @@ function Stall({ x, z, hue, width }) {
       </mesh>
       {postPositions(width, depth).map(([px, pz]) => (
         <mesh key={`${px}:${pz}`} position={[px, POST_BASE + postHeight() / 2, pz]}>
-          <boxGeometry args={[0.08, postHeight(), 0.08]} />
+          <boxGeometry args={[POST_SIZE, postHeight(), POST_SIZE]} />
           <meshStandardMaterial color={hue} />
         </mesh>
       ))}
@@ -89,7 +89,7 @@ export function Market({ frontier, counts }) {
         <Stall key={station} x={c.x} z={c.z} hue={HUE[station]} width={stallWidth(counts[station] ?? 0)} />
       ))}
       <mesh position={[CUB_BASKET.x, 0.2, CUB_BASKET.z]}>
-        <cylinderGeometry args={[0.55, 0.45, 0.4, 20]} />
+        <cylinderGeometry args={[CUB_BASKET_RADIUS, 0.45, 0.4, 20]} />
         <meshStandardMaterial color={BAMBOO} />
       </mesh>
     </group>

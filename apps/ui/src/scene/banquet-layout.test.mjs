@@ -31,39 +31,39 @@ test("parsePerch splits station and slot", async () => {
 });
 
 test("Pass perches: orchestrator on the crown, product left shoulder, architect right shoulder", async () => {
-  near(await at("orchestrator", 0), [0, 2.856, -2.4], "orchestrator");
+  near(await at("orchestrator", 0), [0, 2.688, -2.4], "orchestrator");
   near(await at("product", 0), [-1.54, 2.016, -2.155], "product");
   near(await at("architect", 0), [1.54, 2.016, -2.155], "architect");
 });
 
 test("Pass perches: a second cell of the same type steps 0.4 outward", async () => {
-  near(await at("orchestrator", 1), [0.4, 2.856, -2.4]);
+  near(await at("orchestrator", 1), [0.4, 2.688, -2.4]);
   near(await at("product", 1), [-1.94, 2.016, -2.155]);
   near(await at("architect", 1), [1.94, 2.016, -2.155]);
 });
 
 test("stalls: Steamers back-left, Front of House back-right, Tea front-left, Pantry front-right", async () => {
-  near(await at("developer", 1), [-3.6, 0.6, -1.6], "steamers centre slot");
-  near(await at("designer", 1), [3.6, 0.6, -1.6], "front of house");
-  near(await at("qa", 1), [-3.6, 0.6, 2.2], "tea");
-  near(await at("security", 1), [3.6, 0.6, 2.2], "pantry");
+  near(await at("developer", 1), [-4.8, 0.6, -1.6], "steamers centre slot");
+  near(await at("designer", 1), [4.8, 0.6, -1.6], "front of house");
+  near(await at("qa", 1), [-4.8, 0.6, 2.2], "tea");
+  near(await at("security", 1), [4.8, 0.6, 2.2], "pantry");
 });
 
 test("developer, scout and debugger share the Steamers slots", async () => {
-  for (const c of ["developer", "scout", "debugger"]) near(await at(c, 0), [-4.35, 0.6, -1.6], c);
+  for (const c of ["developer", "scout", "debugger"]) near(await at(c, 0), [-5.55, 0.6, -1.6], c);
 });
 
 test("a stall's three slots are fixed anchors whatever the head count up to three", async () => {
   for (const count of [1, 2, 3, undefined]) {
-    near(await at("qa", 0, count), [-4.35, 0.6, 2.2], `slot 0 of ${count}`);
-    near(await at("qa", 2, count), [-2.85, 0.6, 2.2], `slot 2 of ${count}`);
+    near(await at("qa", 0, count), [-5.55, 0.6, 2.2], `slot 0 of ${count}`);
+    near(await at("qa", 2, count), [-4.05, 0.6, 2.2], `slot 2 of ${count}`);
   }
 });
 
 test("overflow: a stall with five cells widens its slots along the front, centred", async () => {
-  near(await at("security", 0, 5), [2.1, 0.6, 2.2]);
-  near(await at("security", 2, 5), [3.6, 0.6, 2.2]);
-  near(await at("security", 4, 5), [5.1, 0.6, 2.2]);
+  near(await at("security", 0, 5), [3.3, 0.6, 2.2]);
+  near(await at("security", 2, 5), [4.8, 0.6, 2.2]);
+  near(await at("security", 4, 5), [6.3, 0.6, 2.2]);
 });
 
 test("stallWidth is 2.25 up to three cells, then 0.75 per cell", async () => {
@@ -74,8 +74,8 @@ test("stallWidth is 2.25 up to three cells, then 0.75 per cell", async () => {
 });
 
 test("cubs (unknown cell types) queue in a row at the cub basket, front centre", async () => {
-  near(await at("mystery", 1), [0, 0, 3.9]);
-  near(await at("mystery", 0), [-0.75, 0, 3.9]);
+  near(await at("mystery", 1), [0, 0, 4.6]);
+  near(await at("mystery", 0), [-0.75, 0, 4.6]);
 });
 
 test("landmarks: table at the centre, cub basket front centre", async () => {
@@ -101,4 +101,22 @@ test("lazy susan: none for an empty frontier, capped at eight", async () => {
   assert.deepEqual(susanBaskets(0), []);
   assert.equal(MAX_BASKETS, 8);
   assert.equal(susanBaskets(11).length, 8);
+});
+
+// Fix round 2: clearances. Bao is about 1.95 wide (measured), scale 1.4, so his body reaches |x| 1.37;
+// a shoulder cell in slot 1 stands at |x| 1.94, about 0.3 wide either side.
+test("back stalls' roofs stay at least 1.0 clear of Bao and his shoulder cells", async () => {
+  const { STALL_CENTERS, stallWidth } = await load();
+  const shoulderOuter = 1.94 + 0.3;
+  for (const key of ["steamers", "front-of-house"]) {
+    const inner = Math.abs(STALL_CENTERS[key].x) - stallWidth(3) / 2;
+    assert.ok(inner - shoulderOuter >= 1.0, `${key} inner edge ${inner}`);
+  }
+});
+
+test("cub row stands clear of the cub basket (radius 0.55) by a cell's half width", async () => {
+  const { CUB_BASKET, CUB_BASKET_RADIUS } = await load();
+  const cub = await at("mystery", 1);
+  assert.equal(CUB_BASKET_RADIUS, 0.55);
+  assert.ok(cub[2] - CUB_BASKET.z >= CUB_BASKET_RADIUS + 0.35);
 });
