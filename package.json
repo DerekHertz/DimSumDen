@@ -12,7 +12,8 @@
     "smoke": "node apps/ci-cd/smoke.mjs",
     "risk-check": "node scripts/risk-check.mjs",
     "check:bom": "node scripts/bom-check.mjs",
-    "board": "node apps/organism-infra/board.mjs"
+    "board": "node apps/organism-infra/board.mjs",
+    "bridge": "node apps/bridge/server.mjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"
