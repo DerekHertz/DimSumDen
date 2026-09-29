@@ -45,11 +45,11 @@ export function App() {
   return (
     <div className="shell">
       <main aria-label="Den scene" className="scene">
-        <Canvas aria-hidden="true" camera={{ position: [0, 1.2, 10], fov: 35 }} onPointerMissed={() => setSelected(null)}>
+        <Canvas aria-hidden="true" camera={{ position: [0, 4.2, 11.5], fov: 38, rotation: [-0.2, 0, 0] }} onPointerMissed={() => setSelected(null)}>
           <ambientLight intensity={0.8} />
           <directionalLight position={[2, 4, 3]} intensity={1.2} />
           <Suspense fallback={null}>
-            <Den cells={cells} selected={selected} onSelect={setSelected} stage={stage} />
+            <Den cells={cells} frontier={snapshot?.frontier ?? []} selected={selected} onSelect={setSelected} stage={stage} />
           </Suspense>
         </Canvas>
         <ChipLayer cells={cells} tickets={snapshot?.tickets} selected={selected} onSelect={setSelected} stage={stage} />
