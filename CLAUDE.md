@@ -2,13 +2,25 @@
 
 A local web app for observing and steering AI agents across the SDLC, modeled as an organism. Vocabulary lives in `CONTEXT.md`; use its terms. Decisions live in `docs/adr/`.
 
-Stack (planned): a TypeScript monorepo with a Node daemon and a React + React Three Fiber UI. No app code exists yet.
+Stack: Node ESM scripts (`.mjs`, tests via `node --test`); Vite is the only build step. `apps/ui` is React + React Three Fiber; `apps/bridge` serves the UI and board state; `apps/organism-infra` is the board CLI; `apps/ci-cd` holds the dev server and smoke scripts; `scripts/` holds relay tooling. Common scripts: `npm test`, `npm run board -- <cmd>`, `npm run ui`, `npm run smoke:ui`, `npm run risk-check`.
 
 ## Cells
 
-Cell types are defined by genomes in `.claude/agents/`: `product`, `architect`, and `orchestrator` (Pass), `developer`, `scout` and `debugger` (Steamers), `qa` and `security` (Tea & Pantry), plus `designer` (Front of House). Code tickets run a relay: qa writes failing tests, developer makes them pass, qa verifies, security reviews, then the orchestrator proposes the merge. designer specs and reviews UI tickets and critiques asset tickets. Every cell follows the `organism-protocol` skill: claim before working, stop at pass gates, hand off, then end.
+Cell types are defined by genomes in `.claude/agents/`, grouped into stations:
+- `product`, `architect`, `orchestrator` (Pass)
+- `developer`, `scout`, `debugger` (Steamers)
+- `qa`, `security` (Tea & Pantry)
+- `designer`, `herald` (Front of House); herald drafts public posts, the user publishes
+
+Code tickets run a relay: qa `specify` writes failing tests, developer makes them pass, qa `verify` checks (light verify if qa specified, full otherwise), then `npm run risk-check`: a clean exit skips `security`, a hit dispatches it. The orchestrator opens the PR and merges on green CI. designer specs and reviews UI tickets and critiques asset tickets. Every cell follows the `organism-protocol` skill: claim before working, stop at pass gates, hand off, then end.
+
+Relay autonomy (see `organism-protocol`): once the user approves a ticket, the orchestrator runs its relay end to end, PR and merge included. Other gates still apply. It stops for user verdicts, open scope questions, a twice-failed ticket, environment issues, usage at 80%+, or a red or conflicted merge. Up to two cells run at once (`max_concurrent_cells: 2`), on different tickets with non-overlapping files.
 
 Run a cell as the main session with `claude --agent <cell-type>`. If a session is asked to act as a cell without that flag, read `.claude/agents/<cell-type>.md` first and follow it.
+
+## Cloud sessions
+
+Browser scripts need `PW_CHROMIUM_PATH` set; see `docs/agents/cloud-sessions.md`. With no credentials file, `node scripts/usage.mjs` prints a usage estimate; near 80% ask the user for a real reading.
 
 ## Agent skills
 
