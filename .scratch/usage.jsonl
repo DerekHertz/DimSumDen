@@ -89,3 +89,4 @@
 {"kind":"incident","ts":"2026-09-29T20:00:00Z","ticket":"showcase-v1/01","cell":"developer","tool":"board handoff","what":"Handoff rejected: State block missing ticket field; retry succeeded","cost":"one retry","fix":"cell added State block","rule_change":null}
 {"kind":"cell","ts":"2026-09-29T19:20:50.420Z","ticket":"showcase-v1/01-banquet-layout","cell":"developer","tokens":83588,"ms":292325,"outcome":"fix round: table, x-pan/zoom, roofs on posts, Bao out of fog; 13 new tests; browser unverified"}
 {"kind":"usage","ts":"2026-09-29T20:20:00Z","cloud_credit_left":85,"event":"dispatch","ticket":"showcase-v1/01","cell":"developer","source":"user-reported"}
+{"kind":"cell","ts":"2026-09-29T19:27:09.650Z","ticket":"showcase-v1/01-banquet-layout","cell":"developer","tokens":13781,"ms":92721,"outcome":"fix round 2 (resumed agent; tokens = 97369 cumulative minus 83588): stalls clear Bao, crown seat, post inset, cub row"}
