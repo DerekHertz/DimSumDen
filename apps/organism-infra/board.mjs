@@ -8,6 +8,7 @@ import {
   reclaim,
   getStatus,
   comment,
+  publishHandoff,
   list,
   BoardError,
 } from "./board-service.mjs";
@@ -75,6 +76,13 @@ async function main() {
         keepStatus: !!flags["keep-status"],
       });
       console.log(`released ${ref}: ${result.status}`);
+      return;
+    }
+    case "handoff": {
+      const { positional, flags } = parseFlags(rest, { allowed: ["from", "name"] });
+      const [ref] = positional;
+      const result = await publishHandoff(root, ref, flags.from, { name: flags.name });
+      console.log(`published ${result.path}`);
       return;
     }
     case "status": {

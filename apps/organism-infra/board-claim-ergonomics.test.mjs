@@ -128,6 +128,7 @@ test("`release --keep-status` frees the lock and leaves the status unchanged", a
       cwd: fx.worktree,
     });
     assert.equal(claimed.code, 0, claimed.stderr);
+    await writeValidHandoff(fx); // organism-infra/30: --keep-status is handoff-gated
     const before = await fx.readTicket();
 
     const r = await runBoard(["release", fx.ticketRelPath, "--keep-status"], { cwd: fx.worktree });

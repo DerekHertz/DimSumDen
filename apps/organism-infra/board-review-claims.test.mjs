@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { access } from "node:fs/promises";
-import { makeBoardFixture, runBoard } from "./board-fixture.mjs";
+import { makeBoardFixture, runBoard, writeValidHandoff } from "./board-fixture.mjs";
 
 async function exists(p) {
   return access(p).then(
@@ -35,6 +35,7 @@ for (const [cell, claimArgs] of [
       assert.match(await statusOf(fx), /in-review/, "status must stay in-review while claimed");
       assert.match(await fx.readTicket(), /^Status: in-review$/m);
 
+      await writeValidHandoff(fx); // organism-infra/30: --keep-status is handoff-gated
       const r = await runBoard(["release", fx.ticketRelPath, "--keep-status"], { cwd: fx.worktree });
       assert.equal(r.code, 0, r.stderr);
       assert.equal(await exists(fx.claimLockPath), false, "the claim lock must be gone");

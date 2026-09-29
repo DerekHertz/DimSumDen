@@ -14,6 +14,7 @@ import {
   mkdir,
   link,
   readdir,
+  lstat,
 } from "node:fs/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import { execFileSync } from "node:child_process";
@@ -853,7 +854,8 @@ export async function release(root, ref, newStatus, reason, options = {}) {
       );
     }
 
-    if (HANDOFF_GATED_STATUSES.has(newStatus)) {
+    if (HANDOFF_GATED_STATUSES.has(newStatus) || keepStatus) {
+      // organism-infra/30: --keep-status runs the same handoff gate.
       // Ticket 18 only names `--force` as an override for the handoff
       // State-block check (item 3), never for this transition rule (item
       // 2). Security fix-1 (HIGH #2): a qa release to in-review is allowed
@@ -905,7 +907,7 @@ export async function release(root, ref, newStatus, reason, options = {}) {
     // handoff-state check, gated on in-review/resolved): a force flag on an
     // ungated status has nothing to override and must not pollute the audit
     // trail with a spurious event.
-    if (force && HANDOFF_GATED_STATUSES.has(newStatus)) {
+    if (force && (HANDOFF_GATED_STATUSES.has(newStatus) || keepStatus)) {
       events.push({ feature, ticket, cell, op: "release", kind: "override", reason });
     }
     await commitWithEvent(paths.eventsPath, async () => {
@@ -914,6 +916,81 @@ export async function release(root, ref, newStatus, reason, options = {}) {
     }, events);
     return { status: toStatus };
   });
+}
+
+// organism-infra/30: publish a handoff a cell wrote locally (worktree or
+// scratchpad) into <main>/.scratch/<feature>/handoffs/. The destination is
+// always a plain filename inside that directory.
+const HANDOFF_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*\.md$/;
+
+const HANDOFF_MAX_BYTES = 256 * 1024;
+
+function stateBlock(text) {
+  const m = /```json\s*([\s\S]*?)```/.exec(text);
+  try {
+    return m ? JSON.parse(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function publishHandoff(root, ref, fromFile, options = {}) {
+  const { feature, ticket, paths } = await prepare(root, ref);
+  if (!fromFile) throw new BoardError("handoff requires --from <file>");
+  const name = options.name ?? path.basename(fromFile);
+  if (!HANDOFF_NAME_RE.test(name) || name.includes("..")) {
+    throw new BoardError(`invalid handoff name "${name}": must be a plain <name>.md filename`);
+  }
+  if (!(await exists(paths.issuesDir))) {
+    throw new BoardError(`unknown feature: ${feature}`);
+  }
+  let body;
+  try {
+    const st = await lstat(fromFile);
+    if (st.isSymbolicLink()) throw new BoardError(`--from must not be a symlink: ${fromFile}`);
+    if (!st.isFile()) throw new BoardError(`--from must be a regular file: ${fromFile}`);
+    if (st.size > HANDOFF_MAX_BYTES) {
+      throw new BoardError(`--from file exceeds ${HANDOFF_MAX_BYTES} bytes: ${fromFile}`);
+    }
+    body = await readFile(fromFile, "utf8");
+  } catch (err) {
+    if (err instanceof BoardError) throw err;
+    throw new BoardError(`cannot read --from file: ${fromFile}`);
+  }
+  if (Buffer.byteLength(body) > HANDOFF_MAX_BYTES) {
+    throw new BoardError(`--from file exceeds ${HANDOFF_MAX_BYTES} bytes: ${fromFile}`);
+  }
+  const match = /```json\s*([\s\S]*?)```/.exec(body);
+  let parsed;
+  try {
+    parsed = match && JSON.parse(match[1]);
+  } catch {
+    parsed = null;
+  }
+  const nn = /^(\d{2})-/.exec(ticket)[1];
+  if (!parsed || (parsed.ticket !== `${feature}/${ticket}` && parsed.ticket !== `${feature}/${nn}`)) {
+    throw new BoardError(`handoff State block must name ticket ${feature}/${ticket}`);
+  }
+  const dir = path.join(root, ".scratch", feature, "handoffs");
+  await assertWithinRoot(root, dir);
+  const dirStat = await lstat(dir).catch(() => null);
+  if (dirStat && dirStat.isSymbolicLink()) throw new BoardError("handoffs directory must not be a symlink");
+  await mkdir(dir, { recursive: true });
+  await assertWithinRoot(root, dir);
+  const dest = path.join(dir, name);
+  if (path.dirname(dest) !== dir) throw new BoardError("handoff destination escapes the handoffs directory");
+  const destStat = await lstat(dest).catch(() => null);
+  if (destStat) {
+    if (destStat.isSymbolicLink() || !destStat.isFile()) {
+      throw new BoardError(`handoff destination is not a regular file: ${name}`);
+    }
+    const prior = stateBlock(await readFile(dest, "utf8").catch(() => ""));
+    if (!prior || prior.cell !== parsed.cell || prior.mode !== parsed.mode) {
+      throw new BoardError(`handoff ${name} already exists from a different cell/mode; refusing to overwrite`);
+    }
+  }
+  await atomicWrite(dest, body);
+  return { path: dest };
 }
 
 export async function getStatus(root, ref) {
