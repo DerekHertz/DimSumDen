@@ -70,6 +70,10 @@ _Avoid_: Summary, progress note
 A point where a cell must stop and get the user's explicit approval.
 _Avoid_: Checkpoint, approval step
 
+**Gate request**:
+The user's approve or reject on a brain gate, made in the UI and recorded as one line in `.scratch/_requests/requests.jsonl`. The orchestrator reads it, acts, and marks it handled. A gate request never runs anything itself.
+_Avoid_: Command, action (the UI does not execute)
+
 **Autonomy**:
 How many brain gates apply: supervised, gated, or autopilot. It is set per organism, organ, or cell.
 
