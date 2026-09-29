@@ -268,3 +268,7 @@
 {"seq":268,"ts":"2026-09-29T22:17:36.862Z","feature":"ci-cd","ticket":"05-cloud-browser-tests","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
 {"seq":269,"ts":"2026-09-29T22:18:12.016Z","feature":"ci-cd","ticket":"05-cloud-browser-tests","cell":"qa","op":"release","from_status":"claimed","to_status":"claimed","force":false}
 {"seq":270,"ts":"2026-09-29T22:18:42.645Z","feature":"ci-cd","ticket":"05-cloud-browser-tests","cell":"developer","mode":null,"op":"claim","from_status":"claimed","to_status":"claimed"}
+{"seq":271,"ts":"2026-09-29T22:20:35.053Z","feature":"herald","ticket":"01-voice-guide","cell":"orchestrator","mode":null,"op":"claim","from_status":"claimed","to_status":"claimed"}
+{"seq":272,"ts":"2026-09-29T22:20:35.140Z","feature":"herald","ticket":"01-voice-guide","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":273,"ts":"2026-09-29T22:20:35.214Z","feature":"herald","ticket":"02-herald-genome","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
+{"seq":274,"ts":"2026-09-29T22:20:35.298Z","feature":"herald","ticket":"02-herald-genome","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}

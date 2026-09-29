@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** in-review
+**Status:** resolved
 
 - [ ] The draft-shape check passes on a good fixture and fails on each bad one
 - [ ] A test asserts the genome's tools exclude Bash, WebFetch and GitHub write tools

@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** claimed
+**Status:** resolved
 
 - [ ] `docs/agents/herald-voice.md` exists, under 60 lines, approved by the user
 - [ ] Includes at least one example paragraph the user approved
