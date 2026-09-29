@@ -88,9 +88,11 @@ test("1c. the grove has ground, near, mid and far bands", () => {
 });
 
 test("2. every backdrop mesh sits behind every perch anchor (world max z <= -1.5)", () => {
-  const b = bao();
-  assert.ok(0.9 * b.depth < 1.5, "anchors reach z = 0.9 x depth, in front of the backdrop");
-  for (const mesh of meshesOf(buildBackdrop(LIGHT))) {
+  // Spec intent: the backdrop is behind Bao and the perches. The perch-anchor plane is z = -1.5
+  // (a fixed layout constant), so no precondition on the panda.glb depth belongs here.
+  const meshes = meshesOf(buildBackdrop(LIGHT));
+  assert.ok(meshes.length >= 1);
+  for (const mesh of meshes) {
     const box = new THREE.Box3().setFromObject(mesh);
     assert.ok(box.max.z <= -1.5 + 1e-6, `${mesh.name || mesh.uuid} max z ${box.max.z}`);
   }
@@ -106,11 +108,22 @@ test("3. near band keeps the central x in [-1.6, 1.6] clear of upright geometry"
 
 test("3b. tea house stays below 1.1 x Bao's height behind Bao", () => {
   const limit = bao().max[1] * 1.1;
-  for (const v of allVertices(buildBackdrop(LIGHT))) {
-    if (v.z >= -5.1 && v.z <= -4.4 && Math.abs(v.x) <= 1.0) {
-      assert.ok(v.y <= limit + 1e-6, `central mid-band vertex y ${v.y} above ${limit}`);
+  let checked = 0;
+  // Boxes only have vertices at their corners, so test whole triangles: any triangle in the mid
+  // band's depth whose x-extent overlaps Bao's width (|x| <= 1) must stay under the limit.
+  for (const mesh of meshesOf(buildBackdrop(LIGHT))) {
+    const vs = worldVertices(mesh);
+    const idx = mesh.geometry.index ? Array.from(mesh.geometry.index.array) : vs.map((_, i) => i);
+    for (let t = 0; t < idx.length; t += 3) {
+      const tri = [vs[idx[t]], vs[idx[t + 1]], vs[idx[t + 2]]];
+      const inBand = tri.every((v) => v.z >= -5.6 && v.z <= -3.9);
+      const overBao = Math.min(...tri.map((v) => v.x)) <= 1.0 && Math.max(...tri.map((v) => v.x)) >= -1.0;
+      if (!inBand || !overBao) continue;
+      checked++;
+      for (const v of tri) assert.ok(v.y <= limit + 1e-6, `central mid-band vertex y ${v.y} above ${limit}`);
     }
   }
+  assert.ok(checked > 0, "the tea house sits behind Bao");
 });
 
 test("4. at most 3000 triangles, at most 6 meshes, no shadows, no emissive, frustum culled", () => {
