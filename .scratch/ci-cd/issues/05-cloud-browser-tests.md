@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** in-review
+**Status:** resolved
 
 - [ ] With the variable set in cloud, `npm test` has no browser-launch failures
 - [ ] Unset, launch options are unchanged (unit test on the launch-options builder)
