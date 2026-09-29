@@ -1,7 +1,7 @@
 // DOM status chips over each plush (drei is not approved): world anchors are projected to screen
 // every frame and written straight to each button's style, so React does not re-render per frame.
 import { useEffect, useRef } from "react";
-import { chipModel } from "./chip-model.mjs";
+import { chipModel, stackChips } from "./chip-model.mjs";
 
 export function ChipLayer({ cells, tickets, selected, onSelect, stage }) {
   const nodes = useRef(new Map());
@@ -10,12 +10,18 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage }) {
     const loop = () => {
       const { camera, size } = stage;
       if (camera && size) {
-        for (const [ref, el] of nodes.current) {
+        const pts = [];
+        for (const [ref] of nodes.current) {
           const a = stage.anchors.get(ref);
           if (!a) continue;
           const v = a.clone().project(camera);
-          el.style.left = `${((v.x + 1) / 2) * size.width}px`;
-          el.style.top = `${((1 - v.y) / 2) * size.height}px`;
+          pts.push({ ref, x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height });
+        }
+        const placed = stackChips(pts);
+        for (const [ref, p] of placed) {
+          const el = nodes.current.get(ref);
+          el.style.left = `${p.x}px`;
+          el.style.top = `${p.y}px`;
           el.style.visibility = "visible";
         }
       }

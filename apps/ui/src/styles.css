@@ -100,7 +100,7 @@ body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-w
 .chip-blocked { color: var(--alarm); border-style: dashed; }
 .chip-blocked .chip-glyph { border-radius: 0; }
 .chip-done .chip-glyph { border-radius: 2px; }
-.chip-idle { opacity: var(--opacity-dim); }
+.chip-idle .chip-glyph { opacity: var(--opacity-dim); }
 .scene-caption { position: absolute; margin: 0; color: var(--ink-muted); }
 .scene-empty { left: 0; right: 0; top: 50%; text-align: center; }
 .scene-more { left: var(--space-4); bottom: var(--space-4); font-size: 12px; }

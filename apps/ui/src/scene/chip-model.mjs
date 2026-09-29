@@ -7,6 +7,28 @@ const CHIPS = {
   idle: { label: "Queued", tone: "idle" },
 };
 
+// Screen-space de-overlap: chips whose boxes would collide (plushes stacked on Bao's head) are lifted
+// upward one chip-height at a time. Order is by ref so the result never depends on input order.
+export function stackChips(items, { width = 96, height = 22, gap = 2 } = {}) {
+  const out = new Map();
+  const placed = [];
+  for (const it of [...items].sort((a, b) => (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0))) {
+    let y = it.y;
+    for (let moved = true; moved; ) {
+      moved = false;
+      for (const p of placed) {
+        if (Math.abs(p.x - it.x) < width && Math.abs(p.y - y) < height + gap) {
+          y = p.y - (height + gap);
+          moved = true;
+        }
+      }
+    }
+    placed.push({ x: it.x, y });
+    out.set(it.ref, { x: it.x, y });
+  }
+  return out;
+}
+
 export function chipModel(cell, title) {
   const chip = CHIPS[cell.pose] ?? CHIPS.idle;
   return { ...chip, ariaLabel: `${title ?? cell.ref}, ${chip.label}` };
