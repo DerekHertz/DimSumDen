@@ -143,3 +143,47 @@ test("CLI --json prints the report object", () => {
   assert.equal(r.points.verify.projected, 5700);
   assert.equal(r.tickets.length, 3);
 });
+
+// Fix round (ADR 0010 Value: "per resolved ticket"): value and safety numbers count only tickets
+// with a `resolved` row. Coverage, fallbacks, cap, ms and cost count every included jev row.
+const F01 = ROWS.filter((x) => String(x.ticket).startsWith("f/01"));
+const UNRESOLVED = [
+  jev("f/04-delta", "tier", "opus", "sonnet", { ms: 300, cost: 0.003 }),
+  jev("f/04-delta", "verify", "light", "full", { ms: 300, cost: 0.003 }),
+  cell("f/04", "developer", "implement", 3000),
+  cell("f/04", "qa", "verify", 1000),
+];
+
+test("unresolved ticket counts in coverage but not in baseline, projected, savedPct or bounces", async () => {
+  const { buildReport } = await import("./jev-report.mjs");
+  const { points } = buildReport([...F01.filter((x) => x.kind !== "resolved"), resolved("f/01", 1), ...UNRESOLVED]);
+  // f/01 alone: baseline 2200, tier projection 2200, verify projection 2000.
+  assert.equal(points.tier.tickets, 2);
+  assert.equal(points.verify.tickets, 2);
+  assert.equal(points.tier.medianMs, 200); // median of 100 and 300: f/04 still counts for latency
+  close(points.tier.jevCost, 0.004);
+  assert.equal(points.tier.baseline, 2200);
+  assert.equal(points.tier.projected, 2200);
+  close(points.tier.savedPct, 0);
+  assert.equal(points.tier.bounces, 1);
+  assert.equal(points.verify.baseline, 2200);
+  assert.equal(points.verify.projected, 2000);
+  close(points.verify.savedPct, 9.09);
+  assert.equal(points.verify.bounces, 1);
+});
+
+test("a baseline-0 ticket (cell rows with null tokens) is not counted in coverage", async () => {
+  const { buildReport } = await import("./jev-report.mjs");
+  const zero = [
+    jev("f/05-zero", "tier", "sonnet", "sonnet", { ms: 900, cost: 0.005 }),
+    jev("f/05-zero", "verify", "full", "full", { ms: 900, cost: 0.005 }),
+    { kind: "cell", ticket: "f/05", cell: "developer", mode: "implement", tokens: null, ms: null, outcome: "pass" },
+    resolved("f/05", 0),
+  ];
+  const { points } = buildReport([...F01, ...zero]);
+  assert.equal(points.tier.tickets, 1);
+  assert.equal(points.verify.tickets, 1);
+  assert.equal(points.tier.medianMs, 100);
+  assert.equal(points.tier.baseline, 2200);
+  assert.equal(points.verify.projected, 2000);
+});
