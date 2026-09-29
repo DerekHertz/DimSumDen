@@ -132,3 +132,4 @@
 {"kind":"usage","ts":"2026-09-29T20:42:10Z","five_hour":null,"weekly":null,"cloud_credits":56,"event":"dispatch","ticket":"showcase-v1/07-tally-stele","cell":"developer"}
 {"kind":"incident","ts":"2026-09-29T20:42:52Z","ticket":"showcase-v1/07-tally-stele","cell":"orchestrator","tool":"cell-start","what":"dispatch passed qa's existing tests branch as --branch; cell-start refused, developer's fallback ff-merge denied by classifier","cost":"23k tokens, 1 redispatch","fix":"re-sent with new feature branch showcase-v1/07-tally-stele","rule_change":null}
 {"kind":"cell","ts":"2026-09-29T20:45:37.450Z","ticket":"showcase-v1/07-tally-stele","cell":"developer","tokens":50904,"ms":143772,"outcome":"built at 462bab8; blocked: qa test 8 architect perches overlap stele in screen space"}
+{"kind":"usage","ts":"2026-09-29T20:51:20Z","five_hour":null,"weekly":null,"cloud_credits":55,"event":"dispatch","ticket":"showcase-v1/07-tally-stele","cell":"designer"}
