@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 - [ ] Page title and header read Dim Sum Den; tests updated
 - [ ] CSP still allows the font load (bridge CSP test updated if needed)
