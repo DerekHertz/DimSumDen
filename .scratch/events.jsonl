@@ -701,3 +701,5 @@
 {"seq":308,"ts":"2026-09-29T23:07:06.484Z","feature":"organism-infra","ticket":"37-trim-genome-tools","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":309,"ts":"2026-09-29T23:12:16.830Z","feature":"organism-infra","ticket":"37-trim-genome-tools","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":310,"ts":"2026-09-29T23:12:16.913Z","feature":"organism-infra","ticket":"37-trim-genome-tools","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":311,"ts":"2026-09-29T23:28:02.439Z","feature":"organism-infra","ticket":"51-handoff-validates-at-publish","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":312,"ts":"2026-09-29T23:28:02.489Z","feature":"organism-infra","ticket":"58-jev-verify-floor","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}

@@ -8,7 +8,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] An invalid State block (missing field, `pending` as strings) is refused at publish, nothing is written, and stderr shows the problems and the example (tests)
 - [ ] A valid block publishes as today (test)

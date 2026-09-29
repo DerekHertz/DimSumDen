@@ -2,13 +2,13 @@
 
 **Type:** feature
 
-**Priority:** P2
+**Priority:** P0
 
 **What to build:** In live mode, `node scripts/jev.mjs verify` picked `light` (conf 0.71) for dimsumden-ui-v0/15, which had no qa specify hop. The orchestrator genome allows light verify only when qa ran specify. Make the script apply `minimum = full` when no `<NN>-qa-specify*.md` handoff exists for the ticket, and log the floor in the jev row.
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] No qa-specify handoff: `effective` is `full` whatever Jev picks, in shadow and live
 - [ ] With a qa-specify handoff: current behaviour unchanged
@@ -17,3 +17,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-09-29):** Retro fix; incident 2026-09-29T17:04:35Z.
+- **orchestrator, 2026-09-29:** Raised to P0; it gates verify going live (43 decision). Runs in parallel with 51.

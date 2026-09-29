@@ -16,3 +16,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-09-28):** Follow-up of 04 (ADR 0010), published with the user's yes.
+- **orchestrator, 2026-09-29 (cloud 3):** Reviewed the exit table with the user (tier: 22 tickets, 2 bounces, projected +11.5% tokens; verify: 18 tickets, 2 bounces, projected -6.0%). User decision: **verify goes live** once 58 (verify floor) merges, and actual savings get measured on real tickets against baseline. **Tier stays in shadow** until it's adjusted. Next: record this in ADR 0010 and flip verify to live after 58.
