@@ -12,7 +12,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] LICENSE and NOTICE present
 - [ ] `gitleaks detect --log-opts=--all` exits 0 with the config

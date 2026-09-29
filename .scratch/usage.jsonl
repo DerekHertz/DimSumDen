@@ -182,3 +182,4 @@
 {"kind":"cell","ts":"2026-09-29T22:18:32.717Z","ticket":"ci-cd/05-cloud-browser-tests","cell":"qa","mode":"specify","tokens":29616,"ms":48203,"outcome":"tests at 18a4b1a; red"}
 {"kind":"resolved","ts":"2026-09-29T22:20:35.142Z","ticket":"herald/01-voice-guide","pr":71,"bounces":0}
 {"kind":"resolved","ts":"2026-09-29T22:20:35.304Z","ticket":"herald/02-herald-genome","pr":71,"bounces":0}
+{"kind":"cell","ts":"2026-09-29T22:22:48.821Z","ticket":"ci-cd/05-cloud-browser-tests","cell":"developer","tokens":39523,"ms":226597,"outcome":"a546165; browser launch ok in cloud; qa helper conflict tests 28,30; font TLS in cloud"}
