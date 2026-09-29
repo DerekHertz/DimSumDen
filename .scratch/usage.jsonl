@@ -177,3 +177,4 @@
 {"kind":"cell","ts":"2026-09-29T22:12:27.221Z","ticket":"herald/02-herald-genome","cell":"qa","mode":"verify","tokens":32868,"ms":138449,"outcome":"light verify pass"}
 {"kind":"resolved","ts":"2026-09-29T22:13:19.909Z","ticket":"organism-infra/32-cloud-usage-estimate","pr":69,"bounces":0}
 {"kind":"usage","ts":"2026-09-29T22:13:34Z","five_hour":null,"weekly":null,"cloud_credits_est":34.2,"event":"merge","ticket":"organism-infra/32-cloud-usage-estimate","cell":null}
+{"kind":"cell","ts":"2026-09-29T22:14:21.757Z","ticket":"herald/02-herald-genome","cell":"security","tokens":50067,"ms":100857,"outcome":"pass; M1 bare Agent can reach scout's Bash; M2 narrow secret patterns"}
