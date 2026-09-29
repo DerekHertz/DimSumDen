@@ -3,9 +3,9 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { parsePriority, orderFrontier } from "../organism-infra/priority.mjs";
+import { buildRequests } from "./requests-log.mjs";
 
 const HANDOFF_CAP = 8192;
-const HANDLED_KEPT = 10;
 
 async function readText(file) {
   try {
@@ -96,29 +96,6 @@ async function newestHandoff(scratch, feature, nn) {
     mtime: new Date(best.mtimeMs).toISOString(),
     ...capText(buf),
   };
-}
-
-function buildRequests(rows) {
-  const byId = new Map();
-  const order = [];
-  for (const r of rows) {
-    if (typeof r.handled === "string") {
-      const req = byId.get(r.handled);
-      if (req && req.state === "pending") {
-        req.state = "handled";
-        req.outcome = r.outcome;
-        req.handledAt = r.ts;
-      }
-    } else if (typeof r.id === "string" && !byId.has(r.id)) {
-      const { id, ts, kind, ref, note } = r;
-      const req = { id, ts, kind, ref, ...(note !== undefined ? { note } : {}), state: "pending" };
-      byId.set(id, req);
-      order.push(req);
-    }
-  }
-  const handled = order.filter((r) => r.state === "handled").slice(-HANDLED_KEPT);
-  const keep = new Set(handled);
-  return order.filter((r) => r.state === "pending" || keep.has(r));
 }
 
 export async function buildSnapshot(root, seq = 0) {
