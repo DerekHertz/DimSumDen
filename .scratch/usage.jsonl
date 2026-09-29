@@ -184,3 +184,5 @@
 {"kind":"resolved","ts":"2026-09-29T22:20:35.304Z","ticket":"herald/02-herald-genome","pr":71,"bounces":0}
 {"kind":"cell","ts":"2026-09-29T22:22:48.821Z","ticket":"ci-cd/05-cloud-browser-tests","cell":"developer","tokens":39523,"ms":226597,"outcome":"a546165; browser launch ok in cloud; qa helper conflict tests 28,30; font TLS in cloud"}
 {"kind":"cell","ts":"2026-09-29T22:25:03.078Z","ticket":"ci-cd/05-cloud-browser-tests","cell":"qa","mode":"specify","tokens":28169,"ms":111451,"outcome":"helper fix 36a0e42; 813/814 with env set"}
+{"kind":"cell","ts":"2026-09-29T22:26:46.737Z","ticket":"ci-cd/05-cloud-browser-tests","cell":"security","tokens":40121,"ms":82092,"outcome":"pass; low only"}
+{"kind":"cell","ts":"2026-09-29T22:26:46.780Z","ticket":"docs/02-public-readiness","cell":"developer","tokens":40734,"ms":172639,"outcome":"c413107; LICENSE, NOTICE, gitleaks config, rename"}
