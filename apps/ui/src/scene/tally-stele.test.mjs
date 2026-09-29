@@ -1,99 +1,102 @@
-// Ticket showcase-v1/07: Tally becomes a stone stele on the leafy mound behind Bao, right side.
-// Expected values are hand-worked literals from the designer spec (handoffs/07-designer.md), not
-// recomputed from the module. Contract for TALLY (name kept):
-//   { x, z, groundY, plinth: {width, height, depth}, tablet: {width, height, depth} }
-// plinth bottom sits 0.1 below groundY; the tablet stands on the plinth top.
+// Ticket showcase-v1/07: Tally is a stone stele on the front floor, beside the Cubs basket.
+// Expected values are hand-worked literals from the designer revision (handoffs/07-designer-rev.md),
+// not recomputed from the module. Contract for TALLY (name kept):
+//   { x, z, groundY, rotationY, plinth: {width, height, depth}, tablet: {width, height, depth} }
+// plinth bottom sits 0.02 below groundY; the tablet stands on the plinth top.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { TALLY, BAO, TABLE, STALL_CENTERS, placeCell } from "./banquet-layout.mjs";
-import { groveLayout } from "./grove-layout.mjs";
+import { TALLY, BAO, TABLE, CUB_BASKET, CUB_BASKET_RADIUS, placeCell } from "./banquet-layout.mjs";
 import { roamObstacles } from "./roam.mjs";
 import { TALLY_LABEL, TALLY_ARIA_LABEL } from "./tally-face.mjs";
 
 const read = (f) => readFileSync(new URL(f, import.meta.url), "utf8");
 const CAM = { x: 0, y: 4.2, z: 11.5 }; // default camera (camera-rig BASE_Y, BASE_Z)
 const close = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg}: ${a} != ${b}`);
-
-// Mound ellipsoid (grove-layout mound; grove.mjs squashes z to half the radius): hand-worked.
-const MOUND = { x: 0, z: -6.0, rx: 3.2, ry: 1.8, rz: 1.6 };
-const moundH = (x, z) => {
-  const q = 1 - ((x - MOUND.x) / MOUND.rx) ** 2 - ((z - MOUND.z) / MOUND.rz) ** 2;
-  return q > 0 ? MOUND.ry * Math.sqrt(q) : 0;
-};
 // Screen position of a world point from the default camera: perspective divide by depth.
 const project = (x, y, z) => ({ x: (x - CAM.x) / (CAM.z - z), y: (y - CAM.y) / (CAM.z - z) });
 
-test("the grove mound still has the numbers this spec relies on", () => {
-  const { mound } = groveLayout(1);
-  assert.deepEqual([mound.x, mound.z, mound.radius, mound.height], [0, -6.0, 3.2, 1.8]);
+const plinthBottom = () => TALLY.groundY - 0.02;
+const tabletBottom = () => plinthBottom() + TALLY.plinth.height;
+const tabletTop = () => tabletBottom() + TALLY.tablet.height;
+
+test("stele stands beside the Cubs basket: x 1.5, z 3.4, on the floor, turned to the camera (about -0.183 rad)", () => {
+  assert.equal(TALLY.x, 1.5);
+  assert.equal(TALLY.z, 3.4);
+  assert.equal(TALLY.groundY, 0);
+  close(TALLY.rotationY, -0.183, 0.01, "rotationY faces the default camera");
 });
 
-test("stele stands at x 2.3, z -6.0 with groundY on the mound surface (about 1.2516)", () => {
-  assert.equal(TALLY.x, 2.3);
-  assert.equal(TALLY.z, -6.0);
-  close(TALLY.groundY, 1.2516, 0.002, "groundY from the mound ellipse");
-});
-
-test("stele is a tablet 0.7 x 1.0 x 0.12 on a plinth 0.9 x 0.2 x 0.35, with no roof or posts", () => {
-  assert.deepEqual(TALLY.tablet, { width: 0.7, height: 1.0, depth: 0.12 });
-  assert.deepEqual(TALLY.plinth, { width: 0.9, height: 0.2, depth: 0.35 });
+test("stele is a tablet 0.9 x 1.3 x 0.14 on a plinth 1.1 x 0.25 x 0.4, top about 1.55, with no roof or posts", () => {
+  assert.deepEqual(TALLY.tablet, { width: 0.9, height: 1.3, depth: 0.14 });
+  assert.deepEqual(TALLY.plinth, { width: 1.1, height: 0.25, depth: 0.4 });
   assert.equal(TALLY.faceBottom, undefined, "the pagoda slate's hanging face is gone");
-  assert.ok(TALLY.tablet.width < 1.6, "smaller than the old 1.6 wide slate");
-  const top = TALLY.groundY - 0.1 + TALLY.plinth.height + TALLY.tablet.height;
-  assert.ok(top > 2.2 && top < 2.5, `tablet top ${top} stays below the near leaves`);
+  assert.ok(tabletTop() > 1.4 && tabletTop() < 1.7, `tablet top ${tabletTop()}`);
   const src = read("./TallyFace.jsx");
   assert.doesNotMatch(src, /roofTriangles|stall-roof/, "no roof");
 });
 
-test("the plinth footprint lies on the mound: all four corners are over the surface", () => {
-  for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) {
-      const x = TALLY.x + (sx * TALLY.plinth.width) / 2;
-      const z = TALLY.z + (sz * TALLY.plinth.depth) / 2;
-      assert.ok(moundH(x, z) > 0, `corner ${x},${z} is off the mound`);
-    }
-  }
+test("grounded beside the basket: on the floor, level with the basket, 0.3+ clear of it, behind the cub row", () => {
+  assert.equal(TALLY.groundY, 0);
+  assert.equal(TALLY.z, CUB_BASKET.z);
+  const plinthLeft = TALLY.x - TALLY.plinth.width / 2; // 0.95
+  assert.ok(plinthLeft - CUB_BASKET.x - CUB_BASKET_RADIUS >= 0.3, `gap to basket ${plinthLeft - CUB_BASKET_RADIUS}`);
+  const front = TALLY.z + TALLY.plinth.depth / 2; // 3.6
+  assert.ok(front <= 4.6 - 0.35, `plinth front ${front} stays behind the cub row`);
 });
 
-test("from the default camera nothing in the market sits behind the stele: it is farther than every stall, cell perch, Bao and the table", () => {
-  const nearestZ = [
-    BAO.position[2] - 0.875 * BAO.scale, // Bao's back face
-    TABLE.z - TABLE.radius,
-    ...Object.values(STALL_CENTERS).map((c) => c.z),
-    ...["orchestrator", "product", "architect", "developer", "qa", "security", "designer"].map((t) => placeCell(t, 0).z),
-  ];
-  const steleFront = TALLY.z + TALLY.plinth.depth / 2;
-  for (const z of nearestZ) assert.ok(z > steleFront, `something at z ${z} is not in front of the stele (front ${steleFront})`);
+test("from the default camera the stele covers only floor: its top is below Bao's feet and the table top, and it is clear of the table, Bao and the stalls sideways", () => {
+  const top = project(0, tabletTop(), TALLY.z).y; // about -0.33
+  const baoFeet = project(0, 0, BAO.position[2]).y; // about -0.302
+  const tableTop = project(0, TABLE.height, TABLE.z).y; // -0.304
+  assert.ok(top < baoFeet, `stele top ${top} is not below Bao's feet ${baoFeet}`);
+  assert.ok(top < tableTop, `stele top ${top} is not below the table top ${tableTop}`);
+
+  const left = project(TALLY.x - TALLY.plinth.width / 2, 0, TALLY.z).x; // 0.117
+  const right = project(TALLY.x + TALLY.plinth.width / 2, 0, TALLY.z).x; // 0.253
+  const tableRight = project(TABLE.x + TABLE.radius, 0, TABLE.z).x; // 0.113
+  const baoRight = project(BAO.scale * 1, 0, BAO.position[2]).x; // 1.4 -> 0.1007
+  const pantryInner = project(4.0 - 3 * 0.75 / 2, 0, 2.2).x; // 2.875 -> 0.309
+  const fohInner = project(4.8 - 3 * 0.75 / 2, 0, -1.6).x; // 3.675 -> 0.2805
+  assert.ok(left > tableRight, `stele left ${left} overlaps the table edge ${tableRight}`);
+  assert.ok(left > baoRight, `stele left ${left} overlaps Bao's right edge ${baoRight}`);
+  assert.ok(right < pantryInner, `stele right ${right} runs into the Pantry stall ${pantryInner}`);
+  assert.ok(right < fohInner, `stele right ${right} runs into Front of House ${fohInner}`);
 });
 
-test("the stele's left edge, projected to Bao's depth, clears Bao's right edge (1.4) by at least 0.1", () => {
-  const y = TALLY.groundY + 0.2 + TALLY.tablet.height / 2;
-  const left = TALLY.x - TALLY.tablet.width / 2; // 1.95
+test("the plinth's left edge, projected to Bao's depth, clears Bao's right edge (1.4): lands at 1.5 or more", () => {
   const f = (CAM.z - BAO.position[2]) / (CAM.z - TALLY.z);
-  const projected = CAM.x + f * (left - CAM.x);
-  assert.ok(y > 0);
-  assert.ok(projected - BAO.scale * 1 >= 0.1, `tablet left edge lands at ${projected} at Bao's depth`);
   const plinthLeft = CAM.x + f * (TALLY.x - TALLY.plinth.width / 2 - CAM.x);
-  assert.ok(plinthLeft > BAO.scale * 1 + 0.05, `plinth left edge lands at ${plinthLeft}`);
+  assert.ok(plinthLeft >= 1.5, `plinth left edge lands at ${plinthLeft} at Bao's depth`);
+  const tabletLeft = CAM.x + f * (TALLY.x - TALLY.tablet.width / 2 - CAM.x);
+  assert.ok(tabletLeft >= 1.5, `tablet left edge lands at ${tabletLeft} at Bao's depth`);
 });
 
-test("near bamboo (minX 2.8, z -5.2..-4) does not cover the face: the stele's right edge projects under 2.6 at z -4.6", () => {
-  const right = TALLY.x + TALLY.plinth.width / 2; // 2.75
-  const f = (CAM.z + 4.6) / (CAM.z - TALLY.z);
-  assert.ok(CAM.x + f * (right - CAM.x) < 2.6);
+test("cubs never cover the face: a plush top (y 0.8) in the cub row projects below the tablet bottom", () => {
+  const plush = project(0, 0.8, 4.6).y; // -0.493
+  const face = project(0, tabletBottom(), TALLY.z).y; // -0.490
+  assert.ok(plush < face, `cub top ${plush} reaches the tablet bottom ${face}`);
 });
 
-test("the stele's screen box does not overlap the Steamers or Front of House cell perches or any Pass perch", () => {
+test("the stele's screen box does not overlap any Pass perch, the Steamers/Front of House/Pantry perches, or the cub row", () => {
   const b = {
     x0: project(TALLY.x - TALLY.plinth.width / 2, 0, TALLY.z).x,
     x1: project(TALLY.x + TALLY.plinth.width / 2, 0, TALLY.z).x,
-    y0: project(0, TALLY.groundY - 0.1, TALLY.z).y,
-    y1: project(0, TALLY.groundY + 0.1 + TALLY.tablet.height, TALLY.z).y,
+    y0: project(0, plinthBottom(), TALLY.z).y,
+    y1: project(0, tabletTop(), TALLY.z).y,
   };
-  for (const [type, slots] of [["designer", [0, 1, 2]], ["architect", [0, 1]], ["orchestrator", [0]]]) {
+  const perches = [
+    ["designer", [0, 1, 2]],
+    ["architect", [0, 1]],
+    ["orchestrator", [0]],
+    ["product", [0, 1]],
+    ["developer", [0, 1, 2]],
+    ["security", [0, 1, 2]], // pantry#0..2
+    ["cub", [0, 1, 2, 3, 4, 5, 6, 7]], // cub row slots 0..7
+  ];
+  for (const [type, slots] of perches) {
     for (const s of slots) {
-      const p = placeCell(type, s);
+      const p = placeCell(type, s, type === "cub" ? 8 : 3);
       const q = project(p.x, p.y, p.z);
       const hit = q.x > b.x0 && q.x < b.x1 && q.y > b.y0 && q.y < b.y1;
       assert.ok(!hit, `${type}#${s} perch projects onto the stele`);
@@ -101,11 +104,13 @@ test("the stele's screen box does not overlap the Steamers or Front of House cel
   }
 });
 
-test("roaming pandas: the old Tally obstacle at (-3.0, 0.3) is gone from the grass", () => {
+test("roaming pandas: the stele footprint (1.5, 3.4) is blocked; the old Tally obstacle at (-3.0, 0.3) is gone", () => {
   const covered = (x, z) =>
     roamObstacles({}).some((o) =>
       o.kind === "circle" ? Math.hypot(x - o.x, z - o.z) < o.r : x > o.x0 && x < o.x1 && z > o.z0 && z < o.z1,
     );
+  assert.ok(covered(1.5, 3.4), "roamers must not walk through the stele");
+  assert.ok(covered(0.9, 3.15) && covered(2.1, 3.65), "the whole plinth footprint plus margin is covered");
   assert.ok(!covered(-3.0, 0.3), "the pagoda slate's footprint no longer blocks roamers");
 });
 
