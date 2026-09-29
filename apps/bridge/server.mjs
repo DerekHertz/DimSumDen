@@ -5,16 +5,20 @@ import http from "node:http";
 import { fileURLToPath } from "node:url";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
+import { REQUEST_KINDS, appendRequestLine } from "./requests-log.mjs";
 import { createHub } from "./watch.mjs";
 import { contentTypeFor } from "../ci-cd/dev-server.mjs";
 
 const DEFAULT_UI_DIR = fileURLToPath(new URL("../ui/dist", import.meta.url));
 
 const HOST = "127.0.0.1";
+const MAX_BODY = 4096;
 
 export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR } = {}) {
   let actualPort = port;
   const hub = createHub(root);
+  let postChain = Promise.resolve();
   await hub.ready;
   const server = http.createServer(async (req, res) => {
     try {
@@ -50,12 +54,63 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR } 
       await hub.connect(req, res);
       return;
     }
+    if (req.method === "POST" && pathname === "/requests") {
+      // Serialised so two racing POSTs cannot both pass the pending-request check.
+      const run = postChain.then(() => postRequest(req, res));
+      postChain = run.catch(() => {});
+      await run;
+      return;
+    }
     if (req.method === "GET" || req.method === "HEAD") {
       await serveStatic(pathname, req, res);
       return;
     }
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("not found");
+  }
+  const reply = (res, status, obj, extra = {}) => {
+    res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store", ...extra });
+    res.end(JSON.stringify(obj));
+  };
+  // POST /requests (ADR 0011 decision 6): validate, then append one Gate request. Nothing executes.
+  async function postRequest(req, res) {
+    if (!/^application\/json\s*(;|$)/i.test(req.headers["content-type"] ?? "")) {
+      return reply(res, 403, { error: "content-type must be application/json" });
+    }
+    const origin = req.headers.origin;
+    if (origin !== undefined && origin !== `http://127.0.0.1:${actualPort}` && origin !== `http://localhost:${actualPort}`) {
+      return reply(res, 403, { error: "foreign origin" });
+    }
+    const declared = Number(req.headers["content-length"] ?? 0);
+    if (declared > MAX_BODY) return reply(res, 413, { error: "body too large" }, { Connection: "close" });
+    const chunks = [];
+    let size = 0;
+    for await (const chunk of req) {
+      size += chunk.length;
+      if (size > MAX_BODY) return reply(res, 413, { error: "body too large" }, { Connection: "close" });
+      chunks.push(chunk);
+    }
+    let body;
+    try {
+      body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    } catch {
+      return reply(res, 400, { error: "malformed JSON" });
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) return reply(res, 400, { error: "body must be an object" });
+    const { kind, ref, note } = body;
+    if (!REQUEST_KINDS.includes(kind)) return reply(res, 400, { error: "unknown kind" });
+    if (typeof ref !== "string" || !ref) return reply(res, 400, { error: "ref must be a string" });
+    if (note !== undefined && (typeof note !== "string" || note.length > 500)) {
+      return reply(res, 400, { error: "note must be a string of at most 500 characters" });
+    }
+    const snap = await hub.snapshot();
+    const ticket = snap.tickets.find((t) => t.ref === ref);
+    if (!ticket) return reply(res, 404, { error: "no such ticket" });
+    if (!ticket.gate || !kind.startsWith(`${ticket.gate}-`)) return reply(res, 409, { error: "kind does not match the ticket's gate" });
+    if (ticket.request) return reply(res, 409, { error: "a request is already pending for this ticket" });
+    const request = { id: randomUUID(), ts: new Date().toISOString(), kind, ref, ...(note !== undefined ? { note } : {}) };
+    await appendRequestLine(root, request);
+    reply(res, 201, { request });
   }
   // Static UI build (ADR 0011 decision 2): unknown paths serve index.html; traversal is a 403.
   async function serveStatic(pathname, req, res) {
