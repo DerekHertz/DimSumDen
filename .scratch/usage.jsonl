@@ -170,3 +170,5 @@
 {"kind":"cell","ts":"2026-09-29T22:01:16.334Z","ticket":"organism-infra/32-cloud-usage-estimate","cell":"qa","mode":"specify","tokens":49026,"ms":110682,"outcome":"7 tests at 7dabe25; 6 red"}
 {"kind":"cell","ts":"2026-09-29T22:01:16.375Z","ticket":"herald/02-herald-genome","cell":"qa","mode":"specify","tokens":41913,"ms":78191,"outcome":"5 tests at 8bc376f; all red"}
 {"kind":"context","ts":"2026-09-29T22:01:29Z","session":"d82996c4","context_tokens":297547,"percent":29.75,"event":"return"}
+{"kind":"cell","ts":"2026-09-29T22:04:42.237Z","ticket":"organism-infra/32-cloud-usage-estimate","cell":"developer","tokens":38289,"ms":107393,"outcome":"in-review 5b6bcbb"}
+{"kind":"cell","ts":"2026-09-29T22:04:42.283Z","ticket":"herald/02-herald-genome","cell":"developer","tokens":39017,"ms":160013,"outcome":"in-review 7f38b21; genome as proposed file"}
