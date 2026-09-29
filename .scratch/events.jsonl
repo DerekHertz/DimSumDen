@@ -220,3 +220,11 @@
 {"seq":220,"ts":"2026-09-29T21:21:36.577Z","feature":"showcase-v1","ticket":"07-tally-stele","cell":"developer","op":"release","from_status":"claimed","to_status":"in-review","force":false}
 {"seq":221,"ts":"2026-09-29T21:28:58.957Z","feature":"showcase-v1","ticket":"07-tally-stele","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":222,"ts":"2026-09-29T21:28:59.053Z","feature":"showcase-v1","ticket":"07-tally-stele","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":223,"ts":"2026-09-29T21:34:51.622Z","feature":"character-animation","ticket":"14-banquet-market-layout","cell":"orchestrator","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":224,"ts":"2026-09-29T21:34:51.742Z","feature":"character-animation","ticket":"14-banquet-market-layout","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":225,"ts":"2026-09-29T21:34:51.827Z","feature":"character-animation","ticket":"15-green-grove-backdrop","cell":"orchestrator","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":226,"ts":"2026-09-29T21:34:51.918Z","feature":"character-animation","ticket":"15-green-grove-backdrop","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":227,"ts":"2026-09-29T21:34:52.014Z","feature":"character-animation","ticket":"17-stalls-table-and-cub-basket","cell":"orchestrator","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":228,"ts":"2026-09-29T21:34:52.099Z","feature":"character-animation","ticket":"17-stalls-table-and-cub-basket","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":229,"ts":"2026-09-29T21:34:52.178Z","feature":"character-animation","ticket":"18-todays-board","cell":"orchestrator","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":230,"ts":"2026-09-29T21:34:52.275Z","feature":"character-animation","ticket":"18-todays-board","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}

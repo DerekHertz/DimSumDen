@@ -151,3 +151,7 @@
 {"kind":"cell","ts":"2026-09-29T21:21:57.460Z","ticket":"showcase-v1/07-tally-stele","cell":"developer","tokens":49775,"ms":163863,"outcome":"fix round a56a120: contrast fixed; pill anchor made pure + camera matrix refresh; offset not reproduced"}
 {"kind":"resolved","ts":"2026-09-29T21:28:59.055Z","ticket":"showcase-v1/07-tally-stele","pr":64,"bounces":0}
 {"kind":"usage","ts":"2026-09-29T21:31:12Z","five_hour":null,"weekly":null,"cloud_credits":49,"event":"return","ticket":null,"cell":null}
+{"kind":"resolved","ts":"2026-09-29T21:34:51.746Z","ticket":"character-animation/14-banquet-market-layout","pr":61,"bounces":0}
+{"kind":"resolved","ts":"2026-09-29T21:34:51.921Z","ticket":"character-animation/15-green-grove-backdrop","pr":62,"bounces":0}
+{"kind":"resolved","ts":"2026-09-29T21:34:52.102Z","ticket":"character-animation/17-stalls-table-and-cub-basket","pr":61,"bounces":0}
+{"kind":"resolved","ts":"2026-09-29T21:34:52.278Z","ticket":"character-animation/18-todays-board","pr":62,"bounces":0}
