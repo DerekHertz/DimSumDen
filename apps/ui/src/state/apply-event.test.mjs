@@ -1,0 +1,162 @@
+// dimsumden-ui-v0/07: the client reducer applyEvent(state, event) -> state (ADR 0011 decision 5).
+// `state` is the snapshot (decision 3); `event` is the parsed `data` of an SSE `change` frame
+// (decision 5: {seq, type, ...}). Contract chosen by qa where the ADR is silent:
+//   - a change whose seq is not state.seq + 1 (missed or duplicate event) returns null:
+//     "discard state, refetch GET /state";
+//   - a change applied to a null state returns null (no baseline);
+//   - unknown types are ignored but still advance seq (else the next event looks like a gap);
+//   - `metrics-changed` leaves the data untouched, advances seq;
+//   - the input state is never mutated; unknown keys survive (schema is additive-only).
+import { test, describe } from "node:test";
+import assert from "node:assert/strict";
+import { applyEvent } from "./apply-event.mjs";
+
+const ticket = (ref, extra = {}) => ({
+  ref,
+  feature: ref.split("/")[0],
+  title: `title of ${ref}`,
+  type: "feature",
+  status: "ready-for-agent",
+  ready: true,
+  priority: "P0",
+  effectivePriority: "P0",
+  bumps: 0,
+  bumped: false,
+  holder: null,
+  lastCell: null,
+  gate: null,
+  request: null,
+  handoff: null,
+  ...extra,
+});
+
+const A = "dimsumden-ui-v0/04-bridge-state";
+const B = "dimsumden-ui-v0/07-ui-shell";
+const C = "organism-infra/28-review-claims-keep-in-review";
+
+function base() {
+  return {
+    schema: 1,
+    seq: 42,
+    generatedAt: "2026-09-29T06:00:00.000Z",
+    sessions: 9,
+    tickets: [ticket(A), ticket(C, { status: "in-review", ready: false })],
+    frontier: [A],
+    usage: { fiveHour: 74, weekly: 72, sampledAt: "2026-09-29T04:36:50.650Z" },
+    requests: [],
+    futureKey: { keep: "me" },
+  };
+}
+
+describe("applyEvent: ticket", () => {
+  test("replaces an existing ticket by ref and leaves the others alone", () => {
+    const next = applyEvent(base(), { seq: 43, type: "ticket", ref: A, ticket: ticket(A, { status: "claimed", ready: false, holder: { cell: "developer", since: "2026-09-29T06:01:00.000Z" } }) });
+    assert.equal(next.tickets.length, 2);
+    const a = next.tickets.find((t) => t.ref === A);
+    assert.equal(a.status, "claimed");
+    assert.equal(a.holder.cell, "developer");
+    assert.deepEqual(next.tickets.find((t) => t.ref === C), ticket(C, { status: "in-review", ready: false }));
+  });
+
+  test("inserts a new ticket, keeping tickets sorted by ref", () => {
+    const next = applyEvent(base(), { seq: 43, type: "ticket", ref: B, ticket: ticket(B) });
+    assert.deepEqual(next.tickets.map((t) => t.ref), [A, B, C]);
+  });
+
+  test("ticket: null removes it (resolved tickets leave the snapshot)", () => {
+    const next = applyEvent(base(), { seq: 43, type: "ticket", ref: C, ticket: null });
+    assert.deepEqual(next.tickets.map((t) => t.ref), [A]);
+  });
+
+  test("removing a ref that is not present is a no-op on tickets", () => {
+    const next = applyEvent(base(), { seq: 43, type: "ticket", ref: B, ticket: null });
+    assert.deepEqual(next.tickets.map((t) => t.ref), [A, C]);
+    assert.equal(next.seq, 43);
+  });
+});
+
+describe("applyEvent: replace-style events", () => {
+  test("frontier replaces frontier", () => {
+    const next = applyEvent(base(), { seq: 43, type: "frontier", refs: [B, A] });
+    assert.deepEqual(next.frontier, [B, A]);
+  });
+
+  test("usage replaces usage, and null clears it", () => {
+    const u = { fiveHour: 96, weekly: 80, sampledAt: "2026-09-29T07:00:00.000Z" };
+    assert.deepEqual(applyEvent(base(), { seq: 43, type: "usage", usage: u }).usage, u);
+    assert.equal(applyEvent(base(), { seq: 43, type: "usage", usage: null }).usage, null);
+  });
+
+  test("sessions replaces sessions (0 is a valid value)", () => {
+    assert.equal(applyEvent(base(), { seq: 43, type: "sessions", sessions: 10 }).sessions, 10);
+    assert.equal(applyEvent(base(), { seq: 43, type: "sessions", sessions: 0 }).sessions, 0);
+  });
+
+  test("requests replaces requests", () => {
+    const reqs = [{ id: "6f1c1b7e-0d55-4c3a-9b52-1f5d7e0a9a10", ts: "2026-09-29T05:58:00.000Z", kind: "merge-approve", ref: C, note: "ship it", state: "pending" }];
+    assert.deepEqual(applyEvent(base(), { seq: 43, type: "requests", requests: reqs }).requests, reqs);
+  });
+});
+
+describe("applyEvent: seq handling", () => {
+  test("every applied event advances state.seq to the event's seq", () => {
+    let s = base();
+    s = applyEvent(s, { seq: 43, type: "sessions", sessions: 10 });
+    s = applyEvent(s, { seq: 44, type: "frontier", refs: [] });
+    assert.equal(s.seq, 44);
+  });
+
+  test("a skipped seq (missed event) returns null so the client refetches /state", () => {
+    assert.equal(applyEvent(base(), { seq: 44, type: "sessions", sessions: 10 }), null);
+  });
+
+  test("a repeated or older seq also returns null", () => {
+    assert.equal(applyEvent(base(), { seq: 42, type: "sessions", sessions: 10 }), null);
+    assert.equal(applyEvent(base(), { seq: 41, type: "sessions", sessions: 10 }), null);
+  });
+
+  test("a change on a null state returns null (no baseline to apply to)", () => {
+    assert.equal(applyEvent(null, { seq: 1, type: "sessions", sessions: 1 }), null);
+  });
+});
+
+describe("applyEvent: non-data and unknown events", () => {
+  test("metrics-changed leaves the data alone and advances seq", () => {
+    const before = base();
+    const next = applyEvent(before, { seq: 43, type: "metrics-changed" });
+    assert.deepEqual({ ...next, seq: 42 }, before);
+    assert.equal(next.seq, 43);
+  });
+
+  test("an unknown type is ignored but still advances seq", () => {
+    const before = base();
+    const next = applyEvent(before, { seq: 43, type: "from-the-future", whatever: 1 });
+    assert.deepEqual({ ...next, seq: 42 }, before);
+    assert.equal(next.seq, 43);
+    // the next event is not mistaken for a gap
+    assert.equal(applyEvent(next, { seq: 44, type: "sessions", sessions: 3 }).sessions, 3);
+  });
+});
+
+describe("applyEvent: purity", () => {
+  test("does not mutate the input state or the event", () => {
+    const before = base();
+    const frozen = structuredClone(before);
+    const ev = { seq: 43, type: "ticket", ref: B, ticket: ticket(B) };
+    const evFrozen = structuredClone(ev);
+    applyEvent(before, ev);
+    assert.deepEqual(before, frozen);
+    assert.deepEqual(ev, evFrozen);
+  });
+
+  test("returns a new object so a renderer can detect the change", () => {
+    const before = base();
+    assert.notEqual(applyEvent(before, { seq: 43, type: "sessions", sessions: 10 }), before);
+  });
+
+  test("keys the reducer does not know survive (additive-only schema)", () => {
+    const next = applyEvent(base(), { seq: 43, type: "sessions", sessions: 10 });
+    assert.deepEqual(next.futureKey, { keep: "me" });
+    assert.equal(next.schema, 1);
+  });
+});
