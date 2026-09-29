@@ -3,11 +3,16 @@
 // SSE, /metrics, POST /requests and static files arrive in tickets 05 and 06.
 import http from "node:http";
 import { fileURLToPath } from "node:url";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { createHub } from "./watch.mjs";
+import { contentTypeFor } from "../ci-cd/dev-server.mjs";
+
+const DEFAULT_UI_DIR = fileURLToPath(new URL("../ui/dist", import.meta.url));
 
 const HOST = "127.0.0.1";
 
-export async function startBridge({ root, port = 4317, uiDir } = {}) {
+export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR } = {}) {
   let actualPort = port;
   const hub = createHub(root);
   await hub.ready;
@@ -45,8 +50,58 @@ export async function startBridge({ root, port = 4317, uiDir } = {}) {
       await hub.connect(req, res);
       return;
     }
+    if (req.method === "GET" || req.method === "HEAD") {
+      await serveStatic(pathname, req, res);
+      return;
+    }
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("not found");
+  }
+  // Static UI build (ADR 0011 decision 2): unknown paths serve index.html; traversal is a 403.
+  async function serveStatic(pathname, req, res) {
+    let rel;
+    try {
+      // URL parsing already collapses "/../"; check the raw target so traversal is a 403, not a quiet remap.
+      const rawPath = decodeURIComponent(req.url.split(/[?#]/)[0]);
+      if (rawPath.split(/[\\/]/).includes("..")) {
+        res.writeHead(403, { "Content-Type": "text/plain" });
+        res.end("forbidden");
+        return;
+      }
+      rel = decodeURIComponent(pathname);
+    } catch {
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("bad request target");
+      return;
+    }
+    const base = path.resolve(uiDir);
+    const target = path.resolve(base, "." + (rel.startsWith("/") ? rel : "/" + rel));
+    if (rel.includes("\0") || (target !== base && !target.startsWith(base + path.sep))) {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("forbidden");
+      return;
+    }
+    let file = target;
+    let body;
+    try {
+      body = await readFile(file);
+    } catch {
+      if (path.extname(rel)) {
+        res.writeHead(404, { "Content-Type": "text/plain" });
+        res.end("not found");
+        return;
+      }
+      file = path.join(base, "index.html");
+      try {
+        body = await readFile(file);
+      } catch {
+        res.writeHead(404, { "Content-Type": "text/plain" });
+        res.end("ui not built: run npm run ui:build");
+        return;
+      }
+    }
+    res.writeHead(200, { "Content-Type": contentTypeFor(file), "Cache-Control": "no-store" });
+    res.end(req.method === "HEAD" ? undefined : body);
   }
   await new Promise((resolve, reject) => {
     server.once("error", reject);
