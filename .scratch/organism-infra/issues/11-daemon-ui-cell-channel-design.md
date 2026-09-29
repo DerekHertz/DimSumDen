@@ -2,6 +2,8 @@
 
 **Type:** design-question
 
+**Priority:** P2
+
 **What to build:** An ADR for the channel that lets the UI watch and *steer* live cells: the Approval Inbox (approve or deny a pending tool-permission hook), taking over or pairing, sending a message mid-task, and kill. It also covers sub-second live cell state (badges, tiles, the alarm feed). Commands flow UI → daemon → cell through the runtime adapter (ADR 0004). The board is out of scope: it stays CLI-only per ADR 0008.
 
 **Blocked by:** None. Sequenced after 02 (user, 2026-09-27).

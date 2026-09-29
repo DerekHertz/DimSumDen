@@ -1,5 +1,7 @@
 # 05: Travel between perches
 
+**Priority:** P2
+
 **What to build:** Cells move between any two perches without hand-authored routes. The director computes a procedural path between perch anchors. It hops in arcs when the destination is on a different body region (crown, shoulder, knee, grass) and waddles along the surface when it is on the same region. A state change mid-travel reacts immediately. A cell that is airborne mid-hop drops to the nearest surface point on Bao or the grass, plays land-squish, and takes that point as its new perch. With reduced motion, travel becomes a `dur-base` cross-fade at the destination.
 
 **Priority:** P3

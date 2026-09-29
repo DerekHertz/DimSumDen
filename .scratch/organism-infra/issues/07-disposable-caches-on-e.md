@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Priority:** P3
+
 **What to build:** Point caches the organism can re-create at `E:\agent-office-cache\`, so `C:` stays uncluttered and losing the older Plextor drive costs nothing:
 - the npm cache (`npm config set cache`, user-level, not in the repo)
 - Playwright browser downloads (`PLAYWRIGHT_BROWSERS_PATH`), if `ci-cd/02` ends up downloading any

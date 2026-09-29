@@ -149,3 +149,384 @@
 {"kind":"usage","ts":"2026-09-29T21:18:50Z","five_hour":null,"weekly":null,"cloud_credits":50,"event":"dispatch","ticket":"showcase-v1/07-tally-stele","cell":"developer"}
 {"kind":"incident","ts":"2026-09-29T21:21:50Z","ticket":"showcase-v1/07-tally-stele","cell":"developer","tool":"Agent","what":"developer subagent has no Agent tool, so it cannot dispatch debugger as its genome says","cost":"pill offset root cause unconfirmed","fix":null,"rule_change":"candidate: orchestrator dispatches debugger when a developer asks"}
 {"kind":"cell","ts":"2026-09-29T21:21:57.460Z","ticket":"showcase-v1/07-tally-stele","cell":"developer","tokens":49775,"ms":163863,"outcome":"fix round a56a120: contrast fixed; pill anchor made pure + camera matrix refresh; offset not reproduced"}
+{"kind":"usage","ts":"2026-09-28","five_hour":58,"weekly":null,"event":"dispatch","ticket":"organism-infra/26","cell":"qa"}
+{"kind":"incident","ts":"2026-09-28","ticket":null,"cell":"orchestrator","tool":"mcp__ccd_session_mgmt__get_usage","what":"get_usage tool missing in WSL session; usage read by user","cost":"one user round-trip","fix":"user supplied 5h %","rule_change":null}
+{"kind":"cell","ticket":"organism-infra/26","cell":"qa","mode":"specify","tokens":41543,"ms":81230,"outcome":"tests red 2/4, branch tests/organism-infra-26-gc-main-copies 3398308"}
+{"kind":"cell","ticket":"organism-infra/26","cell":"developer","mode":"implement","tokens":null,"ms":null,"outcome":"in-review, feature/organism-infra-26-gc-main-copies 85bca1f, 240/240"}
+{"kind":"incident","ts":"2026-09-28","ticket":"organism-infra/26","cell":"developer","tool":"auto-mode classifier","what":"classifier gave no verdict on many Bash/Agent calls; cells reworded commands to get past","cost":"~8 retries","fix":"retry/reword","rule_change":null}
+{"kind":"cell","ticket":"organism-infra/26","cell":"qa","mode":"verify","tokens":null,"ms":null,"outcome":"pass 240/240"}
+{"kind":"cell","ticket":"organism-infra/26","cell":"security","mode":"review","tokens":null,"ms":null,"outcome":"pass, 2 low"}
+{"kind":"resolved","ts":"2026-09-28","ticket":"organism-infra/26","pr":28,"bounces":0}
+{"kind":"usage","ts":"2026-09-28","five_hour":53,"weekly":null,"event":"dispatch","ticket":null,"cell":null}
+{"kind":"cell","ticket":"organism-infra/28","cell":"qa","mode":"specify","tokens":40025,"ms":94601,"outcome":"2 red 1 green, tests/organism-infra-28-review-claims c57f46e, jg 1 grep 1"}
+{"kind":"usage","ts":"2026-09-28","five_hour":55,"weekly":59,"event":"return","ticket":"organism-infra/28","cell":"qa"}
+{"kind":"usage","ts":"2026-09-28","five_hour":55,"weekly":59,"event":"dispatch","ticket":"organism-infra/28","cell":"developer"}
+{"kind":"cell","ticket":"organism-infra/28","cell":"developer","mode":"implement","tokens":null,"ms":null,"outcome":"in-review b39f990, 243/243, jg 1 grep 2"}
+{"kind":"cell","ticket":"organism-infra/28","cell":"qa","mode":"verify","tokens":null,"ms":null,"outcome":"pass 243/243"}
+{"kind":"cell","ticket":"organism-infra/28","cell":"security","mode":"review","tokens":null,"ms":null,"outcome":"pass, 2 low"}
+{"kind":"resolved","ts":"2026-09-28","ticket":"organism-infra/28","pr":29,"bounces":0}
+{"kind":"usage","ts":"2026-09-28","five_hour":60,"weekly":60,"event":"dispatch","ticket":"organism-infra/34","cell":"qa"}
+{"kind":"cell","ticket":"organism-infra/34","cell":"qa","mode":"specify","tokens":null,"ms":null,"outcome":"10 red 1 green, 08420c8, jg 1 grep 2"}
+{"kind":"cell","ticket":"organism-infra/34","cell":"developer","mode":"implement","tokens":null,"ms":null,"outcome":"in-review 3955bac, 254/254"}
+{"kind":"incident","ts":"2026-09-28","ticket":"organism-infra/34","cell":"developer","tool":"board release","what":"release succeeded before the handoff file existed, though release is meant to validate the State block","cost":"none","fix":"handoff written after","rule_change":null}
+{"kind":"cell","ticket":"organism-infra/34","cell":"qa","mode":"verify","tokens":null,"ms":null,"outcome":"pass 254/254; cell-start allowed by guard"}
+{"kind":"cell","ticket":"organism-infra/34","cell":"security","mode":"review","tokens":null,"ms":null,"outcome":"pass; 1 medium (npm ci cwd), 3 low"}
+{"kind":"incident","ts":"2026-09-28","ticket":"organism-infra/34","cell":"security","tool":"npm ci","what":"security bounce: cell-start ran npm ci without cwd; could reinstall main checkout node_modules","cost":"one fix round","fix":"developer fix1","rule_change":null}
+{"kind":"cell","ticket":"organism-infra/34","cell":"developer","mode":"fix1","tokens":null,"ms":null,"outcome":"in-review e044bb7, 258/258"}
+{"kind":"cell","ticket":"organism-infra/34","cell":"qa","mode":"verify2","tokens":null,"ms":null,"outcome":"pass 258/258"}
+{"kind":"config","ts":"2026-09-28","what":"relay exception: security re-check scoped to fix diff after a fix round (user choice, ticket 34)"}
+{"kind":"cell","ticket":"organism-infra/34","cell":"security","mode":"fix-diff","tokens":null,"ms":null,"outcome":"pass"}
+{"kind":"resolved","ts":"2026-09-28","ticket":"organism-infra/34","pr":30,"bounces":1}
+{"kind":"usage","ts":"2026-09-28","five_hour":70,"weekly":61,"event":"dispatch","ticket":"organism-infra/35","cell":"qa"}
+{"kind":"cell","ticket":"organism-infra/35","cell":"qa","mode":"specify","tokens":null,"ms":null,"outcome":"6 red 2 green, 143617b; cell-start ok"}
+{"kind":"cell","ticket":"organism-infra/35","cell":"developer","mode":"implement","tokens":null,"ms":null,"outcome":"in-review cd4cb91, 266/266; terse report ~10 lines"}
+{"kind":"cell","ticket":"organism-infra/35","cell":"qa","mode":"verify","tokens":null,"ms":null,"outcome":"pass 266/266; live gate refusal confirmed"}
+{"kind":"usage","ts":"2026-09-28","five_hour":75,"weekly":62,"event":"return","ticket":"organism-infra/35","cell":"orchestrator"}
+{"kind":"cell_backfill","ts":"2026-09-28","note":"subagent_tokens from task notifications; earlier cell lines logged null","rows":[["26","qa","specify",41543],["26","qa","verify",29938],["26","security","review",33469],["26","scout","risk-check",9886],["28","qa","specify",40025],["28","developer","implement",34005],["28","qa","verify",26564],["28","security","review",46255],["34","qa","specify",41891],["34","developer","implement",39894],["34","qa","verify",35805],["34","security","review",48005],["34","developer","fix1",45305],["34","qa","verify2",32530],["34","security","fix-diff",30859],["34","scout","risk-check",9904],["35","qa","specify",48616],["35","developer","implement",58331],["35","qa","verify",31206]]}
+{"kind":"incident","ts":"2026-09-28","ticket":null,"cell":"orchestrator","tool":"usage.jsonl","what":"logged tokens:null for background cells though notifications carried subagent_tokens","cost":"data gap, backfilled","fix":"log tokens from the task notification","rule_change":null}
+{"kind":"usage","ts":"2026-09-28T00:43:51Z","five_hour":0,"weekly":62,"event":"dispatch","ticket":"organism-infra/35","cell":"security"}
+{"kind":"cell","ticket":"organism-infra/35","cell":"security","mode":"full","tokens":41957,"ms":72390,"outcome":"pass"}
+{"kind":"incident","ts":"2026-09-29T00:46:50Z","ticket":"organism-infra/35","cell":"security","tool":"Write","what":"isolation guard rejected main-checkout handoff write","cost":"1 call","fix":"node fs write","rule_change":"ticket 30"}
+{"kind":"incident","ts":"2026-09-29T00:46:50Z","ticket":"organism-infra/35","cell":"security","tool":"Bash","what":"piped git diff|grep refused as too complex","cost":"1 call","fix":"split commands","rule_change":null}
+{"kind":"usage","ts":"2026-09-29T00:47:00Z","five_hour":2,"weekly":62,"event":"return","ticket":"organism-infra/35","cell":"security"}
+{"kind":"usage","ts":"2026-09-29T00:51:31Z","five_hour":2,"weekly":62,"event":"merge","ticket":"organism-infra/35","cell":"orchestrator"}
+{"kind":"resolved","ts":"2026-09-29T00:51:31Z","ticket":"organism-infra/35","pr":31,"bounces":0}
+{"kind":"usage","ts":"2026-09-29T00:52:31Z","five_hour":2,"weekly":62,"event":"dispatch","ticket":"organism-infra/36","cell":"scout"}
+{"kind":"cell","ticket":"organism-infra/36","cell":"scout","mode":"audit","tokens":33617,"ms":134330,"outcome":"pass"}
+{"kind":"resolved","ts":"2026-09-29T00:55:01Z","ticket":"organism-infra/36","pr":null,"bounces":0}
+{"kind":"usage","ts":"2026-09-29T01:11:05Z","five_hour":5,"weekly":62,"event":"dispatch","ticket":"organism-infra/04","cell":"architect"}
+{"kind":"cell","ticket":"organism-infra/04","cell":"architect","mode":"adr","tokens":54033,"ms":128992,"outcome":"pass"}
+{"kind":"incident","ts":"2026-09-29T01:13:39Z","ticket":"organism-infra/04","cell":"orchestrator","tool":"Agent","what":"auto-mode classifier gave no verdict on dispatch","cost":"1 retry","fix":"retry","rule_change":null}
+{"kind":"usage","ts":"2026-09-29T01:18:47Z","five_hour":7,"weekly":63,"event":"dispatch","ticket":"organism-infra/44","cell":"qa"}
+{"kind":"cell","ticket":"organism-infra/44","cell":"qa","mode":"specify","tokens":30964,"ms":45500,"outcome":"pass"}
+{"kind":"usage","ts":"2026-09-29T01:19:47Z","five_hour":8,"weekly":63,"event":"dispatch","ticket":"organism-infra/44","cell":"developer"}
+{"kind":"cell","ticket":"organism-infra/44","cell":"developer","mode":"implement","tokens":33031,"ms":51202,"outcome":"pass"}
+{"kind":"incident","ts":"2026-09-29T01:20:53Z","ticket":"organism-infra/44","cell":"developer","tool":"Write","what":"isolation guard rejected main-checkout handoff write (2nd time this session)","cost":"1 call","fix":"node fs write","rule_change":"ticket 30"}
+{"kind":"usage","ts":"2026-09-29T01:20:53Z","five_hour":9,"weekly":63,"event":"dispatch","ticket":"organism-infra/44","cell":"qa"}
+{"kind":"cell","ticket":"organism-infra/44","cell":"qa","mode":"verify-light","tokens":25309,"ms":20779,"outcome":"pass"}
+{"kind":"usage","ts":"2026-09-29T01:21:34Z","five_hour":10,"weekly":63,"event":"dispatch","ticket":"organism-infra/44","cell":"security"}
+{"kind":"cell","ticket":"organism-infra/44","cell":"security","mode":"full","tokens":34678,"ms":66797,"outcome":"pass"}
+{"kind":"incident","ts":"2026-09-29T01:22:57Z","ticket":"organism-infra/44","cell":"security","tool":"Write","what":"isolation guard rejected main-checkout handoff write (3rd time)","cost":"1 call","fix":"node fs write","rule_change":"ticket 30"}
+{"kind":"incident","ts":"2026-09-29T01:22:57Z","ticket":"organism-infra/44","cell":"security","tool":"board","what":"release --keep-status before handoff written; gate skipped under --keep-status","cost":"none","fix":null,"rule_change":"candidate: gate --keep-status too"}
+{"kind":"usage","ts":"2026-09-29T01:28:50Z","five_hour":11,"weekly":63,"event":"merge","ticket":"organism-infra/44","cell":"orchestrator"}
+{"kind":"resolved","ts":"2026-09-29T01:28:50Z","ticket":"organism-infra/44","pr":32,"bounces":0}
+{"kind":"context","ts":"2026-09-29T01:28:50Z","event":"merge","session":"162d8a6a-73ff-41a5-acfe-e42729ece2cf","context_tokens":89250,"percent":8.93}
+{"kind":"usage","ts":"2026-09-29T01:29:25Z","five_hour":11,"weekly":63,"event":"dispatch","ticket":"organism-infra/30","cell":"qa"}
+{"kind":"cell","ticket":"organism-infra/30","cell":"qa","mode":"specify","tokens":43350,"ms":74295,"outcome":"pass"}
+{"kind":"usage","ts":"2026-09-29T01:30:48Z","five_hour":12,"weekly":63,"event":"dispatch","ticket":"organism-infra/30","cell":"developer"}
+{"kind":"cell","ticket":"organism-infra/30","cell":"developer","mode":"implement","tokens":40786,"ms":56520,"outcome":"pass"}
+{"kind":"usage","ts":"2026-09-29T01:31:57Z","five_hour":14,"weekly":63,"event":"dispatch","ticket":"organism-infra/30","cell":"qa"}
+{"kind":"cell","ticket":"organism-infra/30","cell":"qa","mode":"verify-light","tokens":29061,"ms":48578,"outcome":"pass"}
+{"kind":"usage","ts":"2026-09-29T01:33:03Z","five_hour":15,"weekly":63,"event":"dispatch","ticket":"organism-infra/30","cell":"security"}
+{"kind":"cell","ticket":"organism-infra/30","cell":"security","mode":"full","tokens":33241,"ms":73525,"outcome":"bounce"}
+{"kind":"incident","ts":"2026-09-29T01:38:10Z","ticket":"organism-infra/30","cell":"security","tool":"Bash","what":"auto-mode classifier gave no verdict on ~5 Bash calls (also hit orchestrator); review done static only, no claim or handoff","cost":"1 hop partly wasted, session paused","fix":"wait and retry","rule_change":null}
+{"kind":"usage","ts":"2026-09-29T01:38:16Z","five_hour":15,"weekly":64,"event":"dispatch","ticket":"organism-infra/30","cell":"developer"}
+{"kind":"cell","ticket":"organism-infra/30","cell":"developer","mode":"fix1","tokens":40025,"ms":89415,"outcome":"pass"}
+{"kind":"usage","ts":"2026-09-29T01:40:02Z","five_hour":17,"weekly":64,"event":"dispatch","ticket":"organism-infra/30","cell":"security"}
+{"kind":"cell","ticket":"organism-infra/30","cell":"security","mode":"recheck","tokens":36142,"ms":81808,"outcome":"pass"}
+{"kind":"usage","ts":"2026-09-29T01:46:55Z","five_hour":19,"weekly":64,"event":"merge","ticket":"organism-infra/30","cell":"orchestrator"}
+{"kind":"context","ts":"2026-09-29T01:46:55Z","session":"162d8a6a-73ff-41a5-acfe-e42729ece2cf","context_tokens":113947,"percent":11.39,"event":"merge"}
+{"kind":"resolved","ts":"2026-09-29T01:49:08Z","ticket":"organism-infra/30","pr":33,"bounces":1}
+{"kind":"usage","ts":"2026-09-29T01:51:21Z","five_hour":19,"weekly":64,"event":"dispatch","ticket":"organism-infra/38","cell":"qa"}
+{"kind":"cell","ticket":"organism-infra/38","cell":"qa","mode":"specify","tokens":47414,"ms":117604,"outcome":"pass"}
+{"kind":"incident","ts":"2026-09-29T01:53:32Z","ticket":"organism-infra/38","cell":"qa","tool":"board","what":"board handoff rejected twice: State block format (fenced json with ticket) not stated in dispatch or protocol","cost":"2 calls","fix":"rebuilt State block","rule_change":"ticket 32"}
+{"kind":"usage","ts":"2026-09-29T01:53:32Z","five_hour":21,"weekly":64,"event":"dispatch","ticket":"organism-infra/38","cell":"developer"}
+{"kind":"cell","ticket":"organism-infra/38","cell":"developer","mode":"implement","tokens":55168,"ms":97288,"outcome":"pass"}
+{"kind":"usage","ts":"2026-09-29T01:55:16Z","five_hour":23,"weekly":64,"event":"dispatch","ticket":"organism-infra/38","cell":"qa"}
+{"kind":"cell","ticket":"organism-infra/38","cell":"qa","mode":"verify-light","tokens":26962,"ms":26098,"outcome":"pass"}
+{"kind":"usage","ts":"2026-09-29T01:55:57Z","five_hour":24,"weekly":64,"event":"dispatch","ticket":"organism-infra/38","cell":"security"}
+{"kind":"cell","ticket":"organism-infra/38","cell":"security","mode":"full","tokens":37252,"ms":58892,"outcome":"pass"}
+{"kind":"incident","ts":"2026-09-29T01:59:20Z","ticket":"organism-infra/38","cell":"security","tool":"gitleaks","what":"CI gitleaks flagged a literal fake-secret fixture in jev.test.mjs; local review had no gitleaks installed","cost":"1 fix round","fix":"build fixtures at runtime","rule_change":"candidate: install gitleaks locally for security cells"}
+{"kind":"usage","ts":"2026-09-29T01:59:20Z","five_hour":24,"weekly":65,"event":"dispatch","ticket":"organism-infra/38","cell":"developer"}
+{"kind":"usage","ts":"2026-09-29T02:06:32Z","five_hour":26,"weekly":65,"event":"merge","ticket":"organism-infra/38","cell":"orchestrator"}
+{"kind":"resolved","ts":"2026-09-29T02:08:16Z","ticket":"organism-infra/38","pr":34,"bounces":1}
+{"kind":"config","ts":"2026-09-29T02:09:26Z","change":"orchestrator runs jev.mjs tier/verify in shadow mode before developer and qa verify dispatch (ticket 39)"}
+{"kind":"config","ts":"2026-09-29T02:11:47Z","change":"qa light verify scripted; minimum tier haiku via Agent model override (ticket 40)"}
+{"kind":"context","ts":"2026-09-29T02:17:07Z","event":"pause","session":"162d8a6a-73ff-41a5-acfe-e42729ece2cf","context_tokens":152940,"percent":15.29}
+{"kind":"jev","ts":"2026-09-29T02:57:16.526Z","ticket":"organism-infra/45-release-gate-without-claim","point":"tier","pick":"opus","actual":"sonnet","cost":0.000029274000000000005,"conf":0.96,"mode":"shadow","fallback":null,"ms":749,"model":"jev-1.13.0"}
+{"kind":"jev","ts":"2026-09-29T03:01:39.371Z","ticket":"organism-infra/45-release-gate-without-claim","point":"verify","pick":"full","actual":"full","cost":0.00005909400000000001,"conf":0.64,"mode":"shadow","fallback":null,"ms":657,"model":"jev-1.13.0"}
+{"kind":"jev","ts":"2026-09-29T03:11:41.905Z","ticket":"organism-infra/41-jev-report","point":"tier","pick":"other","actual":"sonnet","cost":0.000015792,"conf":0.95,"mode":"shadow","fallback":null,"ms":566,"model":"jev-1.13.0"}
+{"kind":"jev","ts":"2026-09-29T03:11:45.858Z","ticket":"organism-infra/41-jev-report-script","point":"tier","pick":"opus","actual":"sonnet","cost":0.000023226000000000004,"conf":0.68,"mode":"shadow","fallback":null,"ms":344,"model":"jev-1.13.0"}
+{"kind":"cell","ticket":"organism-infra/45-release-gate-without-claim","cell":"qa","mode":"specify","tokens":39968,"ms":63420,"outcome":"red"}
+{"kind":"cell","ticket":"organism-infra/45-release-gate-without-claim","cell":"developer","mode":null,"tokens":50137,"ms":176163,"outcome":"in-review"}
+{"kind":"cell","ticket":"organism-infra/45-release-gate-without-claim","cell":"qa","mode":"verify","tokens":36389,"ms":74269,"outcome":"pass"}
+{"kind":"cell","ticket":"organism-infra/45-release-gate-without-claim","cell":"security","mode":null,"tokens":40490,"ms":77136,"outcome":"pass"}
+{"kind":"resolved","ts":"2026-09-29T03:17:04.564Z","ticket":"organism-infra/45-release-gate-without-claim","pr":35,"bounces":0}
+{"kind":"cell","ticket":"organism-infra/41-jev-report-script","cell":"qa","mode":"specify","tokens":44288,"ms":82238,"outcome":"red"}
+{"kind":"cell","ticket":"organism-infra/41-jev-report-script","cell":"qa","mode":"specify","tokens":50053,"ms":57808,"outcome":"red (weights amended)"}
+{"kind":"cell","ticket":"organism-infra/41-jev-report-script","cell":"developer","mode":null,"tokens":38501,"ms":65287,"outcome":"in-review"}
+{"kind":"incident","ts":"2026-09-29T03:17:04.564Z","ticket":null,"cell":"orchestrator","tool":"usage.jsonl","what":"skipped usage/cell/resolved rows for all of session 8 until 41 exposed it","cost":"45 invisible to jev-report; rows backfilled, usage % not recoverable","fix":"backfilled cell and resolved rows","rule_change":null}
+{"kind":"incident","ts":"2026-09-29T03:17:04.564Z","ticket":"organism-infra/45-release-gate-without-claim","cell":"orchestrator","tool":"Agent","what":"dispatch prompt described State block as only ticket/cell/mode","cost":"developer and qa each had one release refused","fix":"prompts now list every field and pending as {item,owner}","rule_change":null}
+{"kind":"incident","ts":"2026-09-29T03:17:04.564Z","ticket":"organism-infra/41-jev-report-script","cell":"orchestrator","tool":"jev.mjs","what":"jev.mjs accepted a nonexistent ticket ref and logged a row","cost":"one junk jev row (excluded by jev-report)","fix":"none yet","rule_change":null}
+{"kind":"jev","ts":"2026-09-29T03:17:10.223Z","ticket":"organism-infra/41-jev-report-script","point":"verify","pick":"light","actual":"full","cost":0.00013242600000000002,"conf":0.52,"mode":"shadow","fallback":null,"ms":594,"model":"jev-1.13.0"}
+{"kind":"cell","ticket":"organism-infra/41-jev-report-script","cell":"qa","mode":"verify","tokens":38057,"ms":98646,"outcome":"bounce: value counts unresolved tickets"}
+{"kind":"cell","ticket":"organism-infra/41-jev-report-script","cell":"qa","mode":"specify","tokens":51182,"ms":56896,"outcome":"red: fix-round tests"}
+{"kind":"incident","ts":"2026-09-29T03:20:07.867Z","ticket":"organism-infra/41-jev-report-script","cell":"qa","tool":"board","what":"specify claim on an in-review ticket then --keep-status left it claimed","cost":"status wrong until next release","fix":"developer release at in-review","rule_change":null}
+{"kind":"cell","ticket":"organism-infra/41-jev-report-script","cell":"developer","mode":"fix1","tokens":45259,"ms":44157,"outcome":"in-review"}
+{"kind":"cell","ticket":"organism-infra/41-jev-report-script","cell":"qa","mode":"verify2","tokens":55078,"ms":41607,"outcome":"pass"}
+{"kind":"cell","ticket":"organism-infra/41-jev-report-script","cell":"security","mode":null,"tokens":40378,"ms":79309,"outcome":"pass, 3 LOW"}
+{"kind":"resolved","ts":"2026-09-29T03:32:40.839Z","ticket":"organism-infra/41-jev-report-script","pr":36,"bounces":1}
+{"kind":"incident","ts":"2026-09-29T03:33:29.249Z","ticket":"organism-infra/41-jev-report-script","cell":"orchestrator","tool":"gh","what":"asked the user to approve a merge before opening the PR","cost":"one extra round trip","fix":"opened PR #36","rule_change":"orchestrator genome relay step 5"}
+{"kind":"config","ts":"2026-09-29T03:33:29.249Z","change":"orchestrator: open PR before merge gate; dispatch prompts reference skills not paraphrase; handoffs carry state not rules; CLAUDE.md: read genome when acting as a cell without --agent; security: gitleaks detect form"}
+{"kind":"usage","ts":"2026-09-29T03:35:26.587Z","five_hour":45,"weekly":68,"event":"dispatch","ticket":"organism-infra/48-scripted-usage-rows","cell":"qa"}
+{"kind":"context","ts":"2026-09-29T03:35:26.587Z","session":"2a7165e6-cd7e-452b-8f24-17fb349b092b","context_tokens":151968,"percent":15.2,"event":"dispatch"}
+{"kind":"jev","ts":"2026-09-29T03:35:26.625Z","ticket":"organism-infra/48-scripted-usage-rows","point":"tier","pick":"sonnet","actual":"sonnet","cost":0.000031458,"conf":0.51,"mode":"shadow","fallback":null,"ms":509,"model":"jev-1.13.0"}
+{"kind":"cell","ticket":"organism-infra/48-scripted-usage-rows","cell":"qa","mode":"specify","tokens":54147,"ms":126920,"outcome":"red; bounce contract amended to --verdict"}
+{"kind":"cell","ticket":"organism-infra/48-scripted-usage-rows","cell":"qa","mode":"specify2","tokens":62447,"ms":48533,"outcome":"red; verdict contract"}
+{"kind":"cell","ticket":"organism-infra/48-scripted-usage-rows","cell":"developer","mode":null,"tokens":57919,"ms":114262,"outcome":"in-review; 1 qa test wrong (architect resolve)"}
+{"kind":"incident","ts":"2026-09-29T03:41:52.071Z","ticket":"organism-infra/48-scripted-usage-rows","cell":"qa","tool":"board","what":"specify claim on an in-review ticket reset it to claimed (repeat of 41)","cost":"status wrong until qa verify releases","fix":"qa verify releases at in-review","rule_change":"ticket: specify claim should keep in-review"}
+{"kind":"jev","ts":"2026-09-29T03:41:52.108Z","ticket":"organism-infra/48-scripted-usage-rows","point":"verify","pick":"full","actual":"full","cost":0.00003948000000000001,"conf":0.82,"mode":"shadow","fallback":null,"ms":464,"model":"jev-1.13.0"}
+{"kind":"cell","ticket":"organism-infra/48-scripted-usage-rows","cell":"qa","mode":"specify3","tokens":67453,"ms":59409,"outcome":"test fixed; 26/26"}
+{"kind":"cell","ticket":"organism-infra/48-scripted-usage-rows","cell":"qa","mode":"verify","tokens":36852,"ms":62869,"outcome":"pass"}
+{"kind":"cell","ticket":"organism-infra/48-scripted-usage-rows","cell":"security","mode":null,"tokens":42542,"ms":88232,"outcome":"pass, 1 MEDIUM 3 LOW"}
+{"kind":"usage","ts":"2026-09-29T03:46:59.234Z","five_hour":53,"weekly":69,"event":"merge","ticket":"organism-infra/48-scripted-usage-rows","cell":"orchestrator"}
+{"kind":"context","ts":"2026-09-29T03:46:59.234Z","session":"2a7165e6-cd7e-452b-8f24-17fb349b092b","context_tokens":172786,"percent":17.28,"event":"merge"}
+{"kind":"resolved","ts":"2026-09-29T03:49:20.147Z","ticket":"organism-infra/48-scripted-usage-rows","pr":37,"bounces":0}
+{"kind":"cell","ts":"2026-09-29T03:49:44.804Z","ticket":"organism-infra/48-scripted-usage-rows","cell":"orchestrator","tokens":0,"ms":0,"outcome":"log-cell smoke test after merge"}
+{"kind":"config","ts":"2026-09-29T03:49:51.187Z","change":"orchestrator logs cells via log-cell.mjs and resolves with --pr; qa/security post verdicts with --verdict (ticket 48)"}
+{"kind":"jev","ts":"2026-09-29T03:50:50.346Z","ticket":"organism-infra/49-verdict-roles-and-claim-status","point":"tier","pick":"opus","actual":"sonnet","cost":0.00003843,"conf":0.93,"mode":"shadow","fallback":null,"ms":492,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-09-29T03:50:58.047Z","five_hour":54,"weekly":69,"event":"dispatch","ticket":"organism-infra/49-verdict-roles-and-claim-status","cell":"qa"}
+{"kind":"context","ts":"2026-09-29T03:50:58.047Z","session":"2a7165e6-cd7e-452b-8f24-17fb349b092b","context_tokens":181081,"percent":18.11,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T03:53:24.227Z","ticket":"organism-infra/49-verdict-roles-and-claim-status","cell":"qa","mode":"specify","tokens":60869,"ms":136895,"outcome":"red 15/21; log-resolved.mjs chosen"}
+{"kind":"cell","ts":"2026-09-29T03:55:17.567Z","ticket":"organism-infra/49-verdict-roles-and-claim-status","cell":"developer","tokens":54439,"ms":109472,"outcome":"in-review; 21/21, 362/362"}
+{"kind":"jev","ts":"2026-09-29T03:55:17.601Z","ticket":"organism-infra/49-verdict-roles-and-claim-status","point":"verify","pick":"full","actual":"full","cost":0.000038514000000000004,"conf":0.55,"mode":"shadow","fallback":null,"ms":336,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T03:56:34.654Z","ticket":"organism-infra/49-verdict-roles-and-claim-status","cell":"qa","mode":"verify","tokens":32855,"ms":61117,"outcome":"pass; skipped claim and handoff, sent back"}
+{"kind":"incident","ts":"2026-09-29T03:56:51.074Z","ticket":"organism-infra/49-verdict-roles-and-claim-status","cell":"qa","tool":"board","what":"qa verify posted --verdict with --as qa and no claim or handoff","cost":"one resume round","fix":"qa claimed, handed off, released","rule_change":"proposed: --verdict requires a held lock"}
+{"kind":"cell","ts":"2026-09-29T03:59:00.188Z","ticket":"organism-infra/49-verdict-roles-and-claim-status","cell":"security","tokens":44855,"ms":112103,"outcome":"pass, 3 LOW"}
+{"kind":"resolved","ts":"2026-09-29T04:05:02.979Z","ticket":"organism-infra/49-verdict-roles-and-claim-status","pr":38,"bounces":0}
+{"kind":"config","ts":"2026-09-29T04:05:55.965Z","change":"pipeline-retro skill added (every 3 resolved tickets + session end); organism-protocol one-command-per-call rule widened; ticket 50 filed"}
+{"kind":"incident","ts":"2026-09-29T04:07:42.297Z","ticket":null,"cell":"orchestrator","tool":"git","what":"dispatch prompts omitted the cell-start.mjs command from genome step 6 all session","cost":"cells set up by hand: branch-already-checked-out, reviewer on main needing git show","fix":"retro","rule_change":null}
+{"kind":"retro","ts":"2026-09-29T04:09:37.345Z","window_from":"2026-09-29T02:50:00Z","items":8,"fixes":[{"cause":"compound Bash refused by worktree guard","tool":"bash-guard","kind":"code","ref":"organism-infra/52"},{"cause":"State block rejected only at release","tool":"handoff-state","kind":"code","ref":"organism-infra/51"},{"cause":"cell-start command missing from dispatch prompts","tool":"git","kind":"dispatch-template","ref":"597f3c2"},{"cause":"specify claim reset in-review","tool":"board-claim","kind":"code","ref":"organism-infra/49"},{"cause":"verdict without claim","tool":"board-comment","kind":"code","ref":"organism-infra/50"}]}
+{"kind":"usage","ts":"2026-09-29T04:09:48.025Z","five_hour":64,"weekly":70,"event":"dispatch","ticket":"organism-infra/50-verdict-lock-and-failure-rows","cell":"qa"}
+{"kind":"context","ts":"2026-09-29T04:09:48.025Z","session":"2a7165e6-cd7e-452b-8f24-17fb349b092b","context_tokens":215211,"percent":21.52,"event":"dispatch"}
+{"kind":"jev","ts":"2026-09-29T04:09:48.063Z","ticket":"organism-infra/50-verdict-lock-and-failure-rows","point":"tier","pick":"opus","actual":"sonnet","cost":0.00003897600000000001,"conf":1,"mode":"shadow","fallback":null,"ms":495,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T04:12:31.513Z","ticket":"organism-infra/50-verdict-lock-and-failure-rows","cell":"qa","mode":"specify","tokens":71640,"ms":144529,"outcome":"red 9; skipped claim and handoff (read 'reply briefly' as skip)"}
+{"kind":"incident","ts":"2026-09-29T04:12:31.537Z","ticket":"organism-infra/50-verdict-lock-and-failure-rows","cell":"qa","tool":"board-claim","what":"cell finished without claim or handoff; second time after 49 qa verify","cost":"one resume round","fix":"resumed","rule_change":"ticket 51: log-cell refuses a cell row with no matching handoff"}
+{"kind":"usage","ts":"2026-09-29T04:13:04.262Z","five_hour":67,"weekly":71,"event":"dispatch","ticket":"organism-infra/50-verdict-lock-and-failure-rows","cell":"developer"}
+{"kind":"cell","ts":"2026-09-29T04:14:40.801Z","ticket":"organism-infra/50-verdict-lock-and-failure-rows","cell":"developer","tokens":49860,"ms":87560,"outcome":"in-review; 382/382"}
+{"kind":"incident","ts":"2026-09-29T04:14:40.825Z","ticket":"organism-infra/50-verdict-lock-and-failure-rows","cell":"developer","tool":"git","what":"cell-start.mjs --branch fails when qa already created the branch","cost":"manual ff-merge","fix":"developer used git merge --ff-only","rule_change":"add to ticket 51: cell-start checks out an existing branch at --base"}
+{"kind":"jev","ts":"2026-09-29T04:14:40.857Z","ticket":"organism-infra/50-verdict-lock-and-failure-rows","point":"verify","pick":"other","actual":"full","cost":0.00003906,"conf":0.66,"mode":"shadow","fallback":null,"ms":451,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T04:15:56.125Z","ticket":"organism-infra/50-verdict-lock-and-failure-rows","cell":"qa","mode":"verify","tokens":37210,"ms":60303,"outcome":"pass"}
+{"kind":"cell","ts":"2026-09-29T04:17:35.910Z","ticket":"organism-infra/50-verdict-lock-and-failure-rows","cell":"security","tokens":51162,"ms":78726,"outcome":"pass, 4 LOW"}
+{"kind":"usage","ts":"2026-09-29T04:20:25.284Z","five_hour":71,"weekly":71,"event":"merge","ticket":"organism-infra/50-verdict-lock-and-failure-rows","cell":"orchestrator"}
+{"kind":"resolved","ts":"2026-09-29T04:22:40.883Z","ticket":"organism-infra/50-verdict-lock-and-failure-rows","pr":39,"bounces":0}
+{"kind":"retro","ts":"2026-09-29T04:23:03.683Z","window_from":"2026-09-29T04:08:00Z","items":3,"fixes":[{"cause":"cell finished without claim or handoff (2nd)","tool":"board-claim","kind":"code","ref":"organism-infra/51"},{"cause":"cell-start --branch fails on existing branch","tool":"git","kind":"code","ref":"organism-infra/51"},{"cause":"unneeded force-push by orchestrator","tool":"git","kind":"nothing","ref":null}]}
+{"kind":"usage","ts":"2026-09-29T04:36:50.650Z","five_hour":74,"weekly":72,"event":"dispatch","ticket":"dimsumden-ui-v0/spec","cell":"product"}
+{"kind":"cell","ts":"2026-09-29T04:40:37.059Z","ticket":"dimsumden-ui-v0/spec","cell":"product","mode":null,"tokens":41695,"ms":69000,"outcome":"spec written; AskUserQuestion unavailable in subagent, relayed via main"}
+{"kind":"usage","ts":"2026-09-29T05:49:14Z","five_hour":0,"weekly":73,"event":"dispatch","ticket":"dimsumden-ui-v0/01-seams-design","cell":"architect"}
+{"kind":"context","ts":"2026-09-29T05:49:14Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":45261,"percent":4.53,"event":"dispatch"}
+{"kind":"incident","ts":"2026-09-29T05:55:41Z","ticket":"dimsumden-ui-v0/01-seams-design","cell":"architect","tool":"board release","what":"architect genome says resolve the ticket, board allows only the orchestrator to resolve","cost":"one refused call","fix":"released in-review; orchestrator resolves after user accepts the ADR","rule_change":null}
+{"kind":"cell","ts":"2026-09-29T05:55:48.412Z","ticket":"dimsumden-ui-v0/01-seams-design","cell":"architect","tokens":95267,"ms":288130,"outcome":"ADR 0011 proposed; released in-review awaiting user accept"}
+{"kind":"incident","ts":"2026-09-29T05:55:48.412Z","ticket":"dimsumden-ui-v0/01-seams-design","cell":"architect","tool":"board-release","what":"refused resolve (architect genome says resolve)","cost":null,"fix":null,"rule_change":null,"source":"cell-report"}
+{"kind":"resolved","ts":"2026-09-29T06:00:20.144Z","ticket":"dimsumden-ui-v0/01-seams-design","pr":40,"bounces":0}
+{"kind":"usage","ts":"2026-09-29T06:01:14Z","five_hour":5,"weekly":73,"event":"dispatch","ticket":"dimsumden-ui-v0/02-priority-module","cell":"qa"}
+{"kind":"context","ts":"2026-09-29T06:01:17Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":59738,"percent":5.97,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T06:02:52.776Z","ticket":"dimsumden-ui-v0/02-priority-module","cell":"qa","mode":"specify","tokens":47673,"ms":83690,"outcome":"red tests at bab3970"}
+{"kind":"incident","ts":"2026-09-29T06:02:52.776Z","ticket":"dimsumden-ui-v0/02-priority-module","cell":"qa","tool":"board-handoff","what":"State block format rejected twice (skill does not state JSON leading block)","cost":null,"fix":null,"rule_change":null,"source":"cell-report"}
+{"kind":"jev","ts":"2026-09-29T06:02:52.892Z","ticket":"dimsumden-ui-v0/02-priority-module","point":"tier","pick":"sonnet","actual":"sonnet","cost":0.000026166000000000003,"conf":0.9,"mode":"shadow","fallback":null,"ms":448,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-09-29T06:02:58Z","five_hour":6,"weekly":73,"event":"dispatch","ticket":"dimsumden-ui-v0/02-priority-module","cell":"developer"}
+{"kind":"context","ts":"2026-09-29T06:02:58Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":63749,"percent":6.37,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T06:04:35.155Z","ticket":"dimsumden-ui-v0/02-priority-module","cell":"developer","tokens":44158,"ms":86836,"outcome":"in-review at 1782f0f, 408 pass"}
+{"kind":"incident","ts":"2026-09-29T06:04:35.155Z","ticket":"dimsumden-ui-v0/02-priority-module","cell":"developer","tool":"board-release","what":"handoff missing cell key","cost":null,"fix":null,"rule_change":null,"source":"cell-report"}
+{"kind":"incident","ts":"2026-09-29T06:04:42Z","ticket":"dimsumden-ui-v0/02-priority-module","cell":"developer","tool":"board-handoff","what":"developer's own first handoff lacked cell key; board then refused overwrite as 'different cell/mode', forcing 02-developer-1.md; the cell misread its own file as stale","cost":"2 extra calls, a stray handoff file","fix":"none yet; candidate for 51 (validate State block at publish, so the bad file is never written)","rule_change":null}
+{"kind":"jev","ts":"2026-09-29T06:04:55.725Z","ticket":"dimsumden-ui-v0/02-priority-module","point":"verify","pick":"light","actual":"full","cost":0.00022810200000000002,"conf":0.72,"mode":"shadow","fallback":null,"ms":464,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-09-29T06:05:55Z","five_hour":6,"weekly":73,"event":"dispatch","ticket":"dimsumden-ui-v0/02-priority-module","cell":"qa","stale":true}
+{"kind":"incident","ts":"2026-09-29T06:05:55Z","ticket":null,"cell":"orchestrator","tool":"usage.mjs","what":"HTTP 401 mid-session (WSL token expired)","cost":"one dispatch on a stale usage number","fix":"user re-logs in claude in WSL","rule_change":null}
+{"kind":"cell","ts":"2026-09-29T06:07:02.748Z","ticket":"dimsumden-ui-v0/02-priority-module","cell":"qa","mode":"verify","tokens":35019,"ms":62842,"outcome":"pass, 408/408"}
+{"kind":"incident","ts":"2026-09-29T06:07:02.748Z","ticket":"dimsumden-ui-v0/02-priority-module","cell":"qa","tool":"board-handoff","what":"draft without mode blocked overwrite","cost":null,"fix":null,"rule_change":null,"source":"cell-report"}
+{"kind":"usage","ts":"2026-09-29T06:09:40Z","five_hour":9,"weekly":74,"event":"merge","ticket":"dimsumden-ui-v0/02-priority-module","cell":"orchestrator"}
+{"kind":"resolved","ts":"2026-09-29T06:12:08.742Z","ticket":"dimsumden-ui-v0/02-priority-module","pr":41,"bounces":0}
+{"kind":"usage","ts":"2026-09-29T06:12:55Z","five_hour":9,"weekly":74,"event":"dispatch","ticket":"dimsumden-ui-v0/03-metrics-script","cell":"qa"}
+{"kind":"cell","ts":"2026-09-29T06:14:35.766Z","ticket":"dimsumden-ui-v0/03-metrics-script","cell":"qa","mode":"specify","tokens":48257,"ms":91229,"outcome":"red tests at 0334cd4"}
+{"kind":"incident","ts":"2026-09-29T06:14:35.766Z","ticket":"dimsumden-ui-v0/03-metrics-script","cell":"qa","tool":"board-handoff","what":"no JSON State block on first try","cost":null,"fix":null,"rule_change":null,"source":"cell-report"}
+{"kind":"jev","ts":"2026-09-29T06:14:35.882Z","ticket":"dimsumden-ui-v0/03-metrics-script","point":"tier","pick":"sonnet","actual":"sonnet","cost":0.000025158000000000002,"conf":0.77,"mode":"shadow","fallback":null,"ms":392,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-09-29T06:14:41Z","five_hour":11,"weekly":74,"event":"dispatch","ticket":"dimsumden-ui-v0/03-metrics-script","cell":"developer"}
+{"kind":"context","ts":"2026-09-29T06:14:41Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":79510,"percent":7.95,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T06:16:01.616Z","ticket":"dimsumden-ui-v0/03-metrics-script","cell":"developer","tokens":41309,"ms":69421,"outcome":"in-review at 99a4799, 414 pass"}
+{"kind":"jev","ts":"2026-09-29T06:16:14.869Z","ticket":"dimsumden-ui-v0/03-metrics-script","point":"verify","pick":"light","actual":"full","cost":0.00022801800000000002,"conf":0.74,"mode":"shadow","fallback":null,"ms":473,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-09-29T06:16:21Z","five_hour":12,"weekly":74,"event":"dispatch","ticket":"dimsumden-ui-v0/03-metrics-script","cell":"qa"}
+{"kind":"cell","ts":"2026-09-29T06:17:11.466Z","ticket":"dimsumden-ui-v0/03-metrics-script","cell":"qa","mode":"verify","tokens":29490,"ms":45561,"outcome":"pass, 414/414"}
+{"kind":"usage","ts":"2026-09-29T06:17:22Z","five_hour":13,"weekly":74,"event":"dispatch","ticket":"dimsumden-ui-v0/03-metrics-script","cell":"security"}
+{"kind":"cell","ts":"2026-09-29T06:18:43.430Z","ticket":"dimsumden-ui-v0/03-metrics-script","cell":"security","tokens":40381,"ms":74638,"outcome":"pass, 2 low"}
+{"kind":"incident","ts":"2026-09-29T06:18:43.430Z","ticket":"dimsumden-ui-v0/03-metrics-script","cell":"security","tool":"board-handoff","what":"draft without cell blocked overwrite","cost":null,"fix":null,"rule_change":null,"source":"cell-report"}
+{"kind":"resolved","ts":"2026-09-29T06:22:12.830Z","ticket":"dimsumden-ui-v0/03-metrics-script","pr":42,"bounces":0}
+{"kind":"retro","ts":"2026-09-29T06:24:29Z","window_from":"2026-09-29T04:23:03Z","items":9,"fixes":[{"cause":"handoff State block missing/lacking cell or mode; own draft blocks overwrite","tool":"handoff-state","kind":"code","ref":"organism-infra/51"},{"cause":"architect genome says resolve","tool":"board-release","kind":"genome","ref":"dca2593"},{"cause":"usage.mjs 401 gives no hint","tool":"other","kind":"code","ref":"organism-infra/51"}]}
+{"kind":"usage","ts":"2026-09-29T06:25:20Z","five_hour":15,"weekly":74,"event":"dispatch","ticket":"dimsumden-ui-v0/04-bridge-state","cell":"qa"}
+{"kind":"context","ts":"2026-09-29T06:25:20Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":96776,"percent":9.68,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T06:27:33.461Z","ticket":"dimsumden-ui-v0/04-bridge-state","cell":"qa","mode":"specify","tokens":59770,"ms":116032,"outcome":"red tests at 3eaeb2c"}
+{"kind":"jev","ts":"2026-09-29T06:27:33.580Z","ticket":"dimsumden-ui-v0/04-bridge-state","point":"tier","pick":"sonnet","actual":"sonnet","cost":0.000023940000000000005,"conf":0.93,"mode":"shadow","fallback":null,"ms":496,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-09-29T06:27:34Z","five_hour":17,"weekly":75,"event":"dispatch","ticket":"dimsumden-ui-v0/04-bridge-state","cell":"developer"}
+{"kind":"context","ts":"2026-09-29T06:27:34Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":99984,"percent":10,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T06:29:26.521Z","ticket":"dimsumden-ui-v0/04-bridge-state","cell":"developer","tokens":59393,"ms":96394,"outcome":"in-review at 0be900a, 436 pass"}
+{"kind":"jev","ts":"2026-09-29T06:29:39.885Z","ticket":"dimsumden-ui-v0/04-bridge-state","point":"verify","pick":"light","actual":"full","cost":0.00022772400000000003,"conf":0.69,"mode":"shadow","fallback":null,"ms":495,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-09-29T06:29:40Z","five_hour":19,"weekly":75,"event":"dispatch","ticket":"dimsumden-ui-v0/04-bridge-state","cell":"qa"}
+{"kind":"context","ts":"2026-09-29T06:29:40Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":103066,"percent":10.31,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T06:30:39.366Z","ticket":"dimsumden-ui-v0/04-bridge-state","cell":"qa","mode":"verify","tokens":30435,"ms":44328,"outcome":"pass 436/436"}
+{"kind":"incident","ts":"2026-09-29T06:30:39Z","ticket":"dimsumden-ui-v0/04-bridge-state","cell":"qa","tool":"other","what":"dispatched 'verify (full)' per jev effective; qa self-downgraded to light because it ran specify (genome rule vs jev effective conflict)","cost":"verify depth not as dispatched","fix":"deferred to post-UI retro","rule_change":null}
+{"kind":"usage","ts":"2026-09-29T06:30:39Z","five_hour":19,"weekly":75,"event":"dispatch","ticket":"dimsumden-ui-v0/04-bridge-state","cell":"security"}
+{"kind":"context","ts":"2026-09-29T06:30:39Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":106026,"percent":10.6,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T06:32:04.205Z","ticket":"dimsumden-ui-v0/04-bridge-state","cell":"security","tokens":37387,"ms":71527,"outcome":"pass; 1 medium (GET // crash), 2 low"}
+{"kind":"incident","ts":"2026-09-29T06:32:04.205Z","ticket":"dimsumden-ui-v0/04-bridge-state","cell":"security","tool":"write","what":"mistyped scratchpad path, stray dir","cost":null,"fix":null,"rule_change":null,"source":"cell-report"}
+{"kind":"incident","ts":"2026-09-29T06:33:11Z","ticket":"dimsumden-ui-v0/04-bridge-state","cell":"orchestrator","tool":"other","what":"security medium after pass verdict; fix round via SendMessage to same developer; no re-verify beyond full npm test + CI (judgement call, genome has no rule for post-pass fix rounds)","cost":"one extra developer round","fix":"deferred to post-UI retro","rule_change":null}
+{"kind":"cell","ts":"2026-09-29T06:35:39.184Z","ticket":"dimsumden-ui-v0/04-bridge-state","cell":"developer","mode":"fix","tokens":23234,"ms":49404,"outcome":"security fixes at 47f0bee, 437 pass"}
+{"kind":"usage","ts":"2026-09-29T06:35:39Z","five_hour":21,"weekly":75,"event":"merge","ticket":"dimsumden-ui-v0/04-bridge-state","cell":"orchestrator"}
+{"kind":"context","ts":"2026-09-29T06:35:39Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":115389,"percent":11.54,"event":"merge"}
+{"kind":"resolved","ts":"2026-09-29T06:35:44.323Z","ticket":"dimsumden-ui-v0/04-bridge-state","pr":43,"bounces":0}
+{"kind":"incident","ts":"2026-09-29T06:38:43Z","ticket":null,"cell":"orchestrator","tool":"git","what":"retro genome commit made directly on local main (unpushed) diverged main from origin after squash-merge of #43; pull --rebase blocked by dirty tracked .scratch files","cost":"extra PR #44 with merge commit to reconcile","fix":"commit retro edits on a branch + PR, never on local main","rule_change":null}
+{"kind":"usage","ts":"2026-09-29T06:38:49Z","five_hour":22,"weekly":75,"event":"dispatch","ticket":"dimsumden-ui-v0/05-bridge-events","cell":"qa"}
+{"kind":"context","ts":"2026-09-29T06:38:49Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":118608,"percent":11.86,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T06:40:18.208Z","ticket":"dimsumden-ui-v0/05-bridge-events","cell":"qa","mode":"specify","tokens":50543,"ms":77110,"outcome":"red tests at b8a8489"}
+{"kind":"jev","ts":"2026-09-29T06:40:18.451Z","ticket":"dimsumden-ui-v0/05-bridge-events","point":"tier","pick":"opus","actual":"sonnet","cost":0.000022638000000000002,"conf":0.87,"mode":"shadow","fallback":null,"ms":467,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-09-29T06:40:19Z","five_hour":23,"weekly":76,"event":"dispatch","ticket":"dimsumden-ui-v0/05-bridge-events","cell":"developer"}
+{"kind":"context","ts":"2026-09-29T06:40:19Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":120973,"percent":12.1,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T06:41:56.855Z","ticket":"dimsumden-ui-v0/05-bridge-events","cell":"developer","tokens":50892,"ms":87392,"outcome":"in-review at 523a919, 444 pass"}
+{"kind":"jev","ts":"2026-09-29T06:42:12.505Z","ticket":"dimsumden-ui-v0/05-bridge-events","point":"verify","pick":"light","actual":"full","cost":0.00022806000000000004,"conf":0.72,"mode":"shadow","fallback":null,"ms":689,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-09-29T06:42:13Z","five_hour":24,"weekly":76,"event":"dispatch","ticket":"dimsumden-ui-v0/05-bridge-events","cell":"qa"}
+{"kind":"context","ts":"2026-09-29T06:42:13Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":123491,"percent":12.35,"event":"dispatch"}
+{"kind":"incident","ts":"2026-09-29T06:42:23Z","ticket":"dimsumden-ui-v0/05-bridge-events","cell":"orchestrator","tool":"other","what":"risk-check clean on a diff adding an SSE route + fs.watch to apps/bridge/server.mjs; the same file flagged 'network/server code' on 04, so the check appears to key on new files or specific patterns, not on touched risky files","cost":"full security skipped per rule on network code","fix":"deferred to post-UI retro","rule_change":null}
+{"kind":"cell","ts":"2026-09-29T06:43:14.558Z","ticket":"dimsumden-ui-v0/05-bridge-events","cell":"qa","mode":"verify","tokens":29240,"ms":43056,"outcome":"pass 444/444"}
+{"kind":"usage","ts":"2026-09-29T06:45:43Z","five_hour":25,"weekly":76,"event":"merge","ticket":"dimsumden-ui-v0/05-bridge-events","cell":"orchestrator"}
+{"kind":"context","ts":"2026-09-29T06:45:43Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":127038,"percent":12.7,"event":"merge"}
+{"kind":"resolved","ts":"2026-09-29T06:45:51.138Z","ticket":"dimsumden-ui-v0/05-bridge-events","pr":45,"bounces":0}
+{"kind":"usage","ts":"2026-09-29T06:46:02Z","five_hour":25,"weekly":76,"event":"dispatch","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"designer"}
+{"kind":"context","ts":"2026-09-29T06:46:02Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":127552,"percent":12.76,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T06:47:52.470Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"designer","mode":"spec","tokens":81417,"ms":98503,"outcome":"UI spec for 07-11, 6 open visual questions"}
+{"kind":"incident","ts":"2026-09-29T06:47:52.470Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"designer","tool":"bash-guard","what":"for-loop with runtime variable refused","cost":null,"fix":null,"rule_change":null,"source":"cell-report"}
+{"kind":"incident","ts":"2026-09-29T06:48:55Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"orchestrator","tool":"other","what":"orchestrator quoted weekly usage as 13% to the user; it was the context % printed by its own helper (real weekly ~75%)","cost":"user shown a wrong number","fix":"helper now labels fields","rule_change":null}
+{"kind":"usage","ts":"2026-09-29T06:48:56Z","five_hour":28,"weekly":76,"event":"dispatch","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"qa"}
+{"kind":"context","ts":"2026-09-29T06:48:56Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":132281,"percent":13.23,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T06:51:47.424Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"qa","mode":"specify","tokens":71028,"ms":154388,"outcome":"red tests at 8e6d364 (44 tests)"}
+{"kind":"incident","ts":"2026-09-29T06:51:47.424Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"qa","tool":"other","what":"node --test with directory arg fails","cost":null,"fix":null,"rule_change":null,"source":"cell-report"}
+{"kind":"jev","ts":"2026-09-29T06:51:47.534Z","ticket":"dimsumden-ui-v0/07-ui-shell","point":"tier","pick":"opus","actual":"sonnet","cost":0.000032844000000000006,"conf":0.59,"mode":"shadow","fallback":null,"ms":519,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-09-29T06:51:48Z","five_hour":30,"weekly":76,"event":"dispatch","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"developer"}
+{"kind":"context","ts":"2026-09-29T06:51:48Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":135935,"percent":13.59,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T06:55:34.111Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"developer","tokens":75207,"ms":207836,"outcome":"in-review at 8dd3513, 492 pass, deps installed"}
+{"kind":"incident","ts":"2026-09-29T06:55:34.111Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"developer","tool":"board-release","what":"State block missing required fields (dispatch prompt named only cell)","cost":null,"fix":null,"rule_change":null,"source":"cell-report"}
+{"kind":"incident","ts":"2026-09-29T06:55:34Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"orchestrator","tool":"handoff-state","what":"orchestrator's dispatch line 'State block must include cell' was read as the whole schema; developer omitted required fields (a paraphrase-of-schema repeat)","cost":"one refused release","fix":"deferred to post-UI retro (51 publish-time validation would catch it)","rule_change":null}
+{"kind":"jev","ts":"2026-09-29T06:55:48.425Z","ticket":"dimsumden-ui-v0/07-ui-shell","point":"verify","pick":"light","actual":"full","cost":0.00022806000000000004,"conf":0.74,"mode":"shadow","fallback":null,"ms":437,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-09-29T06:55:49Z","five_hour":33,"weekly":77,"event":"dispatch","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"qa"}
+{"kind":"context","ts":"2026-09-29T06:55:49Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":139363,"percent":13.94,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T06:56:55.753Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"qa","mode":"verify","tokens":32463,"ms":50856,"outcome":"pass 492/492"}
+{"kind":"usage","ts":"2026-09-29T06:56:56Z","five_hour":34,"weekly":77,"event":"dispatch","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"designer"}
+{"kind":"context","ts":"2026-09-29T06:56:56Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":142259,"percent":14.23,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T06:59:10.816Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"designer","mode":"review","tokens":72623,"ms":123485,"outcome":"bounce: CSS tokens and type scale off-spec"}
+{"kind":"incident","ts":"2026-09-29T06:59:10.816Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"designer","tool":"other","what":"pkill -f matched own shell","cost":null,"fix":null,"rule_change":null,"source":"cell-report"}
+{"kind":"incident","ts":"2026-09-29T06:59:18Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"orchestrator","tool":"board-release","what":"recording a designer verdict required orchestrator claim + handoff file + release; --keep-status refused without handoff","cost":"3 extra calls","fix":"deferred to post-UI retro: allow designer --verdict and --mode review/spec/critique","rule_change":null}
+{"kind":"usage","ts":"2026-09-29T06:59:24Z","five_hour":36,"weekly":77,"event":"dispatch","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"developer"}
+{"kind":"context","ts":"2026-09-29T06:59:24Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":147255,"percent":14.73,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T07:00:36.519Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"developer","mode":"fix","tokens":35598,"ms":62740,"outcome":"design fixes at 1476012"}
+{"kind":"usage","ts":"2026-09-29T07:00:48Z","five_hour":37,"weekly":77,"event":"dispatch","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"designer"}
+{"kind":"context","ts":"2026-09-29T07:00:48Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":149730,"percent":14.97,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T07:01:45.814Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"designer","mode":"review","tokens":51010,"ms":43738,"outcome":"pass on re-review"}
+{"kind":"incident","ts":"2026-09-29T07:01:45Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"orchestrator","tool":"board-comment","what":"designer PASS left as plain comment; orchestrator did not re-record as --verdict pass (costs claim+handoff+release); only bounces are recorded structurally","cost":"designer pass not in structured verdicts","fix":"deferred: designer --verdict support","rule_change":null}
+{"kind":"usage","ts":"2026-09-29T07:01:46Z","five_hour":38,"weekly":78,"event":"dispatch","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"security"}
+{"kind":"context","ts":"2026-09-29T07:01:46Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":152353,"percent":15.24,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T07:03:26.763Z","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"security","tokens":44165,"ms":83435,"outcome":"pass, 3 low (symlink, fs.allow, CSP)"}
+{"kind":"config","ts":"2026-09-29T07:03:26Z","what":"user: may push past weekly 80% for UI v0"}
+{"kind":"usage","ts":"2026-09-29T07:05:45Z","five_hour":40,"weekly":78,"event":"merge","ticket":"dimsumden-ui-v0/07-ui-shell","cell":"orchestrator"}
+{"kind":"context","ts":"2026-09-29T07:05:45Z","session":"63bbeb47-ebe0-48ba-99cb-22772c2470d5","context_tokens":156923,"percent":15.69,"event":"merge"}
+{"kind":"resolved","ts":"2026-09-29T07:05:54.123Z","ticket":"dimsumden-ui-v0/07-ui-shell","pr":46,"bounces":1}
+{"kind":"usage","ts":"2026-09-29T07:06:13Z","five_hour":40,"weekly":78,"event":"return","ticket":"none/orchestrator-session","cell":"orchestrator"}
+{"kind":"usage","ts":"2026-09-29T14:18:12Z","five_hour":1,"weekly":78,"event":"dispatch","ticket":"dimsumden-ui-v0/06","cell":"qa"}
+{"kind":"context","ts":"2026-09-29T14:18:12Z","session":"b10e94b8-b9aa-455a-a7d2-bb607d09e72b","context_tokens":44066,"percent":4.41,"event":"dispatch"}
+{"kind":"jev","ts":"2026-09-29T14:20:51.007Z","ticket":"dimsumden-ui-v0/06-bridge-requests","point":"tier","pick":"sonnet","actual":"sonnet","cost":0.000025410000000000002,"conf":0.76,"mode":"shadow","fallback":null,"ms":485,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T14:21:00.142Z","ticket":"dimsumden-ui-v0/06-bridge-requests","cell":"qa","mode":"specify","tokens":57198,"ms":136733,"outcome":"29 tests, 22 red, commit 2f86863"}
+{"kind":"usage","ts":"2026-09-29T14:21:00Z","five_hour":3,"weekly":78,"event":"dispatch","ticket":"dimsumden-ui-v0/06","cell":"developer"}
+{"kind":"cell","ts":"2026-09-29T14:23:36.624Z","ticket":"dimsumden-ui-v0/06-bridge-requests","cell":"developer","tokens":60347,"ms":145591,"outcome":"in-review 9f0929c, 521 pass"}
+{"kind":"jev","ts":"2026-09-29T14:23:50.783Z","ticket":"dimsumden-ui-v0/06-bridge-requests","point":"verify","pick":"light","actual":"full","cost":0.00022814400000000003,"conf":0.72,"mode":"shadow","fallback":null,"ms":484,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T14:25:06.601Z","ticket":"dimsumden-ui-v0/06-bridge-requests","cell":"qa","mode":"verify","tokens":31280,"ms":61654,"outcome":"pass (light), 521/521"}
+{"kind":"cell","ts":"2026-09-29T14:26:41.377Z","ticket":"dimsumden-ui-v0/06-bridge-requests","cell":"security","tokens":41440,"ms":77886,"outcome":"pass, 2 low findings"}
+{"kind":"resolved","ts":"2026-09-29T14:30:39.335Z","ticket":"dimsumden-ui-v0/06-bridge-requests","pr":47,"bounces":0}
+{"kind":"incident","ts":"2026-09-29T14:30:45Z","ticket":"dimsumden-ui-v0/06-bridge-requests","cell":"orchestrator","tool":"auto-mode classifier","what":"gh pr merge blocked as Merge Without Review despite standing UI v0 approval in handoff","cost":"one user round-trip","fix":"user said merge it","rule_change":null}
+{"kind":"incident","ts":"2026-09-29T14:30:45Z","ticket":"dimsumden-ui-v0/06-bridge-requests","cell":"orchestrator","tool":"board release","what":"own handoff pending as string not {item,owner}","cost":"one retry","fix":"rewrote pending","rule_change":null}
+{"kind":"usage","ts":"2026-09-29T14:30:54Z","five_hour":7,"weekly":79,"event":"dispatch","ticket":"dimsumden-ui-v0/08","cell":"qa"}
+{"kind":"cell","ts":"2026-09-29T14:32:40.149Z","ticket":"dimsumden-ui-v0/08-scene-from-state","cell":"qa","mode":"specify","tokens":61652,"ms":94954,"outcome":"35 tests red, 13a9eb0"}
+{"kind":"jev","ts":"2026-09-29T14:32:50.509Z","ticket":"dimsumden-ui-v0/08-scene-from-state","point":"tier","pick":"sonnet","actual":"sonnet","cost":0.00003066,"conf":0.67,"mode":"shadow","fallback":null,"ms":336,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T14:36:43.678Z","ticket":"dimsumden-ui-v0/08-scene-from-state","cell":"developer","tokens":79371,"ms":222257,"outcome":"in-review 388318c, 567 pass"}
+{"kind":"jev","ts":"2026-09-29T14:36:57.957Z","ticket":"dimsumden-ui-v0/08-scene-from-state","point":"verify","pick":"light","actual":"full","cost":0.00022789200000000002,"conf":0.71,"mode":"shadow","fallback":null,"ms":348,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T14:37:58.468Z","ticket":"dimsumden-ui-v0/08-scene-from-state","cell":"qa","mode":"verify","tokens":30780,"ms":49159,"outcome":"pass (light), 567/567"}
+{"kind":"cell","ts":"2026-09-29T14:38:45.376Z","ticket":"dimsumden-ui-v0/08-scene-from-state","cell":"designer","mode":"review","tokens":51234,"ms":33752,"outcome":"blocked: no Claude_Browser tools; 3 likely bounce items from code read"}
+{"kind":"incident","ts":"2026-09-29T14:38:45Z","ticket":"dimsumden-ui-v0/08-scene-from-state","cell":"designer","tool":"mcp__Claude_Browser","what":"browser tools not loaded in WSL dispatch; designer review could not run","cost":"one designer dispatch","fix":"pending user decision","rule_change":null}
+{"kind":"cell","ts":"2026-09-29T14:46:12.322Z","ticket":"dimsumden-ui-v0/08-scene-from-state","cell":"developer","mode":"fix","tokens":42362,"ms":93254,"outcome":"fix b97da76: chip stacking + queued label contrast, 570 pass"}
+{"kind":"cell","ts":"2026-09-29T14:49:27.255Z","ticket":"dimsumden-ui-v0/08-scene-from-state","cell":"developer","mode":"fix2","tokens":33485,"ms":71547,"outcome":"crown slots widened, 5ec88f9"}
+{"kind":"cell","ts":"2026-09-29T14:50:48.383Z","ticket":"dimsumden-ui-v0/08-scene-from-state","cell":"security","tokens":42662,"ms":51833,"outcome":"pass, 2 low info"}
+{"kind":"resolved","ts":"2026-09-29T14:53:54.278Z","ticket":"dimsumden-ui-v0/08-scene-from-state","pr":48,"bounces":0}
+{"kind":"usage","ts":"2026-09-29T14:55:41Z","five_hour":17,"weekly":80,"event":"dispatch","ticket":"dimsumden-ui-v0/09","cell":"qa"}
+{"kind":"cell","ts":"2026-09-29T14:57:57.418Z","ticket":"dimsumden-ui-v0/09-panel-queue","cell":"qa","mode":"specify","model":"sonnet","tokens":67194,"ms":125343,"outcome":"43 tests red, 75c1a87"}
+{"kind":"jev","ts":"2026-09-29T14:57:57.459Z","ticket":"dimsumden-ui-v0/09-panel-queue","point":"tier","pick":"sonnet","actual":"sonnet","cost":0.000024990000000000003,"conf":0.64,"mode":"shadow","fallback":null,"ms":460,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T15:00:29.550Z","ticket":"dimsumden-ui-v0/09-panel-queue","cell":"developer","model":"sonnet","tokens":63796,"ms":140191,"outcome":"in-review 43d4077, 613 pass"}
+{"kind":"jev","ts":"2026-09-29T15:00:44.510Z","ticket":"dimsumden-ui-v0/09-panel-queue","point":"verify","pick":"light","actual":"full","cost":0.00022797600000000004,"conf":0.72,"mode":"shadow","fallback":null,"ms":570,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T15:02:02.294Z","ticket":"dimsumden-ui-v0/09-panel-queue","cell":"qa","mode":"verify","model":"sonnet","tokens":33719,"ms":65088,"outcome":"pass (light), 613/613"}
+{"kind":"cell","ts":"2026-09-29T15:06:07.493Z","ticket":"dimsumden-ui-v0/09-panel-queue","cell":"security","model":"sonnet","tokens":44476,"ms":236348,"outcome":"pass w/ 1 medium (markdown regex ReDoS)"}
+{"kind":"cell","ts":"2026-09-29T15:07:40.674Z","ticket":"dimsumden-ui-v0/09-panel-queue","cell":"developer","mode":"fix","model":"sonnet","tokens":38913,"ms":82852,"outcome":"ReDoS fixed, 615 pass"}
+{"kind":"cell","ts":"2026-09-29T15:14:48.361Z","ticket":"dimsumden-ui-v0/09-panel-queue","cell":"developer","mode":"fix2","model":"sonnet","tokens":34510,"ms":76743,"outcome":"CSP connect-src blob:, 616 pass"}
+{"kind":"incident","ts":"2026-09-29T15:14:48Z","ticket":"dimsumden-ui-v0/09-panel-queue","cell":"developer","tool":"CSP","what":"CSP shipped without a browser load; blocked GLTF blob: textures (white faces). No reviewer could load a browser from WSL.","cost":"one user round-trip + fix round","fix":"connect-src blob:","rule_change":null}
+{"kind":"resolved","ts":"2026-09-29T15:24:55.839Z","ticket":"dimsumden-ui-v0/09-panel-queue","pr":50,"bounces":0}
+{"kind":"cell","ts":"2026-09-29T15:26:19.228Z","ticket":"dimsumden-ui-v0/10-panel-gates","cell":"qa","mode":"specify","model":"sonnet","tokens":47643,"ms":71530,"outcome":"16 tests red, 0be8d41"}
+{"kind":"jev","ts":"2026-09-29T15:26:19.269Z","ticket":"dimsumden-ui-v0/10-panel-gates","point":"tier","pick":"sonnet","actual":"sonnet","cost":0.000022260000000000004,"conf":0.66,"mode":"shadow","fallback":null,"ms":413,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T15:28:08.492Z","ticket":"dimsumden-ui-v0/10-panel-gates","cell":"developer","model":"sonnet","tokens":50446,"ms":97706,"outcome":"in-review 9130cce, 631 pass"}
+{"kind":"jev","ts":"2026-09-29T15:28:23.288Z","ticket":"dimsumden-ui-v0/10-panel-gates","point":"verify","pick":"light","actual":"full","cost":0.00022822800000000002,"conf":0.72,"mode":"shadow","fallback":null,"ms":351,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T15:29:25.541Z","ticket":"dimsumden-ui-v0/10-panel-gates","cell":"qa","mode":"verify","model":"sonnet","tokens":29727,"ms":50680,"outcome":"pass (light), 631/631"}
+{"kind":"resolved","ts":"2026-09-29T15:35:00.240Z","ticket":"dimsumden-ui-v0/10-panel-gates","pr":51,"bounces":0}
+{"kind":"cell","ts":"2026-09-29T15:36:35.348Z","ticket":"dimsumden-ui-v0/11-dashboard-charts","cell":"qa","mode":"specify","model":"sonnet","tokens":49481,"ms":78102,"outcome":"10 tests red, e5a1a69"}
+{"kind":"jev","ts":"2026-09-29T15:36:35.383Z","ticket":"dimsumden-ui-v0/11-dashboard-charts","point":"tier","pick":"sonnet","actual":"sonnet","cost":0.000023604000000000003,"conf":0.64,"mode":"shadow","fallback":null,"ms":489,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T15:38:15.905Z","ticket":"dimsumden-ui-v0/11-dashboard-charts","cell":"developer","model":"sonnet","tokens":54556,"ms":91431,"outcome":"in-review 7534186, 641 pass; no GET /metrics route"}
+{"kind":"cell","ts":"2026-09-29T15:40:08.476Z","ticket":"dimsumden-ui-v0/11-dashboard-charts","cell":"developer","mode":"fix","model":"sonnet","tokens":53780,"ms":92132,"outcome":"GET /metrics added, 644 pass"}
+{"kind":"jev","ts":"2026-09-29T15:40:24.041Z","ticket":"dimsumden-ui-v0/11-dashboard-charts","point":"verify","pick":"light","actual":"full","cost":0.00022810200000000002,"conf":0.69,"mode":"shadow","fallback":null,"ms":385,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T15:41:51.954Z","ticket":"dimsumden-ui-v0/11-dashboard-charts","cell":"qa","mode":"verify","model":"sonnet","tokens":34051,"ms":75209,"outcome":"pass (light), 644/644"}
+{"kind":"cell","ts":"2026-09-29T15:43:04.992Z","ticket":"dimsumden-ui-v0/11-dashboard-charts","cell":"security","model":"sonnet","tokens":42142,"ms":68280,"outcome":"pass, 2 low (metrics __proto__ throw, uncached log reads)"}
+{"kind":"resolved","ts":"2026-09-29T15:46:42.460Z","ticket":"dimsumden-ui-v0/11-dashboard-charts","pr":52,"bounces":0}
+{"kind":"incident","ts":"2026-09-29T15:46:42Z","ticket":"dimsumden-ui-v0/11-dashboard-charts","cell":"orchestrator","tool":"to-tickets","what":"ADR route GET /metrics had no owning ticket; found by developer at 11","cost":"one fix round","fix":"scope add to 11","rule_change":null}
+{"kind":"resolved","ts":"2026-09-29T15:54:38.399Z","ticket":"dimsumden-ui-v0/12-orchestrator-gate-requests","pr":53,"bounces":0}
+{"kind":"usage","ts":"2026-09-29T15:54:48Z","five_hour":40,"weekly":83,"event":"dispatch","ticket":"organism-infra/53","cell":"qa"}
+{"kind":"cell","ts":"2026-09-29T15:56:29.533Z","ticket":"organism-infra/53-organ-to-station-rename","cell":"qa","mode":"specify","model":"sonnet","tokens":45720,"ms":91103,"outcome":"7 tests red, 5c0ce57"}
+{"kind":"jev","ts":"2026-09-29T15:56:29.568Z","ticket":"organism-infra/53-organ-to-station-rename","point":"tier","pick":"opus","actual":"sonnet","cost":0.000041916,"conf":1,"mode":"shadow","fallback":null,"ms":323,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T15:59:16.547Z","ticket":"organism-infra/53-organ-to-station-rename","cell":"developer","model":"sonnet","tokens":49353,"ms":153947,"outcome":"blocked: classifier denied .claude/ and CLAUDE.md edits (Self-Modification); non-gated part b54d92b"}
+{"kind":"incident","ts":"2026-09-29T15:59:16Z","ticket":"organism-infra/53-organ-to-station-rename","cell":"developer","tool":"auto-mode classifier","what":"Self-Modification denial on .claude/ and CLAUDE.md edits in a rename ticket","cost":"ticket blocked, user round-trip","fix":"pending user decision","rule_change":null}
+{"kind":"cell","ts":"2026-09-29T16:03:21.785Z","ticket":"organism-infra/53-organ-to-station-rename","cell":"qa","mode":"verify","model":"sonnet","tokens":31035,"ms":75470,"outcome":"pass, 651/651"}
+{"kind":"resolved","ts":"2026-09-29T16:08:37.449Z","ticket":"organism-infra/53-organ-to-station-rename","pr":54,"bounces":0}
+{"kind":"cell","ts":"2026-09-29T16:10:28.983Z","ticket":"dimsumden-ui-v0/13-e2e-smoke","cell":"qa","mode":"specify","model":"sonnet","tokens":58852,"ms":96781,"outcome":"4 tests red, d2e421e"}
+{"kind":"jev","ts":"2026-09-29T16:10:29.017Z","ticket":"dimsumden-ui-v0/13-e2e-smoke","point":"tier","pick":"opus","actual":"sonnet","cost":0.000026040000000000005,"conf":0.94,"mode":"shadow","fallback":null,"ms":321,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T16:13:03.631Z","ticket":"dimsumden-ui-v0/13-e2e-smoke","cell":"developer","model":"sonnet","tokens":62239,"ms":142029,"outcome":"in-review 8d3c818, 655 pass"}
+{"kind":"jev","ts":"2026-09-29T16:13:19.807Z","ticket":"dimsumden-ui-v0/13-e2e-smoke","point":"verify","pick":"light","actual":"full","cost":0.00022848000000000004,"conf":0.71,"mode":"shadow","fallback":null,"ms":420,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T16:14:27.505Z","ticket":"dimsumden-ui-v0/13-e2e-smoke","cell":"qa","mode":"verify","model":"sonnet","tokens":29129,"ms":55432,"outcome":"pass (light), 655/655"}
+{"kind":"cell","ts":"2026-09-29T16:15:27.268Z","ticket":"dimsumden-ui-v0/13-e2e-smoke","cell":"security","model":"sonnet","tokens":35977,"ms":44743,"outcome":"pass, 2 low"}
+{"kind":"resolved","ts":"2026-09-29T16:18:27.933Z","ticket":"dimsumden-ui-v0/13-e2e-smoke","pr":55,"bounces":0}
+{"kind":"incident","ts":"2026-09-29T16:19:45Z","ticket":null,"cell":"qa","tool":"board-release","what":"qa specify release --keep-status left ticket at claimed (08); orchestrator had to claim+release to reset, repeated each ticket","cost":"retries","fix":null,"rule_change":null,"source":"retro-backfill"}
+{"kind":"incident","ts":"2026-09-29T16:19:45Z","ticket":null,"cell":"developer,security,qa","tool":"other","what":"node scripts/board.mjs does not exist; 3 cells guessed it (09 dev, 09 sec, 11 qa)","cost":"retries","fix":null,"rule_change":null,"source":"retro-backfill"}
+{"kind":"incident","ts":"2026-09-29T16:19:45Z","ticket":null,"cell":"qa,developer","tool":"other","what":"node --test with a directory argument fails (09 qa, 09 dev)","cost":"retries","fix":null,"rule_change":null,"source":"retro-backfill"}
+{"kind":"incident","ts":"2026-09-29T16:19:45Z","ticket":null,"cell":"developer,security","tool":"other","what":"Grep tool unavailable in dispatched cells (06 dev, 11 sec, 08 fix2 dev)","cost":"retries","fix":null,"rule_change":null,"source":"retro-backfill"}
+{"kind":"retro","ts":"2026-09-29T16:23:08Z","window_from":"2026-09-29T06:24:29Z","items":27,"fixes":[{"cause":"cells cannot see the UI (no browser in WSL)","tool":"other","kind":"code-deferred","ref":"organism-infra/56"},{"cause":"board.mjs path guess; node --test dir","tool":"other","kind":"code","ref":"organism-infra/54"},{"cause":"status stays claimed after specify; designer verdict/mode refused","tool":"board-release","kind":"code","ref":"organism-infra/55"},{"cause":"State block schema errors","tool":"handoff-state","kind":"code","ref":"organism-infra/51"},{"cause":"classifier blocks .claude/ edits by cells","tool":"other","kind":"genome","ref":"pending: user to apply orchestrator.md paragraph"}]}
+{"kind":"usage","ts":"2026-09-29T16:30:10Z","five_hour":52,"weekly":85,"event":"dispatch","ticket":"dimsumden-ui-v0/15-ui-performance","cell":"orchestrator"}
+{"kind":"context","ts":"2026-09-29T16:30:10Z","session":"bfd22390-2254-45d1-9826-0bdb7330ac3b","context_tokens":44195,"percent":4.42,"event":"dispatch"}
+{"kind":"cell","ts":"2026-09-29T16:33:08.421Z","ticket":"dimsumden-ui-v0/14-den-backdrop","cell":"designer","mode":"direction","tokens":49251,"ms":48028,"outcome":"3 directions A/B/C proposed; awaiting user pick"}
+{"kind":"config","ts":"2026-09-29T16:36:17Z","what":"jev.mjs tier and verify run with --mode live for orchestrator session 11 only; gather benefit stats","by":"user"}
+{"kind":"incident","ts":"2026-09-29T16:38:09Z","ticket":"dimsumden-ui-v0/14-den-backdrop","cell":"designer","tool":"AskUserQuestion","what":"designer dispatched as designer agent type reported AskUserQuestion unavailable in direction mode","cost":"user pick relayed via orchestrator","fix":"relay questions via handoff","rule_change":null}
+{"kind":"cell","ts":"2026-09-29T16:39:48.543Z","ticket":"dimsumden-ui-v0/14-den-backdrop","cell":"designer","mode":"spec","tokens":70182,"ms":91029,"outcome":"UI spec for direction A written; 2 open token questions"}
+{"kind":"jev","ts":"2026-09-29T16:42:53.959Z","ticket":"dimsumden-ui-v0/15-ui-performance","point":"tier","pick":"opus","actual":"opus","cost":0.000024654000000000005,"conf":0.61,"mode":"live","fallback":null,"ms":424,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-09-29T16:42:59Z","five_hour":57,"weekly":85,"event":"dispatch","ticket":"dimsumden-ui-v0/15-ui-performance","cell":"developer"}
+{"kind":"cell","ts":"2026-09-29T16:58:55.859Z","ticket":"dimsumden-ui-v0/15-ui-performance","cell":"developer","model":"opus","tokens":121265,"ms":946471,"outcome":"LOD plush mesh 130k->22k tris, shared prop cache; 1.9->6.2fps software GL; in-review"}
+{"kind":"incident","ts":"2026-09-29T16:58:55Z","ticket":"dimsumden-ui-v0/15-ui-performance","cell":"developer","tool":"Bash","what":"auto mode classifier gave no verdict (error) 7 times","cost":"retries","fix":"retried","rule_change":null}
+{"kind":"jev","ts":"2026-09-29T17:04:28.682Z","ticket":"dimsumden-ui-v0/15-ui-performance","point":"verify","pick":"light","actual":"light","cost":0.00022822800000000002,"conf":0.71,"mode":"live","fallback":null,"ms":499,"model":"jev-1.13.0"}
+{"kind":"incident","ts":"2026-09-29T17:04:35Z","ticket":"dimsumden-ui-v0/15-ui-performance","cell":"orchestrator","tool":"jev.mjs","what":"live verify picked light (0.71) on a ticket with no qa specify; genome floor requires full verify, so orchestrator overrode to full","cost":"none","fix":"override to full","rule_change":"jev.mjs verify should floor to full when no qa-specify handoff exists"}
+{"kind":"cell","ts":"2026-09-29T17:06:34.687Z","ticket":"dimsumden-ui-v0/15-ui-performance","cell":"qa","mode":"verify","tokens":38043,"ms":110847,"outcome":"full verify pass"}
+{"kind":"incident","ts":"2026-09-29T17:06:34Z","ticket":"dimsumden-ui-v0/15-ui-performance","cell":"qa","tool":"board handoff","what":"State block lacked mode; republish under same name refused, wrote 15-qa-verify-2.md; stale 15-qa-verify.md left","cost":"2 extra calls, stray file","fix":"renamed","rule_change":"board handoff should allow same cell to overwrite its own file (fold into organism-infra/55)"}
+{"kind":"usage","ts":"2026-09-29T17:11:21Z","five_hour":67,"weekly":85,"event":"merge","ticket":"dimsumden-ui-v0/15-ui-performance","cell":"orchestrator"}
+{"kind":"resolved","ts":"2026-09-29T17:11:45.504Z","ticket":"dimsumden-ui-v0/15-ui-performance","pr":56,"bounces":0}
+{"kind":"config","ts":"2026-09-29T17:12:44Z","what":"5-hour wrap-up threshold raised from 80% to 90% for orchestrator session 11 only","by":"user"}
+{"kind":"cell","ts":"2026-09-29T17:14:33.511Z","ticket":"dimsumden-ui-v0/14-den-backdrop","cell":"qa","mode":"specify","tokens":51057,"ms":99607,"outcome":"tests red at c454d75"}
+{"kind":"jev","ts":"2026-09-29T17:14:37.955Z","ticket":"dimsumden-ui-v0/14-den-backdrop","point":"tier","pick":"sonnet","actual":"sonnet","cost":0.000038388000000000006,"conf":0.96,"mode":"live","fallback":null,"ms":405,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-09-29T17:14:46Z","five_hour":69,"weekly":85,"event":"dispatch","ticket":"dimsumden-ui-v0/14-den-backdrop","cell":"developer"}
+{"kind":"cell","ts":"2026-09-29T17:16:46.093Z","ticket":"dimsumden-ui-v0/14-den-backdrop","cell":"developer","model":"sonnet","tokens":61618,"ms":115961,"outcome":"built; blocked on bad qa precondition in test 2"}
+{"kind":"incident","ts":"2026-09-29T17:16:46Z","ticket":"dimsumden-ui-v0/14-den-backdrop","cell":"qa","tool":"node --test","what":"specify test 2 asserted 0.9*bao.depth < 1.5, false for panda.glb (1.578); tests could not run red individually so it went unnoticed","cost":"developer blocked, extra qa hop","fix":"qa fixes test 2","rule_change":null}
+{"kind":"cell","ts":"2026-09-29T17:21:05.687Z","ticket":"dimsumden-ui-v0/14-den-backdrop","cell":"qa","mode":"specify","tokens":49107,"ms":132192,"outcome":"fixed tests 2 and 3b at e57494a; 10 mutations fail correctly"}
+{"kind":"usage","ts":"2026-09-29T17:21:14Z","five_hour":73,"weekly":85,"event":"dispatch","ticket":"dimsumden-ui-v0/14-den-backdrop","cell":"developer"}
+{"kind":"cell","ts":"2026-09-29T17:25:27.221Z","ticket":"dimsumden-ui-v0/14-den-backdrop","cell":"developer","model":"sonnet","tokens":61123,"ms":251891,"outcome":"added FiguresBoundary; 677/677; in-review"}
+{"kind":"jev","ts":"2026-09-29T17:28:29.998Z","ticket":"dimsumden-ui-v0/14-den-backdrop","point":"verify","pick":"light","actual":"light","cost":0.00022806000000000004,"conf":0.71,"mode":"live","fallback":null,"ms":332,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-09-29T17:31:37.706Z","ticket":"dimsumden-ui-v0/14-den-backdrop","cell":"qa","mode":"verify","model":"haiku","tokens":44568,"ms":181008,"outcome":"light verify pass; misattributed qa test fixes to developer"}
+{"kind":"cell","ts":"2026-09-29T17:32:50.683Z","ticket":"dimsumden-ui-v0/14-den-backdrop","cell":"designer","mode":"review","tokens":58162,"ms":61382,"outcome":"design pass; 5 low follow-ups"}
+{"kind":"usage","ts":"2026-09-29T17:37:13Z","five_hour":79,"weekly":85,"event":"merge","ticket":"dimsumden-ui-v0/14-den-backdrop","cell":"orchestrator"}
+{"kind":"resolved","ts":"2026-09-29T17:37:14.103Z","ticket":"dimsumden-ui-v0/14-den-backdrop","pr":57,"bounces":0}
+{"kind":"incident","ts":"2026-09-29T17:37:34Z","ticket":"none/orchestrator-session","cell":"orchestrator","tool":"other","what":"ran log-cell on the SubagentHandback message before the task notification with usage arrived; logged tokens 0 and patched rows with sed (5 times)","cost":"5 sed edits","fix":"sed patch","rule_change":null}
+{"kind":"incident","ts":"2026-09-29T17:37:34Z","ticket":"dimsumden-ui-v0/15-ui-performance","cell":"orchestrator","tool":"other","what":"called bare 'board' (not on PATH); needed node apps/organism-infra/board.mjs","cost":"1 retry","fix":"used full path","rule_change":null}
+{"kind":"retro","ts":"2026-09-29T17:39:14Z","window_from":"2026-09-29T16:23:08Z","items":7,"fixes":[{"cause":"log-cell before task notification","tool":"other","kind":"dispatch-template","ref":"a04eba6"},{"cause":"jev verify light without qa specify","tool":"other","kind":"code","ref":"organism-infra/58"},{"cause":"handoff republish refused for same cell","tool":"board-handoff","kind":"code","ref":"organism-infra/55"},{"cause":"specify tests fail on import, hiding bad precondition","tool":"npm","kind":"open-question","ref":null}]}

@@ -1,5 +1,7 @@
 # 06: Handoff choreography
 
+**Priority:** P2
+
 **What to build:** A handoff is visible. The sender plays point, a qi bead travels the pathway (per the existing Signaling spec in the design system), and the receiver plays look-up with a heart bubble. No cell leaves its perch.
 
 **Priority:** P2

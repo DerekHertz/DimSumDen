@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Priority:** P2
+
 **What to build:** A small check script `qa` runs on itself at the end of `specify` mode, per ADR 0009 decision 2's ranked #4 rule. It reads a ticket's `## Comments` for "Scope added" bullets (organism-protocol already treats these as acceptance criteria) and the test file `qa` just wrote, and fails if a bullet has no matching test (by close paraphrase match or an explicit `// scope: <ticket>#<n>` comment near the relevant test). This is the mechanical form of the incident where three scope items (deadline after self-reclaim, EPERM/EBUSY retry, `NODE_ENV` gate on `organism-infra/12`) got no tests and no code, and `security` had to catch it downstream.
 
 Override: a human marks a Comments bullet `(descoped)`, which the script skips.

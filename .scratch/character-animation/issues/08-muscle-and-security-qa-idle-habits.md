@@ -1,5 +1,7 @@
 # 08: Muscle + security/qa idle habits
 
+**Priority:** P2
+
 **What to build:** The remaining four modeled cell types get their working idle habit with props, as described in `cell-types.md`: developer (music bob and sip), scout (lantern peer), security (wall stare), qa (sip and nod or pucker). Genomes for security and qa stay out of scope; only their clips and the mapping are in.
 
 **Priority:** P2
