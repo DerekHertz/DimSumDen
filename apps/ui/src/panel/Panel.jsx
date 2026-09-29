@@ -1,6 +1,6 @@
 // Panel sections for ticket 09: usage meter, queue, selected ticket + latest handoff.
 // Agent text is untrusted: everything renders as React text nodes, never as HTML.
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { queueModel, detailModel } from "./queue-model.mjs";
 import { usageMeterModel } from "./usage-meter-model.mjs";
 import { parseMarkdown } from "./render-markdown.mjs";
@@ -79,7 +79,8 @@ function Inline({ nodes }) {
 }
 
 export function Markdown({ text }) {
-  return parseMarkdown(text).map((b, i) => {
+  const blocks = useMemo(() => parseMarkdown(text), [text]);
+  return blocks.map((b, i) => {
     if (b.type === "heading") {
       const level = Math.min(6, b.level + 2);
       const Tag = `h${level}`;

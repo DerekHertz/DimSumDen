@@ -148,3 +148,20 @@ test("the UI source never uses dangerouslySetInnerHTML", () => {
   scan(dir);
   assert.deepEqual(offenders, []);
 });
+
+test('pathological unclosed links parse in bounded time (security fix, 8 KB cap)', async () => {
+  const { parseMarkdown } = await import('./render-markdown.mjs');
+  for (const unit of ['[a](b', '[a]((', '[](']) {
+    const text = unit.repeat(Math.floor(8192 / unit.length));
+    const t0 = performance.now();
+    parseMarkdown(text);
+    assert.ok(performance.now() - t0 < 500, 'slow parse for ' + JSON.stringify(unit));
+  }
+});
+
+test('links with balanced parens in the url still parse', async () => {
+  const { parseInline } = await import('./render-markdown.mjs');
+  const n = parseInline('[w](https://en.wikipedia.org/wiki/A_(b)_c) x');
+  assert.equal(n[0].type, 'link');
+  assert.equal(n[0].href, 'https://en.wikipedia.org/wiki/A_(b)_c');
+});

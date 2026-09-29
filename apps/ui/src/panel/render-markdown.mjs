@@ -3,6 +3,25 @@
 const SAFE_HREF = /^https?:\/\/[^\s]+$/i;
 const LIST_ITEM = /^\s*(?:([-*+])|(\d+)[.)])\s+(.*)$/;
 
+// Linear scan for [label](url) at s[i]: no regex backtracking, no slicing (ReDoS fix, security 09).
+// url = non-space, non-')' chars with balanced one-level (...) groups. Returns null when not a link.
+function matchLink(s, i) {
+  const close = s.indexOf("]", i + 1);
+  if (close < 0 || s[close + 1] !== "(") return null;
+  let k = close + 2;
+  while (k < s.length) {
+    const c = s[k];
+    if (c === ")") return { label: s.slice(i + 1, close), href: s.slice(close + 2, k), end: k + 1 };
+    if (/\s/.test(c)) return null;
+    if (c === "(") {
+      const e = s.indexOf(")", k + 1);
+      if (e < 0) return null;
+      k = e + 1;
+    } else k++;
+  }
+  return null;
+}
+
 export function parseInline(s) {
   const out = [];
   let buf = "";
@@ -31,13 +50,13 @@ export function parseInline(s) {
         continue;
       }
     } else if (s[i] === "[") {
-      const m = /^\[([^\]]*)\]\(([^)\s]*(?:\([^)]*\)[^)\s]*)*)\)/.exec(s.slice(i));
+      const m = matchLink(s, i);
       if (m) {
         flush();
-        const children = parseInline(m[1]);
-        if (SAFE_HREF.test(m[2])) out.push({ type: "link", href: m[2], children });
+        const children = parseInline(m.label);
+        if (SAFE_HREF.test(m.href)) out.push({ type: "link", href: m.href, children });
         else out.push(...children);
-        i += m[0].length;
+        i = m.end;
         continue;
       }
     }
