@@ -16,3 +16,4 @@
 
 ## Comments
 - **Showcase sprint (user, 2026-09-29):** ship a demoable v1 tonight. Relay is developer then qa verify; risk-check decides security. Mockups: https://claude.ai/artifact/LQjpimx1jfX5bjZEoTo3za
+- **qa, 2026-09-29:** QA pass on unit tests and build. Needs user eye: click and Enter open the Dashboard with tables. smoke:ui not run here.

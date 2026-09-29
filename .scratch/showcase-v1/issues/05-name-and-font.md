@@ -16,3 +16,4 @@
 
 ## Comments
 - **Showcase sprint (user, 2026-09-29):** ship a demoable v1 tonight. Relay is developer then qa verify; risk-check decides security. Mockups: https://claude.ai/artifact/LQjpimx1jfX5bjZEoTo3za
+- **qa, 2026-09-29:** QA pass. Risk: smoke.mjs fails on a failed Google Fonts request offline (smoke.mjs:91-97); consider self-hosting or allowlisting. Fonts and pills need user eye.
