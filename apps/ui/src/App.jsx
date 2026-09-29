@@ -4,7 +4,8 @@ import { Den } from "./scene/Den.jsx";
 import { ChipLayer } from "./scene/ChipLayer.jsx";
 import { MAX_PLUSH, sceneFromState } from "./scene/scene-from-state.mjs";
 import { useLiveState } from "./live.js";
-import { UsageMeter, Queue, Detail } from "./panel/Panel.jsx";
+import { UsageMeter, Queue, Detail, Gates } from "./panel/Panel.jsx";
+import { gatesModel } from "./panel/gates-model.mjs";
 import { pillModel, panelPlaceholder } from "./state/connection.mjs";
 
 function ConnectionPill({ connection }) {
@@ -62,10 +63,11 @@ export function App() {
         {placeholder ? (
           <p className="muted">{placeholder}</p>
         ) : (
-          SECTIONS.map(([id, heading]) => (
+          SECTIONS.filter(([id]) => id !== "gates" || gatesModel(snapshot).visible).map(([id, heading]) => (
             <section key={id} aria-labelledby={`h-${id}`} className="slot" data-slot={id}>
-              <h2 id={`h-${id}`}>{heading}</h2>
+              <h2 id={`h-${id}`}>{heading}{id === "gates" ? <span className="gate-count">{gatesModel(snapshot).count}</span> : null}</h2>
               {id === "usage" && snapshot ? <UsageMeter usage={snapshot.usage} /> : null}
+              {id === "gates" ? <Gates snapshot={snapshot} /> : null}
               {id === "queue" && snapshot ? <Queue snapshot={snapshot} selected={selected} onSelect={setSelected} /> : null}
               {id === "detail" && snapshot ? <Detail snapshot={snapshot} selected={selected} /> : null}
             </section>

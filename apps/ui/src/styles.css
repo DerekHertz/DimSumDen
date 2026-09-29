@@ -134,3 +134,14 @@ body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-w
 .md-h { margin: var(--space-3) 0 var(--space-1); font-size: 14px; line-height: 20px; font-weight: 800; }
 .md-code { background: var(--surface-300); border-radius: var(--radius-m); padding: var(--space-2); overflow-x: auto; font: 500 12px/16px var(--font-mono); }
 .md code { font-family: var(--font-mono); font-size: 12px; }
+
+.gate-card { list-style: none; background: var(--surface-200); border: 1px solid var(--line-strong); border-radius: var(--radius-l); padding: var(--space-3); box-shadow: 0 0 0 2px var(--lantern-fill); margin-bottom: var(--space-3); }
+.gate-note { display: block; width: 100%; box-sizing: border-box; margin: var(--space-1) 0; border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: var(--surface-100); color: var(--ink); font: inherit; padding: var(--space-2); resize: none; }
+.gate-buttons { display: flex; gap: var(--space-2); }
+.btn { min-height: 36px; padding: 0 var(--space-3); border-radius: var(--radius-m); font: inherit; font-weight: 700; cursor: pointer; }
+.btn:disabled { opacity: var(--opacity-dim); cursor: default; }
+.btn-solid { background: var(--qi-fill); color: var(--on-qi); border: 1px solid var(--qi-fill); }
+.btn-outline { background: transparent; color: var(--ink); border: 1px solid var(--line-strong); }
+.gate-pending { color: var(--lantern); font-weight: 700; }
+.gate-error { color: var(--alarm); }
+.gate-count { background: var(--lantern-fill); color: var(--on-lantern); border-radius: var(--radius-full); padding: 0 var(--space-2); font-size: 12px; margin-left: var(--space-2); }
