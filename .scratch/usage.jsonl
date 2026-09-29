@@ -149,3 +149,4 @@
 {"kind":"usage","ts":"2026-09-29T21:18:50Z","five_hour":null,"weekly":null,"cloud_credits":50,"event":"dispatch","ticket":"showcase-v1/07-tally-stele","cell":"developer"}
 {"kind":"incident","ts":"2026-09-29T21:21:50Z","ticket":"showcase-v1/07-tally-stele","cell":"developer","tool":"Agent","what":"developer subagent has no Agent tool, so it cannot dispatch debugger as its genome says","cost":"pill offset root cause unconfirmed","fix":null,"rule_change":"candidate: orchestrator dispatches debugger when a developer asks"}
 {"kind":"cell","ts":"2026-09-29T21:21:57.460Z","ticket":"showcase-v1/07-tally-stele","cell":"developer","tokens":49775,"ms":163863,"outcome":"fix round a56a120: contrast fixed; pill anchor made pure + camera matrix refresh; offset not reproduced"}
+{"kind":"resolved","ts":"2026-09-29T21:28:59.055Z","ticket":"showcase-v1/07-tally-stele","pr":64,"bounces":0}

@@ -218,3 +218,5 @@
 {"seq":218,"ts":"2026-09-29T21:17:14.575Z","feature":"showcase-v1","ticket":"07-tally-stele","cell":"designer","op":"release","from_status":"claimed","to_status":"claimed","force":false}
 {"seq":219,"ts":"2026-09-29T21:19:07.526Z","feature":"showcase-v1","ticket":"07-tally-stele","cell":"developer","mode":null,"op":"claim","from_status":"claimed","to_status":"claimed"}
 {"seq":220,"ts":"2026-09-29T21:21:36.577Z","feature":"showcase-v1","ticket":"07-tally-stele","cell":"developer","op":"release","from_status":"claimed","to_status":"in-review","force":false}
+{"seq":221,"ts":"2026-09-29T21:28:58.957Z","feature":"showcase-v1","ticket":"07-tally-stele","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
+{"seq":222,"ts":"2026-09-29T21:28:59.053Z","feature":"showcase-v1","ticket":"07-tally-stele","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
