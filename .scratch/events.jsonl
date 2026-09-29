@@ -240,3 +240,4 @@
 {"seq":240,"ts":"2026-09-29T21:46:05.978Z","feature":"organism-infra","ticket":"30-handoff-error-shows-skeleton","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":241,"ts":"2026-09-29T21:49:22.612Z","feature":"organism-infra","ticket":"30-handoff-error-shows-skeleton","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":242,"ts":"2026-09-29T21:49:22.704Z","feature":"organism-infra","ticket":"30-handoff-error-shows-skeleton","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":243,"ts":"2026-09-29T21:58:56.125Z","feature":"organism-infra","ticket":"32-cloud-usage-estimate","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}

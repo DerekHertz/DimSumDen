@@ -11,7 +11,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] With fixture transcripts and readings, the estimate matches a hand-computed value
 - [ ] With no readings, it prints weighted tokens and a null credit estimate
