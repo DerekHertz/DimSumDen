@@ -7,10 +7,10 @@ Stack: Node ESM scripts (`.mjs`, tests via `node --test`); Vite is the only buil
 ## Cells
 
 Cell types are defined by genomes in `.claude/agents/`, grouped into stations:
-- Pass: `product`, `architect`, `orchestrator`
-- Steamers: `developer`, `scout`, `debugger`
-- Tea & Pantry: `qa`, `security`
-- Front of House: `designer`, `herald` (drafts public posts; the user publishes)
+- `product`, `architect`, `orchestrator` (Pass)
+- `developer`, `scout`, `debugger` (Steamers)
+- `qa`, `security` (Tea & Pantry)
+- `designer`, `herald` (Front of House); herald drafts public posts, the user publishes
 
 Code tickets run a relay: qa `specify` writes failing tests, developer makes them pass, qa `verify` checks (light verify if qa specified, full otherwise), then `npm run risk-check`: a clean exit skips `security`, a hit dispatches it. The orchestrator opens the PR and merges on green CI. designer specs and reviews UI tickets and critiques asset tickets. Every cell follows the `organism-protocol` skill: claim before working, stop at pass gates, hand off, then end.
 
