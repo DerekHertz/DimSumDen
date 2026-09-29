@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: Muscles helper on a stronger model that finds the root cause of a logic bug after a cheap smoke check (syntax, imports, tests, console) came back clean. Returns a diagnosis and a proposed fix; it never edits files. Dispatched by a developer, not the orchestrator.
+description: Steamers helper on a stronger model that finds the root cause of a logic bug after a cheap smoke check (syntax, imports, tests, console) came back clean. Returns a diagnosis and a proposed fix; it never edits files. Dispatched by a developer, not the orchestrator.
 tools: Read, Grep, Glob, Bash, Skill
 model: opus
 effort: high
@@ -9,7 +9,7 @@ maxTurns: 40
 skills:
   - diagnosing-bugs
 organism:
-  organ: muscles
+  station: steamers
   purpose: Spend strong-model reasoning only where cheap checks can't find the bug.
   inputs: ["failing behavior", "reproduction steps", "branch or worktree path", "smoke-check result"]
   outputs: ["root cause with file:line evidence and a minimal proposed fix, 300 words or fewer"]

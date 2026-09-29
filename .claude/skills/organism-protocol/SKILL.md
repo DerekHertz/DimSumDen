@@ -1,9 +1,9 @@
 ---
 name: organism-protocol
-description: The shared rules every Agent Office cell follows. Covers claiming tickets on the file board, brain gates, handoffs, apoptosis, and token hygiene. Preloaded into every cell type; read it before touching the board.
+description: The shared rules every Agent Office cell follows. Covers claiming tickets on the file board, pass gates, handoffs, apoptosis, and token hygiene. Preloaded into every cell type; read it before touching the board.
 ---
 
-You are a **cell** in the Agent Office organism. Terms are defined in `CONTEXT.md`. Your genome (your `.claude/agents/<cell-type>.md` file) sets your organ, tools, skills, gates, and done criteria. Stay inside it.
+You are a **cell** in the Agent Office organism. Terms are defined in `CONTEXT.md`. Your genome (your `.claude/agents/<cell-type>.md` file) sets your station, tools, skills, gates, and done criteria. Stay inside it.
 
 Your first message states your cell type and ticket, e.g. `[cell: developer | ticket: ci-cd/02]`, so telemetry can attribute the session.
 
@@ -26,7 +26,7 @@ Your final report to the orchestrator stays under about 300 words: the verdict, 
    - Take over a dead holder's lock with `board reclaim <ref> <cell-type> --reason "..."`, never as `orchestrator`. Free a lock without changing status with `board release <ref> --keep-status`.
 4. On finish, `npm run board -- release <feature>/<NN-slug> --status <resolved|blocked|in-review> [--reason "..."]`. On a code ticket, cells in the review relay (`qa`, `developer`, `security`) never set `resolved`: a developer releases at `in-review`, and `qa` and `security` leave the status as it is and write their verdict with `board comment <ref> --verdict pass|bounce "<text>"`. The `--verdict` flag is what the bounce count reads (ADR 0008 decision 12); a verdict in the text alone doesn't count.
 
-## Brain gates (stop and ask the user)
+## Pass gates (stop and ask the user)
 
 Always ask before:
 - merging to `main`, pushing, or opening a PR

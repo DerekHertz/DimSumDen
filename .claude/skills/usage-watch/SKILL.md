@@ -10,7 +10,7 @@ The user is on the **Pro** plan. If `get_usage` reports a different plan (e.g. i
 | 5-hour usage | Action |
 |---|---|
 | under 80% | Carry on. Check again at the next dispatch or cell return. |
-| 80–89% | **Wrap up.** Start no new cells. Let a running cell finish or reach a clean stopping point, then stop. Record the agreed next steps in each open ticket's `## Comments`, write handoffs, stop any dev servers you started, and commit and push finished work (pushing is still a brain gate). Tell the user the percentage and when it resets. |
+| 80–89% | **Wrap up.** Start no new cells. Let a running cell finish or reach a clean stopping point, then stop. Record the agreed next steps in each open ticket's `## Comments`, write handoffs, stop any dev servers you started, and commit and push finished work (pushing is still a pass gate). Tell the user the percentage and when it resets. |
 | 90% or more | **Stop now.** Nothing new at all. Write a one-paragraph handoff with what is in flight and where, and end. |
 
 Also check the weekly window. At 80% or more, tell the user before dispatching anything expensive (Opus cells, the full relay).
