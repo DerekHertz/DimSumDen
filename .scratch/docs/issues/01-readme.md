@@ -8,7 +8,7 @@
 
 **Blocked by:** None (the public-readiness audit decides only when the repo goes public, not the README)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] README under about 120 lines, accurate to the code on main
 - [ ] Every number cites its source
