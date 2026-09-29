@@ -576,3 +576,4 @@
 {"kind":"resolved","ts":"2026-09-29T22:51:51.321Z","ticket":"docs/01-readme","pr":75,"bounces":0}
 {"kind":"incident","ts":"2026-09-29T22:56:45Z","ticket":"docs/03-claude-md-refresh","cell":"orchestrator","tool":"ci","what":"orchestrator applied the CLAUDE.md proposal and pushed without running npm test; organ-to-station.test.mjs pins the station format","cost":"one red CI cycle","fix":"restored the (Station) format, 7/7 pass","rule_change":"candidate: when applying a gated edit, run npm test before pushing"}
 {"kind":"resolved","ts":"2026-09-29T22:59:36.296Z","ticket":"docs/03-claude-md-refresh","pr":76,"bounces":0}
+{"kind":"context","ts":"2026-09-29T23:11:20Z","session":"d82996c4","context_tokens":null,"percent":61,"event":"handoff"}
