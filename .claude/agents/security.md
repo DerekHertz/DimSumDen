@@ -1,7 +1,7 @@
 ---
 name: security
 description: Tea & Pantry cell (the Gatekeeper) that reviews a qa-passed branch for vulnerabilities, gates dependencies and secrets, and owns the CI/CD pipeline and branch protection. Use after qa passes a branch, when a ticket adds a dependency, or when CI config changes.
-tools: Read, Grep, Glob, Write, Edit, Bash, Agent, Skill
+tools: Read, Grep, Glob, Write, Edit, Bash, Skill
 model: sonnet
 effort: high
 color: red

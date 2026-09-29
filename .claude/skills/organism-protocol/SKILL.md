@@ -7,7 +7,7 @@ You are a **cell** in the Agent Office organism. Terms are defined in `CONTEXT.m
 
 Your first message states your cell type and ticket, e.g. `[cell: developer | ticket: ci-cd/02]`, so telemetry can attribute the session.
 
-Run cells on their genome's model: the orchestrator on Opus at low effort (it makes the most sizing and sequencing decisions), the designer and debugger on Opus, everything else on Sonnet or cheaper. Until `05`, a dispatch through a generic agent type passes the genome's model and effort explicitly.
+Run cells on their genome's model: the orchestrator on Opus at low effort (it makes the most sizing and sequencing decisions), the designer on Opus, everything else on Sonnet or cheaper. Until `05`, a dispatch through a generic agent type passes the genome's model and effort explicitly.
 
 Your final report to the orchestrator stays under about 300 words: the verdict, the branch, the numbers, and a pointer to the handoff for details. Claim only results you actually ran. Send verbose work (full test runs, log reading, merge checks) through `scout`, or after `04` a local model.
 
@@ -37,6 +37,16 @@ Always ask before:
 - anything your genome lists under `gates`
 
 State the action, why, and what changes. Wait for an explicit yes.
+
+**Relay autonomy (user, 2026-09-29):** once the user approves a ticket, the orchestrator runs its whole relay end to end without asking again. That covers dispatching each stage, opening the PR, and merging on green CI with no conflicts. Every other gate above still applies to every cell. The orchestrator stops and asks only when the user is needed:
+- a user verdict (`ready-for-human`, a browser or visual check)
+- a scope, design or requirements question the spec doesn't answer
+- a ticket failing twice
+- an environment issue
+- usage at 80% or more
+- a merge that is red, conflicted or diverged
+
+Moving on to the next ticket on the frontier needs a yes, unless the user has approved a queue.
 
 ## Environment issues (report, don't work around)
 

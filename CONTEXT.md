@@ -9,7 +9,7 @@ One project (one git repo) and every cell working on it.
 _Avoid_: Office, workspace, swarm
 
 **Station**:
-A group of cell types that owns one SDLC outcome, drawn as a place on Bao: the Pass (orchestrator, product, architect), Steamers (developer, scout, debugger), Tea & Pantry (qa, security), Front of House (designer), Service, Meter, Recipe book, Order rail. See the table in `design-brief.md` §4.2.
+A group of cell types that owns one SDLC outcome, drawn as a place on Bao: the Pass (orchestrator, product, architect), Steamers (developer, scout), Tea & Pantry (qa, security), Front of House (designer), Service, Meter, Recipe book, Order rail. See the table in `design-brief.md` §4.2.
 _Avoid_: Organ (the old name, renamed in organism-infra/53), team, department, squad
 
 **Cell type**:
@@ -110,3 +110,17 @@ _Avoid_: Error bucket, error type
 **Savings proposal**:
 A suggested change that cuts token use at a telemetry hotspot, such as an index, a helper script, or delegating to scout. It becomes a ticket only after the user approves it.
 _Avoid_: Optimization, recommendation
+
+## Communication
+
+**Herald**:
+The cell type that drafts public posts about the organism and what it builds. It writes a draft and never publishes.
+_Avoid_: Marketer, publisher, PR bot
+
+**Draft**:
+One herald output, 1 to 3 paragraphs plus a source header, for the user to edit and post. A post is what the user publishes.
+_Avoid_: Article
+
+**Post series**:
+An ordered set of related drafts, such as the first four.
+_Avoid_: Campaign

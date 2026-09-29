@@ -1,0 +1,119 @@
+// showcase-v1/04: work moving between stations. Pure; no three, React or DOM.
+//   deriveHandoffs(prev, next)  ticket change events -> handoffs (active cell type changed)
+//   susanLayout(items)          one basket per ticket, turned toward its station's stall
+//   turnAngle / lerpAngle       the basket turn over dur-slow (a jump under reduced motion)
+//   lanternState(cells)         which stall lanterns and whether the service bell glow
+import { ACTIVE_STATUSES, cellTypeOf } from "./scene-from-state.mjs";
+import { BAO, CUB_BASKET, STALL_CENTERS, TABLE, stationOf } from "./banquet-layout.mjs";
+
+/** dur-slow: the motion token for a basket turning between stalls. */
+export const DUR_SLOW_MS = 700;
+export const MAX_SUSAN_BASKETS = 12;
+
+const OUTER_RADIUS = 0.85;
+const INNER_RADIUS = 0.55;
+const BASKET_GAP = 0.4;
+const ANGLE_STEP = 0.5;
+
+/** Tickets that are active or queued, with the cell type working (or last worked) them and its station. */
+export function trackedTickets(snapshot) {
+  const tickets = snapshot?.tickets ?? [];
+  const frontier = new Set(snapshot?.frontier ?? []);
+  const out = new Map();
+  const list = tickets
+    .filter((t) => ACTIVE_STATUSES.has(t.status) || frontier.has(t.ref))
+    .sort((a, b) => (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0));
+  for (const t of list) {
+    const cellType = cellTypeOf(t);
+    out.set(t.ref, { cellType, station: stationOf(cellType) });
+  }
+  return out;
+}
+
+/**
+ * A handoff is a ticket in both snapshots whose active cell type changed. New and resolved tickets
+ * are not handoffs; neither is the first snapshot.
+ * @returns {{ref: string, fromCell: string, toCell: string, from: string, to: string, sameStation: boolean}[]}
+ */
+export function deriveHandoffs(prev, next) {
+  if (!prev) return [];
+  const before = trackedTickets(prev);
+  const handoffs = [];
+  for (const [ref, now] of trackedTickets(next)) {
+    const was = before.get(ref);
+    if (!was || was.cellType === now.cellType) continue;
+    handoffs.push({
+      ref, fromCell: was.cellType, toCell: now.cellType, from: was.station, to: now.station, sameStation: was.station === now.station,
+    });
+  }
+  return handoffs;
+}
+
+/** Angle around the susan (0 toward +z, positive toward +x) that points at a station. */
+export function stationBearing(station) {
+  const at = STALL_CENTERS[station] ?? (station === "cubs" ? CUB_BASKET : { x: BAO.position[0], z: BAO.position[2] });
+  return Math.atan2(at.x - TABLE.x, at.z - TABLE.z);
+}
+
+const xy = (b) => [Math.sin(b.angle) * b.radius, Math.cos(b.angle) * b.radius];
+
+/**
+ * Baskets in input order, each turned toward its station. A basket that would touch an earlier one
+ * moves along the ring, or to the inner ring, until it clears by BASKET_GAP.
+ * @param {{ref: string, station: string}[]} items
+ * @returns {{ref: string, station: string, angle: number, radius: number}[]}
+ */
+export function susanLayout(items) {
+  const placed = [];
+  for (const { ref, station } of items.slice(0, MAX_SUSAN_BASKETS)) {
+    const base = stationBearing(station);
+    let chosen = null;
+    for (let step = 0; step <= 2 * MAX_SUSAN_BASKETS && !chosen; step++) {
+      const offset = Math.ceil(step / 2) * ANGLE_STEP * (step % 2 ? 1 : -1);
+      for (const radius of [OUTER_RADIUS, INNER_RADIUS]) {
+        const candidate = { ref, station, angle: base + offset, radius };
+        const [x, y] = xy(candidate);
+        if (placed.every((p) => Math.hypot(xy(p)[0] - x, xy(p)[1] - y) >= BASKET_GAP)) {
+          chosen = candidate;
+          break;
+        }
+      }
+    }
+    placed.push(chosen ?? { ref, station, angle: base, radius: OUTER_RADIUS });
+  }
+  return placed;
+}
+
+const TAU = 2 * Math.PI;
+
+/** Interpolate between two angles along the shorter arc. */
+export function lerpAngle(from, to, t) {
+  let d = (to - from) % TAU;
+  if (d > Math.PI) d -= TAU;
+  if (d < -Math.PI) d += TAU;
+  return from + d * t;
+}
+
+/** The basket's angle `elapsedMs` into a turn. Reduced motion: it is at the target at once. */
+export function turnAngle(from, to, elapsedMs, reducedMotion) {
+  if (reducedMotion) return to;
+  const t = Math.min(1, Math.max(0, elapsedMs / DUR_SLOW_MS));
+  const eased = t * t * (3 - 2 * t);
+  return lerpAngle(from, to, eased);
+}
+
+/**
+ * @param {{cellType: string, pose: string}[]} cells
+ * @returns {{stalls: Set<string>, bell: boolean}} stall stations whose lantern lights; bell glows for any waiting cell
+ */
+export function lanternState(cells) {
+  const stalls = new Set();
+  let bell = false;
+  for (const c of cells) {
+    if (c.pose !== "waiting_on_user") continue;
+    bell = true;
+    const station = stationOf(c.cellType);
+    if (STALL_CENTERS[station]) stalls.add(station);
+  }
+  return { stalls, bell };
+}

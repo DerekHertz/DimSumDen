@@ -52,7 +52,7 @@ function hits(re, { allowNotes = false } = {}) {
 
 const STATION_OF = {
   orchestrator: "pass", product: "pass", architect: "pass",
-  developer: "steamers", scout: "steamers", debugger: "steamers",
+  developer: "steamers", scout: "steamers",
   qa: "tea-pantry", security: "tea-pantry",
   designer: "front-of-house",
 };

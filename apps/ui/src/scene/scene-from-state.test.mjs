@@ -63,14 +63,12 @@ test("output shape: exactly ref, cellType, status, perch, pose", async () => {
 // pose rule order table
 const poseCases = [
   ["gate merge beats everything", { status: "in-review", gate: "merge", lastCell: "security" }, [], "waiting_on_user"],
-  ["gate dispatch on a frontier ticket", { status: "ready-for-agent", ready: true, gate: "dispatch" }, ["f/01-t"], "waiting_on_user"],
   ["gate beats claimed", { status: "claimed", holder: claimedBy("developer"), gate: "merge" }, [], "waiting_on_user"],
   ["ready-for-human", { status: "ready-for-human", lastCell: "orchestrator" }, [], "waiting_on_user"],
   ["claimed", { status: "claimed", holder: claimedBy("developer") }, [], "working"],
   ["in-review with a holder (review running)", { status: "in-review", holder: claimedBy("qa") }, [], "working"],
   ["in-review without a holder", { status: "in-review", lastCell: "qa" }, [], "done"],
   ["blocked", { status: "blocked", lastCell: "developer" }, [], "blocked"],
-  ["frontier ticket without a gate", { status: "ready-for-agent", ready: true }, ["f/01-t"], "idle"],
 ];
 for (const [name, over, frontier, pose] of poseCases) {
   test(`pose: ${name} -> ${pose}`, async () => {
@@ -102,12 +100,12 @@ for (const [name, over, cellType] of typeCases) {
   });
 }
 
-test("perch: region from cell type, slot is 0-based index within the region in output order", async () => {
+test("perch: station from cell type (ADR 0013), slot is 0-based index within the station in output order", async () => {
   const cells = [
-    ["orchestrator", "crown#0"], ["product", "crown#1"], ["architect", "crown#2"],
-    ["developer", "shoulder#0"], ["scout", "shoulder#1"], ["debugger", "shoulder#2"],
-    ["qa", "knee#0"], ["security", "knee#1"],
-    ["designer", "grass#0"],
+    ["orchestrator", "orchestrator#0"], ["product", "product#0"], ["architect", "architect#0"],
+    ["developer", "steamers#0"], ["scout", "steamers#1"],
+    ["qa", "tea#0"], ["security", "pantry#0"],
+    ["designer", "front-of-house#0"],
   ];
   const tickets = cells.map(([cell], i) => ticket(i + 1, { status: "claimed", holder: claimedBy(cell) }));
   const out = await scene(snap(tickets));
@@ -121,10 +119,10 @@ test("perch: slot counts per region are independent", async () => {
     ticket(3, { holder: claimedBy("developer") }),
     ticket(4, { holder: claimedBy("qa") }),
   ]));
-  assert.deepEqual(out.map((c) => c.perch), ["shoulder#0", "knee#0", "shoulder#1", "knee#1"]);
+  assert.deepEqual(out.map((c) => c.perch), ["steamers#0", "tea#0", "steamers#1", "tea#1"]);
 });
 
-test("order: active tickets by ref, then frontier tickets in frontier order", async () => {
+test("order: active tickets by ref; queued tickets get no cell (showcase-v1/04: baskets only)", async () => {
   const out = await scene(snap([
     ticket(9, { status: "claimed", holder: claimedBy("developer") }),
     ticket(3, { status: "blocked", lastCell: "developer" }),
@@ -132,23 +130,22 @@ test("order: active tickets by ref, then frontier tickets in frontier order", as
     ticket(2, { status: "ready-for-agent", ready: true }),
     ticket(5, { status: "in-review", lastCell: "qa" }),
   ], ["f/07-t", "f/02-t"]));
-  assert.deepEqual(out.map((c) => c.ref), ["f/03-t", "f/05-t", "f/09-t", "f/07-t", "f/02-t"]);
+  assert.deepEqual(out.map((c) => c.ref), ["f/03-t", "f/05-t", "f/09-t"]);
 });
 
 test("order does not depend on input ticket order", async () => {
   const a = [ticket(2, { holder: claimedBy("developer") }), ticket(1, { holder: claimedBy("developer") })];
   const out = await scene(snap(a));
-  assert.deepEqual(out.map((c) => [c.ref, c.perch]), [["f/01-t", "shoulder#0"], ["f/02-t", "shoulder#1"]]);
+  assert.deepEqual(out.map((c) => [c.ref, c.perch]), [["f/01-t", "steamers#0"], ["f/02-t", "steamers#1"]]);
 });
 
-test("cap: at most 12 cells, active tickets win over frontier tickets", async () => {
+test("cap: queued tickets add no cells, so 10 active plus 5 queued is 10 cells", async () => {
   const active = Array.from({ length: 10 }, (_, i) => ticket(i + 1, { holder: claimedBy("developer") }));
   const ready = Array.from({ length: 5 }, (_, i) => ticket(20 + i, { status: "ready-for-agent", ready: true }));
   const frontier = ready.map((t) => t.ref);
   const out = await scene(snap([...active, ...ready], frontier));
-  assert.equal(out.length, 12);
-  assert.deepEqual(out.slice(0, 10).map((c) => c.ref), active.map((t) => t.ref));
-  assert.deepEqual(out.slice(10).map((c) => c.ref), ["f/20-t", "f/21-t"]);
+  assert.equal(out.length, 10);
+  assert.deepEqual(out.map((c) => c.ref), active.map((t) => t.ref));
 });
 
 test("cap: 15 active tickets are cut to the first 12 by ref", async () => {
@@ -173,8 +170,16 @@ test("worked example from ADR 0011 decision 7", async () => {
     ticket(7, { ref: "dimsumden-ui-v0/07-ui-shell", status: "ready-for-agent", ready: false, blockedBy: [{ ref: "dimsumden-ui-v0/05-bridge-events", status: "ready-for-agent" }] }),
   ], ["dimsumden-ui-v0/04-bridge-state"]));
   assert.deepEqual(brief(out), [
-    { ref: "organism-infra/28-review-claims-keep-in-review", cellType: "security", status: "in-review", perch: "knee#0", pose: "waiting_on_user" },
-    // cellType: lastCell "orchestrator" per the cellType rule (the ADR JSON sketch shows developer; the rule text governs).
-    { ref: "dimsumden-ui-v0/04-bridge-state", cellType: "orchestrator", status: "ready-for-agent", perch: "crown#0", pose: "waiting_on_user" },
+    { ref: "organism-infra/28-review-claims-keep-in-review", cellType: "security", status: "in-review", perch: "pantry#0", pose: "waiting_on_user" },
   ]);
+});
+
+test("withPassCell: an idle orchestrator stands on Bao's crown when none is active, and never twice", async () => {
+  const { withPassCell } = await load();
+  const [pass] = withPassCell([]);
+  assert.deepEqual(pass, { ref: "__pass", cellType: "orchestrator", status: "idle", perch: "orchestrator#0", pose: "idle", synthetic: true });
+  const real = { ref: "f/01-t", cellType: "orchestrator", status: "claimed", perch: "orchestrator#0", pose: "working" };
+  assert.deepEqual(withPassCell([real]), [real]);
+  const dev = { ref: "f/02-t", cellType: "developer", status: "claimed", perch: "steamers#0", pose: "working" };
+  assert.deepEqual(withPassCell([dev]).map((c) => c.ref), ["f/02-t", "__pass"]);
 });
