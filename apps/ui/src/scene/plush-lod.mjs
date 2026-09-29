@@ -58,6 +58,17 @@ export function clusterSimplify({ positions, index, groups }, { grid = PLUSH_GRI
   return { keep: Uint32Array.from(keep), remap, index: Uint32Array.from(out) };
 }
 
+/** The most-weighted joint of each vertex, from 4-wide skin index and weight arrays: the `groups` above. */
+export function dominantBones(joints, weights) {
+  const out = new Int32Array(joints.length / 4);
+  for (let v = 0; v < out.length; v++) {
+    let best = 0;
+    for (let k = 1; k < 4; k++) if (weights[v * 4 + k] > weights[v * 4 + best]) best = k;
+    out[v] = joints[v * 4 + best];
+  }
+  return out;
+}
+
 /** Per-cluster mean of an attribute (`itemSize` components per vertex) over `remap`. */
 export function averageAttribute(values, itemSize, remap, keepCount) {
   const sum = new Float64Array(keepCount * itemSize);

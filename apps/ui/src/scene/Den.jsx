@@ -7,11 +7,11 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { createCharacterDirector } from "../../../../packages/character-director/src/director.mjs";
 import { PROP_ASSETS } from "../assets/panda-contract.mjs";
-import { averageAttribute, clusterSimplify } from "./plush-lod.mjs";
+import { averageAttribute, clusterSimplify, dominantBones } from "./plush-lod.mjs";
 import { createAssetCache } from "./asset-cache.mjs";
 
 // Each prop glb is fetched and parsed once, then cloned per plush.
-const props = createAssetCache((url) => new GLTFLoader().loadAsync(url));
+const propGlbs = createAssetCache((url) => new GLTFLoader().loadAsync(url));
 
 const PLUSH_SCALE = 0.3;
 // Perch anchors as fractions of Bao's bounding box (x of width, y of height, z of depth).
@@ -53,14 +53,7 @@ function simplifyGeometry(geometry) {
   const pos = geometry.getAttribute("position");
   const joints = geometry.getAttribute("skinIndex");
   const weights = geometry.getAttribute("skinWeight");
-  const groups = new Int32Array(pos.count);
-  if (joints && weights) {
-    for (let v = 0; v < pos.count; v++) {
-      let best = 0;
-      for (let k = 1; k < 4; k++) if (weights.getComponent(v, k) > weights.getComponent(v, best)) best = k;
-      groups[v] = joints.getComponent(v, best);
-    }
-  }
+  const groups = joints && weights ? dominantBones(joints.array, weights.array) : undefined;
   const { keep, remap, index } = clusterSimplify({ positions: pos.array, index: geometry.index.array, groups });
   const out = new THREE.BufferGeometry();
   for (const [name, attr] of Object.entries(geometry.attributes)) {
@@ -69,8 +62,9 @@ function simplifyGeometry(geometry) {
     if (name === "position" || name === "normal") {
       array = averageAttribute(attr.array, size, remap, keep.length);
     } else if (name === "color") {
-      // Averaged, so the fur colour does not turn speckled; stored back in the source's integer type.
-      array = attr.array.constructor.from(averageAttribute(attr.array, size, remap, keep.length), Math.round);
+      // Averaged, so the fur colour does not turn speckled; an integer source type is rounded back.
+      const mean = averageAttribute(attr.array, size, remap, keep.length);
+      array = attr.array instanceof Float32Array ? mean : attr.array.constructor.from(mean, Math.round);
     } else {
       array = new attr.array.constructor(keep.length * size);
       for (let j = 0; j < keep.length; j++) for (let k = 0; k < size; k++) array[j * size + k] = attr.array[keep[j] * size + k];
@@ -90,7 +84,10 @@ function simplifyGeometry(geometry) {
 
 const plushGeometries = new WeakMap();
 function plushGeometryFor(geometry) {
-  if (geometry.getAttribute("position").count < LOD_MIN_VERTICES || !geometry.index) return geometry;
+  // Morph targets and interleaved buffers are not carried over; such a mesh stays at full detail.
+  const plain = Object.values(geometry.attributes).every((a) => a.isBufferAttribute && !a.isInterleavedBufferAttribute);
+  if (!plain || Object.keys(geometry.morphAttributes).length || !geometry.index) return geometry;
+  if (geometry.getAttribute("position").count < LOD_MIN_VERTICES) return geometry;
   let g = plushGeometries.get(geometry);
   if (!g) {
     g = simplifyGeometry(geometry);
@@ -130,7 +127,7 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
     if (!spec) return undefined;
     let added = null;
     let cancelled = false;
-    props.get(`/models/${spec.file}`).then((p) => {
+    propGlbs.get(`/models/${spec.file}`).then((p) => {
       const socket = object.getObjectByName(spec.socket);
       if (cancelled || !socket) return;
       added = p.scene.clone(true);

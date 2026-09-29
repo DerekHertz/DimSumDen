@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseGlb } from "../assets/prop-placement.mjs";
-import { clusterSimplify, averageAttribute, PLUSH_GRID } from "./plush-lod.mjs";
+import { clusterSimplify, averageAttribute, dominantBones, PLUSH_GRID } from "./plush-lod.mjs";
 
 const COMPONENT = { 5121: Uint8Array, 5123: Uint16Array, 5125: Uint32Array, 5126: Float32Array };
 const WIDTH = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 };
@@ -27,15 +27,14 @@ function pandaBody() {
   const index = accessor(glb, prim.indices);
   const joints = accessor(glb, prim.attributes.JOINTS_0);
   const weights = accessor(glb, prim.attributes.WEIGHTS_0);
-  // Dominant bone per vertex, the same grouping Den.jsx uses.
-  const groups = new Int32Array(positions.length / 3);
-  for (let v = 0; v < groups.length; v++) {
-    let best = 0;
-    for (let k = 1; k < 4; k++) if (weights[v * 4 + k] > weights[v * 4 + best]) best = k;
-    groups[v] = joints[v * 4 + best];
-  }
-  return { positions, index, groups };
+  return { positions, index, groups: dominantBones(joints, weights) };
 }
+
+test("dominantBones picks each vertex's most-weighted joint", () => {
+  const joints = new Uint8Array([4, 5, 6, 7, 2, 3, 0, 0]);
+  const weights = new Float32Array([0.1, 0.6, 0.3, 0, 1, 0, 0, 0]);
+  assert.deepEqual([...dominantBones(joints, weights)], [5, 2]);
+});
 
 function bbox(positions) {
   const min = [Infinity, Infinity, Infinity];
