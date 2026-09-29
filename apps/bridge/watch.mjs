@@ -1,0 +1,145 @@
+// Change hub (ADR 0011 decisions 2 and 5): watches .scratch, rebuilds the
+// snapshot, diffs it against the previous one and fans typed change events out
+// to SSE clients. Internal to the bridge; tested only through GET /events.
+import fs from "node:fs";
+import path from "node:path";
+import { buildSnapshot } from "./snapshot.mjs";
+
+const DEBOUNCE_MS = 100;
+const NET_MS = 2000;
+const PING_MS = 15000;
+const DRAIN_MS = 5000;
+
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+function fileSig(file) {
+  try {
+    const s = fs.statSync(file);
+    return `${s.size}:${s.mtimeMs}`;
+  } catch {
+    return "";
+  }
+}
+
+// Pure diff of two snapshots into change payloads (without seq).
+function diff(prev, next) {
+  const out = [];
+  const before = new Map(prev.tickets.map((t) => [t.ref, t]));
+  const after = new Map(next.tickets.map((t) => [t.ref, t]));
+  for (const [ref, t] of after) {
+    if (!same(before.get(ref), t)) out.push({ type: "ticket", ref, ticket: t });
+  }
+  for (const ref of before.keys()) {
+    if (!after.has(ref)) out.push({ type: "ticket", ref, ticket: null });
+  }
+  if (!same(prev.frontier, next.frontier)) out.push({ type: "frontier", refs: next.frontier });
+  if (!same(prev.usage, next.usage)) out.push({ type: "usage", usage: next.usage });
+  if (prev.sessions !== next.sessions) out.push({ type: "sessions", sessions: next.sessions });
+  if (!same(prev.requests, next.requests)) out.push({ type: "requests", requests: next.requests });
+  return out;
+}
+
+export function createHub(root) {
+  const scratch = path.join(root, ".scratch");
+  const clients = new Set();
+  let seq = 0;
+  let current = null;
+  let metricsSig = null;
+  let chain = Promise.resolve();
+  let closed = false;
+
+  const metricsSigNow = () => `${fileSig(path.join(scratch, "usage.jsonl"))}|${fileSig(path.join(scratch, "events.jsonl"))}`;
+
+  function send(res, chunk) {
+    if (res.destroyed || res.writableEnded) return;
+    if (res.write(chunk) === false && !res.drainTimer) {
+      res.drainTimer = setTimeout(() => res.destroy(), DRAIN_MS);
+      res.once("drain", () => {
+        clearTimeout(res.drainTimer);
+        res.drainTimer = null;
+      });
+    }
+  }
+  const frame = (event, data) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+
+  async function doRefresh() {
+    if (closed) return;
+    const sig = metricsSigNow();
+    const next = await buildSnapshot(root, seq);
+    if (!current) {
+      current = next;
+      metricsSig = sig;
+      return;
+    }
+    const events = diff(current, next);
+    if (sig !== metricsSig) events.push({ type: "metrics-changed" });
+    metricsSig = sig;
+    // Ticket-level fields are compared; seq and generatedAt are envelope-only.
+    current = next;
+    for (const ev of events) {
+      seq += 1;
+      const payload = { seq, ...ev };
+      for (const res of clients) send(res, frame("change", payload));
+    }
+    current.seq = seq;
+  }
+
+  // Serialised so concurrent triggers never interleave diffs.
+  function refresh() {
+    chain = chain.then(doRefresh).catch((err) => console.error(`bridge: refresh failed: ${err.stack ?? err}`));
+    return chain;
+  }
+
+  let debounce = null;
+  const trigger = () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(refresh, DEBOUNCE_MS);
+  };
+
+  let watcher = null;
+  try {
+    watcher = fs.watch(scratch, { recursive: true }, trigger);
+    watcher.on("error", () => {});
+  } catch {
+    // The 2 s safety net still runs.
+  }
+  const net = setInterval(refresh, NET_MS);
+  const ping = setInterval(() => {
+    for (const res of clients) send(res, ": ping\n\n");
+  }, PING_MS);
+  net.unref();
+  ping.unref();
+
+  return {
+    ready: refresh(),
+    async snapshot() {
+      await refresh();
+      return { ...current, seq };
+    },
+    async connect(req, res) {
+      const snap = await this.snapshot();
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-store",
+        Connection: "keep-alive",
+      });
+      clients.add(res);
+      const drop = () => {
+        clients.delete(res);
+        clearTimeout(res.drainTimer);
+      };
+      req.on("close", drop);
+      res.on("close", drop);
+      send(res, frame("snapshot", snap));
+    },
+    close() {
+      closed = true;
+      clearTimeout(debounce);
+      clearInterval(net);
+      clearInterval(ping);
+      watcher?.close();
+      for (const res of clients) res.end();
+      clients.clear();
+    },
+  };
+}

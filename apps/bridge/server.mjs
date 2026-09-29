@@ -1,14 +1,16 @@
-// Localhost bridge (ADR 0011 decision 2). This ticket: GET /state only, plus
+// Localhost bridge (ADR 0011 decision 2). Tickets 04 and 05: GET /state and GET /events, plus
 // the loopback binding and Host-header hardening that apply to every route.
 // SSE, /metrics, POST /requests and static files arrive in tickets 05 and 06.
 import http from "node:http";
 import { fileURLToPath } from "node:url";
-import { buildSnapshot } from "./snapshot.mjs";
+import { createHub } from "./watch.mjs";
 
 const HOST = "127.0.0.1";
 
 export async function startBridge({ root, port = 4317, uiDir } = {}) {
   let actualPort = port;
+  const hub = createHub(root);
+  await hub.ready;
   const server = http.createServer(async (req, res) => {
     try {
       await handle(req, res);
@@ -34,9 +36,13 @@ export async function startBridge({ root, port = 4317, uiDir } = {}) {
       return;
     }
     if (req.method === "GET" && pathname === "/state") {
-      const snap = await buildSnapshot(root, 0);
+      const snap = await hub.snapshot();
       res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
       res.end(JSON.stringify(snap));
+      return;
+    }
+    if (req.method === "GET" && pathname === "/events") {
+      await hub.connect(req, res);
       return;
     }
     res.writeHead(404, { "Content-Type": "text/plain" });
@@ -52,6 +58,7 @@ export async function startBridge({ root, port = 4317, uiDir } = {}) {
     port: actualPort,
     close: () =>
       new Promise((resolve) => {
+        hub.close();
         server.close(() => resolve());
         server.closeAllConnections?.();
       }),
