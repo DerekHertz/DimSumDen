@@ -12,3 +12,4 @@
 - [ ] Tests cover both cells
 
 ## Comments
+- **Evidence (orchestrator, 2026-09-29):** `release --keep-status` from a non-review claim left status `claimed` instead of the prior status (designer on showcase-v1/07, qa specify on organism-infra/30).

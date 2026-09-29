@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] Each State-block rejection prints the skeleton with the ticket, cell and mode filled in
 - [ ] `release --status` to anything except `blocked` refuses when no valid handoff is newer than the claim

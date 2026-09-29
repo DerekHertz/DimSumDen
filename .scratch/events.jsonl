@@ -228,3 +228,5 @@
 {"seq":228,"ts":"2026-09-29T21:34:52.099Z","feature":"character-animation","ticket":"17-stalls-table-and-cub-basket","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
 {"seq":229,"ts":"2026-09-29T21:34:52.178Z","feature":"character-animation","ticket":"18-todays-board","cell":"orchestrator","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
 {"seq":230,"ts":"2026-09-29T21:34:52.275Z","feature":"character-animation","ticket":"18-todays-board","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":231,"ts":"2026-09-29T21:35:59.316Z","feature":"organism-infra","ticket":"30-handoff-error-shows-skeleton","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":232,"ts":"2026-09-29T21:37:09.063Z","feature":"organism-infra","ticket":"30-handoff-error-shows-skeleton","cell":"qa","op":"release","from_status":"claimed","to_status":"claimed","force":false}
