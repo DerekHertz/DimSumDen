@@ -9,6 +9,7 @@
 // machine (Chrome, then Edge) so this doesn't need its own Chromium download locally; CI installs
 // Chromium separately and this falls back to the Playwright-managed browser there.
 import { createDevServer, REPO_ROOT, FAVICON_PATH } from "./dev-server.mjs";
+import { buildLaunchOptions } from "./launch-options.mjs";
 
 const LAUNCH_CHANNELS = ["chrome", "msedge", undefined];
 
@@ -38,7 +39,7 @@ async function launchBrowser(chromium) {
   let lastError;
   for (const channel of LAUNCH_CHANNELS) {
     try {
-      return await chromium.launch(channel ? { channel } : {});
+      return await chromium.launch(buildLaunchOptions(channel));
     } catch (err) {
       lastError = err;
     }

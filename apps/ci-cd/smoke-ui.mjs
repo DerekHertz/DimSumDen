@@ -9,6 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { makeStateFixture, FEATURE, HANDLED_ID } from "../bridge/bridge-fixture.mjs";
 import { startBridge } from "../bridge/server.mjs";
+import { buildLaunchOptions } from "./launch-options.mjs";
 
 const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../", import.meta.url)));
 
@@ -56,7 +57,7 @@ async function launch(chromium) {
   let last;
   for (const channel of ["chrome", "msedge", undefined]) {
     try {
-      return await chromium.launch(channel ? { channel } : {});
+      return await chromium.launch(buildLaunchOptions(channel));
     } catch (err) {
       last = err;
     }

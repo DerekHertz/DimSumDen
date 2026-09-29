@@ -69,6 +69,10 @@ function makeWorktreeWithoutDeps() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "smoke-missing-deps-"));
   fs.copyFileSync(path.join(REPO_ROOT, "apps/ci-cd/smoke.mjs"), path.join(dir, "smoke.mjs"));
   fs.copyFileSync(
+    path.join(REPO_ROOT, "apps/ci-cd/launch-options.mjs"),
+    path.join(dir, "launch-options.mjs")
+  );
+  fs.copyFileSync(
     path.join(REPO_ROOT, "apps/ci-cd/dev-server.mjs"),
     path.join(dir, "dev-server.mjs")
   );
@@ -182,6 +186,10 @@ test("smoke does not silently skip when a dependency is missing -- it still coun
 function makeWorktreeWithMissingBrowserBinary() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "smoke-missing-browser-"));
   fs.copyFileSync(path.join(REPO_ROOT, "apps/ci-cd/smoke.mjs"), path.join(dir, "smoke.mjs"));
+  fs.copyFileSync(
+    path.join(REPO_ROOT, "apps/ci-cd/launch-options.mjs"),
+    path.join(dir, "launch-options.mjs")
+  );
   fs.copyFileSync(
     path.join(REPO_ROOT, "apps/ci-cd/dev-server.mjs"),
     path.join(dir, "dev-server.mjs")
