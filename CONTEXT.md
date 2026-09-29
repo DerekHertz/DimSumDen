@@ -8,9 +8,9 @@ Formerly Agent Office. A personal control room for observing and steering AI age
 One project (one git repo) and every cell working on it.
 _Avoid_: Office, workspace, swarm
 
-**Organ**:
-A group of cell types that owns one SDLC outcome (Brain, Muscles, Skin, Immune, Liver, Heart, Endocrine, Memory, Nervous system).
-_Avoid_: Team, department, squad
+**Station**:
+A group of cell types that owns one SDLC outcome, drawn as a place on Bao: the Pass (orchestrator, product, architect), Steamers (developer, scout, debugger), Tea & Pantry (qa, security), Front of House (designer), Service, Meter, Recipe book, Order rail. See the table in `design-brief.md` §4.2.
+_Avoid_: Organ (the old name, still in genomes and code until organism-infra/53), team, department, squad
 
 **Cell type**:
 A reusable role definition: prompt, tools, model, skills, gates, done criteria.
