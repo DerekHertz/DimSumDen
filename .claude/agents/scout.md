@@ -7,7 +7,7 @@ effort: low
 color: yellow
 maxTurns: 25
 organism:
-  organ: muscles
+  station: steamers
   purpose: Absorb verbose output so other cells only receive conclusions.
   inputs: ["one precise question or command"]
   outputs: ["summary of 300 words or fewer, with file:line references"]

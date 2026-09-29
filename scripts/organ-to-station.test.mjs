@@ -1,0 +1,112 @@
+// organism-infra/53: acceptance tests for the organ -> station rename (and Brain gate -> Pass gate).
+// See .scratch/organism-infra/issues/53-organ-to-station-rename.md.
+//
+// Seams: the repo's text surface (genomes, skills, docs/agents, CLAUDE.md, apps/, scripts/) and the
+// genome frontmatter under .claude/agents/. No code in apps/ parses `organism.organ:` today
+// (schemas.mjs has no genome schema), so "the schema accepts station:" is tested as: every genome
+// carries a valid `station:` value and no `organ:` key.
+//
+// Not testable automatically (human-verified): that the prose reads well after the rename.
+// Fixtures under apps/organism-infra/fixtures/ are frozen historical ticket copies and are skipped.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const SELF = path.join(ROOT, "scripts", "organ-to-station.test.mjs");
+const TEXT_EXT = new Set([".md", ".mjs", ".js", ".jsx", ".ts", ".tsx", ".py", ".json", ".css", ".html"]);
+
+function walk(dir, out = []) {
+  if (!fs.existsSync(dir)) return out;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === "node_modules" || e.name === ".git" || e.name === "fixtures") continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) walk(p, out);
+    else if (TEXT_EXT.has(path.extname(e.name)) && p !== SELF) out.push(p);
+  }
+  return out;
+}
+
+const scope = [
+  ...walk(path.join(ROOT, ".claude")),
+  ...walk(path.join(ROOT, "docs", "agents")),
+  ...walk(path.join(ROOT, "apps")),
+  ...walk(path.join(ROOT, "scripts")),
+  path.join(ROOT, "CLAUDE.md"),
+];
+const rel = (p) => path.relative(ROOT, p);
+const isNote = (line) => /was:\s*organ|was \(organ\)|the old name/i.test(line);
+
+function hits(re, { allowNotes = false } = {}) {
+  const found = [];
+  for (const f of scope) {
+    fs.readFileSync(f, "utf8").split("\n").forEach((line, i) => {
+      if (re.test(line) && !(allowNotes && isNote(line))) found.push(`${rel(f)}:${i + 1}: ${line.trim().slice(0, 100)}`);
+    });
+  }
+  return found;
+}
+
+const STATION_OF = {
+  orchestrator: "pass", product: "pass", architect: "pass",
+  developer: "steamers", scout: "steamers", debugger: "steamers",
+  qa: "tea-pantry", security: "tea-pantry",
+  designer: "front-of-house",
+};
+
+function frontmatter(name) {
+  const text = fs.readFileSync(path.join(ROOT, ".claude", "agents", `${name}.md`), "utf8");
+  return text.split(/\n---\s*\n/)[0];
+}
+
+test("no bare word 'organ'/'organs' remains in scope except 'was: organ' notes (criterion 1)", () => {
+  assert.deepEqual(hits(/\borgans?\b/i, { allowNotes: true }), []);
+});
+
+test("every genome declares organism.station with its station value (criterion 2)", () => {
+  for (const [name, station] of Object.entries(STATION_OF)) {
+    const fm = frontmatter(name);
+    assert.match(fm, new RegExp(`^\\s+station:\\s*${station}\\s*$`, "m"), `${name}.md station: ${station}`);
+  }
+});
+
+test("no genome frontmatter keeps an 'organ:' key (criterion 2)", () => {
+  for (const name of Object.keys(STATION_OF)) {
+    assert.doesNotMatch(frontmatter(name), /^\s+organ:/m, `${name}.md still has organ:`);
+  }
+});
+
+test("cell prose uses station names, not Brain/Muscles/Immune/Skin cell (criterion 1)", () => {
+  assert.deepEqual(hits(/\b(Brain|Muscles|Immune|Skin) (cell|organ)\b|\((Brain|Muscles|Immune|Skin)\)/), []);
+  const qa = fs.readFileSync(path.join(ROOT, ".claude", "agents", "qa.md"), "utf8");
+  assert.match(qa, /\*\*qa\*\* cell of the Tea (&|and) Pantry station/i);
+  const orch = fs.readFileSync(path.join(ROOT, ".claude", "agents", "orchestrator.md"), "utf8");
+  assert.match(orch, /cell of the (Pass|The Pass) station/i);
+});
+
+test("'Brain gate' is renamed to 'Pass gate' everywhere in scope (criterion 3)", () => {
+  assert.deepEqual(hits(/brain gates?/i), []);
+  const proto = fs.readFileSync(path.join(ROOT, ".claude", "skills", "organism-protocol", "SKILL.md"), "utf8");
+  assert.match(proto, /## Pass gates/);
+});
+
+test("CLAUDE.md Cells section names the stations", () => {
+  const md = fs.readFileSync(path.join(ROOT, "CLAUDE.md"), "utf8");
+  assert.match(md, /\(Pass\)/);
+  assert.match(md, /\(Steamers\)/);
+  assert.match(md, /\(Tea & Pantry\)/);
+  assert.match(md, /\(Front of House\)/);
+  assert.match(md, /stop at pass gates/);
+});
+
+test("the rename and the Pass gate decision are recorded in an ADR (criterion 3)", () => {
+  const dir = path.join(ROOT, "docs", "adr");
+  const recorded = fs.readdirSync(dir).filter((f) => f.endsWith(".md")).filter((f) => {
+    const t = fs.readFileSync(path.join(dir, f), "utf8");
+    return /organ/i.test(t) && /station/i.test(t) && /pass gate/i.test(t) && /renam/i.test(t);
+  });
+  assert.ok(recorded.length > 0, "no ADR or ADR index line records organ -> station and Brain -> Pass gate");
+});

@@ -14,7 +14,7 @@ Local clone for diffing: `vendor/mattpocock-skills/` (git-ignored). Update with 
 | wayfinder, resolving-merge-conflicts, writing-for-agents | as-is | none |
 | handoff | **adapted** | Model-invocable. Writes to the board (`.scratch/<feature>/handoffs/`) instead of the OS temp dir. Fixed sections, 60-line cap. |
 | implement | **adapted** | Model-invocable. Claims the ticket via organism-protocol, delegates verbose output to `scout`, never merges, ends with /handoff. |
-| to-tickets | **adapted** | Model-invocable (orchestrator). Step 4 is a brain gate. |
+| to-tickets | **adapted** | Model-invocable (orchestrator). Step 4 is a pass gate. |
 | to-spec | **adapted** | Model-invocable (product). |
 | code-review | **adapted** | Adds a Pro token-budget note (sonnet sub-agents, diff command not pasted, current ticket only). |
 | organism-protocol | **new** | Shared cell rules: board, claims, gates, apoptosis, token hygiene. |

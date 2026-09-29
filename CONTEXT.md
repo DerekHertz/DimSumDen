@@ -10,7 +10,7 @@ _Avoid_: Office, workspace, swarm
 
 **Station**:
 A group of cell types that owns one SDLC outcome, drawn as a place on Bao: the Pass (orchestrator, product, architect), Steamers (developer, scout, debugger), Tea & Pantry (qa, security), Front of House (designer), Service, Meter, Recipe book, Order rail. See the table in `design-brief.md` §4.2.
-_Avoid_: Organ (the old name, still in genomes and code until organism-infra/53), team, department, squad
+_Avoid_: Organ (the old name, renamed in organism-infra/53), team, department, squad
 
 **Cell type**:
 A reusable role definition: prompt, tools, model, skills, gates, done criteria.
@@ -66,16 +66,16 @@ _Avoid_: Summary, progress note
 
 ## Control
 
-**Brain gate**:
+**Pass gate**:
 A point where a cell must stop and get the user's explicit approval.
 _Avoid_: Checkpoint, approval step
 
 **Gate request**:
-The user's approve or reject on a brain gate, made in the UI and recorded as one line in `.scratch/_requests/requests.jsonl`. The orchestrator reads it, acts, and marks it handled. A gate request never runs anything itself.
+The user's approve or reject on a pass gate, made in the UI and recorded as one line in `.scratch/_requests/requests.jsonl`. The orchestrator reads it, acts, and marks it handled. A gate request never runs anything itself.
 _Avoid_: Command, action (the UI does not execute)
 
 **Autonomy**:
-How many brain gates apply: supervised, gated, or autopilot. It is set per organism, organ, or cell.
+How many pass gates apply: supervised, gated, or autopilot. It is set per organism, station, or cell.
 
 **Apoptosis**:
 A cell ending on purpose once its ticket is done, it is blocked, or its context grows long.

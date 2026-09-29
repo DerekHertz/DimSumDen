@@ -13,7 +13,7 @@ Run typechecking regularly, single test files regularly, and the full test suite
 
 Once done, use /code-review to review the work.
 
-Commit your work to the current branch (your cell's worktree branch). Never merge to main: merging is a brain gate.
+Commit your work to the current branch (your cell's worktree branch). Never merge to main: merging is a pass gate.
 
 Finish with /handoff.
 
