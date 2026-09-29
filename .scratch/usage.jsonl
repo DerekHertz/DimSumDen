@@ -163,3 +163,4 @@
 {"kind":"cell","ts":"2026-09-29T21:41:57.468Z","ticket":"organism-infra/30-handoff-error-shows-skeleton","cell":"developer","tokens":42982,"ms":187469,"outcome":"in-review at ad43f95; 795/800, 5 expected smoke"}
 {"kind":"cell","ts":"2026-09-29T21:44:21.457Z","ticket":"organism-infra/30-handoff-error-shows-skeleton","cell":"qa","mode":"verify","tokens":31167,"ms":133747,"outcome":"light verify pass"}
 {"kind":"cell","ts":"2026-09-29T21:46:36.124Z","ticket":"organism-infra/30-handoff-error-shows-skeleton","cell":"security","tokens":40155,"ms":76034,"outcome":"pass; low: validate lock cell/mode before printing; gitleaks missing in cloud"}
+{"kind":"resolved","ts":"2026-09-29T21:49:22.707Z","ticket":"organism-infra/30-handoff-error-shows-skeleton","pr":66,"bounces":0}
