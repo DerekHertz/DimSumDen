@@ -17,3 +17,4 @@
 ## Comments
 - **Evidence (orchestrator, 2026-09-29):** 4 State-block rejections in one cloud session: qa missing `mode`, designer markdown instead of json (twice), developer missing four fields. See incidents in `.scratch/usage.jsonl` with tool "board handoff" / "board release".
 - **Decision (user, 2026-09-29):** agreed.
+- **qa, 2026-09-29:** QA pass (light verify): 12/12 specify tests pass, test file unchanged, only board-service.mjs touched. 5 browser smoke failures expected in cloud.
