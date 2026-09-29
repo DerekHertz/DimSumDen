@@ -37,6 +37,7 @@ try {
 } catch (e) {
   fail(`request failed (${e.name})`);
 }
+if (res.status === 401) fail("HTTP 401: the Claude Code login expired; run `claude /login`");
 if (!res.ok) fail(`HTTP ${res.status}`);
 
 let body;

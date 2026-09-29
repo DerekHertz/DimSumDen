@@ -5,7 +5,7 @@
 //
 // Run first, inside the worktree. Refuses in the main checkout or a dirty
 // worktree; otherwise switches to a new branch at <sha> (or detaches there),
-// then runs `npm ci`.
+// then runs `npm ci`. An existing branch is checked out and fast-forwarded to <sha>.
 import { spawnSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 
@@ -57,9 +57,15 @@ const sha = git(["rev-parse", "--verify", "--quiet", `${opts.base}^{commit}`]);
 if (sha.status !== 0) fail(`unknown base commit ${opts.base}`);
 const base = sha.stdout.trim();
 
+// organism-infra/51: an existing branch (the developer after qa specify) is checked
+// out and fast-forwarded to --base; anything that isn't a fast-forward is refused.
+let existingBranch = false;
 if (opts.branch) {
-  const exists = git(["show-ref", "--verify", "--quiet", `refs/heads/${opts.branch}`]);
-  if (exists.status === 0) fail(`branch ${opts.branch} already exists`);
+  existingBranch = git(["show-ref", "--verify", "--quiet", `refs/heads/${opts.branch}`]).status === 0;
+  if (existingBranch) {
+    const ff = git(["merge-base", "--is-ancestor", `refs/heads/${opts.branch}`, base]);
+    if (ff.status !== 0) fail(`branch ${opts.branch} cannot be fast-forwarded to ${base.slice(0, 12)} (diverged or ahead of it); refusing`);
+  }
 }
 
 // npm finds its project root by walking up from cwd; a base with no root
@@ -67,8 +73,14 @@ if (opts.branch) {
 const hasPkg = git(["cat-file", "-e", `${base}:package.json`]);
 if (hasPkg.status !== 0) fail(`base ${base.slice(0, 12)} has no root package.json; refusing (npm ci would climb out of the worktree)`);
 
-const sw = git(opts.branch ? ["switch", "-q", "-c", opts.branch, base] : ["switch", "-q", "--detach", base]);
+const sw = git(
+  existingBranch ? ["switch", "-q", opts.branch] : opts.branch ? ["switch", "-q", "-c", opts.branch, base] : ["switch", "-q", "--detach", base],
+);
 if (sw.status !== 0) fail(`git switch failed: ${sw.stderr.trim()}`);
+if (existingBranch) {
+  const ffm = git(["merge", "-q", "--ff-only", base]);
+  if (ffm.status !== 0) fail(`fast-forward to ${base.slice(0, 12)} failed: ${ffm.stderr.trim()}`);
+}
 
 const npm = spawnSync("npm", ["ci"], { stdio: "inherit", cwd: toplevel });
 if (npm.status !== 0) fail(`npm ci failed (exit ${npm.status ?? npm.signal})`);

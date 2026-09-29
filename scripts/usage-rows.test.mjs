@@ -226,6 +226,7 @@ function logCell(fx, args) {
 const good = (fx) => [
   "--ticket", fx.ticketRelPath, "--cell", "qa", "--mode", "specify",
   "--tokens", "51234", "--ms", "184000", "--outcome", "tests written, red",
+  "--allow-no-handoff", "test setup",
 ];
 const without = (args, flag) => args.filter((x, i) => x !== flag && args[i - 1] !== flag);
 

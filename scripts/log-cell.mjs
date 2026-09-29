@@ -2,13 +2,14 @@
 // organism-infra/48: append one validated kind:"cell" row to .scratch/usage.jsonl (ADR 0008).
 // Usage: node scripts/log-cell.mjs --ticket <feature>/<NN-slug> --cell <type> [--mode <m>] [--model <id>]
 //          --tokens <int> --ms <int> --outcome "<text>"
+//          [--allow-no-handoff "<reason>"]   (skip the recent-handoff check; reason is logged in the row)
 // Root is $ORGANISM_ROOT, else the current directory. Any rejection exits 1 and writes nothing.
-import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, writeSync } from "node:fs";
+import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, writeSync } from "node:fs";
 import path from "node:path";
 
 const CELLS = ["product", "architect", "orchestrator", "developer", "scout", "qa", "security", "designer"];
 const REF_RE = /^([a-z0-9-]+)\/([A-Za-z0-9][A-Za-z0-9._-]*)$/;
-const FLAGS = ["ticket", "cell", "mode", "model", "tokens", "ms", "outcome", "failures"];
+const FLAGS = ["ticket", "cell", "mode", "model", "tokens", "ms", "outcome", "failures", "allow-no-handoff"];
 const TOOLS = ["bash-guard", "board-claim", "board-release", "board-comment", "board-handoff", "handoff-state", "git", "npm", "write", "ci", "other"];
 
 function fail(msg) {
@@ -56,6 +57,41 @@ if (f.failures !== undefined) {
 const root = path.resolve(process.env.ORGANISM_ROOT || process.cwd());
 if (!existsSync(path.join(root, ".scratch", m[1], "issues", `${m[2]}.md`))) fail(`ticket not found: ${f.ticket}`);
 
+// organism-infra/51: a cell row needs a recent handoff from that cell/mode, else
+// the cell finished without handing off. --allow-no-handoff "<reason>" is the logged escape.
+if (f["allow-no-handoff"] !== undefined) {
+  if (!f["allow-no-handoff"].trim()) fail("--allow-no-handoff needs a non-empty reason");
+  if (f["allow-no-handoff"].length > 300) fail("--allow-no-handoff reason must be at most 300 characters");
+} else {
+  const dir = path.join(root, ".scratch", m[1], "handoffs");
+  const nn = /^(\d{2})-/.exec(m[2])?.[1];
+  const refs = new Set([f.ticket, nn && `${m[1]}/${nn}`]);
+  const maxAgeMs = 24 * 3600_000;
+  let found = false;
+  for (const name of existsSync(dir) ? readdirSync(dir) : []) {
+    if (!nn || !name.startsWith(`${nn}-`) || !name.endsWith(".md")) continue;
+    const p = path.join(dir, name);
+    let st, state;
+    try {
+      st = statSync(p);
+      state = JSON.parse(/```json\s*([\s\S]*?)```/.exec(readFileSync(p, "utf8"))?.[1]);
+    } catch {
+      continue;
+    }
+    if (!st.isFile() || !state || !refs.has(state.ticket)) continue;
+    if (state.cell !== f.cell || state.mode !== f.mode) continue;
+    if (Date.now() - st.mtimeMs > maxAgeMs) continue;
+    found = true;
+    break;
+  }
+  if (!found) {
+    fail(
+      `no handoff for ${f.ticket} from ${f.cell}${f.mode !== undefined ? ` (mode ${f.mode})` : ""} published in the last 24 hours; ` +
+        `the cell did not hand off. Send it back, or pass --allow-no-handoff "<reason>"`,
+    );
+  }
+}
+
 const row = {
   kind: "cell",
   ts: new Date().toISOString(),
@@ -66,6 +102,7 @@ const row = {
   tokens: Number(f.tokens),
   ms: Number(f.ms),
   outcome: f.outcome,
+  ...(f["allow-no-handoff"] !== undefined ? { allow_no_handoff: f["allow-no-handoff"] } : {}),
 };
 const scratch = path.join(root, ".scratch");
 if (existsSync(scratch) && lstatSync(scratch).isSymbolicLink()) fail(".scratch is a symlink; refusing to write through it");
