@@ -4,7 +4,7 @@
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { CUB_BASKET, CUB_BASKET_RADIUS, STALL_CENTERS, TABLE, stallWidth, susanBaskets } from "./banquet-layout.mjs";
+import { CUB_BASKET, CUB_BASKET_RADIUS, STALL_CENTERS, TABLE, stallCenterX, stallWidth, susanBaskets } from "./banquet-layout.mjs";
 import { POST_BASE, POST_SIZE, postHeight, postPositions, roofTriangles } from "./stall-roof.mjs";
 
 const TOP_RADIUS = 1.8;
@@ -86,7 +86,7 @@ export function Market({ frontier, counts }) {
       })}
       <Susan frontier={frontier} />
       {Object.entries(STALL_CENTERS).map(([station, c]) => (
-        <Stall key={station} x={c.x} z={c.z} hue={HUE[station]} width={stallWidth(counts[station] ?? 0)} />
+        <Stall key={station} x={stallCenterX(station, counts[station] ?? 0)} z={c.z} hue={HUE[station]} width={stallWidth(counts[station] ?? 0)} />
       ))}
       <mesh position={[CUB_BASKET.x, 0.2, CUB_BASKET.z]}>
         <cylinderGeometry args={[CUB_BASKET_RADIUS, 0.45, 0.4, 20]} />

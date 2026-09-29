@@ -60,10 +60,10 @@ test("a stall's three slots are fixed anchors whatever the head count up to thre
   }
 });
 
-test("overflow: a stall with five cells widens its slots along the front, centred", async () => {
-  near(await at("security", 0, 5), [3.3, 0.6, 2.2]);
-  near(await at("security", 2, 5), [4.8, 0.6, 2.2]);
-  near(await at("security", 4, 5), [6.3, 0.6, 2.2]);
+test("overflow: a stall with five cells widens outward along the front", async () => {
+  near(await at("security", 0, 5), [4.05, 0.6, 2.2]);
+  near(await at("security", 2, 5), [5.55, 0.6, 2.2]);
+  near(await at("security", 4, 5), [7.05, 0.6, 2.2]);
 });
 
 test("stallWidth is 2.25 up to three cells, then 0.75 per cell", async () => {
@@ -119,4 +119,18 @@ test("cub row stands clear of the cub basket (radius 0.55) by a cell's half widt
   const cub = await at("mystery", 1);
   assert.equal(CUB_BASKET_RADIUS, 0.55);
   assert.ok(cub[2] - CUB_BASKET.z >= CUB_BASKET_RADIUS + 0.35);
+});
+
+test("overflow widens outward: every stall's inner edge stays fixed, on both sides", async () => {
+  const { STALL_CENTERS, stallCenterX, stallWidth } = await load();
+  for (const station of Object.keys(STALL_CENTERS)) {
+    const sign = Math.sign(STALL_CENTERS[station].x);
+    const inner = (count) => stallCenterX(station, count) - sign * stallWidth(count) / 2;
+    for (const count of [3, 5, 8]) assert.ok(Math.abs(inner(count) - inner(3)) < 1e-9, `${station} ${count}`);
+  }
+});
+
+test("overflow, worked: Steamers with five cells grows left, its inner edge stays at -3.675", async () => {
+  near([(await at("developer", 0, 5))[0]], [-7.05]);
+  near([(await at("developer", 4, 5))[0]], [-4.05]);
 });

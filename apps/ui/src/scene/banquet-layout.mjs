@@ -55,6 +55,13 @@ export function stallWidth(count) {
   return Math.max(STALL_BASE_SLOTS, count) * STALL_SPACING;
 }
 
+/** A stall widens outward, away from x=0, so its inner edge (and the space around Bao) stays fixed. */
+export function stallCenterX(station, count = STALL_BASE_SLOTS) {
+  const stall = STALLS[station];
+  const extra = stallWidth(count) - stallWidth(STALL_BASE_SLOTS);
+  return stall.x + Math.sign(stall.x) * extra / 2;
+}
+
 /**
  * @param {string} cellType
  * @param {number} slot 0-based index within the station
@@ -74,7 +81,7 @@ export function placeCell(cellType, slot, count = STALL_BASE_SLOTS) {
   }
   const stall = STALLS[stationOf(cellType)];
   const n = Math.max(STALL_BASE_SLOTS, count, slot + 1);
-  return { x: stall.x + (slot - (n - 1) / 2) * STALL_SPACING, y: stall.y, z: stall.z };
+  return { x: stallCenterX(stationOf(cellType), n) + (slot - (n - 1) / 2) * STALL_SPACING, y: stall.y, z: stall.z };
 }
 
 export const MAX_BASKETS = 8;
