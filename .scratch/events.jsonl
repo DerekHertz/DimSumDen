@@ -272,3 +272,5 @@
 {"seq":272,"ts":"2026-09-29T22:20:35.140Z","feature":"herald","ticket":"01-voice-guide","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
 {"seq":273,"ts":"2026-09-29T22:20:35.214Z","feature":"herald","ticket":"02-herald-genome","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":274,"ts":"2026-09-29T22:20:35.298Z","feature":"herald","ticket":"02-herald-genome","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":275,"ts":"2026-09-29T22:22:13.897Z","feature":"ci-cd","ticket":"05-cloud-browser-tests","cell":"developer","op":"comment","text":"qa test conflict: smoke.test.mjs tests 28 and 30 copy only smoke.mjs+dev-server.mjs to a temp dir, so the required static import of ./launch-options.mjs fails. qa should also copy launch-options.mjs in both helpers. Not edited by developer."}
+{"seq":276,"ts":"2026-09-29T22:22:14.174Z","feature":"ci-cd","ticket":"05-cloud-browser-tests","cell":"developer","op":"release","from_status":"claimed","to_status":"in-review","force":false}

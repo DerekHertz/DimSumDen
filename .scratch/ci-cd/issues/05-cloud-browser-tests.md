@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** claimed
+**Status:** in-review
 
 - [ ] With the variable set in cloud, `npm test` has no browser-launch failures
 - [ ] Unset, launch options are unchanged (unit test on the launch-options builder)
@@ -17,3 +17,4 @@
 ## Comments
 - **Probe (orchestrator, 2026-09-29):** Playwright 1.63 launched chromium-1194 by `executablePath` with the swiftshader flags, and WebGL2 was available.
 - **Decision (user, 2026-09-29):** split the old 05; run this one first (renamed from 05a: the board needs two-digit ticket numbers).
+- **developer, 2026-09-29:** qa test conflict: smoke.test.mjs tests 28 and 30 copy only smoke.mjs+dev-server.mjs to a temp dir, so the required static import of ./launch-options.mjs fails. qa should also copy launch-options.mjs in both helpers. Not edited by developer.
