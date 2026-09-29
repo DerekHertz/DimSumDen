@@ -10,27 +10,38 @@ const HOST = "127.0.0.1";
 export async function startBridge({ root, port = 4317, uiDir } = {}) {
   let actualPort = port;
   const server = http.createServer(async (req, res) => {
+    try {
+      await handle(req, res);
+    } catch (err) {
+      console.error(`bridge: request failed: ${err.stack ?? err}`);
+      if (!res.headersSent) res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("internal error");
+    }
+  });
+  async function handle(req, res) {
     const host = req.headers.host;
     if (host !== `127.0.0.1:${actualPort}` && host !== `localhost:${actualPort}`) {
       res.writeHead(403, { "Content-Type": "text/plain" });
       res.end("forbidden");
       return;
     }
-    const pathname = new URL(req.url, "http://x").pathname;
+    let pathname;
+    try {
+      pathname = new URL(req.url, "http://x").pathname;
+    } catch {
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("bad request target");
+      return;
+    }
     if (req.method === "GET" && pathname === "/state") {
-      try {
-        const snap = await buildSnapshot(root, 0);
-        res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-        res.end(JSON.stringify(snap));
-      } catch (err) {
-        res.writeHead(500, { "Content-Type": "text/plain" });
-        res.end(`snapshot failed: ${err.message}`);
-      }
+      const snap = await buildSnapshot(root, 0);
+      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      res.end(JSON.stringify(snap));
       return;
     }
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("not found");
-  });
+  }
   await new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(port, HOST, resolve);
