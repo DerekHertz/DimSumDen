@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** in-review
+**Status:** claimed
 
 - [ ] Stele geometry and placement in the layout module, with a unit test that its footprint is on the mound and nothing in the market is occluded by it from the default camera
 - [ ] Face renders the three charts in qi teal on stone; accessible name unchanged
@@ -24,3 +24,4 @@
 - **designer, 2026-09-29:** Spec revision (designer): stele moves to floor beside Cubs basket at x 1.5, z 3.4, groundY 0, yaw -0.183; plinth 1.1x0.25x0.4, tablet 0.9x1.3x0.14; pill at y 1.8; roam obstacle x 0.85..2.15 z 3.1..3.7. Clears table, Bao, stalls, perches, cub row. Look, name, label, click/Enter unchanged. qa test changes listed in handoffs/07-designer-rev.md
 - **Browser check (user, 2026-09-29, 0dba375):** stele beside the Cubs basket looks right; approved as long as click opens it.
 - **qa, 2026-09-29:** QA pass at 0dba375: 780/785, only 5 browser smoke failures (cloud). Tests unchanged since 418020e. Details in handoffs/07-qa-verify.md
+- **designer, 2026-09-29:** Design bounce: stele passes; Tally pill renders detached (code anchor is right, runtime projection off, see handoff); face text 4.47:1, fill face with stone-deep. DS v14 published. handoffs/07-designer-review.md

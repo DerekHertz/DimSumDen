@@ -144,3 +144,5 @@
 {"kind":"usage","ts":"2026-09-29T21:10:01Z","five_hour":null,"weekly":null,"cloud_credits":52,"event":"dispatch","ticket":"showcase-v1/07-tally-stele","cell":"qa"}
 {"kind":"cell","ts":"2026-09-29T21:13:29.210Z","ticket":"showcase-v1/07-tally-stele","cell":"qa","mode":"verify","tokens":39933,"ms":185761,"outcome":"light verify pass; fixture timeouts environmental"}
 {"kind":"usage","ts":"2026-09-29T21:13:53Z","five_hour":null,"weekly":null,"cloud_credits":52,"event":"dispatch","ticket":"showcase-v1/07-tally-stele","cell":"designer"}
+{"kind":"cell","ts":"2026-09-29T21:17:43.914Z","ticket":"showcase-v1/07-tally-stele","cell":"designer","mode":"review","tokens":83289,"ms":205729,"outcome":"design bounce: pill offset, face contrast; DS v14 published"}
+{"kind":"incident","ts":"2026-09-29T21:17:43Z","ticket":"showcase-v1/07-tally-stele","cell":"designer","tool":"board comment","what":"--verdict rejected for designer though genome says design bounce counts like qa; release --keep-status left status claimed","cost":"orchestrator re-posted verdict","fix":"orchestrator posted --verdict bounce","rule_change":"candidate: allow designer verdicts in board"}
