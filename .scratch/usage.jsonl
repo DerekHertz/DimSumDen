@@ -115,3 +115,5 @@
 {"kind":"resolved","ts":"2026-09-29T20:13:02.072Z","ticket":"showcase-v1/04-message-passing","pr":62,"bounces":0}
 {"kind":"resolved","ts":"2026-09-29T20:13:02.775Z","ticket":"showcase-v1/05-name-and-font","pr":62,"bounces":0}
 {"kind":"usage","ts":"2026-09-29T23:40:00Z","cloud_credit_left":62,"event":"return","ticket":"showcase-v1/06","cell":"developer","source":"user-reported"}
+{"kind":"incident","ts":"2026-09-29T23:55:00Z","ticket":"showcase-v1/06","cell":"developer","tool":"cell-start","what":"unknown base commit: fresh worktree had not fetched the just-merged main commit","cost":"one retry","fix":"git fetch origin then retry","rule_change":"candidate: cell-start fetches origin before resolving --base"}
+{"kind":"incident","ts":"2026-09-29T23:55:00Z","ticket":"showcase-v1/06","cell":"developer","tool":"classifier","what":"auto-mode classifier returned no verdict on piped test commands several times","cost":"retries","fix":"retry or use Grep/Read","rule_change":null}
