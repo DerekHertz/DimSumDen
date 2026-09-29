@@ -4,6 +4,7 @@ import { Den } from "./scene/Den.jsx";
 import { ChipLayer } from "./scene/ChipLayer.jsx";
 import { MAX_PLUSH, sceneFromState } from "./scene/scene-from-state.mjs";
 import { useLiveState } from "./live.js";
+import { UsageMeter, Queue, Detail } from "./panel/Panel.jsx";
 import { pillModel, panelPlaceholder } from "./state/connection.mjs";
 
 function ConnectionPill({ connection }) {
@@ -64,7 +65,9 @@ export function App() {
           SECTIONS.map(([id, heading]) => (
             <section key={id} aria-labelledby={`h-${id}`} className="slot" data-slot={id}>
               <h2 id={`h-${id}`}>{heading}</h2>
-              {id === "queue" && snapshot ? <p className="muted small">{snapshot.tickets.length} tickets</p> : null}
+              {id === "usage" && snapshot ? <UsageMeter usage={snapshot.usage} /> : null}
+              {id === "queue" && snapshot ? <Queue snapshot={snapshot} selected={selected} onSelect={setSelected} /> : null}
+              {id === "detail" && snapshot ? <Detail snapshot={snapshot} selected={selected} /> : null}
             </section>
           ))
         )}
