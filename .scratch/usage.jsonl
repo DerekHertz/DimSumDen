@@ -122,3 +122,4 @@
 {"kind":"cell","ts":"2026-09-29T20:28:44.014Z","ticket":"showcase-v1/06-idle-pandas-roam","cell":"qa","mode":"verify","tokens":35938,"ms":130299,"outcome":"pass; smoke:ui skipped (cloud chromium), user WSL check"}
 {"kind":"incident","ts":"2026-09-29T20:28:44Z","ticket":"showcase-v1/06-idle-pandas-roam","cell":"qa","tool":"board handoff","what":"State block missing mode; first handoff file then blocked overwrite, published as -2","cost":"2 calls, stale file","fix":"orchestrator deleted stale file","rule_change":null}
 {"kind":"resolved","ts":"2026-09-29T20:34:10.929Z","ticket":"showcase-v1/06-idle-pandas-roam","pr":63,"bounces":0}
+{"kind":"usage","ts":"2026-09-29T20:37:01Z","five_hour":null,"weekly":null,"cloud_credits":57,"event":"dispatch","ticket":"showcase-v1/07-tally-stele","cell":"designer"}
