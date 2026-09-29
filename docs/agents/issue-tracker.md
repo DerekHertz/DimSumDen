@@ -33,6 +33,7 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 - **Map**: `.scratch/<effort>/map.md` (the Notes / Decisions-so-far / Fog body).
 - **Child ticket**: `.scratch/<effort>/issues/NN-<slug>.md`, numbered from `01`, with the question in the body. A `Type:` line records the ticket type (`research`/`prototype`/`grilling`/`task`); a `Status:` line records `claimed`/`resolved`.
 - **Blocking**: a `Blocked by: NN, NN` line near the top. A ticket is unblocked when every file it lists is `resolved`.
-- **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
+- **Priority**: a `**Priority:** P0|P1|P2|P3` line near the top (P0 urgent, P1 next, P2 normal, P3 someday). No line means P2. Set it when filing a ticket.
+- **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed. Order by priority, then by age (oldest first), then by number. A ticket that has stayed on the frontier through 3 orchestrator sessions (3 new `.scratch/_handoffs/*-orchestrator-*.md` files) moves up one level, so nothing waits forever (user, 2026-09-29).
 - **Claim**: set `Status: claimed` (or keep `in-review` for a review claim) and save before any work.
 - **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.
