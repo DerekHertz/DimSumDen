@@ -1,0 +1,12 @@
+title = "Dim Sum Den gitleaks config"
+
+[extend]
+useDefault = true
+
+# Fake secrets used as test fixtures for the risk-check script.
+[allowlist]
+description = "Fake fixtures for risk-check tests"
+paths = [
+  '''^scripts/risk-check\.test\.mjs$''',
+  '''^\.scratch/organism-infra/issues/08-risk-sized-review\.md$''',
+]
