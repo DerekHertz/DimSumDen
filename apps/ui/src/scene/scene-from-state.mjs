@@ -3,10 +3,10 @@ import { stationOf } from "./banquet-layout.mjs";
 // ADR 0011 decision 7: sceneFromState(snapshot) -> SceneCell[]. Pure; no three, React or DOM.
 export const MAX_PLUSH = 12;
 
-const ACTIVE_STATUSES = new Set(["claimed", "in-review", "blocked", "ready-for-human"]);
+export const ACTIVE_STATUSES = new Set(["claimed", "in-review", "blocked", "ready-for-human"]);
 const ARCHITECT_TYPES = new Set(["design", "design-question", "design-direction", "decision", "prototype"]);
 
-function cellTypeOf(t) {
+export function cellTypeOf(t) {
   if (t.holder?.cell) return t.holder.cell;
   if (t.lastCell) return t.lastCell;
   if (ARCHITECT_TYPES.has(t.type)) return "architect";
@@ -23,29 +23,31 @@ function poseOf(t) {
   return "idle";
 }
 
-/** @param {{tickets: object[], frontier: string[]}} snapshot */
+/**
+ * One cell per active ticket. Queued (ready) tickets get no cell: they show only as baskets on the
+ * lazy susan until a cell picks them up (showcase-v1/04).
+ * @param {{tickets: object[]}} snapshot
+ */
 export function sceneFromState(snapshot) {
   const tickets = snapshot?.tickets ?? [];
-  const frontier = snapshot?.frontier ?? [];
-  const byRef = new Map(tickets.map((t) => [t.ref, t]));
   const active = tickets
     .filter((t) => ACTIVE_STATUSES.has(t.status))
     .sort((a, b) => (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0));
-  const seen = new Set(active.map((t) => t.ref));
-  const queued = [];
-  for (const ref of frontier) {
-    const t = byRef.get(ref);
-    if (t && !seen.has(ref)) {
-      seen.add(ref);
-      queued.push(t);
-    }
-  }
   const slots = {};
-  return [...active, ...queued].slice(0, MAX_PLUSH).map((t) => {
+  return active.slice(0, MAX_PLUSH).map((t) => {
     const cellType = cellTypeOf(t);
     const station = stationOf(cellType); // ADR 0013: perch is "<station>#<slot>"
     const slot = slots[station] ?? 0;
     slots[station] = slot + 1;
     return { ref: t.ref, cellType, status: t.status, perch: `${station}#${slot}`, pose: poseOf(t) };
   });
+}
+
+/**
+ * The Pass is the head chef: Bao's crown never stands empty. When no orchestrator cell is active, add
+ * an idle stand-in (no ticket, `synthetic: true`) so the scene shows one; chips skip it.
+ */
+export function withPassCell(cells) {
+  if (cells.some((c) => c.cellType === "orchestrator")) return cells;
+  return [...cells, { ref: "__pass", cellType: "orchestrator", status: "idle", perch: "orchestrator#0", pose: "idle", synthetic: true }];
 }

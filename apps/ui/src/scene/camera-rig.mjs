@@ -1,6 +1,13 @@
 // Camera pan (x only) and zoom (dolly along z) for the banquet market. Pure math; the R3F rig in
 // CameraRig.jsx applies it. Zoom is a factor on the base camera distance: smaller is closer.
-export const PAN_LIMIT = 5;
+import { WIDEST_STALL_EDGE } from "./banquet-layout.mjs";
+
+/** Fallback limit when the viewport is unknown; the rig uses panLimit(aspect, zoom). */
+export const PAN_LIMIT = 9;
+/** Vertical field of view of the scene camera (App.jsx). */
+export const FOV_DEG = 38;
+/** z of the back stalls' row, the depth the pan limit is measured at. */
+const STALL_ROW_Z = -1.6;
 export const ZOOM_MIN = 0.55;
 export const ZOOM_MAX = 1.2;
 export const BASE_Y = 4.2;
@@ -13,12 +20,20 @@ const VIEW_WIDTH_AT_REST = 12;
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
-export const clampPan = (x) => clamp(x, -PAN_LIMIT, PAN_LIMIT);
+export const clampPan = (x, limit = PAN_LIMIT) => clamp(x, -limit, limit);
+
+/** World units from the view's centre to its side edge at the stall row (approximate: ignores the slight pitch). */
+export const visibleHalfWidth = (aspect, zoom) =>
+  (BASE_Z * zoom - STALL_ROW_Z) * Math.tan((FOV_DEG / 2) * (Math.PI / 180)) * aspect;
+
+/** How far the camera may pan: just far enough that the widest stall's outer edge is in view. A wide window needs none. */
+export const panLimit = (aspect, zoom) => Math.max(0, WIDEST_STALL_EDGE - visibleHalfWidth(aspect, zoom));
+export { WIDEST_STALL_EDGE };
 export const clampZoom = (z) => clamp(z, ZOOM_MIN, ZOOM_MAX);
 
-export function keyPan(x, key) {
-  if (key === "ArrowRight") return clampPan(x + KEY_PAN_STEP);
-  if (key === "ArrowLeft") return clampPan(x - KEY_PAN_STEP);
+export function keyPan(x, key, limit = PAN_LIMIT) {
+  if (key === "ArrowRight") return clampPan(x + KEY_PAN_STEP, limit);
+  if (key === "ArrowLeft") return clampPan(x - KEY_PAN_STEP, limit);
   return x;
 }
 
@@ -31,7 +46,7 @@ export function keyZoom(zoom, key) {
 export const wheelZoom = (zoom, deltaY) => clampZoom(zoom + deltaY * WHEEL_ZOOM_PER_DELTA);
 
 /** Dragging right drags the scene right, so the camera moves left. */
-export const dragPan = (x, dxPixels, widthPixels, zoom) =>
-  clampPan(x - (dxPixels / widthPixels) * VIEW_WIDTH_AT_REST * zoom);
+export const dragPan = (x, dxPixels, widthPixels, zoom, limit = PAN_LIMIT) =>
+  clampPan(x - (dxPixels / widthPixels) * VIEW_WIDTH_AT_REST * zoom, limit);
 
 export const cameraPosition = (pan, zoom) => [pan, BASE_Y, BASE_Z * zoom];

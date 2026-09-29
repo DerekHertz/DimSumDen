@@ -1,5 +1,5 @@
-/* Tokens from the Agent Office design system (tokens.json v1). System font stacks:
-   no external fetch (user decision 2026-09-29). */
+/* Tokens from the Agent Office design system (tokens.json v1). Nunito stack for UI copy; Long Cang (Google Fonts,
+   showcase-v1/05) for display text only: header title, station labels, tally heading. */
 :root {
   --surface-000: #efe8d8;
   --surface-100: #f8f3e8;
@@ -31,8 +31,18 @@
   --radius-full: 9999px;
   --opacity-dim: 0.55;
   --dur-fast: 160ms;
+  --dur-slow: 700ms;
+  --dur-breath: 2800ms;
+  --grove-mist: #e3efd6;
+  --grove-far: #b7d39d;
+  --grove-mid: #7fae62;
+  --grove-hill: #8cc070;
+  --grove-grass: #9fcc80;
+  --grove-near: #4f8a3c;
   --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --font-sans: Nunito, ui-rounded, "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: "Long Cang", "Nunito", cursive;
+  --rice-paper: #f6efdc;
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
   color-scheme: light;
 }
@@ -71,6 +81,7 @@ body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-w
 .panel { background: var(--surface-200); border-left: 1px solid var(--line); padding: var(--space-4); overflow-y: auto; }
 .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); }
 .panel h1 { margin: 0; font-size: 20px; line-height: 28px; font-weight: 800; }
+.panel-header h1 { font-family: var(--font-display); font-size: 28px; line-height: 32px; font-weight: 400; }
 .panel h2 { margin: 0 0 var(--space-2); font-size: 20px; line-height: 28px; font-weight: 800; }
 .slot { margin-bottom: var(--space-5); }
 .muted { color: var(--ink-muted); }
@@ -104,7 +115,11 @@ body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-w
 .scene-caption { position: absolute; margin: 0; color: var(--ink-muted); }
 .scene-empty { left: 0; right: 0; top: 50%; text-align: center; }
 .scene-more { left: var(--space-4); bottom: var(--space-4); font-size: 12px; }
-@media (prefers-reduced-motion: reduce) { .chip { transition: none; } }
+.chip-tally { font-family: var(--font-display); font-size: 16px; font-weight: 400; }
+.station-label { position: absolute; transform: translate(-50%, -100%); pointer-events: none; padding: 0 var(--space-3); border-radius: var(--radius-full); background: var(--rice-paper); color: #23262b; border: 1px solid var(--line); font-family: var(--font-display); font-size: 18px; line-height: 24px; white-space: nowrap; }
+.chip-heart { position: absolute; left: 50%; bottom: calc(100% + 2px); width: 18px; height: 18px; margin-left: -9px; color: #d9707e; pointer-events: none; animation: heart-rise var(--dur-breath) var(--ease-soft) both; }
+@keyframes heart-rise { from { opacity: 0; transform: translateY(6px); } 20% { opacity: 1; } to { opacity: 1; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .chip { transition: none; } .chip-heart { animation: none; } }
 
 /* Panel (ticket 09) */
 .overline { margin: 0; font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }

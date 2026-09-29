@@ -13,6 +13,7 @@ import { averageAttribute, clusterSimplify, dominantBones } from "./plush-lod.mj
 import { createAssetCache } from "./asset-cache.mjs";
 import { Backdrop } from "./Backdrop.jsx";
 import { Market } from "./Market.jsx";
+import { TallyFace } from "./TallyFace.jsx";
 import { BAO, parsePerch, placeCell, stationOf } from "./banquet-layout.mjs";
 
 // Each prop glb is fetched and parsed once, then cloned per plush.
@@ -183,6 +184,7 @@ export function Den(props) {
   return (
     <>
       <Backdrop />
+      <TallyFace face={props.tallyFace} onOpen={props.onOpenTally} stage={props.stage} />
       <FiguresBoundary>
         <Suspense fallback={null}>
           <DenFigures {...props} />
@@ -207,7 +209,7 @@ class FiguresBoundary extends Component {
   }
 }
 
-function DenFigures({ cells, frontier, selected, onSelect, stage }) {
+function DenFigures({ cells, baskets, handoffs, selected, onSelect, stage }) {
   const gltf = useLoader(GLTFLoader, "/models/panda.glb");
   const director = useDirector();
   const { camera, size } = useThree();
@@ -224,7 +226,7 @@ function DenFigures({ cells, frontier, selected, onSelect, stage }) {
   }, [cells]);
   return (
     <>
-      <Market frontier={frontier} counts={counts} />
+      <Market baskets={baskets} handoffs={handoffs} cells={cells} counts={counts} />
       <Figure id="bao" gltf={gltf} director={director} pose="idle" position={BAO.position} scale={BAO.scale} stage={null} />
       {cells.map((c) => {
         const { station, slot } = parsePerch(c.perch);
@@ -242,7 +244,7 @@ function DenFigures({ cells, frontier, selected, onSelect, stage }) {
             scale={PLUSH_SCALE}
             lod
             selected={selected === c.ref}
-            onSelect={onSelect}
+            onSelect={c.synthetic ? undefined : onSelect}
             stage={stage}
           />
         );

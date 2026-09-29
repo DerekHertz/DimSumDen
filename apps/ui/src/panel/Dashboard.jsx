@@ -1,6 +1,5 @@
 // Dashboard section (dimsumden-ui-v0/11): inline-SVG bar charts drawn from dashboard-model.mjs.
 // One series colour (qi); categories sit on the axis. Each svg has title, desc and a hidden table.
-import { useCallback, useEffect, useState } from "react";
 import { dashboardModel } from "./dashboard-model.mjs";
 
 const W = 408;
@@ -85,28 +84,14 @@ function Chart({ chart }) {
   );
 }
 
-export function Dashboard({ metricsRevision = 0 }) {
-  const [metrics, setMetrics] = useState(null);
-  const [failed, setFailed] = useState(false);
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch("/metrics", { cache: "no-store" });
-      if (!res.ok) throw new Error(`GET /metrics ${res.status}`);
-      setMetrics(await res.json());
-      setFailed(false);
-    } catch {
-      setFailed(true);
-    }
-  }, []);
-  useEffect(() => {
-    load();
-  }, [load, metricsRevision]);
+// Metrics come from useMetrics (metrics-state.js), shared with Tally in the scene.
+export function Dashboard({ metrics, failed = false, onRetry }) {
   const m = dashboardModel(metrics, { error: failed });
   return (
     <>
       {m.status === "error" ? (
         <p className="small chart-error" role="alert">
-          {m.errorText} <button type="button" className="link-btn" onClick={load}>{m.retryLabel}</button>
+          {m.errorText} <button type="button" className="link-btn" onClick={onRetry}>{m.retryLabel}</button>
         </p>
       ) : null}
       {m.charts.map((c) => <Chart key={c.id} chart={c} />)}
