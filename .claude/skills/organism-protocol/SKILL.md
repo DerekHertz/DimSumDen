@@ -44,7 +44,7 @@ When the environment gets in your way, don't patch or improvise past it. Example
 
 **Log every failed call and blocker, even ones you got past on a retry.** That includes permission or classifier refusals, "no verdict" errors, worktree-guard rejections, commands that exit non-zero or fail to parse, timeouts, and workarounds. Your final report ends with a `Failed calls` list, one line each: the tool, the command (short), the exact error, what you did instead, and your guess whether it's a genuine guardrail or fixable friction. Never write "refusals: none" if anything failed. The orchestrator appends each one to `.scratch/usage.jsonl` as `kind:"incident"`, so they can be analyzed.
 
-One sanctioned exception: `board` doesn't write handoff files yet, so a worktree cell writes its handoff (`.scratch/<feature>/handoffs/*.md`) to the main checkout through shell commands. Write it to the main checkout only; never leave a copy in your worktree. Every other board change goes through `board`. A future `board handoff` command closes this gap.
+Handoffs go through `board` too: write the file in your scratchpad, then run `board handoff <ref> --from <file> --name <NN>-<cell>.md`. It publishes the file to the main checkout's `.scratch/<feature>/handoffs/`. Never write handoffs into the main checkout by shell or Write, and never leave a copy in your worktree. `board release`, including `--keep-status`, refuses without a handoff published after your claim.
 
 ## Shell and git
 
