@@ -158,3 +158,5 @@
 {"kind":"usage","ts":"2026-09-29T21:35:41Z","five_hour":null,"weekly":null,"cloud_credits":49,"event":"dispatch","ticket":"organism-infra/30-handoff-error-shows-skeleton","cell":"qa"}
 {"kind":"cell","ts":"2026-09-29T21:37:30.554Z","ticket":"organism-infra/30-handoff-error-shows-skeleton","cell":"qa","mode":"specify","tokens":48165,"ms":89021,"outcome":"12 tests at 8bcc83f; 10 red"}
 {"kind":"jev","ts":"2026-09-29T21:37:30.611Z","ticket":"organism-infra/30-handoff-error-shows-skeleton","point":"tier","pick":null,"actual":"sonnet","cost":0,"conf":null,"mode":"shadow","fallback":"no-key","ms":1,"model":"jev-1.13.0"}
+{"kind":"config","ts":"2026-09-29T21:38:28Z","change":"user authorises running the full relay per ticket without per-dispatch approval, through merge on green CI","source":"user, cloud session 2026-09-29"}
+{"kind":"usage","ts":"2026-09-29T21:38:28Z","five_hour":null,"weekly":null,"cloud_credits":48,"event":"dispatch","ticket":"organism-infra/30-handoff-error-shows-skeleton","cell":"developer"}
