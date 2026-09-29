@@ -63,12 +63,12 @@ const box = (cx, cz, w, d) => ({ x0: cx - w / 2, x1: cx + w / 2, z0: cz - d / 2,
 const tally = box(TALLY.x, TALLY.z, TALLY.width + 0.3, TALLY.depth + 0.3);
 const gap = (a, b) => Math.hypot(Math.max(0, a.x0 - b.x1, b.x0 - a.x1), Math.max(0, a.z0 - b.z1, b.z0 - a.z1));
 
-test("Tally is clear of Bao, his shoulder cells, the table, both right-hand stalls and the cub basket", () => {
+test("Tally is clear of Bao, his shoulder cells, the table, the Steamers and Tea stalls and the cub basket", () => {
   const bao = box(0, -2.4, 2 * 1.37 + 2 * 0.6, 1.75 * 1.4); // body plus shoulder cells (outer edge 2.24)
   assert.ok(gap(tally, bao) >= 1.0, `Bao gap ${gap(tally, bao)}`);
-  const nearest = { x: tally.x0, z: Math.max(tally.z0, Math.min(0, tally.z1)) };
+  const nearest = { x: tally.x1, z: Math.max(tally.z0, Math.min(0, tally.z1)) };
   assert.ok(Math.hypot(nearest.x, nearest.z) - 1.8 >= 0.15, "table top radius 1.8");
-  for (const [station, count] of [["front-of-house", 6], ["pantry", 6]]) {
+  for (const [station, count] of [["steamers", 6], ["tea", 6]]) {
     const c = STALL_CENTERS[station];
     const stall = box(stallCenterX(station, count), c.z, stallWidth(count) + 0.3, 1.3);
     assert.ok(gap(tally, stall) >= 0.45, `${station} gap ${gap(tally, stall)}`);
@@ -76,18 +76,18 @@ test("Tally is clear of Bao, his shoulder cells, the table, both right-hand stal
   assert.ok(Math.hypot(TALLY.x - CUB_BASKET.x, TALLY.z - CUB_BASKET.z) - CUB_BASKET_RADIUS >= 1.5);
 });
 
-test("Tally sits between the table and the back-right stall in x, and between the two right-hand stall rows in z", () => {
-  assert.ok(TALLY.x > 1.8 && TALLY.x < STALL_CENTERS["front-of-house"].x);
-  assert.ok(TALLY.z > STALL_CENTERS["front-of-house"].z && TALLY.z < STALL_CENTERS.pantry.z);
+test("Tally sits left of Bao between the table and the back-left Steamers stall in x, and between the Steamers and Tea rows in z", () => {
+  assert.ok(TALLY.x < -1.8 && TALLY.x > STALL_CENTERS.steamers.x);
+  assert.ok(TALLY.z > STALL_CENTERS.steamers.z && TALLY.z < STALL_CENTERS.tea.z);
 });
 
-test("the slate hangs high enough that the sight line from the default camera to Front of House cells passes under it", () => {
+test("the slate hangs high enough that the sight line from the default camera to Steamers cells passes under it", () => {
   const cam = { x: 0, y: 4.2, z: 11.5 };
-  const headY = counterTop("front-of-house") + 0.6;
-  const tz = STALL_CENTERS["front-of-house"].z;
+  const headY = counterTop("steamers") + 0.6;
+  const tz = STALL_CENTERS.steamers.z;
   let checked = 0;
   for (const slot of [0, 1, 2]) {
-    const tx = placeCell("designer", slot).x;
+    const tx = placeCell("developer", slot).x;
     const f = (cam.z - TALLY.z) / (cam.z - tz);
     const x = cam.x + f * (tx - cam.x);
     const y = cam.y + f * (headY - cam.y);

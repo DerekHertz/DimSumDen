@@ -10,10 +10,10 @@ export const RAIL = { x: 0, y: 2.66, z: BAO.position[2], width: 1.3, height: 0.0
 export const BELL = { x: 0.5, y: RAIL.y + RAIL.height / 2, z: BAO.position[2] };
 
 /**
- * Tally: a pagoda-roofed slate on tall posts beside Bao, between him and the back-right stall (showcase-v1/03). The slate
- * hangs high (faceBottom) so the sight line from the default camera to Front of House cells passes under it.
+ * Tally: a pagoda-roofed slate on tall posts left of Bao, between him and the back-left Steamers stall (showcase-v1/03). The slate
+ * hangs high (faceBottom) so the sight line from the default camera to Steamers cells passes under it.
  */
-export const TALLY = { x: 2.9, z: 0.8, width: 1.6, depth: 0.3, faceBottom: 2.35, faceHeight: 1.0 };
+export const TALLY = { x: -3.0, z: 0.3, width: 1.6, depth: 0.3, faceBottom: 2.35, faceHeight: 1.0 };
 
 export const TABLE = { x: 0, z: 0, radius: 1.3, height: 0.7 };
 export const CUB_BASKET = { x: 0, z: 3.4 };
