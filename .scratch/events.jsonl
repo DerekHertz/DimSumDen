@@ -193,3 +193,5 @@
 {"seq":193,"ts":"2026-09-29T20:26:36.037Z","feature":"showcase-v1","ticket":"06-idle-pandas-roam","cell":"qa","mode":"verify","op":"claim","from_status":"in-review","to_status":"in-review"}
 {"seq":194,"ts":"2026-09-29T20:28:20.187Z","feature":"showcase-v1","ticket":"06-idle-pandas-roam","cell":"qa","op":"comment","text":"QA pass: 773/778, 5 fails are browser smoke only (chromium missing in cloud, skipped). Criteria 1-2 map to roam.test.mjs; smoke:ui human-verified. See 06-qa-verify.md.","verdict":"pass"}
 {"seq":195,"ts":"2026-09-29T20:28:27.693Z","feature":"showcase-v1","ticket":"06-idle-pandas-roam","cell":"qa","op":"release","from_status":"in-review","to_status":"in-review","force":false}
+{"seq":196,"ts":"2026-09-29T20:34:06.731Z","feature":"showcase-v1","ticket":"06-idle-pandas-roam","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
+{"seq":197,"ts":"2026-09-29T20:34:10.925Z","feature":"showcase-v1","ticket":"06-idle-pandas-roam","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
