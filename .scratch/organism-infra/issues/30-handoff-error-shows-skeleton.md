@@ -18,3 +18,4 @@
 - **Evidence (orchestrator, 2026-09-29):** 4 State-block rejections in one cloud session: qa missing `mode`, designer markdown instead of json (twice), developer missing four fields. See incidents in `.scratch/usage.jsonl` with tool "board handoff" / "board release".
 - **Decision (user, 2026-09-29):** agreed.
 - **qa, 2026-09-29:** QA pass (light verify): 12/12 specify tests pass, test file unchanged, only board-service.mjs touched. 5 browser smoke failures expected in cloud.
+- **security, 2026-09-29:** Security pass. No critical/high. Low: board-service.mjs:892-919 skeleton echoes lock cell/mode unvalidated (defense in depth). gitleaks missing, pattern grep used (no hits). See handoffs/30-security.md.
