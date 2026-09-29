@@ -30,7 +30,7 @@ const MIME_TYPES = {
   ".wasm": "application/wasm",
 };
 
-function contentTypeFor(filePath) {
+export function contentTypeFor(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   return MIME_TYPES[ext] ?? "application/octet-stream";
 }

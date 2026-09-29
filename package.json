@@ -13,9 +13,19 @@
     "risk-check": "node scripts/risk-check.mjs",
     "check:bom": "node scripts/bom-check.mjs",
     "board": "node apps/organism-infra/board.mjs",
-    "bridge": "node apps/bridge/server.mjs"
+    "bridge": "node apps/bridge/server.mjs",
+    "ui": "npm run ui:build && npm run bridge",
+    "ui:build": "vite build --config apps/ui/vite.config.mjs",
+    "ui:dev": "vite --config apps/ui/vite.config.mjs"
   },
   "devDependencies": {
-    "playwright": "1.63.0"
+    "playwright": "1.63.0",
+    "vite": "8.3.1"
+  },
+  "dependencies": {
+    "@react-three/fiber": "9.8.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "three": "0.170.0"
   }
 }
