@@ -10,10 +10,12 @@
 // See .scratch/organism-infra/issues/08-risk-sized-review.md for the rule
 // this implements.
 import { execFileSync } from "node:child_process";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const CODE_PATH_RE = /^(apps|packages|scripts)\//;
 
-const SECRET_PATTERNS = [
+export const SECRET_PATTERNS = [
   { name: "AWS access key", re: /AKIA[0-9A-Z]{16}/ },
   { name: "private key block", re: /-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/ },
   {
@@ -117,4 +119,6 @@ function main() {
   return 1;
 }
 
-process.exit(main());
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
+  process.exit(main());
+}
