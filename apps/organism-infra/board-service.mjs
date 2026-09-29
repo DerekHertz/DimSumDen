@@ -15,6 +15,7 @@ import {
   link,
   readdir,
   lstat,
+  appendFile,
 } from "node:fs/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import { execFileSync } from "node:child_process";
@@ -819,8 +820,34 @@ export async function reclaim(root, ref, cellType, options = {}) {
 // `kind:"override"` events.jsonl line the orchestrator surfaces.
 const HANDOFF_GATED_STATUSES = new Set(["in-review", "resolved"]);
 
+// organism-infra/48: the resolved row is scripted, not hand-written. Bounces are
+// the ticket's comment events recorded with --verdict bounce.
+function validatePrFlag(pr) {
+  if (pr === undefined) return undefined;
+  if (typeof pr !== "string" || !/^[1-9][0-9]{0,8}$/.test(pr)) {
+    throw new BoardError(`invalid --pr: ${JSON.stringify(pr)} (must be a positive integer)`);
+  }
+  return Number(pr);
+}
+
+async function appendResolvedRow(root, eventsPath, ref, pr) {
+  const { feature, ticket } = parseTicketRef(ref);
+  const raw = await readFile(eventsPath, "utf8").catch(() => "");
+  let bounces = 0;
+  for (const line of raw.split("\n")) {
+    if (!line) continue;
+    let e;
+    try { e = JSON.parse(line); } catch { continue; }
+    if (e.op === "comment" && e.feature === feature && e.ticket === ticket && e.verdict === "bounce") bounces++;
+  }
+  const row = { kind: "resolved", ts: new Date().toISOString(), ticket: `${feature}/${ticket}`, pr, bounces };
+  await mkdir(path.join(root, ".scratch"), { recursive: true });
+  await appendFile(path.join(root, ".scratch", "usage.jsonl"), JSON.stringify(row) + "\n");
+}
+
 export async function release(root, ref, newStatus, reason, options = {}) {
   const { force, keepStatus } = options;
+  const pr = validatePrFlag(options.pr);
   checkArgLength(newStatus, "status");
   checkArgLength(reason, "reason");
   if (keepStatus && newStatus !== undefined) {
@@ -892,6 +919,16 @@ export async function release(root, ref, newStatus, reason, options = {}) {
     }
 
     const content = await readFile(paths.ticketPath, "utf8");
+    // organism-infra/48: a resolved release of a code ticket needs --pr. Checked
+    // before any write so a refusal leaves the claim and appends no row.
+    let resolvedPr = null;
+    if (newStatus === "resolved") {
+      const isCode = /^\*\*Type:\*\*[ \t]*(feature|bug)\b/m.test(content);
+      if (isCode && pr === undefined) {
+        throw new BoardError(`release blocked: ${ref} is a code ticket; --pr <number> is required to resolve it`);
+      }
+      resolvedPr = pr ?? null;
+    }
     const fromStatus = readStatus(content);
     // --keep-status: free the lock and leave the status line untouched.
     const toStatus = keepStatus ? fromStatus : newStatus;
@@ -921,6 +958,9 @@ export async function release(root, ref, newStatus, reason, options = {}) {
       await atomicWrite(paths.ticketPath, updated);
       await unlink(paths.claimLockPath).catch(() => {});
     }, events);
+    if (newStatus === "resolved") {
+      await appendResolvedRow(root, paths.eventsPath, ref, resolvedPr);
+    }
     return { status: toStatus };
   });
 }
@@ -1010,7 +1050,10 @@ export async function getStatus(root, ref) {
 }
 
 export async function comment(root, ref, text, options = {}) {
-  const { as } = options;
+  const { as, verdict } = options;
+  if (verdict !== undefined && verdict !== "pass" && verdict !== "bounce") {
+    throw new BoardError(`invalid --verdict: ${JSON.stringify(verdict)} (allowed: pass, bounce)`);
+  }
   checkArgLength(text, "comment");
   checkArgLength(as, "author");
   const { feature, ticket, paths } = await prepare(root, ref);
@@ -1054,6 +1097,7 @@ export async function comment(root, ref, text, options = {}) {
       cell,
       op: "comment",
       text,
+      ...(verdict ? { verdict } : {}),
     });
     return { ok: true };
   });

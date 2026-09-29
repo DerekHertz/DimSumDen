@@ -67,13 +67,14 @@ async function main() {
     }
     case "release": {
       const { positional, flags } = parseFlags(rest, {
-        allowed: ["status", "reason", "force", "keep-status"],
+        allowed: ["status", "reason", "force", "keep-status", "pr"],
         boolean: ["force", "keep-status"],
       });
       const [ref] = positional;
       const result = await release(root, ref, flags.status, flags.reason, {
         force: !!flags.force,
         keepStatus: !!flags["keep-status"],
+        pr: flags.pr,
       });
       console.log(`released ${ref}: ${result.status}`);
       return;
@@ -94,9 +95,9 @@ async function main() {
     }
     case "comment": {
       // Only `--as` is a flag on comment; any other "--x" is rejected.
-      const { positional, flags } = parseFlags(rest, { allowed: ["as"] });
+      const { positional, flags } = parseFlags(rest, { allowed: ["as", "verdict"] });
       const [ref, text] = positional;
-      await comment(root, ref, text, { as: flags.as });
+      await comment(root, ref, text, { as: flags.as, verdict: flags.verdict });
       console.log(`commented on ${ref}`);
       return;
     }
