@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** claimed
+**Status:** resolved
 
 - [ ] A pure placement module maps cell type and slot index to a position, with unit tests for every station, the Pass perches, and overflow widening
 - [ ] Lazy susan shows one basket per frontier ticket and updates live
@@ -17,3 +17,9 @@
 
 ## Comments
 - **Showcase sprint (user, 2026-09-29):** ship a demoable v1 tonight. Relay is developer then qa verify; risk-check decides security. Mockups: https://claude.ai/artifact/LQjpimx1jfX5bjZEoTo3za
+- **Environment (user, 2026-09-29):** cloud Chromium 1194 does not match Playwright 1243, so smoke:ui cannot run in the cloud session. Agreed fix: the user runs the browser verification in WSL. qa verify here covers unit tests and build; browser check is the user's.
+- **User browser check (WSL, 2026-09-29):** layout works. Fix round asks: (1) the banquet table reads as a bucket (tapered bowl); make it a larger, flat round tabletop on a short base or legs, with the lazy susan a thin disc on top; (2) add camera controls: horizontal pan (x only) by drag and arrow keys, and zoom by wheel or +/- within limits, so cells at the back stalls can be seen; keyboard reachable, respects reduced motion (no easing).
+- **User (2026-09-29), same fix round:** stall roofs don't connect to the posts; seat each roof on its four post tops.
+- **User (2026-09-29), same fix round:** fog covers Bao since he moved back; fog must start behind him.
+- **User browser check 2 (2026-09-29):** table, zoom and pan good. Fix round 2: (1) the back-left stall's roof crashes into Bao's left shoulder, move it clear; (2) the crown cell floats above Bao's head, seat it on the head; (3) stall posts stick out a little past the counter base at the bottom corners, align them; (4) the cell at the cub basket clips into the basket, seat it beside or inside it cleanly.
+- **User browser check 3 (2026-09-29):** looks great. Last fix: the back-left stall widens toward the centre and crowds Bao; shift it left like the back-right and front stalls so Bao and the table sit centred between the stalls (overflow widens outward, away from centre). Then merge.

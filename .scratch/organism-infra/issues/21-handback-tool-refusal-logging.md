@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Priority:** P2
+
 **What to build:** Per ADR 0009 decision 2's ranked #2 rule, add a mandatory `## Tool refusals` heading to the `handoff` skill's template (`none` is a valid, explicit entry) and a `tool_refusals` array to the Receipt schema (`organism-infra/17`). When the orchestrator processes a cell's handback, it greps the handoff for that heading and files its contents into the cell's Receipt before appending to `usage.jsonl`; a missing heading is itself logged as a `kind:"incident"` line (the same treatment a missing usage sample gets).
 
 This closes two incidents: a refused compound `cd`+heredoc command that went unreported ("no environment issues" anyway, `ci-cd/04`), and a refused main-checkout write that was worked around without being logged as a refusal (`ci-cd/04`, security).

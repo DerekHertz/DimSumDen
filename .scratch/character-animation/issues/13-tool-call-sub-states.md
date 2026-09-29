@@ -2,6 +2,8 @@
 
 **Type:** feature
 
+**Priority:** P2
+
 **What to build:** Under the `working` state from ticket 04, a cell plays a clip for its latest tool call: read, edit, test/build, and web search. It also plays the failed-twice, waiting-on-user and done clips, and the merge bell. The clips and reduced-motion holds are in `.scratch/character-animation/design/dim-sum-direction.md` section 2. Events come from tailing the Claude Code session transcripts (decided in ticket 11's Comments), not from hooks.
 
 **Priority:** P3

@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Priority:** P2
+
 **What to build:** Update the orchestrator genome (`.claude/agents/orchestrator.md`) so it: appends every cell's Receipt (`organism-infra/17` schema) verbatim to `usage.jsonl` as `kind:"cell"`, reads `tool_refusals` out of each handback (`organism-infra/21`) instead of re-deriving it from prose, and documents the usage-freshness override variable (`organism-infra/19`) and the board-release `--force` override (`organism-infra/18`). This is `organism-infra/15`'s own acceptance criterion 3: "the receipt schema is defined, and the orchestrator genome is updated to match (a brain gate: the orchestrator applies it with the user's yes)."
 
 This ticket changes `.claude/agents/orchestrator.md`. Only the orchestrator applies it, and only with the user's explicit yes — get that before editing, not after.

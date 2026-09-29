@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Priority:** P2
+
 **What to build:** The findings from ticket 07 that the user waived so it could merge (`handoffs/07-designer-3.md`):
 - **MEDIUM:** the blueprint reads as a card. Make it a landscape sheet 0.34-0.38 wide and 0.24-0.30 tall (`BLUEPRINT_W`, `BLUEPRINT_H` in `build_props.py`), tighten its placement test, and re-export in Blender.
 - **Environment:** `dev-scene.mjs` sizes its renderer on the first frame, not only at load and on resize, so a newly opened Browser pane doesn't render an empty canvas.

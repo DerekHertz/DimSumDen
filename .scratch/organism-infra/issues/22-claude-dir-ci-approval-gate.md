@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Priority:** P2
+
 **What to build:** Per ADR 0009 decision 2's ranked #5 rule, add a CI check that fails a PR whose diff touches `.claude/**` unless the PR carries a required label (e.g. `human-approved-claude-dir`) that only a human applies — a cell's `gh` usage should not be able to satisfy this itself. This mechanizes the existing brain gate ("only the orchestrator edits `.claude/`, and only with the user's permission") which today has no check behind it; no incident has hit this yet, but it's the hardest of the five ranked rules to notice or reverse if it's ever skipped.
 
 Override: the human applies the label after reviewing the diff — this is not a bypass, it's the gate's normal "yes."

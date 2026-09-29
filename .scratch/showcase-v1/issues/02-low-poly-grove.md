@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Grove geometry is instanced; a unit test covers the layout generator (deterministic seed, counts per layer)
 - [ ] Scene still meets the existing frame budget with 30 cells (plush LOD from dimsumden-ui-v0/15)
@@ -16,3 +16,7 @@
 
 ## Comments
 - **Showcase sprint (user, 2026-09-29):** ship a demoable v1 tonight. Relay is developer then qa verify; risk-check decides security. Mockups: https://claude.ai/artifact/LQjpimx1jfX5bjZEoTo3za
+- **User browser check (2026-09-29):** grove is great. Asks folded into the batch: slower bamboo sway; front stalls a little closer to the table; extend pan so the Steamers stall's end is reachable.
+- **User (2026-09-29):** front Tea stall hides the back Steamers cells; raise back stalls or lower front roofs and stagger. Sent to the batch developer.
+- **qa, 2026-09-29:** QA pass on unit tests and build. Needs user eye: frame rate with 30 cells, sway, back-row visibility. smoke:ui not run here. See batch-qa-verify.md.
+- **security, 2026-09-29:** Security pass. Static instanced geometry, no input, network, fs or text handling. No findings.

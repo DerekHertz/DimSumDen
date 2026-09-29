@@ -8,7 +8,7 @@
 
 **Blocked by:** 14
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Board renders in the scene from GET /metrics
 - [ ] Click or keyboard opens the panel; hidden data tables kept for screen readers
