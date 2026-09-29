@@ -163,6 +163,10 @@ test("the service bell stands on Bao's crown", async () => {
   const { BELL } = await import("./banquet-layout.mjs");
   assert.ok(BELL.y > BAO.position[1] + BAO.scale * 0.8, "above Bao's centre, near the crown");
   assert.ok(Math.abs(BELL.x) < 0.8);
+  const { RAIL } = await import("./banquet-layout.mjs");
+  assert.ok(Math.abs(BELL.y - (RAIL.y + RAIL.height / 2)) < 1e-9, "the bell is seated on the Pass rail, not floating");
+  assert.ok(Math.abs(BELL.x - RAIL.x) <= RAIL.width / 2, "within the rail's length");
+  assert.ok(Math.abs(RAIL.y - (BAO.position[1] + BAO.scale * (-1 + 0.96 * 2))) < 0.05, "the rail is at the orchestrator's crown perch height");
   assert.equal(TABLE.x, 0);
 });
 

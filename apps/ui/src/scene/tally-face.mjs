@@ -1,8 +1,8 @@
-// showcase-v1/03: the face of Today's board in the grove. Pure view-model over dashboardModel: three
+// showcase-v1/03: the face of Tally in the grove. Pure view-model over dashboardModel: three
 // small charts with short chalk titles and a layout in face fractions (0..1, y down). The renderer
-// (BoardFace.jsx) only draws it. On the face, incidents read as "spills"; the panel keeps its wording.
-export const BOARD_LABEL = "Today's board";
-export const BOARD_ARIA_LABEL = "Today's board: open the dashboard";
+// (TallyFace.jsx) only draws it. On the face, incidents read as "spills"; the panel keeps its wording.
+export const TALLY_LABEL = "Tally";
+export const TALLY_ARIA_LABEL = "Tally: open the dashboard";
 
 const SHORT_TITLE = { throughput: "Resolved", tokens: "Tokens", incidents: "Spills" };
 const VERTICAL_BARS = 8;
@@ -11,9 +11,9 @@ const HORIZONTAL_BARS = 4;
 const TITLE_RECT = { x: 0.04, y: 0.04, w: 0.92, h: 0.16 };
 const PANEL = { y: 0.24, h: 0.72, w: 0.29, gap: 0.03, x0: 0.04 };
 
-export function boardFace(model) {
+export function tallyFace(model) {
   return {
-    title: BOARD_LABEL,
+    title: TALLY_LABEL,
     titleRect: TITLE_RECT,
     charts: model.charts.map((chart, i) => ({
       id: chart.id,

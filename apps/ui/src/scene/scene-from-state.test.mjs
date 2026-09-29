@@ -173,3 +173,13 @@ test("worked example from ADR 0011 decision 7", async () => {
     { ref: "organism-infra/28-review-claims-keep-in-review", cellType: "security", status: "in-review", perch: "pantry#0", pose: "waiting_on_user" },
   ]);
 });
+
+test("withPassCell: an idle orchestrator stands on Bao's crown when none is active, and never twice", async () => {
+  const { withPassCell } = await load();
+  const [pass] = withPassCell([]);
+  assert.deepEqual(pass, { ref: "__pass", cellType: "orchestrator", status: "idle", perch: "orchestrator#0", pose: "idle", synthetic: true });
+  const real = { ref: "f/01-t", cellType: "orchestrator", status: "claimed", perch: "orchestrator#0", pose: "working" };
+  assert.deepEqual(withPassCell([real]), [real]);
+  const dev = { ref: "f/02-t", cellType: "developer", status: "claimed", perch: "steamers#0", pose: "working" };
+  assert.deepEqual(withPassCell([dev]).map((c) => c.ref), ["f/02-t", "__pass"]);
+});

@@ -1,4 +1,4 @@
-// showcase-v1/05: the app is Dim Sum Den; Long Cang is display-only (scene labels, header title, board
+// showcase-v1/05: the app is Dim Sum Den; Long Cang is display-only (scene labels, header title, tally
 // heading); UI copy and numbers stay Nunito. Source-shape checks over index.html and styles.css.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -26,10 +26,10 @@ test("--font-display names Long Cang; --font-sans stays Nunito with no Long Cang
   assert.doesNotMatch(sans, /Long Cang/);
 });
 
-test("the display font is used only by header title, station labels and the board chip", () => {
+test("the display font is used only by header title, station labels and the tally chip", () => {
   const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, sel, body]) => [sel.trim(), body]);
   const users = rules.filter(([, body]) => /font-family:\s*var\(--font-display\)/.test(body)).map(([sel]) => sel);
-  const allowed = [".panel-header h1", ".station-label", ".chip-board"];
+  const allowed = [".panel-header h1", ".station-label", ".chip-tally"];
   for (const sel of users) assert.ok(allowed.includes(sel), `unexpected display-font rule: ${sel}`);
   for (const a of allowed) assert.ok(users.includes(a), `${a} uses the display font`);
 });
@@ -39,7 +39,7 @@ test("no number or data text uses the display font", () => {
     const rule = css.match(new RegExp(`${sel.replace(".", "\\.")}[^{]*\\{([^}]*)\\}`));
     if (rule) assert.doesNotMatch(rule[1], /font-display|Long Cang/, sel);
   }
-  assert.doesNotMatch(read("./scene/board-face.mjs"), /Long Cang/, "the view-model carries no font");
+  assert.doesNotMatch(read("./scene/tally-face.mjs"), /Long Cang/, "the view-model carries no font");
 });
 
 test("station labels sit on a rice-paper pill", () => {
@@ -50,8 +50,16 @@ test("station labels sit on a rice-paper pill", () => {
   assert.match(css, /--rice-paper:\s*#[0-9a-fA-F]{6}/);
 });
 
-test("the board face canvas draws its heading in the display font", () => {
-  assert.match(read("./scene/BoardFace.jsx"), /Long Cang/);
+test("the back-stall platforms are station-neutral stone, not panda ink", () => {
+  const market = read("./scene/Market.jsx");
+  const platform = market.match(/platform > 0 \? \(([\s\S]*?)\) : null/)[1];
+  assert.match(platform, /color=\{STONE\}/);
+  assert.doesNotMatch(platform, /INK/);
+  assert.match(market, /const STONE = "#[0-9a-f]{6}"/);
+});
+
+test("the tally face canvas draws its heading in the display font", () => {
+  assert.match(read("./scene/TallyFace.jsx"), /Long Cang/);
 });
 
 test("station labels are rendered by the chip layer from the pure model, anchored per stall", () => {

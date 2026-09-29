@@ -42,3 +42,12 @@ export function sceneFromState(snapshot) {
     return { ref: t.ref, cellType, status: t.status, perch: `${station}#${slot}`, pose: poseOf(t) };
   });
 }
+
+/**
+ * The Pass is the head chef: Bao's crown never stands empty. When no orchestrator cell is active, add
+ * an idle stand-in (no ticket, `synthetic: true`) so the scene shows one; chips skip it.
+ */
+export function withPassCell(cells) {
+  if (cells.some((c) => c.cellType === "orchestrator")) return cells;
+  return [...cells, { ref: "__pass", cellType: "orchestrator", status: "idle", perch: "orchestrator#0", pose: "idle", synthetic: true }];
+}

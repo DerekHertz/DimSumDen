@@ -13,7 +13,7 @@ import { averageAttribute, clusterSimplify, dominantBones } from "./plush-lod.mj
 import { createAssetCache } from "./asset-cache.mjs";
 import { Backdrop } from "./Backdrop.jsx";
 import { Market } from "./Market.jsx";
-import { BoardFace } from "./BoardFace.jsx";
+import { TallyFace } from "./TallyFace.jsx";
 import { BAO, parsePerch, placeCell, stationOf } from "./banquet-layout.mjs";
 
 // Each prop glb is fetched and parsed once, then cloned per plush.
@@ -184,7 +184,7 @@ export function Den(props) {
   return (
     <>
       <Backdrop />
-      <BoardFace face={props.boardFace} onOpen={props.onOpenBoard} stage={props.stage} />
+      <TallyFace face={props.tallyFace} onOpen={props.onOpenTally} stage={props.stage} />
       <FiguresBoundary>
         <Suspense fallback={null}>
           <DenFigures {...props} />
@@ -244,7 +244,7 @@ function DenFigures({ cells, baskets, handoffs, selected, onSelect, stage }) {
             scale={PLUSH_SCALE}
             lod
             selected={selected === c.ref}
-            onSelect={onSelect}
+            onSelect={c.synthetic ? undefined : onSelect}
             stage={stage}
           />
         );

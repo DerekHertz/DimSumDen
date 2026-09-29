@@ -84,7 +84,7 @@ function Chart({ chart }) {
   );
 }
 
-// Metrics come from useMetrics (metrics-state.js), shared with Today's board in the scene.
+// Metrics come from useMetrics (metrics-state.js), shared with Tally in the scene.
 export function Dashboard({ metrics, failed = false, onRetry }) {
   const m = dashboardModel(metrics, { error: failed });
   return (

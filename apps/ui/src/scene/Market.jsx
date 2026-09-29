@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import {
-  BELL, CUB_BASKET, CUB_BASKET_RADIUS, STALL_CENTERS, TABLE, stallCenterX, stallPlatform, stallRoof, stallWidth,
+  BELL, RAIL, CUB_BASKET, CUB_BASKET_RADIUS, STALL_CENTERS, TABLE, stallCenterX, stallPlatform, stallRoof, stallWidth,
 } from "./banquet-layout.mjs";
 import { DUR_SLOW_MS, lanternState, susanLayout, turnAngle } from "./handoffs.mjs";
 import { POST_BASE, POST_SIZE, postHeight, postPositions, roofTriangles } from "./stall-roof.mjs";
@@ -18,6 +18,8 @@ const LEG_RING = 1.3;
 const INK = "#23262b";
 const WOOD = "#b98a55";
 const BAMBOO = "#d9c08a";
+// Platforms under the back stalls: station-neutral stone, not panda ink.
+const STONE = "#b3a892";
 const HUE = { steamers: "#e0a458", "front-of-house": "#d9707e", tea: "#6fae7a", pantry: "#5f8fbf" };
 // The lantern token (fill) and its unlit look.
 const LANTERN_LIT = "#f8bd40";
@@ -55,7 +57,7 @@ function Stall({ station, x, z, hue, width, lit }) {
       {platform > 0 ? (
         <mesh position={[0, platform / 2, 0]}>
           <boxGeometry args={[width + 0.3, platform, depth + 0.3]} />
-          <meshStandardMaterial color={INK} />
+          <meshStandardMaterial color={STONE} />
         </mesh>
       ) : null}
       <group position={[0, platform, 0]}>
@@ -148,7 +150,12 @@ function Susan({ baskets, handoffs }) {
 
 function ServiceBell({ lit }) {
   return (
-    <group position={[BELL.x, BELL.y, BELL.z]}>
+    <group>
+      <mesh position={[RAIL.x, RAIL.y, RAIL.z]}>
+        <boxGeometry args={[RAIL.width, RAIL.height, 0.12]} />
+        <meshStandardMaterial color={WOOD} />
+      </mesh>
+      <group position={[BELL.x, BELL.y, BELL.z]}>
       <mesh>
         <sphereGeometry args={[0.16, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
         <meshStandardMaterial
@@ -162,6 +169,7 @@ function ServiceBell({ lit }) {
         <sphereGeometry args={[0.04, 8, 6]} />
         <meshStandardMaterial color={INK} />
       </mesh>
+      </group>
     </group>
   );
 }

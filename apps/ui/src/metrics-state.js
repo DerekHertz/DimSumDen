@@ -1,4 +1,4 @@
-// One /metrics fetch shared by the panel Dashboard and Today's board (showcase-v1/03). Refetches when
+// One /metrics fetch shared by the panel Dashboard and Tally (showcase-v1/03). Refetches when
 // the live store reports a metrics change (`revision`). Thin adapter: the view logic is in dashboard-model.
 import { useCallback, useEffect, useState } from "react";
 

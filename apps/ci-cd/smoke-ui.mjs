@@ -15,7 +15,7 @@ const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../", import.meta.url))
 // Expected values are literals worked out from the fixture (see bridge-fixture.mjs), not
 // recomputed from the snapshot.
 //  Scene: one plush and chip per active ticket (04 in-review, 05 blocked, 06 ready-for-human) = 3 chips.
-//  Queued tickets (02, 07, 08) show only as baskets on the lazy susan (showcase-v1/04); the board chip is not a cell chip.
+//  Queued tickets (02, 07, 08) show only as baskets on the lazy susan (showcase-v1/04); the tally chip is not a cell chip.
 const EXPECTED_CHIPS = 3;
 //  Queue: frontier by priority. 02 is P0; 07 is P1 bumped to P0 by three orchestrator handoffs
 //  newer than it; 08 has no priority (P2).
@@ -98,9 +98,9 @@ async function main() {
 
     await check("scene: one chip per active ticket", async () => {
       await page
-        .waitForFunction((n) => document.querySelectorAll(".chip-layer .chip:not(.chip-board)").length === n, EXPECTED_CHIPS, { timeout: 10000 })
+        .waitForFunction((n) => document.querySelectorAll(".chip-layer .chip:not(.chip-tally)").length === n, EXPECTED_CHIPS, { timeout: 10000 })
         .catch(() => {});
-      expectEqual(await page.locator(".chip-layer .chip:not(.chip-board)").count(), EXPECTED_CHIPS, "chips");
+      expectEqual(await page.locator(".chip-layer .chip:not(.chip-tally)").count(), EXPECTED_CHIPS, "chips");
       return `${EXPECTED_CHIPS} chips`;
     });
 

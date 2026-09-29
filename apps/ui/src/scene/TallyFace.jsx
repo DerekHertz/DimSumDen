@@ -1,10 +1,10 @@
-// Today's board (showcase-v1/03): a pagoda-roofed slate on tall posts, front right on the grass. The
-// slate face is a canvas texture drawn from the pure view-model in board-face.mjs (three small chalk
-// charts). Clicking it opens the Dashboard; the keyboard route is the "Today's board" chip in
+// Tally (showcase-v1/03): a pagoda-roofed slate on tall posts, front right on the grass. The
+// slate face is a canvas texture drawn from the pure view-model in tally-face.mjs (three small chalk
+// charts). Clicking it opens the Dashboard; the keyboard route is the "Tally" chip in
 // ChipLayer. Static: the face redraws only when the metrics change.
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { TODAYS_BOARD } from "./banquet-layout.mjs";
+import { TALLY } from "./banquet-layout.mjs";
 import { roofTriangles } from "./stall-roof.mjs";
 
 const SLATE = "#2f3a3d";
@@ -14,7 +14,7 @@ const BAR = "#7fd0c8";
 const INK = "#23262b";
 const WOOD = "#b98a55";
 const FACE_PX = { w: 512, h: 288 };
-const B = TODAYS_BOARD;
+const B = TALLY;
 const ROOF = { eave: B.faceBottom + B.faceHeight + 0.12, rise: 0.4 };
 
 function drawFace(ctx, face) {
@@ -66,7 +66,7 @@ function drawFace(ctx, face) {
   }
 }
 
-export function BoardFace({ face, onOpen, stage }) {
+export function TallyFace({ face, onOpen, stage }) {
   const canvas = useMemo(() => {
     const c = document.createElement("canvas");
     c.width = FACE_PX.w;
@@ -96,15 +96,15 @@ export function BoardFace({ face, onOpen, stage }) {
 
   useEffect(() => {
     if (!stage) return undefined;
-    stage.anchors.set("__board", new THREE.Vector3(B.x, ROOF.eave + ROOF.rise + 0.1, B.z));
-    return () => stage.anchors.delete("__board");
+    stage.anchors.set("__tally", new THREE.Vector3(B.x, ROOF.eave + ROOF.rise + 0.1, B.z));
+    return () => stage.anchors.delete("__tally");
   }, [stage]);
 
   const top = B.faceBottom + B.faceHeight;
   const postX = B.width / 2 + 0.05;
   return (
     <group
-      name="todays-board"
+      name="tally"
       position={[B.x, 0, B.z]}
       onClick={onOpen ? (e) => { e.stopPropagation(); onOpen(); } : undefined}
       onPointerOver={onOpen ? () => { document.body.style.cursor = "pointer"; } : undefined}

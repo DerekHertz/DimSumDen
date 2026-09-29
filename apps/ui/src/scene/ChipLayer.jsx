@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { chipModel, stackChips } from "./chip-model.mjs";
-import { BOARD_ARIA_LABEL, BOARD_LABEL } from "./board-face.mjs";
+import { TALLY_ARIA_LABEL, TALLY_LABEL } from "./tally-face.mjs";
 import { stationLabels } from "./station-labels.mjs";
 import { stationOf } from "./banquet-layout.mjs";
 
-export const BOARD_CHIP_ID = "__board";
+export const TALLY_CHIP_ID = "__tally";
 
 // `hearts` is a Set of cell refs that just received a handoff (showcase-v1/04): a heart bubble shows.
-export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, onOpenBoard }) {
+export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, onOpenTally }) {
   const nodes = useRef(new Map());
   // Station labels (showcase-v1/05): plain text on a rice-paper pill, placed over each stall roof.
   const labelNodes = useRef(new Map());
@@ -68,16 +68,16 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, o
           {l.text}
         </span>
       ))}
-      {onOpenBoard ? (
+      {onOpenTally ? (
         <button
           type="button"
-          ref={(el) => (el ? nodes.current.set(BOARD_CHIP_ID, el) : nodes.current.delete(BOARD_CHIP_ID))}
-          className="chip chip-idle chip-board"
-          aria-label={BOARD_ARIA_LABEL}
+          ref={(el) => (el ? nodes.current.set(TALLY_CHIP_ID, el) : nodes.current.delete(TALLY_CHIP_ID))}
+          className="chip chip-idle chip-tally"
+          aria-label={TALLY_ARIA_LABEL}
           style={{ visibility: "hidden" }}
-          onClick={onOpenBoard}
+          onClick={onOpenTally}
         >
-          {BOARD_LABEL}
+          {TALLY_LABEL}
         </button>
       ) : null}
       {cells.map((c) => {

@@ -5,16 +5,17 @@
 export const BAO = { position: [0, 1.4, -2.4], scale: 1.4 };
 const BAO_BOX = { minY: -1, size: [2, 2, 1.75] };
 
-/** The service bell on Bao's crown, beside the orchestrator's perch. */
-export const BELL = { x: 0.5, y: 2.85, z: BAO.position[2] };
+/** The Pass rail on Bao's crown, with the service bell seated on it beside the orchestrator's perch. */
+export const RAIL = { x: 0, y: 2.66, z: BAO.position[2], width: 1.3, height: 0.05 };
+export const BELL = { x: 0.5, y: RAIL.y + RAIL.height / 2, z: BAO.position[2] };
 
 /**
- * Today's board: a pagoda-roofed slate on tall posts, front right on the grass (showcase-v1/03). The slate
- * hangs high (faceBottom) so the sight line from the default camera to the Pantry's cells passes under it.
+ * Tally: a pagoda-roofed slate on tall posts beside Bao, between him and the back-right stall (showcase-v1/03). The slate
+ * hangs high (faceBottom) so the sight line from the default camera to Front of House cells passes under it.
  */
-export const TODAYS_BOARD = { x: 2.9, z: 3.9, width: 1.8, depth: 0.3, faceBottom: 1.9, faceHeight: 1.0 };
+export const TALLY = { x: 2.9, z: 0.8, width: 1.6, depth: 0.3, faceBottom: 2.35, faceHeight: 1.0 };
 
-export const TABLE ={ x: 0, z: 0, radius: 1.3, height: 0.7 };
+export const TABLE = { x: 0, z: 0, radius: 1.3, height: 0.7 };
 export const CUB_BASKET = { x: 0, z: 3.4 };
 export const CUB_BASKET_RADIUS = 0.55;
 
