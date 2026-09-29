@@ -31,6 +31,13 @@
   --radius-full: 9999px;
   --opacity-dim: 0.55;
   --dur-fast: 160ms;
+  --dur-breath: 2800ms;
+  --grove-mist: #e3efd6;
+  --grove-far: #b7d39d;
+  --grove-mid: #7fae62;
+  --grove-hill: #8cc070;
+  --grove-grass: #9fcc80;
+  --grove-near: #4f8a3c;
   --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --font-sans: Nunito, ui-rounded, "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
