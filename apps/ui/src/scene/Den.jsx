@@ -1,6 +1,6 @@
 // Renderer for the SceneCell list (ADR 0011 decision 7): Bao seated at the centre, one plush per
 // cell at its perch. Poses come from the character director; nothing new is animated.
-import { useEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef } from "react";
 import { useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -9,6 +9,7 @@ import { createCharacterDirector } from "../../../../packages/character-director
 import { PROP_ASSETS } from "../assets/panda-contract.mjs";
 import { averageAttribute, clusterSimplify, dominantBones } from "./plush-lod.mjs";
 import { createAssetCache } from "./asset-cache.mjs";
+import { Backdrop } from "./Backdrop.jsx";
 
 // Each prop glb is fetched and parsed once, then cloned per plush.
 const propGlbs = createAssetCache((url) => new GLTFLoader().loadAsync(url));
@@ -192,8 +193,20 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
   );
 }
 
-/** Lives inside <Canvas>. `stage` is a shared mutable {anchors, camera, size} the chip layer reads. */
-export function Den({ cells, selected, onSelect, stage }) {
+/** Lives inside <Canvas>. `stage` is a shared mutable {anchors, camera, size} the chip layer reads.
+ *  The backdrop is procedural, so it sits outside the Suspense that waits for panda.glb. */
+export function Den(props) {
+  return (
+    <>
+      <Backdrop />
+      <Suspense fallback={null}>
+        <DenFigures {...props} />
+      </Suspense>
+    </>
+  );
+}
+
+function DenFigures({ cells, selected, onSelect, stage }) {
   const gltf = useLoader(GLTFLoader, "/models/panda.glb");
   const director = useDirector();
   const { camera, size } = useThree();
