@@ -53,7 +53,7 @@ Handoffs go through `board` too: write the file in your scratchpad, then run `bo
 - `npm test` rejects BOMs in `.md`/`.json`; write files with node or the Write tool.
 - Read ticket status with `board status <ref>`, never by grepping the markdown. Keep `board comment` text short; put detail in the handoff.
 - Never `git commit -a` in the main checkout; stage explicit paths. Give every `git push` a timeout.
-- In a worktree, use plain single commands: no `cd <main> && git …`, and no git in pipes. The isolation guard rejects them.
+- In a worktree, one plain command per Bash call: no `cd`, no `&&` or `;` chains, no pipes into git, no heredocs, and no shell variables (`$X`) in arguments. Write literal paths. For multi-line content or a multi-step probe, Write a script into your scratchpad and run it with `node <path>`. The isolation guard rejects everything else, and each refusal costs a turn.
 - Run `npm ci` first in a fresh worktree.
 
 ## Timeouts (never wait out a hang)
