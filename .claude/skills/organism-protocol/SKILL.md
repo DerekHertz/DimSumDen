@@ -38,6 +38,16 @@ Always ask before:
 
 State the action, why, and what changes. Wait for an explicit yes.
 
+**Relay autonomy (user, 2026-09-29):** once the user approves a ticket, the orchestrator runs its whole relay end to end without asking again. That covers dispatching each stage, opening the PR, and merging on green CI with no conflicts. Every other gate above still applies to every cell. The orchestrator stops and asks only when the user is needed:
+- a user verdict (`ready-for-human`, a browser or visual check)
+- a scope, design or requirements question the spec doesn't answer
+- a ticket failing twice
+- an environment issue
+- usage at 80% or more
+- a merge that is red, conflicted or diverged
+
+Moving on to the next ticket on the frontier needs a yes, unless the user has approved a queue.
+
 ## Environment issues (report, don't work around)
 
 When the environment gets in your way, don't patch or improvise past it. Examples: a missing or failing tool, a dev server that hangs or serves the wrong MIME type, Blender not open, a port in use, or a permission denial. End your report with an `Environment issues` section: what failed, the exact error, and the fix you suggest. The user fixes these in the main session. If one stops your task, say so and stop.
