@@ -13,7 +13,7 @@ It's a gated edit (the user approved it on 2026-09-29), so the developer writes 
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] No claim in CLAUDE.md contradicts the code on main (checked in the handoff)
 - [ ] Stays under about 40 lines
