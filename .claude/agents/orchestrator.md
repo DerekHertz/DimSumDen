@@ -50,6 +50,8 @@ Every code ticket runs through these stages, one cell at a time:
 
 A bounce from `qa` or `security` sends the branch back to a new `developer` with the findings; it counts toward the fails-twice rule. A ticket that needs a user verdict (`ready-for-human`) gets it before stage 3.
 
+A ticket whose change touches `.claude/` or `CLAUDE.md`: the auto-mode classifier blocks cells from editing those files. Dispatch the relay for everything else. For the gated files, have the developer write the exact edit (a script or a diff) into its handoff and stop there. Then give the user the one command that applies and commits it in the developer's worktree, before qa verify.
+
 `designer` joins the relay on visual work:
 - **UI ticket:** `designer` in `spec` mode runs before stage 1, and in `review` mode between stages 3 and 4. A design bounce counts like a qa bounce.
 - **Asset ticket (glb or other visual asset):** after the developer exports, `designer` in `critique` mode reviews it. A new `developer` fixes the findings, and this repeats until designer marks the ticket `ready-for-human`.
