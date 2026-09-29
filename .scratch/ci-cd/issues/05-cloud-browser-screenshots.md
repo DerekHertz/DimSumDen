@@ -20,3 +20,4 @@
 
 ## Comments
 - **Decision (user, 2026-09-29):** separate ticket; finish showcase-v1/07 first. Touches CI tooling, so security reviews.
+- **Retro (user-approved, 2026-09-29):** also install gitleaks in the cloud environment setup (missing twice; security fell back to grep).

@@ -13,3 +13,4 @@
 
 ## Comments
 - **Evidence (orchestrator, 2026-09-29):** `release --keep-status` from a non-review claim left status `claimed` instead of the prior status (designer on showcase-v1/07, qa specify on organism-infra/30).
+- **Retro (user-approved, 2026-09-29):** also let `board comment --verdict` accept designer pass/bounce (the genome counts a design bounce like a qa bounce), and make `--keep-status` restore the status from before the claim (left `claimed` 3 times on 2026-09-29).
