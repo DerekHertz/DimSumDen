@@ -278,3 +278,4 @@
 {"seq":278,"ts":"2026-09-29T22:22:54.918Z","feature":"ci-cd","ticket":"05-cloud-browser-tests","cell":"qa","mode":"specify","op":"claim","from_status":"in-review","to_status":"in-review"}
 {"seq":279,"ts":"2026-09-29T22:23:49.115Z","feature":"docs","ticket":"02-public-readiness","cell":"developer","mode":null,"op":"reclaim","reason":"redispatch after classifier block","previous_cell":"developer","from_status":"claimed","to_status":"claimed"}
 {"seq":280,"ts":"2026-09-29T22:24:37.940Z","feature":"ci-cd","ticket":"05-cloud-browser-tests","cell":"qa","op":"release","from_status":"in-review","to_status":"in-review","force":false}
+{"seq":281,"ts":"2026-09-29T22:25:06.354Z","feature":"ci-cd","ticket":"05-cloud-browser-tests","cell":"security","mode":null,"op":"claim","from_status":"in-review","to_status":"in-review"}
