@@ -160,3 +160,4 @@
 {"kind":"jev","ts":"2026-09-29T21:37:30.611Z","ticket":"organism-infra/30-handoff-error-shows-skeleton","point":"tier","pick":null,"actual":"sonnet","cost":0,"conf":null,"mode":"shadow","fallback":"no-key","ms":1,"model":"jev-1.13.0"}
 {"kind":"config","ts":"2026-09-29T21:38:28Z","change":"user authorises running the full relay per ticket without per-dispatch approval, through merge on green CI","source":"user, cloud session 2026-09-29"}
 {"kind":"usage","ts":"2026-09-29T21:38:28Z","five_hour":null,"weekly":null,"cloud_credits":48,"event":"dispatch","ticket":"organism-infra/30-handoff-error-shows-skeleton","cell":"developer"}
+{"kind":"cell","ts":"2026-09-29T21:41:57.468Z","ticket":"organism-infra/30-handoff-error-shows-skeleton","cell":"developer","tokens":42982,"ms":187469,"outcome":"in-review at ad43f95; 795/800, 5 expected smoke"}
