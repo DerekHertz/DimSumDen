@@ -14,6 +14,7 @@ import {
   mkdir,
   link,
   readdir,
+  lstat,
 } from "node:fs/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import { execFileSync } from "node:child_process";
@@ -922,6 +923,17 @@ export async function release(root, ref, newStatus, reason, options = {}) {
 // always a plain filename inside that directory.
 const HANDOFF_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*\.md$/;
 
+const HANDOFF_MAX_BYTES = 256 * 1024;
+
+function stateBlock(text) {
+  const m = /```json\s*([\s\S]*?)```/.exec(text);
+  try {
+    return m ? JSON.parse(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function publishHandoff(root, ref, fromFile, options = {}) {
   const { feature, ticket, paths } = await prepare(root, ref);
   if (!fromFile) throw new BoardError("handoff requires --from <file>");
@@ -934,9 +946,19 @@ export async function publishHandoff(root, ref, fromFile, options = {}) {
   }
   let body;
   try {
+    const st = await lstat(fromFile);
+    if (st.isSymbolicLink()) throw new BoardError(`--from must not be a symlink: ${fromFile}`);
+    if (!st.isFile()) throw new BoardError(`--from must be a regular file: ${fromFile}`);
+    if (st.size > HANDOFF_MAX_BYTES) {
+      throw new BoardError(`--from file exceeds ${HANDOFF_MAX_BYTES} bytes: ${fromFile}`);
+    }
     body = await readFile(fromFile, "utf8");
-  } catch {
+  } catch (err) {
+    if (err instanceof BoardError) throw err;
     throw new BoardError(`cannot read --from file: ${fromFile}`);
+  }
+  if (Buffer.byteLength(body) > HANDOFF_MAX_BYTES) {
+    throw new BoardError(`--from file exceeds ${HANDOFF_MAX_BYTES} bytes: ${fromFile}`);
   }
   const match = /```json\s*([\s\S]*?)```/.exec(body);
   let parsed;
@@ -950,9 +972,23 @@ export async function publishHandoff(root, ref, fromFile, options = {}) {
     throw new BoardError(`handoff State block must name ticket ${feature}/${ticket}`);
   }
   const dir = path.join(root, ".scratch", feature, "handoffs");
+  await assertWithinRoot(root, dir);
+  const dirStat = await lstat(dir).catch(() => null);
+  if (dirStat && dirStat.isSymbolicLink()) throw new BoardError("handoffs directory must not be a symlink");
   await mkdir(dir, { recursive: true });
+  await assertWithinRoot(root, dir);
   const dest = path.join(dir, name);
   if (path.dirname(dest) !== dir) throw new BoardError("handoff destination escapes the handoffs directory");
+  const destStat = await lstat(dest).catch(() => null);
+  if (destStat) {
+    if (destStat.isSymbolicLink() || !destStat.isFile()) {
+      throw new BoardError(`handoff destination is not a regular file: ${name}`);
+    }
+    const prior = stateBlock(await readFile(dest, "utf8").catch(() => ""));
+    if (!prior || prior.cell !== parsed.cell || prior.mode !== parsed.mode) {
+      throw new BoardError(`handoff ${name} already exists from a different cell/mode; refusing to overwrite`);
+    }
+  }
   await atomicWrite(dest, body);
   return { path: dest };
 }
