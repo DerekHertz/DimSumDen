@@ -16,3 +16,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-09-28):** From grill Q5 on ticket 04.
+- **Bloat scan (scout, 2026-09-29):** 7 genomes use a bare `Agent` (architect, designer, developer, orchestrator, product, qa, security) and could name only the roles they dispatch, as herald does with `Agent(scout)`. product declares WebFetch and WebSearch but its prose sends lookups to scout. The other genomes' tools weren't checked.
