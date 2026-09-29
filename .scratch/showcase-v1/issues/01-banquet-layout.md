@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** claimed
+**Status:** in-review
 
 - [ ] A pure placement module maps cell type and slot index to a position, with unit tests for every station, the Pass perches, and overflow widening
 - [ ] Lazy susan shows one basket per frontier ticket and updates live
@@ -17,3 +17,4 @@
 
 ## Comments
 - **Showcase sprint (user, 2026-09-29):** ship a demoable v1 tonight. Relay is developer then qa verify; risk-check decides security. Mockups: https://claude.ai/artifact/LQjpimx1jfX5bjZEoTo3za
+- **Environment (user, 2026-09-29):** cloud Chromium 1194 does not match Playwright 1243, so smoke:ui cannot run in the cloud session. Agreed fix: the user runs the browser verification in WSL. qa verify here covers unit tests and build; browser check is the user's.
