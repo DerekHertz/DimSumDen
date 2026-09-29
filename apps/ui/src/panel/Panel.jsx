@@ -1,6 +1,7 @@
 // Panel sections for ticket 09: usage meter, queue, selected ticket + latest handoff.
 // Agent text is untrusted: everything renders as React text nodes, never as HTML.
 import { useEffect, useMemo, useState } from "react";
+import { gatesModel, noteCounter, submitGate } from "./gates-model.mjs";
 import { queueModel, detailModel } from "./queue-model.mjs";
 import { usageMeterModel } from "./usage-meter-model.mjs";
 import { parseMarkdown } from "./render-markdown.mjs";
@@ -121,4 +122,51 @@ export function Detail({ snapshot, selected }) {
       )}
     </div>
   );
+}
+
+function GateCard({ card }) {
+  const [note, setNote] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState(null);
+  const [locked, setLocked] = useState(false);
+  const counter = noteCounter(note.length);
+  const send = async (kind) => {
+    setSending(true);
+    setError(null);
+    const r = await submitGate({ fetch: window.fetch.bind(window), ref: card.ref, kind, note });
+    setSending(false);
+    if (!r.ok) {
+      setError(r.message);
+      if (!r.retryable) setLocked(true);
+    }
+  };
+  const disabled = sending || locked;
+  return (
+    <li className="gate-card">
+      <p className="overline">{card.eyebrow}</p>
+      <p className="detail-title">{card.title}</p>
+      <p className="code-small muted">{card.ref}</p>
+      <div aria-live="polite">
+        {card.pending ? (
+          <p className="small gate-pending">{card.pending.text}</p>
+        ) : (
+          <>
+            <label className="small" htmlFor={`note-${card.ref}`}>Note (optional)</label>
+            <textarea id={`note-${card.ref}`} className="gate-note" rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+            {counter.show ? <p className="small muted">{counter.text}</p> : null}
+            <div className="gate-buttons">
+              <button type="button" className="btn btn-solid" disabled={disabled} onClick={() => send(card.approveKind)}>{sending ? "Sending..." : card.approveLabel}</button>
+              <button type="button" className="btn btn-outline" disabled={disabled} onClick={() => send(card.rejectKind)}>{sending ? "Sending..." : card.rejectLabel}</button>
+            </div>
+            {error ? <p className="small gate-error">{error}</p> : null}
+          </>
+        )}
+      </div>
+    </li>
+  );
+}
+
+export function Gates({ snapshot }) {
+  const g = gatesModel(snapshot);
+  return <ul className="qlist">{g.cards.map((c) => <GateCard key={c.ref} card={c} />)}</ul>;
 }
