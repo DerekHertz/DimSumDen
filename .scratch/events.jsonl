@@ -188,3 +188,4 @@
 {"seq":188,"ts":"2026-09-29T20:13:02.069Z","feature":"showcase-v1","ticket":"04-message-passing","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
 {"seq":189,"ts":"2026-09-29T20:13:02.298Z","feature":"showcase-v1","ticket":"05-name-and-font","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":190,"ts":"2026-09-29T20:13:02.772Z","feature":"showcase-v1","ticket":"05-name-and-font","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":191,"ts":"2026-09-29T20:13:37.367Z","feature":"showcase-v1","ticket":"06-idle-pandas-roam","cell":"developer","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
