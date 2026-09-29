@@ -8,7 +8,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] ADR recorded (architect)
 - [ ] Trial on 3+ tickets, token comparison in the handoff
