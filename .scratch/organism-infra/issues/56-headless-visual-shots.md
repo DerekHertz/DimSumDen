@@ -15,3 +15,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-09-29):** From the post-UI v0 retro (cause 1: 3 occurrences, 07-09). The user reviews visuals for now and keeps this fix on record for later.
+- **Merged scope (orchestrator, 2026-09-29):** also covers the cloud designer-screenshot script from ci-cd/06. Cloud Chromium works through PW_CHROMIUM_PATH (ci-cd/05, PR 72).
