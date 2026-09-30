@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** claimed
+**Status:** in-review
 
 - [ ] No request to any Google Fonts host at page load (a test asserts it)
 - [ ] Long Cang renders from the bundled woff2 wherever it rendered before (title, Tally face)
