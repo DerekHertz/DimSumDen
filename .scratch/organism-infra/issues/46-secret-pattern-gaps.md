@@ -8,7 +8,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] SECRET_PATTERNS matches the new GitHub and Slack token shapes, including a glued prefix (test with runtime-built fixtures)
 - [ ] Prose and lookalikes still don't match (test)
@@ -17,3 +17,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-09-28):** From 45's security review.
+- **orchestrator, 2026-09-30:** Folded into 77 (shared exposure module) with the user's yes; resolve with 77.

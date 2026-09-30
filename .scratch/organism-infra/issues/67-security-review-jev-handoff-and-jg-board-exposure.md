@@ -10,7 +10,7 @@ Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 
 **Blocked by:** None
 
-**Status:** claimed
+**Status:** resolved
 
 - [ ] Verdict recorded on the board for handoff text (bounce route): allowed, narrowed (state to what), or denied.
 - [ ] Verdict recorded for comment and gate-request text (wake).

@@ -8,9 +8,9 @@
 
 Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 
-**Blocked by:** 67, 69
+**Blocked by:** 67, 69, 77
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] `jev.mjs` accepts a route request for bounces with exactly the label set above; any other model output maps to `other`.
 - [ ] Input sent is exactly what ticket 67 allowed (tested); existing redaction and blocked-input fallback apply.
@@ -19,3 +19,7 @@ Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 - [ ] Nothing routes live; no gate is touched.
 
 ## Comments
+- **orchestrator, 2026-09-30:** Now blocked by 77 per 67's security verdict.
+- **developer, 2026-09-30:** db370c0: route-bounce CLI + bounce report; npm test 1019/1019; risk-check hits in qa test files
+- **qa, 2026-09-30:** QA pass: 1019/1019 pass, 0 fail; specify tests untouched; all 5 criteria covered or human-verified; jev-bounce-comment.test.mjs adds coverage only; risk-check hits in qa test files, security due.
+- **security, 2026-09-30:** Security pass. latestBounceComment reads only bounce verdict comments (op:comment, verdict:bounce); no handoff or other event text reaches Jev. exposure.mjs hasSecret+BOUNCE_CAP+MAX_CHARS checks apply. Budget handling sound (route-bounce shares route reservation, cap fires before transport). No-bounce empty verdict: acceptable as-is in shadow mode. Gitleaks clean. 0 vulnerabilities. Low: jev.mjs:343 empty bounceComment wastes one Jev call on no-bounce tickets; not blocking.
