@@ -154,6 +154,41 @@ function scopeReport(rows, tickets) {
   };
 }
 
+// ADR 0015 decision 6: the wake bar is at least 15 informational labels, none followed by the board acting on
+// that ticket (a claim, comment or release after the row), plus route's coverage and spend limits. One row per
+// ticket (its latest wake row), like the tier and verify points.
+const WAKE_BAR = { informational: 15 };
+const WAKE_ACTS = ["claim", "comment", "release"];
+
+function wakeReport(rows, events) {
+  const latest = new Map();
+  for (const r of rows) {
+    if (r.kind !== "jev" || r.point !== "wake") continue;
+    const k = keyOf(r.ticket);
+    if (!k) continue;
+    const prev = latest.get(k);
+    if (!prev || String(r.ts ?? "") >= String(prev.ts ?? "")) latest.set(k, r);
+  }
+  const acts = WAKE_ACTS.flatMap((op) => boardEvents(events, op));
+  const used = [...latest];
+  const n = used.length;
+  const informational = used.filter(([, r]) => r.pick === "informational");
+  const fallbacks = used.filter(([, r]) => r.fallback && r.fallback !== "cap").length;
+  const capFired = used.filter(([, r]) => r.fallback === "cap").length;
+  const medianMs = median(used.map(([, r]) => Number(r.ms) || 0));
+  const missedWakes = informational
+    .filter(([k, r]) => acts.some((e) => e.key === k && e.ts > String(r.ts ?? "")))
+    .map(([k]) => k);
+  return {
+    rows: n, informational: informational.length, fallbacks, capFired, medianMs, missedWakes,
+    checks: {
+      coverage: informational.length >= WAKE_BAR.informational && fallbacks * 5 <= n && medianMs < 2000,
+      safety: missedWakes.length === 0,
+      spend: capFired === 0,
+    },
+  };
+}
+
 export function buildReport(rows, events = []) {
   const info = new Map(); // key -> { cells, bounces }
   const get = (k) => {
@@ -218,6 +253,7 @@ export function buildReport(rows, events = []) {
     route: { newTicket: routeReport(rows, events, "new"), bounce: routeReport(rows, events, "bounce") },
     priority: priorityReport(rows),
     scope: scopeReport(rows, tickets),
+    wake: wakeReport(rows, events),
   };
 }
 
@@ -266,6 +302,13 @@ export function formatReport(report) {
     lines.push("", "Scope (shadow; ADR 0015)");
     lines.push(`scope: ${ok(s.checks.scope)} (${s.rows} rows of ${SCOPE_BAR.min}, ${(s.sameTercileRate * 100).toFixed(1)}% same-tercile, ${s.smallWasLargeInLast10} small-vs-large in last ${SCOPE_BAR.last})`);
     for (const m of s.misses) lines.push(`scope miss ${m.ticket}: pick ${m.pick}, tercile ${m.tercile}`);
+  }
+  const w = report.wake;
+  if (w) {
+    lines.push("", "Wake-up gate (shadow; ADR 0015)");
+    lines.push(`wake coverage: ${ok(w.checks.coverage)} (${w.informational} informational of ${WAKE_BAR.informational}, ${w.rows} rows, ${w.fallbacks} fallbacks, ${w.capFired} cap, median ${w.medianMs} ms)`);
+    lines.push(`wake safety: ${ok(w.checks.safety)} (${w.missedWakes.length} missed wakes${w.missedWakes.length ? ": " + w.missedWakes.join(", ") : ""})`);
+    lines.push(`wake spend: ${ok(w.checks.spend)} (${w.capFired} cap hits)`);
   }
   return lines.join("\n") + "\n";
 }
