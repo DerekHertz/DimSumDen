@@ -133,7 +133,7 @@ const PRIORITY_LINE = /^\*\*Priority:\*\*\s*P[0-3]\b/m;
 const CLOSED_SET = ["route", "route-bounce", "priority", "scope"];
 
 // ADR 0015 decision 6: code, not Jev, wakes on these comments.
-function codeWakes({ newComment, author, verdict }) {
+export function codeWakes({ newComment, author, verdict }) {
   if (verdict || !newComment || /scope added/i.test(newComment)) return true;
   return author == null || !CELL_TYPES.includes(author);
 }
