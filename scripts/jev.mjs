@@ -3,7 +3,7 @@
 // Usage: node scripts/jev.mjs <tier|verify> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]
 // Always exits 0 (fallback on any failure) except invalid arguments (exit 2).
 // Transport: plain HTTP per https://docs.typesafe.ai/api.md (POST /v1/systemone, Bearer key).
-import { appendFileSync, readFileSync, realpathSync } from "node:fs";
+import { appendFileSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -79,7 +79,7 @@ function todaysCost(rows, now) {
 
 export async function decide({
   point, ticket, ticketText = "", testsText = "", now = new Date(), usageRows = [],
-  env = process.env, mode = "shadow", timeoutMs = 10000, transport = fetchTransport,
+  env = process.env, mode = "shadow", timeoutMs = 10000, transport = fetchTransport, qaSpecified = true,
 }) {
   const p = POINTS[point];
   const t0 = Date.now();
@@ -87,14 +87,16 @@ export async function decide({
     const fb = fields.fallback ?? null;
     const pick = fb ? null : fields.pick;
     const live = mode === "live" && !fb && pick && pick !== "other";
-    const actual = live ? pick : p.fallback;
+    // organism-infra/58: verify floors to full when qa never ran specify.
+    const floor = point === "verify" && qaSpecified === false ? "full" : null;
+    const actual = floor ? floor : live ? pick : p.fallback;
     const conf = fb ? null : fields.conf;
     const cost = fb ? 0 : fields.cost;
     const row = {
       kind: "jev", ts: now.toISOString(), ticket, point, pick, actual, cost, conf,
-      mode, fallback: fb, ms: Date.now() - t0, model: MODEL,
+      mode, fallback: fb, floor, ms: Date.now() - t0, model: MODEL,
     };
-    return { result: { pick, conf, effective: actual, applied: Boolean(live), fallback: fb }, row };
+    return { result: { pick, conf, effective: actual, applied: Boolean(live) && actual === pick, fallback: fb, floor }, row };
   };
   const fail = (reason) => build({ fallback: reason });
 
@@ -170,8 +172,17 @@ async function main(argv) {
   const readOr = (f) => { try { return readFileSync(f, "utf8"); } catch { return ""; } };
   const usageRows = readOr(usagePath).split("\n").filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } });
 
+  const nn = slug.match(/^\d+/)?.[0];
+  let qaSpecified = false;
+  if (nn) {
+    try {
+      qaSpecified = readdirSync(path.join(root, ".scratch", feature, "handoffs"))
+        .some((f) => f.startsWith(`${nn}-qa-specify`) && f.endsWith(".md"));
+    } catch {}
+  }
+
   const { result, row } = await decide({
-    point, ticket: opts.ticket, ticketText: readOr(ticketPath),
+    point, ticket: opts.ticket, ticketText: readOr(ticketPath), qaSpecified,
     testsText: opts.tests ? readOr(opts.tests) : "", usageRows, mode: opts.mode,
   });
   appendFileSync(usagePath, JSON.stringify(row) + "\n");
