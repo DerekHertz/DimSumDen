@@ -8,7 +8,7 @@
 
 Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 
-**Blocked by:** 67, 71
+**Blocked by:** 67, 71, 77
 
 **Status:** ready-for-agent
 
@@ -20,3 +20,4 @@ Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 - [ ] Input sent is exactly what ticket 67 allowed.
 
 ## Comments
+- **orchestrator, 2026-09-30:** Now blocked by 77 per 67's security verdict.

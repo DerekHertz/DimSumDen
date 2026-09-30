@@ -17,3 +17,4 @@ Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 - [ ] The verdict is recorded on the board; any live switch needs the user's yes.
 
 ## Comments
+- **orchestrator, 2026-09-30:** Verdicts (orchestrator, 2026-09-30, evidence from scout): tier STAY SHADOW: 24 tickets, 3 fallbacks, median 436 ms, 2 bounces (dimsumden-ui-v0/07, organism-infra/41), neither caused or avoidable by the pick; value fails (+11.7% tokens vs -30% needed). verify STAY SHADOW: 20 tickets, 0 fallbacks, median 468.5 ms, same 2 bounces unrelated to depth; value fails (-5.5% vs -30%). No live switch. Criterion 2 NOT met: jev-report prints bounces but not their cause or a per-criterion PASS/FAIL, so the safety judgement needed hand reading. Ticket stays open until jev-report prints that.

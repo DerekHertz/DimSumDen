@@ -10,7 +10,7 @@ Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 
 **Blocked by:** None
 
-**Status:** claimed
+**Status:** resolved
 
 - [ ] `jev.mjs` accepts a route request for new tickets with exactly the label set above; any other model output maps to `other`.
 - [ ] Route never fires where the state machine dictates the next cell (tested); code removes forbidden labels before the call, and `developer-direct` is never offered on a code ticket (ADR 0015 decision 3).
