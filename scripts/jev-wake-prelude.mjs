@@ -79,7 +79,9 @@ export function lastOrchestratorTs(events) {
 // Security review 67: a wake input is the ticket plus one new comment; the orchestrator's own comments are not new.
 export function newInputs(events, since, ticketTextOf) {
   return events
+    // Security review 72 (Low): feature and ticket become path segments in ticketTextOf, so a separator or ".." is dropped here.
     .filter((e) => e?.op === "comment" && e.feature && e.ticket && e.cell !== "orchestrator" && String(e.ts ?? "") > since)
+    .filter((e) => [e.feature, e.ticket].every((s) => typeof s === "string" && !s.includes("..") && !/[\\/\0]/.test(s)))
     .map((e) => ({
       ticket: `${e.feature}/${e.ticket}`,
       ticketText: ticketTextOf(e.feature, e.ticket),

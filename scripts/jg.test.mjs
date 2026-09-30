@@ -38,8 +38,11 @@ function failRun() {
 }
 
 // A temp dir we use as a fake repo root (never inside .scratch or .claude).
+// It carries a .git directory: since the batch-B checkout-boundary fix, a root needs a .git ancestor or an explicit checkout.
 function makeRoot() {
-  return mkdtempSync(path.join(tmpdir(), "jg80-root-"));
+  const root = mkdtempSync(path.join(tmpdir(), "jg80-root-"));
+  mkdirSync(path.join(root, ".git"));
+  return root;
 }
 
 // A usage root for logging rows.

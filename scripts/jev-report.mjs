@@ -10,7 +10,8 @@ const VERIFY_WEIGHT = { light: 0.5, full: 1 };
 const POINTS = ["tier", "verify"];
 
 function keyOf(ref) {
-  const m = /^([^/]+)\/(\d+)/.exec(String(ref ?? ""));
+  // organism-infra/47: segments are [\w.-]+ so control characters and "|" (the id.split("|") join) never pass.
+  const m = /^([\w.-]+)\/(\d+)/.exec(String(ref ?? ""));
   return m ? `${m[1]}/${m[2]}` : null;
 }
 
@@ -212,7 +213,12 @@ function advisoryReport(rows) {
   };
 }
 
-export function buildReport(rows, events = []) {
+const isObject = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
+// Own keys only: "constructor" or "toString" must not resolve to an inherited function (NaN weights).
+const weightOf = (table, pick) => (typeof pick === "string" && Object.hasOwn(table, pick) ? table[pick] : undefined);
+
+export function buildReport(allRows, events = []) {
+  const rows = allRows.filter(isObject); // valid JSON that is not an object (null, 42) is skipped
   const info = new Map(); // key -> { cells, bounces }
   const get = (k) => {
     if (!info.has(k)) info.set(k, { cells: [], bounces: 0, resolved: false });
@@ -237,8 +243,8 @@ export function buildReport(rows, events = []) {
     const baseline = cells.reduce((s, c) => s + tok(c), 0);
     const tierRow = latest.get(`${ticket}|tier`);
     const verifyRow = latest.get(`${ticket}|verify`);
-    const tierW = !tierRow?.fallback && TIER_WEIGHT[tierRow?.pick] !== undefined ? TIER_WEIGHT[tierRow.pick] : 1;
-    const verifyW = !verifyRow?.fallback && VERIFY_WEIGHT[verifyRow?.pick] !== undefined ? VERIFY_WEIGHT[verifyRow.pick] : 1;
+    const tierW = !tierRow?.fallback && weightOf(TIER_WEIGHT, tierRow?.pick) !== undefined ? weightOf(TIER_WEIGHT, tierRow.pick) : 1;
+    const verifyW = !verifyRow?.fallback && weightOf(VERIFY_WEIGHT, verifyRow?.pick) !== undefined ? weightOf(VERIFY_WEIGHT, verifyRow.pick) : 1;
     let tier = 0;
     let verify = 0;
     let both = 0;
@@ -259,16 +265,27 @@ export function buildReport(rows, events = []) {
     const rv = jr.filter(([k]) => byKey[k].resolved); // value counts resolved tickets only (ADR 0010)
     const baseline = rv.reduce((s, [k]) => s + byKey[k].baseline, 0);
     const projected = rv.reduce((s, [k]) => s + byKey[k].projected[point], 0);
+    const fallbacks = jr.filter(([, r]) => r.fallback && r.fallback !== "cap").length;
+    const capFired = jr.filter(([, r]) => r.fallback === "cap").length;
+    const medianMs = median(jr.map(([, r]) => Number(r.ms) || 0));
+    const savedPct = baseline ? ((baseline - projected) / baseline) * 100 : 0;
     points[point] = {
       tickets: jr.length,
-      fallbacks: jr.filter(([, r]) => r.fallback && r.fallback !== "cap").length,
-      capFired: jr.filter(([, r]) => r.fallback === "cap").length,
-      medianMs: median(jr.map(([, r]) => Number(r.ms) || 0)),
+      fallbacks,
+      capFired,
+      medianMs,
       jevCost: jr.reduce((s, [, r]) => s + (Number(r.cost) || 0), 0),
       baseline,
       projected,
-      savedPct: baseline ? ((baseline - projected) / baseline) * 100 : 0,
+      savedPct,
       bounces: rv.reduce((s, [k]) => s + byKey[k].bounces, 0),
+      // organism-infra/68 criterion 2. Bars are ADR 0010 decision 10: at least 5 tickets, fallbacks at most
+      // 20%, median under 2 s; at least 30% fewer tokens; no cap hit. Safety stays a judgement: the orchestrator
+      // reads the handoffs of the tickets listed here (resolved, bounced, with a real pick at this point).
+      checks: { coverage: jr.length >= 5 && fallbacks * 5 <= jr.length && medianMs < 2000, value: savedPct >= 30, spend: capFired === 0 },
+      safetyBounces: rv
+        .filter(([k, r]) => byKey[k].bounces > 0 && !r.fallback && r.pick)
+        .map(([k, r]) => ({ ticket: k, pick: r.pick, bounces: byKey[k].bounces })),
     };
   }
   return {
@@ -295,6 +312,16 @@ export function formatReport(report) {
         `savings ${pct(x.savedPct)} (projected ${x.projected} vs baseline ${x.baseline} tokens; positive = fewer tokens, ` +
         `token change ${pct(change)}) | $${x.jevCost.toFixed(4)}, ${x.medianMs} ms`,
     );
+  }
+  const verdict = (x) => (x ? "PASS" : "FAIL");
+  lines.push("", "Verdict inputs per point (ADR 0010 decision 10)");
+  for (const p of POINTS) {
+    const x = report.points[p];
+    lines.push(`${p} coverage: ${verdict(x.checks.coverage)} (${x.tickets} tickets of 5, ${x.fallbacks} fallbacks, median ${x.medianMs} ms)`);
+    lines.push(`${p} value: ${verdict(x.checks.value)} (${pct(x.savedPct)} tokens saved, bar +30.0%)`);
+    lines.push(`${p} spend: ${verdict(x.checks.spend)} (${x.capFired} cap hits)`);
+    const sb = x.safetyBounces.map((e) => `${e.ticket} (pick ${e.pick}, ${e.bounces} bounces)`);
+    lines.push(`${p} safety: judge from handoffs, ${x.bounces} bounces; with a pick: ${sb.length ? sb.join(", ") : "none"}`);
   }
   lines.push("", "Per ticket (weighted tokens: baseline, projected tier / verify / both)");
   for (const t of report.tickets) {
@@ -374,7 +401,8 @@ function main(argv) {
   for (const line of text.split("\n")) {
     if (!line.trim()) continue;
     try {
-      rows.push(JSON.parse(line));
+      const row = JSON.parse(line);
+      if (row !== null && typeof row === "object") rows.push(row);
     } catch {
       // skip malformed lines
     }

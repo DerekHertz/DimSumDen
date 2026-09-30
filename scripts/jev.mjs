@@ -4,10 +4,11 @@
 //        node scripts/jev.mjs priority-verdict --ticket <ref> --verdict right|wrong
 //        node scripts/jev.mjs advisory-outcome --ticket <ref> --orchestrator <label> --jev <label|none> --user <label> --bounced true|false
 //        node scripts/jev.mjs order --actual <ref>[,<ref>...]
-// Always exits 0 (fallback on any failure) except invalid arguments, including a refused --tests path (exit 2).
+// Always exits 0 (fallback on any failure) except invalid arguments, including a refused --tests path (exit 2),
+// and a --ticket that names no issue file (exit 1, no row).
 // Transport: plain HTTP per https://docs.typesafe.ai/api.md (POST /v1/systemone, Bearer key).
 import {
-  appendFileSync, closeSync, constants, fstatSync, lstatSync, openSync, readdirSync, readFileSync, realpathSync,
+  appendFileSync, closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readdirSync, readFileSync, realpathSync,
 } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -247,6 +248,8 @@ export async function decide({
   if (text.length > MAX_CHARS) text = text.slice(text.length - MAX_CHARS);
   const apiKey = env.TYPESAFE_API_KEY;
   if (!apiKey) return fail("no-key");
+  // Security review 70 (Low): a ticket with no bounce verdict on file has nothing to route; skip the call.
+  if (isBounce && !String(bounceComment ?? "").trim()) return fail("no-bounce");
   const spent = todaysSpend(usageRows, now, rowPoint);
   const reserve = RESERVED[rowPoint] ?? 0;
   if (spent.total >= CAP || (spent.own >= reserve - EPS && spent.shared >= SHARED - EPS)) return fail("cap");
@@ -481,6 +484,11 @@ async function main(argv) {
   const [feature, slug] = opts.ticket.split("/");
   const ticketPath = path.join(root, ".scratch", feature, "issues", `${slug}.md`);
   const usagePath = path.join(root, ".scratch", "usage.jsonl");
+  // organism-infra/47: a ref naming no issue file is a typo; log nothing.
+  if (!existsSync(ticketPath)) {
+    process.stderr.write(`jev: ticket not found: ${opts.ticket} (no issue file at .scratch/${feature}/issues/${slug}.md)\n`);
+    return 1;
+  }
   const usageRows = readRows(usagePath);
 
   const nn = slug.match(/^\d+/)?.[0];
