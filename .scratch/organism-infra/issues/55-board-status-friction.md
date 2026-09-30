@@ -19,3 +19,4 @@
 
 - **Created (orchestrator, 2026-09-29):** From the post-UI v0 retro (cause 4, 4+ occurrences across 07-11), approved by the user.
 - **Retro add (orchestrator, 2026-09-29):** `board handoff` refuses to republish a handoff under the same name even for the same cell after a State block fix (qa on dimsumden-ui-v0/15 had to write 15-qa-verify-2.md, leaving a stale file). Allow the same cell/mode to overwrite its own file.
+- **orchestrator, 2026-09-30:** Scope added (user, 2026-09-30): the same restore applies when a qa specify fix-round claims a blocked ticket — --keep-status must return it to blocked (51 was left claimed with no lock; cost an extra developer hop).
