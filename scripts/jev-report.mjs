@@ -21,27 +21,52 @@ function median(xs) {
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-const CELL_LABEL = { product: "product", architect: "architect", designer: "designer", qa: "qa-specify", developer: "developer-direct" };
+// ADR 0015 decisions 3 and 5: each route half is scored against the next board claim that maps to one of
+// its labels, with its own coverage floor and safety rule.
+const ROUTE_VARIANTS = {
+  new: {
+    labelOf: { product: "product", architect: "architect", designer: "designer", qa: "qa-specify", developer: "developer-direct" },
+    minRows: 15,
+    // developer-direct on a ticket that got qa tests would have skipped qa specify.
+    isMiss: (u, claims) => u.r.pick === "developer-direct" && claims.some((c) => c.key === u.key && c.cell === "qa"),
+  },
+  bounce: {
+    labelOf: { developer: "developer", qa: "qa", architect: "architect", user: "user" },
+    minRows: 8,
+    // A developer pick is a miss when the ticket resolved with no qa claim (verify) after the route row.
+    isMiss: (u, claims, releases) => {
+      if (u.r.pick !== "developer") return false;
+      const ts = String(u.r.ts ?? "");
+      const done = releases.find((e) => e.key === u.key && e.toStatus === "resolved" && e.ts > ts);
+      return Boolean(done) && !claims.some((c) => c.key === u.key && c.cell === "qa" && c.ts > ts && c.ts < done.ts);
+    },
+  },
+};
 
-// ADR 0015 decisions 3 and 5: new-ticket route agreement against the next board claim, and the go-live bar.
-function routeReport(rows, events) {
+function boardEvents(events, op) {
+  return events
+    .filter((e) => e && e.op === op && e.feature && keyOf(`${e.feature}/${e.ticket}`))
+    .map((e) => ({ key: keyOf(`${e.feature}/${e.ticket}`), cell: e.cell, toStatus: e.to_status, ts: String(e.ts ?? "") }))
+    .sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+}
+
+function routeReport(rows, events, variant) {
+  const { labelOf, minRows, isMiss } = ROUTE_VARIANTS[variant];
   const latest = new Map();
   for (const r of rows) {
-    if (r.kind !== "jev" || r.point !== "route" || (r.variant ?? "new") !== "new") continue;
+    if (r.kind !== "jev" || r.point !== "route" || (r.variant ?? "new") !== variant) continue;
     const k = keyOf(r.ticket);
     if (!k) continue;
     const prev = latest.get(k);
     if (!prev || String(r.ts ?? "") >= String(prev.ts ?? "")) latest.set(k, r);
   }
-  const claims = events
-    .filter((e) => e && e.op === "claim" && e.feature && keyOf(`${e.feature}/${e.ticket}`))
-    .map((e) => ({ key: keyOf(`${e.feature}/${e.ticket}`), cell: e.cell, ts: String(e.ts ?? "") }))
-    .sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+  const claims = boardEvents(events, "claim");
+  const releases = boardEvents(events, "release");
 
   const used = [];
   for (const [key, r] of latest) {
-    const first = claims.find((c) => c.key === key && c.ts > String(r.ts ?? "") && CELL_LABEL[c.cell]);
-    if (first) used.push({ key, r, actual: CELL_LABEL[first.cell], hasQa: claims.some((c) => c.key === key && c.cell === "qa") });
+    const first = claims.find((c) => c.key === key && c.ts > String(r.ts ?? "") && labelOf[c.cell]);
+    if (first) used.push({ key, r, actual: labelOf[first.cell] });
   }
   const picked = used.filter((u) => u.r.pick);
   const nonOther = picked.filter((u) => u.r.pick !== "other");
@@ -59,13 +84,13 @@ function routeReport(rows, events) {
   const other = picked.length - nonOther.length;
   const agreementPct = nonOther.length ? (agreed.length / nonOther.length) * 100 : 0;
   const otherPct = n ? (other / n) * 100 : 0;
-  const safetyMisses = used.filter((u) => u.r.pick === "developer-direct" && u.hasQa).map((u) => u.key);
+  const safetyMisses = used.filter((u) => isMiss(u, claims, releases)).map((u) => u.key);
   return {
     rows: n, fallbacks, capFired, medianMs, other, otherPct, nonOther: nonOther.length, agreed: agreed.length, agreementPct, byLabel,
     disagreements: nonOther.filter((u) => u.r.pick !== u.actual).map((u) => ({ ticket: u.key, pick: u.r.pick, actual: u.actual })),
     safetyMisses,
     checks: {
-      coverage: n >= 15 && fallbacks * 5 <= n && medianMs < 2000,
+      coverage: n >= minRows && fallbacks * 5 <= n && medianMs < 2000,
       agreement: nonOther.length > 0 && agreementPct >= 85 && otherPct <= 35,
       safety: safetyMisses.length === 0,
       spend: capFired === 0,
@@ -132,7 +157,7 @@ export function buildReport(rows, events = []) {
       bounces: rv.reduce((s, [k]) => s + byKey[k].bounces, 0),
     };
   }
-  return { tickets, points, route: { newTicket: routeReport(rows, events) } };
+  return { tickets, points, route: { newTicket: routeReport(rows, events, "new"), bounce: routeReport(rows, events, "bounce") } };
 }
 
 const pct = (n) => `${n > 0 ? "+" : ""}${n.toFixed(1)}%`;
@@ -158,16 +183,27 @@ export function formatReport(report) {
   if (r) {
     lines.push("", "Route (new ticket, shadow; ADR 0015)");
     for (const [label, b] of Object.entries(r.byLabel)) lines.push(`route agreement ${label}: ${b.agreed}/${b.picks} agreed`);
-    const ok = (b) => (b ? "PASS" : "FAIL");
-    lines.push(
-      `route new-ticket coverage: ${ok(r.checks.coverage)} (${r.rows} rows of 15, ${r.fallbacks} fallbacks, ${r.capFired} cap, median ${r.medianMs} ms)`,
-      `route new-ticket agreement: ${ok(r.checks.agreement)} (${r.agreed}/${r.nonOther} = ${r.agreementPct.toFixed(1)}% of non-other, other ${r.otherPct.toFixed(1)}%)`,
-      `route new-ticket safety: ${ok(r.checks.safety)} (${r.safetyMisses.length} misses${r.safetyMisses.length ? ": " + r.safetyMisses.join(", ") : ""})`,
-      `route new-ticket spend: ${ok(r.checks.spend)} (${r.capFired} cap hits)`,
-    );
+    lines.push(...goLiveLines("route new-ticket", r, ROUTE_VARIANTS.new.minRows));
     for (const d of r.disagreements) lines.push(`route disagreement ${d.ticket}: pick ${d.pick}, actual ${d.actual}`);
   }
+  const b = report.route?.bounce;
+  if (b) {
+    lines.push("", "Route (bounce, shadow; ADR 0015)");
+    for (const [label, x] of Object.entries(b.byLabel)) lines.push(`route bounce agreement ${label}: ${x.agreed}/${x.picks} agreed`);
+    lines.push(...goLiveLines("route bounce", b, ROUTE_VARIANTS.bounce.minRows));
+    for (const d of b.disagreements) lines.push(`route bounce disagreement ${d.ticket}: pick ${d.pick}, actual ${d.actual}`);
+  }
   return lines.join("\n") + "\n";
+}
+
+function goLiveLines(name, r, minRows) {
+  const ok = (b) => (b ? "PASS" : "FAIL");
+  return [
+    `${name} coverage: ${ok(r.checks.coverage)} (${r.rows} rows of ${minRows}, ${r.fallbacks} fallbacks, ${r.capFired} cap, median ${r.medianMs} ms)`,
+    `${name} agreement: ${ok(r.checks.agreement)} (${r.agreed}/${r.nonOther} = ${r.agreementPct.toFixed(1)}% of non-other, other ${r.otherPct.toFixed(1)}%)`,
+    `${name} safety: ${ok(r.checks.safety)} (${r.safetyMisses.length} misses${r.safetyMisses.length ? ": " + r.safetyMisses.join(", ") : ""})`,
+    `${name} spend: ${ok(r.checks.spend)} (${r.capFired} cap hits)`,
+  ];
 }
 
 function main(argv) {

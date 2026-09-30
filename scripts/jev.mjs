@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // organism-infra/38: Jev pre-check script (ADR 0010).
-// Usage: node scripts/jev.mjs <tier|verify|route> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]
+// Usage: node scripts/jev.mjs <tier|verify|route|route-bounce> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]
 // Always exits 0 (fallback on any failure) except invalid arguments, including a refused --tests path (exit 2).
 // Transport: plain HTTP per https://docs.typesafe.ai/api.md (POST /v1/systemone, Bearer key).
 import {
@@ -248,6 +248,22 @@ export async function decide({
   return build({ pick: p.map[label] ?? "other", conf: prob, cost: c });
 }
 
+// Security review 67: route-bounce sends only the latest `board comment --verdict bounce` text for the
+// ticket, read from events.jsonl (the verdict flag is stored nowhere else). Never a handoff.
+export function latestBounceComment(eventsText, feature, slug) {
+  const nn = slug.match(/^\d+/)?.[0];
+  const same = (t) => (nn ? String(t ?? "").match(/^\d+/)?.[0] === nn : t === slug);
+  let text = "";
+  for (const line of eventsText.split("\n")) {
+    let e;
+    try { e = JSON.parse(line); } catch { continue; }
+    if (e?.op === "comment" && e.verdict === "bounce" && e.feature === feature && same(e.ticket) && typeof e.text === "string") {
+      text = e.text;
+    }
+  }
+  return text;
+}
+
 function boardRoot() {
   if (process.env.ORGANISM_ROOT) return process.env.ORGANISM_ROOT;
   try {
@@ -259,7 +275,7 @@ function boardRoot() {
 }
 
 function usage(msg) {
-  process.stderr.write(`jev: ${msg}\nusage: node scripts/jev.mjs <tier|verify|route> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]\n`);
+  process.stderr.write(`jev: ${msg}\nusage: node scripts/jev.mjs <tier|verify|route|route-bounce> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]\n`);
   return 2;
 }
 
@@ -284,7 +300,7 @@ function readTests(p) {
 
 async function main(argv) {
   const point = argv[0];
-  if (!["tier", "verify", "route"].includes(point)) return usage("point must be tier, verify or route");
+  if (!["tier", "verify", "route", "route-bounce"].includes(point)) return usage("point must be tier, verify, route or route-bounce");
   const opts = { mode: "shadow" };
   for (let i = 1; i < argv.length; i += 2) {
     const k = argv[i];
@@ -323,10 +339,13 @@ async function main(argv) {
   const status = ticketText.match(/^\*\*Status:\*\*\s*(\S+)/m)?.[1];
   const type = ticketText.match(/^\*\*Type:\*\*\s*([\w-]+)/m)?.[1]?.toLowerCase();
   const codeTicket = !NON_CODE_TYPES.includes(type);
+  const bounceComment = point === "route-bounce"
+    ? latestBounceComment(readOr(path.join(root, ".scratch", "events.jsonl")), feature, slug)
+    : "";
 
   const { result, row } = await decide({
     point, ticket: opts.ticket, ticketText, qaSpecified, status, codeTicket,
-    testsText, usageRows, mode: opts.mode,
+    testsText, usageRows, mode: opts.mode, bounceComment,
   });
   appendFileSync(usagePath, JSON.stringify(row) + "\n");
   process.stdout.write(JSON.stringify({ ...result, point, ticket: opts.ticket, mode: opts.mode }) + "\n");
