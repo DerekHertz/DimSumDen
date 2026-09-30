@@ -62,26 +62,26 @@ test("dragPan: dragging right moves the camera left, scaled by zoom, clamped", a
   assert.equal(dragPan(8.5, -1000, 1000, 1), 9);
 });
 
-test("cameraPosition: x is the pan, y fixed, z is 11.5 times the zoom factor", async () => {
+test("cameraPosition: x is the pan, y fixed, z is 13.8 times the zoom factor", async () => {
   const { cameraPosition } = await load();
-  assert.deepEqual(cameraPosition(2, 0.5), [2, 4.2, 5.75]);
+  assert.deepEqual(cameraPosition(2, 0.5), [2, 4.2, 6.9]);
 });
 
 // showcase-v1/04: the pan limit follows the viewport so the widest stall's outer edge stays reachable.
-// Worked by hand: half-width at the stall row = (11.5 * zoom + 1.6) * tan(19 deg) * aspect, and the
+// Worked by hand: half-width at the stall row = (13.8 * zoom + 1.6) * tan(23 deg) * aspect, and the
 // widest stall (12 active cells plus idle Scout) ends at x = 7.05 + 4.875 = 11.925,
-// so limit = max(0, 11.925 - half-width); camera pose/zoom remain unchanged.
+// so limit = max(0, 11.925 - half-width); user-approved framing revises base distance/FOV; zoom factors remain unchanged.
 test("panLimit: narrow window pans further than a wide one", async () => {
   const { panLimit } = await load();
-  assert.ok(Math.abs(panLimit(1, 1) - 7.4142) < 1e-3);
-  assert.ok(Math.abs(panLimit(0.5, 1) - 9.6696) < 1e-3);
+  assert.ok(Math.abs(panLimit(1, 1) - 5.3881) < 1e-3);
+  assert.ok(Math.abs(panLimit(0.5, 1) - 8.6565) < 1e-3);
   assert.equal(panLimit(3, 1), 0);
 });
 
 test("panLimit: zoomed in pans further than zoomed out", async () => {
   const { panLimit } = await load();
-  assert.ok(Math.abs(panLimit(1.5, 0.55) - 7.8315) < 1e-3);
-  assert.ok(Math.abs(panLimit(1.5, 1.2) - 3.971) < 1e-3);
+  assert.ok(Math.abs(panLimit(1.5, 0.55) - 6.0736) < 1e-3);
+  assert.ok(Math.abs(panLimit(1.5, 1.2) - 0.3623) < 1e-3);
 });
 
 test("panLimit: the widest stall's outer edge is always inside the view at the limit", async () => {
