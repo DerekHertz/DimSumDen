@@ -40,10 +40,42 @@ const POINTS = {
       other: "Cannot tell from this text",
     },
   },
+  // organism-infra/69: new-ticket route, shadow only (ADR 0015 decision 3). The offered labels vary per ticket.
+  route: {
+    labels: ["product", "architect", "designer", "qa-specify", "developer-direct", "user", "other"],
+    fallback: "orchestrator",
+    instructions:
+      "Which cell should take this new ticket first? Pick the one whose work the ticket needs next; pick other when the text does not say.",
+    criteria: {
+      product: "Needs a spec, scope or acceptance criteria before anyone builds",
+      architect: "Needs a design or decision before anyone builds",
+      designer: "Needs a UI or visual spec, or is a UI or asset ticket",
+      "qa-specify": "Well specified code change: failing tests come first",
+      "developer-direct": "Non-code ticket that a developer can start without qa tests",
+      user: "Needs a decision or verdict from the user first",
+      other: "Cannot tell from this text",
+    },
+  },
 };
 
-export async function fetchTransport({ point, text, model, apiKey, signal }) {
+// Reserved budget (ADR 0015 decision 7): each point may always spend its own reservation inside CAP.
+const RESERVED = { tier: 0.05, verify: 0.05, route: 0.05 };
+const SHARED = 0.35;
+const EPS = 1e-9;
+
+const NON_CODE_TYPES = ["asset", "research", "review", "grilling", "design", "design-direction", "design-question", "decision", "prototype"];
+
+export function offeredLabels({ codeTicket = true, forbid = [] } = {}) {
+  return POINTS.route.labels.filter(
+    (l) => l === "other" || (!forbid.includes(l) && (l !== "developer-direct" || !codeTicket)),
+  );
+}
+
+export async function fetchTransport({ point, text, model, apiKey, signal, labels }) {
   const p = POINTS[point];
+  const criteria = point === "route" && labels
+    ? Object.fromEntries(Object.entries(p.criteria).filter(([l]) => labels.includes(l)))
+    : p.criteria;
   const res = await fetch(ENDPOINT, {
     method: "POST",
     signal,
@@ -51,7 +83,7 @@ export async function fetchTransport({ point, text, model, apiKey, signal }) {
     body: JSON.stringify({
       state: text,
       model,
-      questions: { [point]: { type: "choice", instructions: p.instructions, criteria: p.criteria } },
+      questions: { [point]: { type: "choice", instructions: p.instructions, criteria } },
     }),
   });
   if (!res.ok) {
@@ -68,21 +100,31 @@ export async function fetchTransport({ point, text, model, apiKey, signal }) {
   };
 }
 
-function todaysCost(rows, now) {
+// Today's jev spend: total, and the draw on the shared remainder (each point's spend above its reservation).
+function todaysSpend(rows, now, point) {
   const day = now.toISOString().slice(0, 10);
-  let sum = 0;
+  const byPoint = {};
+  let total = 0;
   for (const r of rows) {
-    if (r && r.kind === "jev" && typeof r.ts === "string" && r.ts.slice(0, 10) === day) sum += Number(r.cost) || 0;
+    if (r && r.kind === "jev" && typeof r.ts === "string" && r.ts.slice(0, 10) === day) {
+      const c = Number(r.cost) || 0;
+      total += c;
+      byPoint[r.point] = (byPoint[r.point] ?? 0) + c;
+    }
   }
-  return sum;
+  const shared = Object.entries(byPoint).reduce((s, [k, v]) => s + Math.max(0, v - (RESERVED[k] ?? 0)), 0);
+  return { total, own: byPoint[point] ?? 0, shared };
 }
 
 export async function decide({
   point, ticket, ticketText = "", testsText = "", now = new Date(), usageRows = [],
   env = process.env, mode = "shadow", timeoutMs = 10000, transport = fetchTransport, qaSpecified = true,
+  codeTicket = true, forbid = [], status,
 }) {
   const p = POINTS[point];
   const t0 = Date.now();
+  const isRoute = point === "route";
+  const labels = isRoute ? offeredLabels({ codeTicket, forbid }) : null;
   const build = (fields) => {
     const fb = fields.fallback ?? null;
     const pick = fb ? null : fields.pick;
@@ -96,23 +138,31 @@ export async function decide({
       kind: "jev", ts: now.toISOString(), ticket, point, pick, actual, cost, conf,
       mode, fallback: fb, floor, ms: Date.now() - t0, model: MODEL,
     };
-    return { result: { pick, conf, effective: actual, applied: Boolean(live) && actual === pick, fallback: fb, floor }, row };
+    if (isRoute) row.variant = "new";
+    const result = { pick, conf, effective: actual, applied: Boolean(live) && actual === pick, fallback: fb, floor };
+    // ADR 0015 decision 3: a shadow route result must not show the pick, only the row carries it.
+    if (isRoute && !live) { delete result.pick; delete result.conf; }
+    return { result, row };
   };
   const fail = (reason) => build({ fallback: reason });
 
+  // The state machine dictates the next cell unless the ticket is fresh: no call.
+  if (isRoute && status && status !== "ready-for-agent") return fail("state-machine");
   let text = point === "verify" ? `${ticketText}\n\n--- test output ---\n${testsText}` : ticketText;
   if (SECRET_PATTERNS.some((s) => s.re.test(text))) return fail("blocked-input");
   if (text.length > MAX_CHARS) text = text.slice(text.length - MAX_CHARS);
   const apiKey = env.TYPESAFE_API_KEY;
   if (!apiKey) return fail("no-key");
-  if (todaysCost(usageRows, now) >= CAP) return fail("cap");
+  const spent = todaysSpend(usageRows, now, point);
+  const reserve = RESERVED[point] ?? 0;
+  if (spent.total >= CAP || (spent.own >= reserve - EPS && spent.shared >= SHARED - EPS)) return fail("cap");
 
   const ctl = new AbortController();
   let timer;
   let answer;
   try {
     answer = await Promise.race([
-      Promise.resolve().then(() => transport({ point, text, model: MODEL, apiKey, signal: ctl.signal })),
+      Promise.resolve().then(() => transport({ point, text, model: MODEL, apiKey, signal: ctl.signal, ...(isRoute ? { labels } : {}) })),
       new Promise((_, rej) => {
         timer = setTimeout(() => {
           ctl.abort();
@@ -131,9 +181,15 @@ export async function decide({
 
   const label = answer?.pick;
   const prob = answer?.probs?.[label];
-  if (!p.labels.includes(label) || typeof prob !== "number") return fail("unparseable");
   const cost = Number(answer?.usage?.cost);
-  return build({ pick: p.map[label] ?? "other", conf: prob, cost: Number.isFinite(cost) ? cost : 0 });
+  const c = Number.isFinite(cost) ? cost : 0;
+  if (isRoute) {
+    // Anything outside the offered set (unknown or forbidden) is other, not a fallback.
+    const ok = labels.includes(label);
+    return build({ pick: ok ? label : "other", conf: ok && typeof prob === "number" ? prob : null, cost: c });
+  }
+  if (!p.labels.includes(label) || typeof prob !== "number") return fail("unparseable");
+  return build({ pick: p.map[label] ?? "other", conf: prob, cost: c });
 }
 
 function boardRoot() {
@@ -147,13 +203,13 @@ function boardRoot() {
 }
 
 function usage(msg) {
-  process.stderr.write(`jev: ${msg}\nusage: node scripts/jev.mjs <tier|verify> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]\n`);
+  process.stderr.write(`jev: ${msg}\nusage: node scripts/jev.mjs <tier|verify|route> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]\n`);
   return 2;
 }
 
 async function main(argv) {
   const point = argv[0];
-  if (!POINTS[point]) return usage("point must be tier or verify");
+  if (!POINTS[point]) return usage("point must be tier, verify or route");
   const opts = { mode: "shadow" };
   for (let i = 1; i < argv.length; i += 2) {
     const k = argv[i];
@@ -181,8 +237,14 @@ async function main(argv) {
     } catch {}
   }
 
+  // Route: Status comes from the ticket; a ticket is non-code only when its **Type:** says so (else code, the safe side).
+  const ticketText = readOr(ticketPath);
+  const status = ticketText.match(/^\*\*Status:\*\*\s*(\S+)/m)?.[1];
+  const type = ticketText.match(/^\*\*Type:\*\*\s*([\w-]+)/m)?.[1]?.toLowerCase();
+  const codeTicket = !NON_CODE_TYPES.includes(type);
+
   const { result, row } = await decide({
-    point, ticket: opts.ticket, ticketText: readOr(ticketPath), qaSpecified,
+    point, ticket: opts.ticket, ticketText, qaSpecified, status, codeTicket,
     testsText: opts.tests ? readOr(opts.tests) : "", usageRows, mode: opts.mode,
   });
   appendFileSync(usagePath, JSON.stringify(row) + "\n");
