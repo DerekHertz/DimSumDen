@@ -124,3 +124,18 @@ _Avoid_: Article
 **Post series**:
 An ordered set of related drafts, such as the first four.
 _Avoid_: Campaign
+
+## UI names
+
+What each term is called in anything a user sees (UI copy, labels, `aria-label`s, the design system). The terms above stay the names in code, genomes and skills. The full list is the design system's Glossary.
+
+| Term | UI name |
+|---|---|
+| Organism | the den |
+| Station | station (The Pass, Steamers, Tea, Pantry, Front of House, Cubs) |
+| Cell | panda |
+| Cell type | role |
+| Genome | recipe card |
+| Apoptosis | clocking out |
+| Endocrine limits | plan usage, kitchen limits |
+| Pass gate, gate request | Needs you |
