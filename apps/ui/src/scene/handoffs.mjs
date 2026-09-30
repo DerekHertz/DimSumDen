@@ -49,6 +49,26 @@ export function deriveHandoffs(prev, next) {
   return handoffs;
 }
 
+/** Travel around the rear horseshoe, never through its open front gap. */
+export function handoffPath(fromStation, toStation) {
+  const from = STALL_CENTERS[fromStation], to = STALL_CENTERS[toStation];
+  if (!from || !to) return [];
+  if (fromStation === toStation) return [{ ...from }, { ...to }];
+  const rearAngle = (p) => {
+    const a = Math.atan2(p.z, p.x);
+    return a < 0 || p.x > 0 ? a + 2 * Math.PI : a;
+  };
+  const start = rearAngle(from), end = rearAngle(to);
+  // Radius 4.4 keeps rear travel behind Bao as well as beyond the 2.1 tabletop clearance.
+  const radius = Math.max(4.4, Math.hypot(from.x, from.z), Math.hypot(to.x, to.z));
+  const steps = Math.ceil(Math.abs(end - start) / (Math.PI / 12));
+  const arc = Array.from({ length: steps + 1 }, (_, i) => {
+    const a = start + (end - start) * i / steps;
+    return { x: radius * Math.cos(a), z: radius * Math.sin(a) };
+  });
+  return [{ ...from }, ...arc, { ...to }];
+}
+
 /** Angle around the susan (0 toward +z, positive toward +x) that points at a station. */
 export function stationBearing(station) {
   const at = STALL_CENTERS[station] ?? (station === "cubs" ? CUB_BASKET : { x: BAO.position[0], z: BAO.position[2] });

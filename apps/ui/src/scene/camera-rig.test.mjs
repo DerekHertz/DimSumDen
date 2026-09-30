@@ -69,23 +69,24 @@ test("cameraPosition: x is the pan, y fixed, z is 11.5 times the zoom factor", a
 
 // showcase-v1/04: the pan limit follows the viewport so the widest stall's outer edge stays reachable.
 // Worked by hand: half-width at the stall row = (11.5 * zoom + 1.6) * tan(19 deg) * aspect, and the
-// widest stall (12 cells, steamers) ends at x = 8.175 + 4.5 = 12.675, so limit = max(0, 12.675 - half-width).
+// widest stall (12 active cells plus idle Scout) ends at x = 7.05 + 4.875 = 11.925,
+// so limit = max(0, 11.925 - half-width); camera pose/zoom remain unchanged.
 test("panLimit: narrow window pans further than a wide one", async () => {
   const { panLimit } = await load();
-  assert.ok(Math.abs(panLimit(1, 1) - 8.1642) < 1e-3);
-  assert.ok(Math.abs(panLimit(0.5, 1) - 10.4196) < 1e-3);
+  assert.ok(Math.abs(panLimit(1, 1) - 7.4142) < 1e-3);
+  assert.ok(Math.abs(panLimit(0.5, 1) - 9.6696) < 1e-3);
   assert.equal(panLimit(3, 1), 0);
 });
 
 test("panLimit: zoomed in pans further than zoomed out", async () => {
   const { panLimit } = await load();
-  assert.ok(Math.abs(panLimit(1.5, 0.55) - 8.5815) < 1e-3);
-  assert.ok(Math.abs(panLimit(1.5, 1.2) - 4.721) < 1e-3);
+  assert.ok(Math.abs(panLimit(1.5, 0.55) - 7.8315) < 1e-3);
+  assert.ok(Math.abs(panLimit(1.5, 1.2) - 3.971) < 1e-3);
 });
 
 test("panLimit: the widest stall's outer edge is always inside the view at the limit", async () => {
   const { panLimit, visibleHalfWidth, WIDEST_STALL_EDGE } = await load();
-  assert.ok(Math.abs(WIDEST_STALL_EDGE - 12.675) < 1e-9);
+  assert.ok(Math.abs(WIDEST_STALL_EDGE - 11.925) < 1e-9);
   for (const aspect of [0.4, 0.8, 1.3, 1.8, 2.4, 3.5]) {
     for (const zoom of [0.55, 0.8, 1, 1.2]) {
       const limit = panLimit(aspect, zoom);
@@ -104,8 +105,9 @@ test("clampPan, keyPan and dragPan take an optional limit", async () => {
   assert.equal(clampPan(7, 0), 0);
 });
 
-test("MAX_STALL_CELLS matches the scene's cell cap", async () => {
+test("MAX_STALL_CELLS includes the scene's active cap plus the other idle Steamers role", async () => {
   const { MAX_STALL_CELLS } = await import("./banquet-layout.mjs");
   const { MAX_PLUSH } = await import("./scene-from-state.mjs");
-  assert.equal(MAX_STALL_CELLS, MAX_PLUSH);
+  assert.equal(MAX_PLUSH, 12);
+  assert.equal(MAX_STALL_CELLS, 13);
 });
