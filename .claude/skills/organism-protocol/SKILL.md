@@ -20,7 +20,7 @@ Your final report to the orchestrator stays under about 300 words: the verdict, 
 
 ## Claiming a ticket (exactly one cell per ticket)
 
-1. Claim with `npm run board -- claim <feature>/<NN-slug> <cell-type>`. It creates the lock atomically, sets `Status: claimed` (a `security` or `qa --mode verify` claim on an `in-review` ticket keeps `in-review`), and fails if another cell holds the ticket. Moded cells need `--mode` (qa: `specify` or `verify`).
+1. Claim with `npm run board -- claim <feature>/<NN-slug> <cell-type>`. It creates the lock atomically, sets `Status: claimed` (a `security` or `qa --mode verify` claim on an `in-review` ticket keeps `in-review`), and fails if another cell holds the ticket. Moded cells need `--mode`: qa must pass `specify` or `verify`; designer passes `review`, `spec`, `critique` or `direction` (a designer verdict needs `review`). Other cells need no mode. A dispatch line with `cell-start --ticket <ref> --cell <type> [--mode <m>]` makes this claim for you (`docs/agents/cell-start.md`).
 2. If the claim fails, the ticket is taken: pick another or hand off. Never delete another cell's lock.
 3. Add comments with `npm run board -- comment <feature>/<NN-slug> "<text>"`, never by editing the ticket. With a lock held, the author is your lock's cell. With no lock, pass `--as <cell-type>`; with a lock, `--as` must match your cell.
    - Take over a dead holder's lock with `board reclaim <ref> <cell-type> --reason "..."`, never as `orchestrator`. Free a lock without changing status with `board release <ref> --keep-status`.
@@ -48,13 +48,15 @@ State the action, why, and what changes. Wait for an explicit yes.
 
 Moving on to the next ticket on the frontier needs a yes, unless the user has approved a queue.
 
+**Batches (user, 2026-09-30):** the orchestrator may run several small tickets in the same area as one batch: one relay, one branch, one PR (orchestrator genome, "Batches"). A cell dispatched on a batch claims every ticket in it, publishes its handoff on each, and releases each. qa specify writes tests for every ticket and maps each criterion to its ticket. One bounce on any ticket bounces the whole batch and counts toward fails-twice for each of its tickets. The two-cell limit counts a batch as one cell.
+
 ## Environment issues (report, don't work around)
 
 When the environment gets in your way, don't patch or improvise past it. Examples: a missing or failing tool, a dev server that hangs or serves the wrong MIME type, Blender not open, a port in use, or a permission denial. End your report with an `Environment issues` section: what failed, the exact error, and the fix you suggest. The user fixes these in the main session. If one stops your task, say so and stop.
 
 **Log every failed call and blocker, even ones you got past on a retry.** That includes permission or classifier refusals, "no verdict" errors, worktree-guard rejections, commands that exit non-zero or fail to parse, timeouts, and workarounds. Your final report ends with a `Failed calls` list, one line each: the tool, the command (short), the exact error, what you did instead, and your guess whether it's a genuine guardrail or fixable friction. Never write "refusals: none" if anything failed. The orchestrator appends each one to `.scratch/usage.jsonl` as `kind:"incident"`, so they can be analyzed.
 
-Handoffs go through `board` too: write the file in your scratchpad, then run `board handoff <ref> --from <file> --name <NN>-<cell>.md`. It publishes the file to the main checkout's `.scratch/<feature>/handoffs/`. Never write handoffs into the main checkout by shell or Write, and never leave a copy in your worktree. `board release`, including `--keep-status`, refuses without a handoff published after your claim.
+Handoffs go through `board` too. The `handoff` skill shows the State block that `board release` validates, and `board handoff <ref> --template` prints one already filled in for your claim. Draft the file under `/tmp` (`board handoff` refuses a draft inside a worktree), then run `board handoff <ref> --from <file> --name <NN>-<cell>.md`. It publishes the file to the main checkout's `.scratch/<feature>/handoffs/`. Never write handoffs into the main checkout by shell or Write, and never leave a copy in your worktree. `board release`, including `--keep-status`, refuses without a handoff published after your claim.
 
 ## Shell and git
 
