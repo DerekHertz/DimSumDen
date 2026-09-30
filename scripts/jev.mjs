@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // organism-infra/38: Jev pre-check script (ADR 0010).
-// Usage: node scripts/jev.mjs <tier|verify|route|route-bounce> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]
+// Usage: node scripts/jev.mjs <tier|verify|route|route-bounce|priority|scope> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]
 // Always exits 0 (fallback on any failure) except invalid arguments, including a refused --tests path (exit 2).
 // Transport: plain HTTP per https://docs.typesafe.ai/api.md (POST /v1/systemone, Bearer key).
 import {
@@ -89,6 +89,30 @@ const POINTS = {
       other: "Cannot tell from this text",
     },
   },
+  // organism-infra/71: frontier points, shadow only (ADR 0015 decision 4). The explicit line and code keep the order.
+  priority: {
+    labels: ["mismatch", "ok", "other"],
+    fallback: "orchestrator",
+    instructions:
+      "Does this ticket's content agree with its explicit Priority line (P0 most urgent, P3 least)? Pick mismatch only when the content clearly reads as a different level, for example it looks P0 but is marked P3; otherwise ok.",
+    criteria: {
+      mismatch: "The content clearly reads as a different priority level than the line says",
+      ok: "The content fits the priority line",
+      other: "Cannot tell from this text",
+    },
+  },
+  scope: {
+    labels: ["small", "medium", "large", "other"],
+    fallback: "orchestrator",
+    instructions:
+      "How much work does this ticket take compared with a typical ticket on this board? Pick small, medium or large; pick other when the text does not say.",
+    criteria: {
+      small: "One small, well-specified change in one area",
+      medium: "A few files or one module with several criteria",
+      large: "Spans several modules, or many criteria, or needs design work first",
+      other: "Cannot tell from this text",
+    },
+  },
 };
 
 // organism-infra/77: each point sends only its allowlisted inputs (security review 67). Handoff text is never an input.
@@ -100,7 +124,13 @@ const INPUTS = {
   route: (a) => a.ticketText,
   "route-bounce": (a) => `${a.ticketText}\n\n--- bounce verdict ---\n${a.bounceComment.slice(0, BOUNCE_CAP)}`,
   wake: (a) => `${ticketHeader(a.ticketText).slice(0, WAKE_CAP)}\n\n--- new comment ---\n${a.newComment.slice(0, WAKE_CAP)}`,
+  priority: (a) => a.ticketText,
+  scope: (a) => a.ticketText,
 };
+
+const PRIORITY_LINE = /^\*\*Priority:\*\*\s*P[0-3]\b/m;
+// Shadow points whose pick is any label of a closed set (else other) and is hidden from a shadow result.
+const CLOSED_SET = ["route", "route-bounce", "priority", "scope"];
 
 // ADR 0015 decision 6: code, not Jev, wakes on these comments.
 function codeWakes({ newComment, author, verdict }) {
@@ -177,9 +207,10 @@ export async function decide({
   const isRoute = point === "route" || isBounce;
   // Both route halves log as point "route" and share its reservation; the row's variant tells them apart.
   const rowPoint = isRoute ? "route" : point;
+  const closedSet = CLOSED_SET.includes(point);
   const labels = isBounce
     ? p.labels.filter((l) => l === "other" || !forbid.includes(l))
-    : isRoute ? offeredLabels({ codeTicket, forbid }) : null;
+    : isRoute ? offeredLabels({ codeTicket, forbid }) : closedSet ? p.labels : null;
   const build = (fields) => {
     const fb = fields.fallback ?? null;
     const pick = fb ? null : fields.pick;
@@ -195,8 +226,8 @@ export async function decide({
     };
     if (isRoute) row.variant = isBounce ? "bounce" : "new";
     const result = { pick, conf, effective: actual, applied: Boolean(live) && actual === pick, fallback: fb, floor };
-    // ADR 0015 decision 3: a shadow route result must not show the pick, only the row carries it.
-    if (isRoute && !live) { delete result.pick; delete result.conf; }
+    // ADR 0015 decisions 3 and 4: a shadow result must not show the pick, only the row carries it.
+    if (closedSet && !live) { delete result.pick; delete result.conf; }
     return { result, row };
   };
   const fail = (reason) => build({ fallback: reason });
@@ -204,6 +235,8 @@ export async function decide({
   // The state machine dictates the next cell unless the ticket is fresh: no call.
   if (point === "route" && status && status !== "ready-for-agent") return fail("state-machine");
   if (point === "wake" && codeWakes({ newComment, author, verdict })) return fail("code-wake");
+  // ADR 0015 decision 4: Jev only flags an explicit line; filling a missing one is out of v1.
+  if (point === "priority" && !PRIORITY_LINE.test(ticketText)) return fail("no-line");
   let text = INPUTS[point]({ ticketText, testsText, bounceComment, newComment });
   if (hasSecret(text)) return fail("blocked-input");
   if (text.length > MAX_CHARS) text = text.slice(text.length - MAX_CHARS);
@@ -239,13 +272,36 @@ export async function decide({
   const prob = answer?.probs?.[label];
   const cost = Number(answer?.usage?.cost);
   const c = Number.isFinite(cost) ? cost : 0;
-  if (isRoute) {
+  if (closedSet) {
     // Anything outside the offered set (unknown or forbidden) is other, not a fallback.
     const ok = labels.includes(label);
     return build({ pick: ok ? label : "other", conf: ok && typeof prob === "number" ? prob : null, cost: c });
   }
   if (!p.labels.includes(label) || typeof prob !== "number") return fail("unparseable");
   return build({ pick: p.map[label] ?? "other", conf: prob, cost: c });
+}
+
+// ADR 0015 decision 4: the combined frontier order is code. Scope never crosses a P-level or an unblock count.
+const SCOPE_RANK = { small: 0, medium: 1, large: 2 };
+const scopeRank = (s) => SCOPE_RANK[s] ?? 3;
+
+export function rankFrontier(tickets) {
+  return [...tickets].sort((a, b) =>
+    a.priority - b.priority ||
+    b.unblockCount - a.unblockCount ||
+    scopeRank(a.scope) - scopeRank(b.scope) ||
+    a.ticketNumber - b.ticketNumber);
+}
+
+// Shadow logs the order it would have used beside the actual order. Without an actual order, the actual one
+// is today's code order: explicit P-level, then age (ticket number).
+export function orderRow({ tickets, actual, now = new Date() }) {
+  const act = actual ?? [...tickets].sort((a, b) => a.priority - b.priority || a.ticketNumber - b.ticketNumber).map((t) => t.key);
+  const wouldHave = rankFrontier(tickets).map((t) => t.key);
+  return {
+    kind: "jev-order", ts: now.toISOString(), actual: [...act], wouldHave,
+    same: act.length === wouldHave.length && act.every((k, i) => k === wouldHave[i]),
+  };
 }
 
 // Security review 67: route-bounce sends only the latest `board comment --verdict bounce` text for the
@@ -274,8 +330,10 @@ function boardRoot() {
   return process.cwd();
 }
 
+const CLI_POINTS = ["tier", "verify", "route", "route-bounce", "priority", "scope"];
+
 function usage(msg) {
-  process.stderr.write(`jev: ${msg}\nusage: node scripts/jev.mjs <tier|verify|route|route-bounce> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]\n`);
+  process.stderr.write(`jev: ${msg}\nusage: node scripts/jev.mjs <${CLI_POINTS.join("|")}> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]\n`);
   return 2;
 }
 
@@ -300,7 +358,7 @@ function readTests(p) {
 
 async function main(argv) {
   const point = argv[0];
-  if (!["tier", "verify", "route", "route-bounce"].includes(point)) return usage("point must be tier, verify, route or route-bounce");
+  if (!CLI_POINTS.includes(point)) return usage(`point must be one of ${CLI_POINTS.join(", ")}`);
   const opts = { mode: "shadow" };
   for (let i = 1; i < argv.length; i += 2) {
     const k = argv[i];
