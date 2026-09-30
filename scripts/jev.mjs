@@ -1,16 +1,22 @@
 #!/usr/bin/env node
 // organism-infra/38: Jev pre-check script (ADR 0010).
-// Usage: node scripts/jev.mjs <tier|verify> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]
-// Always exits 0 (fallback on any failure) except invalid arguments (exit 2).
+// Usage: node scripts/jev.mjs <tier|verify|route> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]
+// Always exits 0 (fallback on any failure) except invalid arguments, including a refused --tests path (exit 2).
 // Transport: plain HTTP per https://docs.typesafe.ai/api.md (POST /v1/systemone, Bearer key).
-import { appendFileSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import {
+  appendFileSync, closeSync, constants, fstatSync, lstatSync, openSync, readdirSync, readFileSync, realpathSync,
+} from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { SECRET_PATTERNS } from "./risk-check.mjs";
+import { hasSecret, isDenied } from "./exposure.mjs";
 
 const MODEL = "jev-1.13.0";
 const MAX_CHARS = 16000;
+const MAX_TESTS_BYTES = 1024 * 1024;
+const BOUNCE_CAP = 2000;
+const WAKE_CAP = 4000;
+const CELL_TYPES = ["product", "architect", "orchestrator", "developer", "scout", "qa", "security", "designer", "herald"];
 const CAP = 0.5;
 const PRICE_PER_INPUT_TOKEN = 0.042 / 1e6; // output is free (ADR 0010)
 const ENDPOINT = "https://api.typesafe.ai/v1/systemone";
@@ -56,7 +62,51 @@ const POINTS = {
       other: "Cannot tell from this text",
     },
   },
+  // organism-infra/77: bounce half of route (ADR 0015 decision 3; ticket 70 wires the CLI).
+  "route-bounce": {
+    labels: ["developer", "qa", "architect", "user", "other"],
+    fallback: "orchestrator",
+    instructions:
+      "This ticket bounced at review. Which cell should take it next? Pick the one the bounce verdict asks for; pick other when the text does not say.",
+    criteria: {
+      developer: "The code must change to meet the criteria",
+      qa: "The tests or the verification must change",
+      architect: "The bounce raises a design or decision question",
+      user: "Needs a decision or verdict from the user",
+      other: "Cannot tell from this text",
+    },
+  },
+  // organism-infra/77: wake-up gate's one Jev question (ADR 0015 decision 6; ticket 72 wires the prelude).
+  wake: {
+    labels: ["needs-claude", "informational", "other"],
+    map: { "needs-claude": "needs-claude", informational: "informational" },
+    fallback: "needs-claude",
+    instructions:
+      "Does this new ticket comment need the orchestrator to act? Pick informational only when it asks for nothing and changes nothing; otherwise needs-claude.",
+    criteria: {
+      "needs-claude": "Asks for an action, a decision, or changes what the ticket needs",
+      informational: "A status note that asks for nothing",
+      other: "Cannot tell from this text",
+    },
+  },
 };
+
+// organism-infra/77: each point sends only its allowlisted inputs (security review 67). Handoff text is never an input.
+const ticketHeader = (t) =>
+  [t.match(/^#\s.*$/m)?.[0], t.match(/^\*\*Status:\*\*.*$/m)?.[0]].filter(Boolean).join("\n");
+const INPUTS = {
+  tier: (a) => a.ticketText,
+  verify: (a) => `${a.ticketText}\n\n--- test output ---\n${a.testsText}`,
+  route: (a) => a.ticketText,
+  "route-bounce": (a) => `${a.ticketText}\n\n--- bounce verdict ---\n${a.bounceComment.slice(0, BOUNCE_CAP)}`,
+  wake: (a) => `${ticketHeader(a.ticketText).slice(0, WAKE_CAP)}\n\n--- new comment ---\n${a.newComment.slice(0, WAKE_CAP)}`,
+};
+
+// ADR 0015 decision 6: code, not Jev, wakes on these comments.
+function codeWakes({ newComment, author, verdict }) {
+  if (verdict || !newComment || /scope added/i.test(newComment)) return true;
+  return author == null || !CELL_TYPES.includes(author);
+}
 
 // Reserved budget (ADR 0015 decision 7): each point may always spend its own reservation inside CAP.
 const RESERVED = { tier: 0.05, verify: 0.05, route: 0.05 };
@@ -73,7 +123,7 @@ export function offeredLabels({ codeTicket = true, forbid = [] } = {}) {
 
 export async function fetchTransport({ point, text, model, apiKey, signal, labels }) {
   const p = POINTS[point];
-  const criteria = point === "route" && labels
+  const criteria = labels
     ? Object.fromEntries(Object.entries(p.criteria).filter(([l]) => labels.includes(l)))
     : p.criteria;
   const res = await fetch(ENDPOINT, {
@@ -119,12 +169,17 @@ function todaysSpend(rows, now, point) {
 export async function decide({
   point, ticket, ticketText = "", testsText = "", now = new Date(), usageRows = [],
   env = process.env, mode = "shadow", timeoutMs = 10000, transport = fetchTransport, qaSpecified = true,
-  codeTicket = true, forbid = [], status,
+  codeTicket = true, forbid = [], status, bounceComment = "", newComment = "", author, verdict,
 }) {
   const p = POINTS[point];
   const t0 = Date.now();
-  const isRoute = point === "route";
-  const labels = isRoute ? offeredLabels({ codeTicket, forbid }) : null;
+  const isBounce = point === "route-bounce";
+  const isRoute = point === "route" || isBounce;
+  // Both route halves log as point "route" and share its reservation; the row's variant tells them apart.
+  const rowPoint = isRoute ? "route" : point;
+  const labels = isBounce
+    ? p.labels.filter((l) => l === "other" || !forbid.includes(l))
+    : isRoute ? offeredLabels({ codeTicket, forbid }) : null;
   const build = (fields) => {
     const fb = fields.fallback ?? null;
     const pick = fb ? null : fields.pick;
@@ -135,10 +190,10 @@ export async function decide({
     const conf = fb ? null : fields.conf;
     const cost = fb ? 0 : fields.cost;
     const row = {
-      kind: "jev", ts: now.toISOString(), ticket, point, pick, actual, cost, conf,
+      kind: "jev", ts: now.toISOString(), ticket, point: rowPoint, pick, actual, cost, conf,
       mode, fallback: fb, floor, ms: Date.now() - t0, model: MODEL,
     };
-    if (isRoute) row.variant = "new";
+    if (isRoute) row.variant = isBounce ? "bounce" : "new";
     const result = { pick, conf, effective: actual, applied: Boolean(live) && actual === pick, fallback: fb, floor };
     // ADR 0015 decision 3: a shadow route result must not show the pick, only the row carries it.
     if (isRoute && !live) { delete result.pick; delete result.conf; }
@@ -147,14 +202,15 @@ export async function decide({
   const fail = (reason) => build({ fallback: reason });
 
   // The state machine dictates the next cell unless the ticket is fresh: no call.
-  if (isRoute && status && status !== "ready-for-agent") return fail("state-machine");
-  let text = point === "verify" ? `${ticketText}\n\n--- test output ---\n${testsText}` : ticketText;
-  if (SECRET_PATTERNS.some((s) => s.re.test(text))) return fail("blocked-input");
+  if (point === "route" && status && status !== "ready-for-agent") return fail("state-machine");
+  if (point === "wake" && codeWakes({ newComment, author, verdict })) return fail("code-wake");
+  let text = INPUTS[point]({ ticketText, testsText, bounceComment, newComment });
+  if (hasSecret(text)) return fail("blocked-input");
   if (text.length > MAX_CHARS) text = text.slice(text.length - MAX_CHARS);
   const apiKey = env.TYPESAFE_API_KEY;
   if (!apiKey) return fail("no-key");
-  const spent = todaysSpend(usageRows, now, point);
-  const reserve = RESERVED[point] ?? 0;
+  const spent = todaysSpend(usageRows, now, rowPoint);
+  const reserve = RESERVED[rowPoint] ?? 0;
   if (spent.total >= CAP || (spent.own >= reserve - EPS && spent.shared >= SHARED - EPS)) return fail("cap");
 
   const ctl = new AbortController();
@@ -207,9 +263,28 @@ function usage(msg) {
   return 2;
 }
 
+// organism-infra/77: --tests must be a regular, non-symlink file of at most 1 MB, and neither its path
+// nor its realpath may be denied. Returns the text, or an error message.
+function readTests(p) {
+  let fd;
+  try {
+    if (lstatSync(p).isSymbolicLink()) return { error: "--tests must not be a symlink" };
+    if (isDenied(p) || isDenied(realpathSync(p))) return { error: "--tests path is denied" };
+    fd = openSync(p, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    const st = fstatSync(fd);
+    if (!st.isFile()) return { error: "--tests must be a regular file" };
+    if (st.size > MAX_TESTS_BYTES) return { error: "--tests file is over 1 MB" };
+    return { text: readFileSync(fd, "utf8") };
+  } catch (e) {
+    return { error: `--tests unreadable (${e.code ?? "error"})` };
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
 async function main(argv) {
   const point = argv[0];
-  if (!POINTS[point]) return usage("point must be tier, verify or route");
+  if (!["tier", "verify", "route"].includes(point)) return usage("point must be tier, verify or route");
   const opts = { mode: "shadow" };
   for (let i = 1; i < argv.length; i += 2) {
     const k = argv[i];
@@ -220,6 +295,12 @@ async function main(argv) {
   if (!opts.ticket) return usage("--ticket is required");
   if (!/^[\w.-]+\/[\w.-]+$/.test(opts.ticket) || opts.ticket.includes("..")) return usage("bad --ticket");
   if (!["shadow", "live"].includes(opts.mode)) return usage("--mode must be shadow or live");
+  let testsText = "";
+  if (opts.tests !== undefined) {
+    const t = readTests(opts.tests);
+    if (t.error) return usage(t.error);
+    testsText = t.text;
+  }
 
   const root = boardRoot();
   const [feature, slug] = opts.ticket.split("/");
@@ -245,7 +326,7 @@ async function main(argv) {
 
   const { result, row } = await decide({
     point, ticket: opts.ticket, ticketText, qaSpecified, status, codeTicket,
-    testsText: opts.tests ? readOr(opts.tests) : "", usageRows, mode: opts.mode,
+    testsText, usageRows, mode: opts.mode,
   });
   appendFileSync(usagePath, JSON.stringify(row) + "\n");
   process.stdout.write(JSON.stringify({ ...result, point, ticket: opts.ticket, mode: opts.mode }) + "\n");

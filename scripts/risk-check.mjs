@@ -12,21 +12,11 @@
 import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { SECRET_PATTERNS } from "./exposure.mjs";
+
+export { SECRET_PATTERNS };
 
 const CODE_PATH_RE = /^(apps|packages|scripts)\//;
-
-export const SECRET_PATTERNS = [
-  { name: "AWS access key", re: /AKIA[0-9A-Z]{16}/ },
-  { name: "private key block", re: /-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/ },
-  {
-    name: "hardcoded API key/token/secret",
-    re: /\b(api[_-]?key|token|secret)\b\s*[:=]\s*["'][A-Za-z0-9_\-/+]{12,}["']/i,
-  },
-  { name: "GitHub token", re: /\bghp_[A-Za-z0-9]{20,}/ },
-  { name: "sk- style API key", re: /\bsk-[A-Za-z0-9_-]{20,}/ },
-  { name: "Slack token", re: /\bxox[abp]-[A-Za-z0-9-]{10,}/ },
-  { name: "hardcoded password=style credential", re: /\bpassword\s*[:=]\s*["'][^"']{3,}["']/i },
-];
 
 const CODE_RISK_PATTERNS = [
   {
