@@ -13,6 +13,7 @@ import {
   list,
   BoardError,
 } from "./board-service.mjs";
+import { audit } from "./board-audit.mjs";
 
 // organism-infra/18: `allowed` declares a subcommand's flag set; any other
 // `--flag` is a hard error naming the bad flag, never silently absorbed as
@@ -127,6 +128,28 @@ async function main() {
       for (const r of results) {
         console.log(`${r.feature}/${r.ticket}\t${r.status ?? ""}`);
       }
+      return;
+    }
+    case "audit": {
+      // organism-infra/81: exit 0 clean, 1 findings, 2 bad arguments.
+      const usage = (msg) => Object.assign(new BoardError(msg), { exitCode: 2 });
+      let parsed;
+      try {
+        parsed = parseFlags(rest, { allowed: ["json", "stale-days", "feature"], boolean: ["json"] });
+      } catch (err) {
+        throw usage(err.message);
+      }
+      const { positional, flags } = parsed;
+      if (positional.length) throw usage(`audit takes no arguments: ${positional.join(" ")}`);
+      const staleDays = flags["stale-days"] ?? "7";
+      if (!/^\d+$/.test(staleDays)) throw usage(`--stale-days must be a whole number of days: ${staleDays}`);
+      if (flags.feature !== undefined && !/^[a-z0-9-]+$/.test(flags.feature)) {
+        throw usage(`invalid feature: ${flags.feature}`);
+      }
+      const findings = await audit(root, { staleDays: Number(staleDays), feature: flags.feature });
+      if (flags.json) console.log(JSON.stringify(findings, null, 2));
+      else for (const f of findings) console.log(`${f.ref} ${f.kind} ${f.detail}`);
+      process.exitCode = findings.length ? 1 : 0;
       return;
     }
     default:

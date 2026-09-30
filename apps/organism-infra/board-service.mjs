@@ -537,7 +537,7 @@ function findStatus(content) {
   return { index: m.index, label: m[1], gap: m[2] || " ", value: m[3], length: m[0].length };
 }
 
-function readStatus(content) {
+export function readStatus(content) {
   return findStatus(content)?.value;
 }
 
