@@ -10,7 +10,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** claimed
+**Status:** in-review
 
 - [ ] After a specify claim and `--keep-status` release, the ticket is back at its prior status (test)
 - [ ] A designer review claim can post a `--verdict` that the snapshot's gate logic reads (test)
