@@ -28,8 +28,9 @@ import { makeBoardFixture, runBoard, validStateJson, claimLockPath } from "./boa
 
 const NO_ROOT = { ORGANISM_ROOT: "" };
 
+// organism-infra/78: drafts live beside the worktree; `board handoff` refuses one inside it.
 async function localHandoff(fx, filename, stateOverrides = {}) {
-  const dir = path.join(fx.worktree, ".local-handoffs");
+  const dir = path.join(path.dirname(fx.worktree), ".local-handoffs");
   await mkdir(dir, { recursive: true });
   const state = validStateJson({
     ticket: `${fx.feature}/${fx.ticket}`,

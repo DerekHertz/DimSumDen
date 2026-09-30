@@ -2,12 +2,18 @@
 // organism-infra/34: prepare a cell's worktree at the previous hop's commit.
 //
 //   node scripts/cell-start.mjs --base <sha> (--branch <name> | --detach)
+//                               [--ticket <ref> --cell <type> [--mode <m>]]
 //
 // Run first, inside the worktree. Refuses in the main checkout or a dirty
 // worktree; otherwise switches to a new branch at <sha> (or detaches there),
 // then runs `npm ci`. An existing branch is checked out and fast-forwarded to <sha>.
+// organism-infra/60: with --ticket, it then runs `board claim` and exits
+// non-zero, with the board's message, if the claim is refused.
 import { spawnSync } from "node:child_process";
 import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const BOARD = fileURLToPath(new URL("../apps/organism-infra/board.mjs", import.meta.url));
 
 function fail(msg) {
   process.stderr.write(`cell-start: ${msg}\n`);
@@ -19,11 +25,11 @@ function git(args) {
 }
 
 function parseArgs(argv) {
-  const opts = { base: null, branch: null, detach: false };
+  const opts = { base: null, branch: null, detach: false, ticket: null, cell: null, mode: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--detach") opts.detach = true;
-    else if (a === "--base" || a === "--branch") {
+    else if (["--base", "--branch", "--ticket", "--cell", "--mode"].includes(a)) {
       const v = argv[++i];
       if (!v || v.startsWith("--")) fail(`${a} needs a value`);
       opts[a.slice(2)] = v;
@@ -32,6 +38,8 @@ function parseArgs(argv) {
   if (!opts.base) fail("--base <sha> is required");
   if (opts.branch && opts.detach) fail("use either --branch <name> or --detach, not both");
   if (!opts.branch && !opts.detach) fail("one of --branch <name> or --detach is required");
+  if (opts.ticket && !opts.cell) fail("--ticket needs --cell <type>");
+  if (!opts.ticket && (opts.cell || opts.mode)) fail("--cell and --mode only apply with --ticket <ref>");
   return opts;
 }
 
@@ -84,4 +92,13 @@ if (existingBranch) {
 
 const npm = spawnSync("npm", ["ci"], { stdio: "inherit", cwd: toplevel });
 if (npm.status !== 0) fail(`npm ci failed (exit ${npm.status ?? npm.signal})`);
+
+if (opts.ticket) {
+  const claimArgs = [BOARD, "claim", opts.ticket, opts.cell, ...(opts.mode ? ["--mode", opts.mode] : [])];
+  const claim = spawnSync(process.execPath, claimArgs, { cwd: toplevel, encoding: "utf8" });
+  if (claim.status !== 0) {
+    fail(`claim refused, do no work on ${opts.ticket}: ${(claim.stderr || claim.stdout).trim()}`);
+  }
+  process.stdout.write(claim.stdout);
+}
 process.stdout.write(`cell-start: at ${base.slice(0, 12)} (${opts.branch ?? "detached"})\n`);

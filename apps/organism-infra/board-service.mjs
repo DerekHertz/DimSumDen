@@ -537,7 +537,7 @@ function findStatus(content) {
   return { index: m.index, label: m[1], gap: m[2] || " ", value: m[3], length: m[0].length };
 }
 
-function readStatus(content) {
+export function readStatus(content) {
   return findStatus(content)?.value;
 }
 
@@ -905,15 +905,49 @@ async function appendResolvedRow(root, eventsPath, ref, pr) {
 
 // organism-infra/30: a filled-in State block for the rejection message, so a
 // cell can fix a bad handoff in one retry. cell/mode come from the claim lock.
-function stateSkeleton(feature, ticket, cell, mode) {
+function stateObject(feature, ticket, cell, mode, pending = []) {
   const state = { ticket: `${feature}/${ticket}`, cell: cell ?? "<cell>" };
   if (mode !== undefined) state.mode = mode;
   state.current_step = "<what is done and where the work stands>";
   state.artifacts = [];
   state.decisions = [];
   state.failures = [];
-  state.pending = [];
+  state.pending = pending;
+  return state;
+}
+
+function stateSkeleton(feature, ticket, cell, mode) {
+  const state = stateObject(feature, ticket, cell, mode);
   return "\nExpected State block (copy, fill in, and retry):\n```json\n" + JSON.stringify(state, null, 2) + "\n```";
+}
+
+// organism-infra/66: `board handoff <ref> --template` prints a State block that
+// already passes validateState. cell/mode come from --cell/--mode, else the claim lock.
+export async function handoffTemplate(root, ref, options = {}) {
+  const { feature, ticket, paths } = await prepare(root, ref);
+  if (!(await exists(paths.ticketPath))) {
+    throw new BoardError(`ticket not found: ${ref}`);
+  }
+  let { cell, mode } = options;
+  checkArgLength(cell, "cell");
+  checkArgLength(mode, "mode");
+  if (await exists(paths.claimLockPath)) {
+    const lockContent = await readFile(paths.claimLockPath, "utf8");
+    const lockCell = claimingCell(lockContent);
+    if (cell === undefined) cell = lockCell;
+    if (mode === undefined && cell === lockCell) mode = claimingMode(lockContent);
+  }
+  if (cell === undefined) {
+    throw new BoardError(`no claim lock on ${ref}; pass --cell <type> (and --mode <m> for a moded cell)`);
+  }
+  checkKnownCell(cell, "cell");
+  if (mode !== undefined && !modeAllowed(cell, mode)) {
+    throw new BoardError(`invalid mode: ${mode} for cell "${cell}"`);
+  }
+  const state = stateObject(feature, ticket, cell, mode, [
+    { item: "<work left for the next cell; empty this array if none>", owner: "<next cell type>" },
+  ]);
+  return "```json\n" + JSON.stringify(state, null, 2) + "\n```";
 }
 
 async function claimSkeleton(paths, feature, ticket) {
@@ -1075,6 +1109,35 @@ function stateBlock(text) {
   }
 }
 
+function isWithin(dir, target) {
+  const rel = path.relative(dir, target);
+  return rel === "" || !(rel === ".." || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel));
+}
+
+// organism-infra/78: a draft left inside a worktree blocks `git worktree remove`,
+// so --from may sit in no git working tree except under the main checkout's .scratch/.
+async function refuseWorktreeDraft(root, fromFile, name) {
+  const dir = await realpath(path.dirname(path.resolve(fromFile))).catch(() => null);
+  if (!dir) return;
+  let top;
+  try {
+    top = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: dir,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return;
+  }
+  const realTop = await realpath(top).catch(() => path.resolve(top));
+  const realRoot = await realpath(root).catch(() => path.resolve(root));
+  if (realTop === realRoot && isWithin(path.join(realRoot, ".scratch"), dir)) return;
+  throw new BoardError(
+    `--from ${fromFile} is inside the git worktree ${realTop}, and a draft left there blocks \`git worktree remove\`. ` +
+      `Draft the handoff under /tmp (e.g. /tmp/${name}) and publish from there; nothing was published.`
+  );
+}
+
 export async function publishHandoff(root, ref, fromFile, options = {}) {
   const { feature, ticket, paths } = await prepare(root, ref);
   if (!fromFile) throw new BoardError("handoff requires --from <file>");
@@ -1082,6 +1145,7 @@ export async function publishHandoff(root, ref, fromFile, options = {}) {
   if (!HANDOFF_NAME_RE.test(name) || name.includes("..")) {
     throw new BoardError(`invalid handoff name "${name}": must be a plain <name>.md filename`);
   }
+  await refuseWorktreeDraft(root, fromFile, name);
   const namePrefix = /^(\d{2})-/.exec(name);
   const ticketPrefix = /^(\d{2})-/.exec(ticket);
   if (namePrefix && ticketPrefix && namePrefix[1] !== ticketPrefix[1]) {

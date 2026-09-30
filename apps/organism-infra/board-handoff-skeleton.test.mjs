@@ -34,8 +34,9 @@ async function claim(fx, cell, mode) {
   assert.equal(r.code, 0, r.stderr);
 }
 
+// organism-infra/78: drafts live beside the worktree; `board handoff` refuses one inside it.
 async function scratchFile(fx, name, body) {
-  const p = path.join(fx.worktree, name);
+  const p = path.join(path.dirname(fx.worktree), name);
   await writeFile(p, body, "utf8");
   return p;
 }

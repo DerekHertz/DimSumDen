@@ -10,8 +10,9 @@ const NO_ROOT = { ORGANISM_ROOT: "" };
 const handoff = (fx, args) => runBoard(["handoff", ...args], { cwd: fx.worktree, env: NO_ROOT });
 const hdir = (fx) => path.join(fx.root, ".scratch", fx.feature, "handoffs");
 
+// organism-infra/78: drafts live beside the worktree; `board handoff` refuses one inside it.
 async function local(fx, filename, over = {}) {
-  const dir = path.join(fx.worktree, ".local-handoffs");
+  const dir = path.join(path.dirname(fx.worktree), ".local-handoffs");
   await mkdir(dir, { recursive: true });
   const state = validStateJson({ ticket: `${fx.feature}/${fx.ticket}`, cell: "developer", ...over });
   const p = path.join(dir, filename);
