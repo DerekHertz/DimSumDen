@@ -19,10 +19,10 @@ test("labels float above each roof: back stalls sit on the platform, so higher; 
   assert.ok(Math.abs(byStation.tea.y - 2.0) < 1e-9);
 });
 
-test("the Cubs pill floats just above the front-centre cub basket, so it is not read as the queue", () => {
+test("the Cubs pill floats just above the front-left cub basket, so it is not read as the queue", () => {
   const cubs = stationLabels({}).find((l) => l.station === "cubs");
-  assert.equal(cubs.x, 0);
-  assert.equal(cubs.z, 3.4);
+  assert.equal(cubs.x, -1.8);
+  assert.equal(cubs.z, 3.0);
   assert.ok(cubs.y > 0.4 && cubs.y < 1);
 });
 

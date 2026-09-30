@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import {
-  BELL, RAIL, CUB_BASKET, CUB_BASKET_RADIUS, STALL_CENTERS, TABLE, stallCenterX, stallPlatform, stallRoof, stallWidth,
+  BELL, RAIL, CUB_BASKET, CUB_BASKET_RADIUS, STALL_CENTERS, TABLE, stallCenterX, stallPlatform, stallRoof, stallWidth, stallYaw,
 } from "./banquet-layout.mjs";
 import { DUR_SLOW_MS, lanternState, susanLayout, turnAngle } from "./handoffs.mjs";
 import { POST_BASE, POST_SIZE, postHeight, postPositions, roofTriangles } from "./stall-roof.mjs";
@@ -53,7 +53,7 @@ function Stall({ station, x, z, hue, width, lit }) {
   }, [width, roofSpec]);
   const eave = roofSpec ? roofSpec.eave : 1.7;
   return (
-    <group position={[x, 0, z]}>
+    <group name={`kiosk:${station}`} position={[x, 0, z]} rotation={[0, stallYaw(station), 0]}>
       {platform > 0 ? (
         <mesh position={[0, platform / 2, 0]}>
           <boxGeometry args={[width + 0.3, platform, depth + 0.3]} />

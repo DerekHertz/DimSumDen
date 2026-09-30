@@ -1,3 +1,4 @@
+// Updated by den-scene-v1/01: approved centres and yaw supersede showcase coordinates.
 // Ticket showcase-v1/01, ADR 0013: the pure placement module for the banquet market. Cell type and
 // slot index in, world position out. Expected values are hand-worked literals from the anchor model
 // in the ADR (stall centres, spacing 0.75, Bao at [0,1.4,-2.4] scale 1.4), not recomputed.
@@ -43,27 +44,27 @@ test("Pass perches: a second cell of the same type steps 0.4 outward", async () 
 });
 
 test("stalls: Steamers back-left, Front of House back-right, Tea front-left, Pantry front-right", async () => {
-  near(await at("developer", 1), [-4.8, 1.1, -1.6], "steamers centre slot");
-  near(await at("designer", 1), [4.8, 1.1, -1.6], "front of house");
-  near(await at("qa", 1), [-4.0, 0.6, 2.2], "tea");
-  near(await at("security", 1), [4.0, 0.6, 2.2], "pantry");
+  near(await at("developer", 1), [-3.3, 1.1, -1.4], "steamers centre slot");
+  near(await at("designer", 1), [3.3, 1.1, -1.4], "front of house");
+  near(await at("qa", 1), [-4.9, 0.6, 2.0], "tea");
+  near(await at("security", 1), [4.9, 0.6, 2.0], "pantry");
 });
 
 test("developer and scout share the Steamers slots", async () => {
-  for (const c of ["developer", "scout"]) near(await at(c, 0), [-5.55, 1.1, -1.6], c);
+  for (const c of ["developer", "scout"]) near(await at(c, 0), [-3.950864384758237, 1.1, -1.0273398966171974], c);
 });
 
 test("a stall's three slots are fixed anchors whatever the head count up to three", async () => {
   for (const count of [1, 2, 3, undefined]) {
-    near(await at("qa", 0, count), [-4.75, 0.6, 2.2], `slot 0 of ${count}`);
-    near(await at("qa", 2, count), [-3.25, 0.6, 2.2], `slot 2 of ${count}`);
+    near(await at("qa", 0, count), [-5.550864384758237, 0.6, 2.3726601033828026], `slot 0 of ${count}`);
+    near(await at("qa", 2, count), [-4.249135615241763, 0.6, 1.6273398966171974], `slot 2 of ${count}`);
   }
 });
 
 test("overflow: a stall with five cells widens outward along the front", async () => {
-  near(await at("security", 0, 5), [3.25, 0.6, 2.2]);
-  near(await at("security", 2, 5), [4.75, 0.6, 2.2]);
-  near(await at("security", 4, 5), [6.25, 0.6, 2.2]);
+  near(await at("security", 0, 5), [4.348271230483526, 0.6, 1.2546797932343948]);
+  near(await at("security", 2, 5), [5.65, 0.6, 2]);
+  near(await at("security", 4, 5), [6.951728769516474, 0.6, 2.745320206765605]);
 });
 
 test("stallWidth is 2.25 up to three cells, then 0.75 per cell", async () => {
@@ -81,7 +82,7 @@ test("cubs (unknown cell types) queue in a row at the cub basket, front centre",
 test("landmarks: table at the centre, cub basket front centre", async () => {
   const { TABLE, CUB_BASKET, BAO } = await load();
   assert.deepEqual(TABLE, { x: 0, z: 0, radius: 1.3, height: 0.7 });
-  assert.deepEqual(CUB_BASKET, { x: 0, z: 3.4 });
+  assert.deepEqual(CUB_BASKET, { x: -1.8, z: 3.0 });
   assert.deepEqual(BAO, { position: [0, 1.4, -2.4], scale: 1.4 });
 });
 
@@ -103,17 +104,8 @@ test("lazy susan: none for an empty frontier, capped at eight", async () => {
   assert.equal(susanBaskets(11).length, 8);
 });
 
-// Fix round 2: clearances. Bao is about 1.95 wide (measured), scale 1.4, so his body reaches |x| 1.37;
-// a shoulder cell in slot 1 stands at |x| 1.94, about 0.3 wide either side.
-test("back stalls' roofs stay at least 1.0 clear of Bao and his shoulder cells", async () => {
-  const { STALL_CENTERS, stallWidth } = await load();
-  const shoulderOuter = 1.94 + 0.3;
-  for (const key of ["steamers", "front-of-house"]) {
-    const inner = Math.abs(STALL_CENTERS[key].x) - stallWidth(3) / 2;
-    assert.ok(inner - shoulderOuter >= 1.0, `${key} inner edge ${inner}`);
-  }
-});
-
+// den-scene-v1/01 supersedes the old unrotated 1.0 shoulder-gap rule with the
+// unchanged default-camera projection acceptance in horseshoe-layout.test.mjs.
 test("cub row stands clear of the cub basket (radius 0.55) by a cell's half width", async () => {
   const { CUB_BASKET, CUB_BASKET_RADIUS } = await load();
   const cub = await at("mystery", 1);
@@ -130,9 +122,9 @@ test("overflow widens outward: every stall's inner edge stays fixed, on both sid
   }
 });
 
-test("overflow, worked: Steamers with five cells grows left, its inner edge stays at -3.675", async () => {
-  near([(await at("developer", 0, 5))[0]], [-7.05]);
-  near([(await at("developer", 4, 5))[0]], [-4.05]);
+test("overflow, worked: Steamers with five cells grows left with rotated slots", async () => {
+  near([(await at("developer", 0, 5))[0]], [-5.351728769516475]);
+  near([(await at("developer", 4, 5))[0]], [-2.748271230483525]);
 });
 
 // showcase-v1/04 (user browser check): the front stalls must not hide the back row from the default
@@ -160,10 +152,10 @@ test("front-row roofs stay below the sight line from the default camera to every
   }
 });
 
-test("the front stalls stand nearer the table than the back stalls, so the two rows stagger", async () => {
+test("the front stalls stand farther outward than the back kiosks, forming the horseshoe", async () => {
   const { STALL_CENTERS } = await load();
-  assert.ok(Math.abs(STALL_CENTERS.tea.x) < Math.abs(STALL_CENTERS.steamers.x));
-  assert.ok(Math.abs(STALL_CENTERS.pantry.x) < Math.abs(STALL_CENTERS["front-of-house"].x));
+  assert.ok(Math.abs(STALL_CENTERS.tea.x) > Math.abs(STALL_CENTERS.steamers.x));
+  assert.ok(Math.abs(STALL_CENTERS.pantry.x) > Math.abs(STALL_CENTERS["front-of-house"].x));
 });
 
 test("a front stall's cells still fit under its low roof eave", async () => {
