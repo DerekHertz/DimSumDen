@@ -98,6 +98,62 @@ function routeReport(rows, events, variant) {
   };
 }
 
+// ADR 0015 decision 4: priority goes live on user verdicts. Flags need at least 10 verdicts, 70% right;
+// fills (out of v1, so no rows yet) need at least 20, 80% accepted.
+const FLAG_BAR = { min: 10, pct: 70 };
+const FILL_BAR = { min: 20, pct: 80 };
+const SCOPE_BAR = { min: 20, pct: 60, last: 10 };
+
+function verdictBar(rows, kind, field, bar) {
+  const v = rows.filter((r) => r.kind === kind && typeof r[field] === "boolean");
+  const yes = v.filter((r) => r[field]).length;
+  return { verdicts: v.length, yes, pct: v.length ? (yes / v.length) * 100 : 0, pass: v.length >= bar.min && yes * 100 >= v.length * bar.pct };
+}
+
+function priorityReport(rows) {
+  const pr = rows.filter((r) => r.kind === "jev" && r.point === "priority");
+  const flagged = pr.filter((r) => r.pick === "mismatch").length;
+  const flags = verdictBar(rows, "jev-priority-verdict", "right", FLAG_BAR);
+  const fills = verdictBar(rows, "jev-priority-fill-verdict", "accept", FILL_BAR);
+  return {
+    rows: pr.length, flagged, flagRate: pr.length ? flagged / pr.length : 0, flags, fills,
+    checks: { flagging: flags.pass, fills: fills.pass },
+  };
+}
+
+// Scope ground truth: terciles of baseline tokens over non-zero-baseline tickets, recomputed every run.
+function terciles(tickets) {
+  const s = tickets.filter((t) => t.baseline > 0).sort((a, b) => a.baseline - b.baseline);
+  const edge = Math.round(s.length / 3);
+  return new Map(s.map((t, i) => [t.ticket, i < edge ? "small" : i >= s.length - edge ? "large" : "medium"]));
+}
+
+// One row per ticket (its latest answered scope row), like the tier and verify points.
+function scopeReport(rows, tickets) {
+  const truth = terciles(tickets);
+  const latest = new Map();
+  for (const r of rows) {
+    if (r.kind !== "jev" || r.point !== "scope" || r.fallback || !r.pick) continue;
+    const k = keyOf(r.ticket);
+    if (!truth.has(k)) continue;
+    const prev = latest.get(k);
+    if (!prev || String(r.ts ?? "") >= String(prev.ts ?? "")) latest.set(k, r);
+  }
+  const scored = [...latest]
+    .map(([k, r]) => ({ ticket: k, pick: r.pick, tercile: truth.get(k), ts: String(r.ts ?? "") }))
+    .sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+  const sameTercile = scored.filter((s) => s.pick === s.tercile).length;
+  const farMiss = (s) => (s.pick === "small" && s.tercile === "large") || (s.pick === "large" && s.tercile === "small");
+  const smallWasLargeInLast10 = scored.slice(-SCOPE_BAR.last).filter(farMiss).length;
+  const n = scored.length;
+  const sameTercileRate = n ? sameTercile / n : 0;
+  return {
+    rows: n, sameTercile, sameTercileRate, smallWasLargeInLast10,
+    misses: scored.filter((s) => s.pick !== s.tercile).map(({ ticket, pick, tercile }) => ({ ticket, pick, tercile })),
+    checks: { scope: n >= SCOPE_BAR.min && sameTercile * 100 >= n * SCOPE_BAR.pct && smallWasLargeInLast10 === 0 },
+  };
+}
+
 export function buildReport(rows, events = []) {
   const info = new Map(); // key -> { cells, bounces }
   const get = (k) => {
@@ -157,7 +213,12 @@ export function buildReport(rows, events = []) {
       bounces: rv.reduce((s, [k]) => s + byKey[k].bounces, 0),
     };
   }
-  return { tickets, points, route: { newTicket: routeReport(rows, events, "new"), bounce: routeReport(rows, events, "bounce") } };
+  return {
+    tickets, points,
+    route: { newTicket: routeReport(rows, events, "new"), bounce: routeReport(rows, events, "bounce") },
+    priority: priorityReport(rows),
+    scope: scopeReport(rows, tickets),
+  };
 }
 
 const pct = (n) => `${n > 0 ? "+" : ""}${n.toFixed(1)}%`;
@@ -192,6 +253,19 @@ export function formatReport(report) {
     for (const [label, x] of Object.entries(b.byLabel)) lines.push(`route bounce agreement ${label}: ${x.agreed}/${x.picks} agreed`);
     lines.push(...goLiveLines("route bounce", b, ROUTE_VARIANTS.bounce.minRows));
     for (const d of b.disagreements) lines.push(`route bounce disagreement ${d.ticket}: pick ${d.pick}, actual ${d.actual}`);
+  }
+  const ok = (x) => (x ? "PASS" : "FAIL");
+  const p = report.priority;
+  if (p) {
+    lines.push("", "Priority (shadow; ADR 0015)");
+    lines.push(`priority flagging: ${ok(p.checks.flagging)} (${p.flags.verdicts} verdicts of ${FLAG_BAR.min}, ${p.flags.pct.toFixed(1)}% right; ${p.flagged} flags in ${p.rows} rows)`);
+    lines.push(`priority fills: ${ok(p.checks.fills)} (${p.fills.verdicts} verdicts of ${FILL_BAR.min}, ${p.fills.pct.toFixed(1)}% accepted; fills are out of v1)`);
+  }
+  const s = report.scope;
+  if (s) {
+    lines.push("", "Scope (shadow; ADR 0015)");
+    lines.push(`scope: ${ok(s.checks.scope)} (${s.rows} rows of ${SCOPE_BAR.min}, ${(s.sameTercileRate * 100).toFixed(1)}% same-tercile, ${s.smallWasLargeInLast10} small-vs-large in last ${SCOPE_BAR.last})`);
+    for (const m of s.misses) lines.push(`scope miss ${m.ticket}: pick ${m.pick}, tercile ${m.tercile}`);
   }
   return lines.join("\n") + "\n";
 }
