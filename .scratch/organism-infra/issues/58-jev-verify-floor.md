@@ -8,7 +8,7 @@
 
 **Blocked by:** none
 
-**Status:** in-review
+**Status:** resolved
 
 - [ ] No qa-specify handoff: `effective` is `full` whatever Jev picks, in shadow and live
 - [ ] With a qa-specify handoff: current behaviour unchanged

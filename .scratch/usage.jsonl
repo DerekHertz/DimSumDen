@@ -596,3 +596,4 @@
 {"kind":"cell","ts":"2026-09-29T23:57:44.503Z","ticket":"organism-infra/58-jev-verify-floor","cell":"security","tokens":39350,"ms":88668,"outcome":"pass; low: test temp dirs not cleaned; gitleaks missing"}
 {"kind":"usage","ts":"2026-09-29T23:58:08Z","five_hour":7,"weekly":null,"event":"dispatch","ticket":"organism-infra/51-handoff-validates-at-publish","cell":"developer"}
 {"kind":"jev","ts":"2026-09-29T23:58:10.006Z","ticket":"organism-infra/51-handoff-validates-at-publish","point":"tier","pick":"opus","actual":"sonnet","cost":0.000051240000000000004,"conf":1,"mode":"shadow","fallback":null,"ms":539,"model":"jev-1.13.0"}
+{"kind":"resolved","ts":"2026-09-30T00:00:36.252Z","ticket":"organism-infra/58-jev-verify-floor","pr":81,"bounces":0}
