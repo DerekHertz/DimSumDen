@@ -1075,6 +1075,35 @@ function stateBlock(text) {
   }
 }
 
+function isWithin(dir, target) {
+  const rel = path.relative(dir, target);
+  return rel === "" || !(rel === ".." || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel));
+}
+
+// organism-infra/78: a draft left inside a worktree blocks `git worktree remove`,
+// so --from may sit in no git working tree except under the main checkout's .scratch/.
+async function refuseWorktreeDraft(root, fromFile, name) {
+  const dir = await realpath(path.dirname(path.resolve(fromFile))).catch(() => null);
+  if (!dir) return;
+  let top;
+  try {
+    top = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: dir,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return;
+  }
+  const realTop = await realpath(top).catch(() => path.resolve(top));
+  const realRoot = await realpath(root).catch(() => path.resolve(root));
+  if (realTop === realRoot && isWithin(path.join(realRoot, ".scratch"), dir)) return;
+  throw new BoardError(
+    `--from ${fromFile} is inside the git worktree ${realTop}, and a draft left there blocks \`git worktree remove\`. ` +
+      `Draft the handoff under /tmp (e.g. /tmp/${name}) and publish from there; nothing was published.`
+  );
+}
+
 export async function publishHandoff(root, ref, fromFile, options = {}) {
   const { feature, ticket, paths } = await prepare(root, ref);
   if (!fromFile) throw new BoardError("handoff requires --from <file>");
@@ -1082,6 +1111,7 @@ export async function publishHandoff(root, ref, fromFile, options = {}) {
   if (!HANDOFF_NAME_RE.test(name) || name.includes("..")) {
     throw new BoardError(`invalid handoff name "${name}": must be a plain <name>.md filename`);
   }
+  await refuseWorktreeDraft(root, fromFile, name);
   const namePrefix = /^(\d{2})-/.exec(name);
   const ticketPrefix = /^(\d{2})-/.exec(ticket);
   if (namePrefix && ticketPrefix && namePrefix[1] !== ticketPrefix[1]) {

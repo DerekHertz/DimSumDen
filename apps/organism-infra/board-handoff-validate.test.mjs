@@ -22,8 +22,9 @@ const NO_ROOT = { ORGANISM_ROOT: "" };
 const handoffsDir = (fx) => path.join(fx.root, ".scratch", fx.feature, "handoffs");
 const listHandoffs = (fx) => readdir(handoffsDir(fx)).catch(() => []);
 
+// organism-infra/78: drafts live beside the worktree; `board handoff` refuses one inside it.
 async function draft(fx, filename, state, { raw } = {}) {
-  const dir = path.join(fx.worktree, ".local-handoffs");
+  const dir = path.join(path.dirname(fx.worktree), ".local-handoffs");
   await mkdir(dir, { recursive: true });
   const p = path.join(dir, filename);
   await writeFile(p, raw ?? "```json\n" + JSON.stringify(state) + "\n```\n\n## Summary\n\nx\n", "utf8");
