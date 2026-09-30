@@ -3,3 +3,4 @@
 {"id":"ad4643f6-3448-4c74-837e-7f4654d56f84","ts":"2026-09-29T15:54:12.236Z","kind":"dispatch-approve","ref":"organism-infra/51-handoff-validates-at-publish","note":"good to go!"}
 {"handled":"ad4643f6-3448-4c74-837e-7f4654d56f84","ts":"2026-09-29T15:54:38.067Z","outcome":"approved; 51 dispatches after 53 and 13 per the user's earlier order (53 and 51 both touch skills)"}
 {"id":"f4504900-d2c8-4cd6-8ea7-080de37f132d","ts":"2026-09-29T19:56:11.746Z","kind":"dispatch-approve","ref":"organism-infra/51-handoff-validates-at-publish"}
+{"handled":"f4504900-d2c8-4cd6-8ea7-080de37f132d","ts":"2026-09-29T23:27:51.106Z","outcome":"Dispatching qa specify for 51, in parallel with 58 (user chose parallel in chat)"}
