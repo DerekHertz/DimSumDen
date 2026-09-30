@@ -28,6 +28,8 @@ Then these sections:
 - **Suggested skills**: the skills the next cell should load.
 - **Gotchas**: anything that cost you time.
 
+Keep it environment-neutral. The next session may start locally (WSL) or in a cloud container, so don't record setup for the environment you happened to run in: env vars, binary paths, proxy workarounds, missing tools, or a session's own board branch. Environment facts belong in `docs/agents/cloud-sessions.md`; the handoff names that file if it matters. Refer to merged work by PR or `main`, not by a session branch.
+
 Record state, not rules. Don't paraphrase a genome, skill, or ADR rule in a handoff; name the file instead. The next session will follow your paraphrase, including anything it dropped.
 
 Redact any sensitive information, such as API keys, passwords, or personally identifiable information.
