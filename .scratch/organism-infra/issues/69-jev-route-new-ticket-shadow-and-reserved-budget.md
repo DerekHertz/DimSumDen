@@ -10,7 +10,7 @@ Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] `jev.mjs` accepts a route request for new tickets with exactly the label set above; any other model output maps to `other`.
 - [ ] Route never fires where the state machine dictates the next cell (tested); code removes forbidden labels before the call, and `developer-direct` is never offered on a code ticket (ADR 0015 decision 3).
@@ -20,3 +20,7 @@ Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 - [ ] Nothing routes live; no gate is touched.
 
 ## Comments
+- **developer, 2026-09-30:** qa test jev-route-report.test.mjs:176 asserts agreement FAIL at 15/17 (88.2%), contradicting the contract (>=85%) and ADR 0015. Not edited. Other 62 of 63 pass. See handoff 69-developer.md.
+- **developer, 2026-09-30:** qa test jev-route-report.test.mjs:176 contradicts contract; 62 of 63 pass
+- **qa, 2026-09-30:** QA pass at a4f8a2e: 928/929 (only known usage.mjs cloud failure), 0 skipped; test diff vs f6321cc is the 2-line agreement fix only; all criteria mapped; impl shadow-only, budget and label rules match ADR 0015. See 69-qa-verify.md.
+- **security, 2026-09-30:** Security pass at a4f8a2e, no critical/high/medium. Route sends the ticket file only (no tests, handoff, event or request text); secret check runs before truncation; key stays in the auth header; usage.jsonl append only, --ticket validated; cap arithmetic holds (probed: total cap, epsilon, UTC day). Low: jev.mjs:115 RESERVED[k] prototype key (e.g. point 'constructor') gives NaN and skips the shared sub-cap (total cap still binds); jev.mjs:110,184 negative cost not clamped; jev.mjs:217 --mode live accepted for route (no consumer). Gitleaks clean, no gate/hook/CI/dependency change. See 69-security.md.
