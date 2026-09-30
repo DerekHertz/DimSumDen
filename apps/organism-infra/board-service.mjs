@@ -1071,6 +1071,13 @@ export async function publishHandoff(root, ref, fromFile, options = {}) {
   if (!HANDOFF_NAME_RE.test(name) || name.includes("..")) {
     throw new BoardError(`invalid handoff name "${name}": must be a plain <name>.md filename`);
   }
+  const namePrefix = /^(\d{2})-/.exec(name);
+  const ticketPrefix = /^(\d{2})-/.exec(ticket);
+  if (namePrefix && ticketPrefix && namePrefix[1] !== ticketPrefix[1]) {
+    throw new BoardError(
+      `handoff name "${name}" has prefix ${namePrefix[1]}- but ${ref} needs prefix ${ticketPrefix[1]}-`
+    );
+  }
   if (!(await exists(paths.issuesDir))) {
     throw new BoardError(`unknown feature: ${feature}`);
   }
@@ -1150,6 +1157,11 @@ export async function publishHandoff(root, ref, fromFile, options = {}) {
     // organism-infra/51: the claim holder may replace a draft it published under
     // its own claim (file newer than the lock), whatever cell/mode that draft named.
     const ownDraft = lockMtimeMs !== undefined && destStat.mtimeMs >= lockMtimeMs && parsed.cell === lockCell;
+    // organism-infra/62: with a claim lock, a file older than the lock came from
+    // an earlier claim; never overwrite it, even when cell/mode match.
+    if (lockMtimeMs !== undefined && destStat.mtimeMs < lockMtimeMs) {
+      throw new BoardError(`handoff ${name} was published under an earlier claim; refusing to overwrite`);
+    }
     if (!ownDraft && (!prior || prior.cell !== parsed.cell || prior.mode !== parsed.mode)) {
       throw new BoardError(`handoff ${name} already exists from a different cell/mode; refusing to overwrite`);
     }
