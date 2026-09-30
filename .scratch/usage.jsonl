@@ -604,3 +604,4 @@
 {"kind":"cell","ts":"2026-09-30T00:05:49.052Z","ticket":"organism-infra/51-handoff-validates-at-publish","cell":"developer","tokens":27177,"ms":150872,"outcome":"in-review; 863/864 (smoke:ui font env)"}
 {"kind":"jev","ts":"2026-09-30T00:08:44.893Z","ticket":"organism-infra/51-handoff-validates-at-publish","point":"verify","pick":"full","actual":"full","cost":0.00022869000000000003,"conf":1,"mode":"live","fallback":null,"floor":null,"ms":677,"model":"jev-1.13.0"}
 {"kind":"cell","ts":"2026-09-30T00:12:32.185Z","ticket":"organism-infra/51-handoff-validates-at-publish","cell":"qa","mode":"verify","tokens":36459,"ms":211673,"outcome":"pass (full, Jev live)"}
+{"kind":"cell","ts":"2026-09-30T00:13:35.607Z","ticket":"organism-infra/51-handoff-validates-at-publish","cell":"security","tokens":37575,"ms":62832,"outcome":"pass; 4 low findings; gitleaks missing"}

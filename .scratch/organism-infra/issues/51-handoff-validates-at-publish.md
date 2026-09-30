@@ -25,3 +25,4 @@
 - **developer, 2026-09-30:** developer: qa test 'a filled-in handoff satisfies the release gate' (board-handoff-validate.test.mjs:145) is wrong: it releases a qa specify claim at in-review, which board-service.mjs:967 refuses by design. Not edited. Needs qa to change the release status. All other 51 tests pass.
 - **developer, 2026-09-30:** qa test at board-handoff-validate.test.mjs:145 is wrong (specify claim cannot release at in-review)
 - **qa, 2026-09-30:** QA pass: 863 pass, 1 env fail (smoke:ui fonts cert), 0 skipped; all criteria mapped; see handoffs/51-qa-verify.md
+- **security, 2026-09-30:** Security pass. No critical/high/medium. Low: board-service.mjs:1147 ownDraft overwrite (bounded); board-service.mjs:1108 state cell not checked vs lock cell (pre-existing); cell-start.mjs:24 single-dash --branch (pre-existing). npm audit clean, no dep changes. gitleaks not installed: pattern-grep fallback, no hits. Detail in handoffs/51-security.md.
