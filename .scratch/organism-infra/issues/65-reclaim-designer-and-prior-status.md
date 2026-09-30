@@ -15,3 +15,4 @@
 
 ## Comments
 - **Follow-up (orchestrator, 2026-09-30):** raised by the 55 developer as out of scope.
+- **orchestrator, 2026-09-30:** Scope note (security, 55): a designer review claim on an in-review ticket sets it to claimed (only qa/security keep in-review); decide whether designer review should keep in-review too.
