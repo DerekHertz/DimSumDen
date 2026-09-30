@@ -10,7 +10,7 @@ World units, three.js axes: +x right, +z toward the camera, y up. The table is t
    -1.4       ·   [Steamers 蒸]         [Front of House 堂]    back row, on 0.5 platform
     0.0       ·            ( lazy susan )        table r 1.3
     2.0   [Tea 茶]                                [Pantry 仓]  front row
-    3.0       ·      {Cubs 崽}          |Tally|  (Library 书 shelf, planned)
+    3.0       ·      {Cubs 崽}          #Tally#  (Library 书 shelf, planned)
    11.5       ·                camera
          x: -4.9  -3.0  -1.8   0   1.8  3.0  4.9
 ```
@@ -26,7 +26,7 @@ World units, three.js axes: +x right, +z toward the camera, y up. The table is t
 | Tea kiosk | -4.0, 2.2 | **-4.9, 2.0** | ground | **+0.52** | `STALLS.tea` |
 | Pantry kiosk | 4.0, 2.2 | **4.9, 2.0** | ground | **-0.52** | `STALLS.pantry` |
 | Cubs hamper | 0, 3.4 | **-1.8, 3.0** | r 0.55 | 0 | `CUB_BASKET` |
-| Tally stele | 1.5, 3.4 | **1.8, 3.0** | plinth 1.1×0.25×0.4, tablet 0.9×1.3×0.14 | faces camera (keep formula) | `TALLY` |
+| Tally abacus | 1.5, 3.4 | **1.8, 3.0** | frame ≈ 1.1 wide × 1.4 tall on short legs; replaces plinth + tablet | faces camera (keep formula) | `TALLY` |
 | Library shelf (planned) | — | 2.9, 3.3 | — | faces camera | new, when the role exists |
 | Camera (default) | 0, 11.5 | unchanged | — | — | `camera-rig.mjs` |
 
@@ -73,7 +73,7 @@ A claim turns the bottom tier one step (`dur-slow`) and moves the basket up as a
 
 | Thing | Look | Tokens | Interaction |
 |---|---|---|---|
-| Tally stele | Stone tablet; two carved gauges at the top (5-hour, weekly) with the % above each and an 80% notch; chart bars below | `stone`, `stone-deep`; notch `lantern-fill`; strokes `qi` dark value | Click or Enter opens the charts. Each gauge is `role="meter"` with an `aria-label`. |
+| Tally abacus | Wooden suanpan with 5 labelled rods: 5 h, Week, Served, Tokens, Spills. One bead per tenth of scale; counted beads slide right in the rod colour, the rest stay wood | usage and served `qi`, tokens `station-steamers`, spills `alarm`; 80% mark `lantern-fill`; usage past 95% `alarm` | Click or Enter opens the charts. Usage rods are `role="meter"` with an `aria-label`. Beads slide over `dur-base` on change; reduced motion jumps. |
 | Cubs hamper | Lidded bamboo hamper with a blanket; `zzz` over the sleeping cubs | blanket `station-pass` | None |
 
 ## Screen chrome (DOM, not 3D)
@@ -85,7 +85,7 @@ A claim turns the bottom tier one step (`dur-slow`) and moves the basket up as a
 | Bottom-centre | Intent bar: autonomy, input, `Ctrl K`, Send, with the current intent above | AutonomyControl |
 | Bottom-right | Timeline: Live, time, "Drag back to replay the den's history" | — |
 
-The sidebar no longer shows plan usage; it's on the stele. The target frame is "Level 1 · Den (target)" on the zoom frames canvas.
+The sidebar no longer shows plan usage; it's on the Tally abacus. The target frame is "Level 1 · Den (target)" on the zoom frames canvas.
 
 ## Checks (for qa)
 
@@ -93,6 +93,6 @@ The sidebar no longer shows plan usage; it's on the stele. The target frame is "
 2. With no panda waiting, no lantern in the scene is `lantern-fill`. Each stall with a waiting panda has exactly one lit lantern.
 3. Bottom-tier baskets = min(ready, 8). The overflow pill = ready − 8 when that's above 0. Top-tier plates = claimed tickets.
 4. No panda stands on open grass unless it's mid-handoff.
-5. The stele gauges match `usage.jsonl`, and the sidebar has no usage meter.
+5. The abacus 5 h and Week rods match `usage.jsonl` (rounded to the nearest bead), and the sidebar has no usage meter.
 6. The kiosk hues match the `station-*` tokens; `Market.jsx` has no hex hue map.
 7. No biology word (organism, organ, cell, genome, apoptosis, endocrine) appears in any visible label or `aria-label`.

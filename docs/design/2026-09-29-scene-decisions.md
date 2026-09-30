@@ -8,9 +8,9 @@ The user picked these in a design session. For coordinates, constants and qa che
 | Stalls | B · Pagoda kiosk | A · Night-market cart, C · Bamboo lean-to |
 | Agent looks | C · Headgear + scarf | A · Hat + prop, B · Apron + prop |
 | Lazy susan | C · Two tiers | A · Steamer queue, B · Plated slips |
-| Tally and Cubs | B · Stone stele and hamper | A · Specials easel, C · Hanging slips |
+| Tally and Cubs | Abacus Tally (2026-09-30, replaced B's stone stele) + B's hamper | A · Specials easel, B · Stone stele, the hanging-slips version of C |
 | Stall hues | Design system `station-*` tokens | The shipped `HUE` map in `Market.jsx` |
-| Usage on the stele | B · Carved gauges | A · Carved rings, C · Incense sticks |
+| Plan usage | Two abacus rods (5 h, Week); first picked as B · carved stele gauges | A · Carved rings, C · Incense sticks |
 | Planned cell homes | As drawn in the character sheets | A fifth "Back Room" kiosk |
 
 ## 1. Scene layout: Horseshoe market
@@ -73,11 +73,11 @@ Verify: bottom-tier basket count = min(ready, 8); overflow pill = ready − 8 wh
 
 Replace the `HUE` map in `Market.jsx` (steamers `#e0a458`, front-of-house `#d9707e`, tea `#6fae7a`, pantry `#5f8fbf`) with the `station-*` tokens: steamers porcelain blue, front-of-house azure, tea jade, pantry bamboo green, and the Pass wisteria for Bao's crown props. The design system is the single source of the hues.
 
-## 7. Stele usage: carved gauges
+## 7. Tally is an abacus (changed 2026-09-30)
 
-Plan usage leaves the sidebar. The stele shows two carved vertical gauges (5-hour window and weekly), each with its % carved above it and an 80% notch in `lantern-fill`. Chart bars are cut into the face below. Each gauge is `role="meter"` with an `aria-label`.
+The user swapped the stone stele for a wooden suanpan abacus. It has five rods: 5 h and Week for plan usage, with an 80% mark, then Served, Tokens and Spills. Plan usage leaves the sidebar. The full spec is in the design system's Tally component and in [den-map.md](den-map.md). This replaces §5's stele; the `Stele` code name stays until the Tally ticket renames it.
 
-Verify: the stele gauges show the same values as `usage.jsonl`, and the sidebar has no usage meter.
+Verify: the 5 h and Week rods match `usage.jsonl`, and the sidebar has no usage meter.
 
 ## 8. Sidebar and overlays
 
@@ -107,5 +107,5 @@ The character sheets are on the "Cell roster" board. These additions are beyond 
 3. Two-tier susan with an overflow stack (§4). Touches `handoffs.mjs` (`susanLayout`), `Market.jsx`, and the queue caption.
 4. Tally as the Stele, Cubs as a hamper (§5).
 5. An asset ticket for headgear and scarf meshes for all eight types (§3), plus the debugger (§9), with designer `asset-critique` rounds.
-6. Stele usage gauges; remove the sidebar usage meter (§7).
+6. Rebuild the Tally as an abacus with usage rods, and remove the sidebar usage meter (§5, §7). Touches `TallyFace.jsx`, `tally-face.mjs`, `Market.jsx`.
 7. Sidebar re-skin: Needs you, Stations, Queue, and the scene overlays (§8).
