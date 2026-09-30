@@ -175,10 +175,10 @@ test("agreement fails when other is more than 35% of rows", async () => {
 
 test("formatReport prints per-label agreement and one PASS/FAIL line per go-live check", async () => {
   const { buildReport, formatReport } = await load();
-  const b = merge(batch(15, "product", "product", 1), batch(2, "architect", "product", 50));
+  const b = merge(batch(15, "product", "product", 1), batch(3, "architect", "product", 50));
   const out = formatReport(buildReport(b.rows, b.events));
   assert.match(out, /^route agreement product: 15\/15/m);
-  assert.match(out, /^route agreement architect: 0\/2/m);
+  assert.match(out, /^route agreement architect: 0\/3/m);
   for (const name of ["coverage", "agreement", "safety", "spend"]) {
     assert.match(out, new RegExp(`^route new-ticket ${name}: (PASS|FAIL)`, "m"), name);
   }
