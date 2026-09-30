@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { TALLY, BAO, TABLE, CUB_BASKET, CUB_BASKET_RADIUS, placeCell } from "./banquet-layout.mjs";
 import { roamObstacles } from "./roam.mjs";
+import { cameraPosition } from "./camera-rig.mjs";
 import { TALLY_LABEL, TALLY_ARIA_LABEL } from "./tally-face.mjs";
 
 const read = (f) => readFileSync(new URL(f, import.meta.url), "utf8");
@@ -20,11 +21,17 @@ const plinthBottom = () => TALLY.groundY - 0.02;
 const tabletBottom = () => plinthBottom() + TALLY.plinth.height;
 const tabletTop = () => tabletBottom() + TALLY.tablet.height;
 
-test("stele stands beside the Cubs basket: x 1.8, z 3.0, on the floor, turned to the camera (about -0.209 rad)", () => {
+test("Tally face bearing points toward the actual shared default camera", () => {
+  const [cx, , cz] = cameraPosition(0, 1);
+  const bearing = Math.atan2(cx - TALLY.x, cz - TALLY.z);
+  close(TALLY.rotationY, bearing, 1e-12, "Tally faces the current default camera");
+});
+
+test("stele stands beside the Cubs basket: x 1.8, z 3.0, on the floor, turned to the camera (about -0.165 rad)", () => {
   assert.equal(TALLY.x, 1.8);
   assert.equal(TALLY.z, 3.0);
   assert.equal(TALLY.groundY, 0);
-  close(TALLY.rotationY, -0.209, 0.01, "rotationY faces the default camera");
+  close(TALLY.rotationY, -0.165, 0.01, "rotationY faces the default camera");
 });
 
 test("stele is a tablet 0.9 x 1.3 x 0.14 on a plinth 1.1 x 0.25 x 0.4, top about 1.55, with no roof or posts", () => {

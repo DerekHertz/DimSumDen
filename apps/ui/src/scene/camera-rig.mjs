@@ -1,17 +1,15 @@
 // Camera pan (x only) and zoom (dolly along z) for the banquet market. Pure math; the R3F rig in
 // CameraRig.jsx applies it. Zoom is a factor on the base camera distance: smaller is closer.
 import { WIDEST_STALL_EDGE } from "./banquet-layout.mjs";
+import { BASE_Y, BASE_Z, FOV_DEG } from "./camera-default.mjs";
+export { BASE_Y, BASE_Z, FOV_DEG } from "./camera-default.mjs";
 
 /** Fallback limit when the viewport is unknown; the rig uses panLimit(aspect, zoom). */
 export const PAN_LIMIT = 9;
-/** Vertical field of view of the scene camera (App.jsx). */
-export const FOV_DEG = 46;
 /** z of the back stalls' row, the depth the pan limit is measured at. */
 const STALL_ROW_Z = -1.6;
 export const ZOOM_MIN = 0.55;
 export const ZOOM_MAX = 1.2;
-export const BASE_Y = 4.2;
-export const BASE_Z = 13.8;
 const KEY_PAN_STEP = 0.5;
 const KEY_ZOOM_STEP = 0.1;
 const WHEEL_ZOOM_PER_DELTA = 0.001;

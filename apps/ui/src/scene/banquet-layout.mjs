@@ -1,5 +1,6 @@
 // ADR 0013: the banquet market anchor model. Pure; no three, React or DOM. Cell type and slot index
 // in, world position (where the plush's feet stand) out. Units are scene units, +z toward the camera.
+import { BASE_Z } from "./camera-default.mjs";
 
 /** Bao, host of the table, sits at the back. His local box is about 2 x 2 x 1.75 centred on the origin. */
 export const BAO = { position: [0, 1.4, -2.4], scale: 1.4 };
@@ -13,11 +14,11 @@ export const BELL = { x: 0.5, y: RAIL.y + RAIL.height / 2, z: BAO.position[2] };
  * Tally (showcase-v1/07): a stone stele on the front floor beside the Cubs basket, to its right, turned
  * toward the camera. The plinth bottom sits 0.02 below groundY; the tablet stands on the plinth top.
  */
+const TALLY_POSITION = { x: 1.8, z: 3.0 };
 export const TALLY = {
-  x: 1.8,
-  z: 3.0,
+  ...TALLY_POSITION,
   groundY: 0,
-  rotationY: -Math.atan2(1.8, 8.5), // the face turns toward the default camera
+  rotationY: -Math.atan2(TALLY_POSITION.x, BASE_Z - TALLY_POSITION.z), // face the shared default camera
   plinth: { width: 1.1, height: 0.25, depth: 0.4 },
   tablet: { width: 0.9, height: 1.3, depth: 0.14 },
 };
