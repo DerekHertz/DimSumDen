@@ -20,7 +20,7 @@ Run a cell as the main session with `claude --agent <cell-type>`. If a session i
 
 ## Cloud sessions
 
-Browser scripts need `PW_CHROMIUM_PATH` set; see `docs/agents/cloud-sessions.md`. With no credentials file, `node scripts/usage.mjs` prints a usage estimate; near 80% ask the user for a real reading.
+Environment setup for cloud containers (browser path, proxy, usage readings) lives in `docs/agents/cloud-sessions.md`; read it when `CLAUDE_CODE_REMOTE` is set. Locally (WSL) none of it applies.
 
 ## Agent skills
 
