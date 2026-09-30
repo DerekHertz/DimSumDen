@@ -614,3 +614,4 @@
 {"kind":"cell","ts":"2026-09-30T00:32:05.407Z","ticket":"showcase-v1/08-self-host-font","cell":"qa","mode":"verify","tokens":38858,"ms":173278,"outcome":"pass (full); 874/874; smoke:ui green"}
 {"kind":"incident","ts":"2026-09-30T00:32:16Z","ticket":"showcase-v1/08-self-host-font","cell":"orchestrator","tool":"risk-check","what":"npm run risk-check defaults to main...HEAD; the cloud clone has a stale local main, so already-merged files from 51/58 showed as hits","cost":"one rerun","fix":"ran node scripts/risk-check.mjs origin/main...HEAD","rule_change":"risk-check should default to origin/main when it exists"}
 {"kind":"cell","ts":"2026-09-30T00:34:39.683Z","ticket":"organism-infra/62-handoff-name-matches-ticket","cell":"qa","mode":"specify","tokens":45412,"ms":99290,"outcome":"3 failing tests + 1 guard; a045e24"}
+{"kind":"resolved","ts":"2026-09-30T00:35:59.066Z","ticket":"showcase-v1/08-self-host-font","pr":83,"bounces":0}
