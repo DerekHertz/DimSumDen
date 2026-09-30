@@ -17,3 +17,4 @@
 
 ## Comments
 - **Decision (user, 2026-09-30):** self-host the font; it's the last MVP fix, and Jev stays paused until smoke is green.
+- **qa, 2026-09-30:** QA pass: 874/874, smoke:ui green, no Google Fonts refs, CSP change in scope. Detail: handoffs/08-qa-verify.md
