@@ -1103,6 +1103,36 @@ export async function publishHandoff(root, ref, fromFile, options = {}) {
       `handoff State block must name ticket ${feature}/${ticket}` + (await claimSkeleton(paths, feature, ticket))
     );
   }
+  // organism-infra/51: fill cell/mode from the claim lock when the block omits
+  // them, then validate the whole block before anything is written.
+  let lockCell;
+  let lockMode;
+  let lockMtimeMs;
+  if (await exists(paths.claimLockPath)) {
+    const lockContent = await readFile(paths.claimLockPath, "utf8");
+    lockCell = claimingCell(lockContent);
+    lockMode = claimingMode(lockContent);
+    lockMtimeMs = (await stat(paths.claimLockPath)).mtimeMs;
+  }
+  let filled = false;
+  if (lockCell !== undefined && (parsed.cell === undefined || parsed.cell === null)) {
+    parsed.cell = lockCell;
+    filled = true;
+  }
+  if (lockCell !== undefined && parsed.cell === lockCell && lockMode !== undefined && parsed.mode === undefined) {
+    parsed.mode = lockMode;
+    filled = true;
+  }
+  const verdict = validateState(parsed);
+  if (!verdict.ok) {
+    throw new BoardError(
+      `handoff State block is invalid, nothing published:\n  - ${verdict.errors.join("\n  - ")}` +
+        (await claimSkeleton(paths, feature, ticket))
+    );
+  }
+  if (filled) {
+    body = body.slice(0, match.index) + "```json\n" + JSON.stringify(parsed) + "\n```" + body.slice(match.index + match[0].length);
+  }
   const dir = path.join(root, ".scratch", feature, "handoffs");
   await assertWithinRoot(root, dir);
   const dirStat = await lstat(dir).catch(() => null);
@@ -1117,7 +1147,10 @@ export async function publishHandoff(root, ref, fromFile, options = {}) {
       throw new BoardError(`handoff destination is not a regular file: ${name}`);
     }
     const prior = stateBlock(await readFile(dest, "utf8").catch(() => ""));
-    if (!prior || prior.cell !== parsed.cell || prior.mode !== parsed.mode) {
+    // organism-infra/51: the claim holder may replace a draft it published under
+    // its own claim (file newer than the lock), whatever cell/mode that draft named.
+    const ownDraft = lockMtimeMs !== undefined && destStat.mtimeMs >= lockMtimeMs && parsed.cell === lockCell;
+    if (!ownDraft && (!prior || prior.cell !== parsed.cell || prior.mode !== parsed.mode)) {
       throw new BoardError(`handoff ${name} already exists from a different cell/mode; refusing to overwrite`);
     }
   }

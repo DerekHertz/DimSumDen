@@ -125,7 +125,7 @@ test("a comment without --verdict and no lock is still accepted with --as", asyn
 // --- Criterion 2: log-cell --failures ---
 
 const TOOLS = ["bash-guard", "board-claim", "board-release", "board-comment", "board-handoff", "handoff-state", "git", "npm", "write", "ci", "other"];
-const base = ["--ticket", "sample/01-do-thing", "--cell", "qa", "--tokens", "10", "--ms", "20", "--outcome", "done"];
+const base = ["--ticket", "sample/01-do-thing", "--cell", "qa", "--tokens", "10", "--ms", "20", "--outcome", "done", "--allow-no-handoff", "test setup"];
 
 test("log-cell --failures writes the cell row then one incident row per item", async () => {
   const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });

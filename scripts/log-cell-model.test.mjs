@@ -12,7 +12,7 @@ const rows = (root) =>
 const run = (fx, extra) =>
   spawnSync(
     process.execPath,
-    [LOG_CELL, "--ticket", fx.ticketRelPath, "--cell", "developer", "--tokens", "10", "--ms", "20", "--outcome", "ok", ...extra],
+    [LOG_CELL, "--ticket", fx.ticketRelPath, "--cell", "developer", "--tokens", "10", "--ms", "20", "--outcome", "ok", "--allow-no-handoff", "test setup", ...extra],
     { cwd: fx.root, env: { ...process.env, ORGANISM_ROOT: fx.root }, encoding: "utf8", timeout: 15000 },
   );
 

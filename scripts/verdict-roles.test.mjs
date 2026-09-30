@@ -260,7 +260,7 @@ test("symlinked usage.jsonl is refused by log-cell", async () => {
   const { dir, target } = outsideTarget();
   try {
     symlinkSync(target, usagePath(fx.root));
-    const r = script(LOG_CELL, ["--ticket", "sample/01-do-thing", "--cell", "qa", "--tokens", "1", "--ms", "1", "--outcome", "x"], fx.root);
+    const r = script(LOG_CELL, ["--ticket", "sample/01-do-thing", "--cell", "qa", "--tokens", "1", "--ms", "1", "--outcome", "x", "--allow-no-handoff", "test setup"], fx.root);
     assert.notEqual(r.status, 0);
     assert.equal(readFileSync(target, "utf8"), "ORIGINAL\n");
   } finally {
@@ -272,7 +272,7 @@ test("symlinked usage.jsonl is refused by log-cell", async () => {
 test("log-cell caps --outcome at 500 chars and --mode at 32 chars", async () => {
   const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
   try {
-    const base = ["--ticket", "sample/01-do-thing", "--cell", "qa", "--tokens", "1", "--ms", "1"];
+    const base = ["--ticket", "sample/01-do-thing", "--cell", "qa", "--tokens", "1", "--ms", "1", "--allow-no-handoff", "test setup"];
     const okBoth = script(LOG_CELL, [...base, "--mode", "m".repeat(32), "--outcome", "o".repeat(500)], fx.root);
     assert.equal(okBoth.status, 0, okBoth.stderr);
     assert.equal(rows(fx.root).length, 1);

@@ -155,9 +155,11 @@ test("an unknown base sha fails without moving HEAD or running npm", () =>
     assert.equal(npmCalls(fx).length, 0);
   }));
 
-test("an existing branch name is refused without moving HEAD", () =>
+// organism-infra/51: an existing branch is now reused when --base fast-forwards it
+// (see cell-start.existing-branch.test.mjs); one that is ahead of --base is still refused.
+test("an existing branch that is not a fast-forward to base is refused without moving HEAD", () =>
   withFixture((fx) => {
-    const r = run(fx, fx.wt, ["--base", fx.shaB, "--branch", "prior"]);
+    const r = run(fx, fx.wt, ["--base", fx.shaA, "--branch", "prior"]);
     assertRefused(r);
     assert.equal(git(fx.wt, ["rev-parse", "HEAD"]), fx.shaA);
     assert.equal(npmCalls(fx).length, 0);
