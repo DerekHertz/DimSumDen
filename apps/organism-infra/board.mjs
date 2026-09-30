@@ -9,6 +9,7 @@ import {
   getStatus,
   comment,
   publishHandoff,
+  handoffTemplate,
   list,
   BoardError,
 } from "./board-service.mjs";
@@ -80,8 +81,22 @@ async function main() {
       return;
     }
     case "handoff": {
-      const { positional, flags } = parseFlags(rest, { allowed: ["from", "name"] });
+      const { positional, flags } = parseFlags(rest, {
+        allowed: ["from", "name", "template", "cell", "mode"],
+        boolean: ["template"],
+      });
       const [ref] = positional;
+      if (flags.template) {
+        if (flags.from !== undefined || flags.name !== undefined) {
+          throw new BoardError("--template prints a State block; it takes no --from or --name");
+        }
+        console.log(`State block for ${ref} (fill in the placeholders, then draft the handoff under /tmp):`);
+        console.log(await handoffTemplate(root, ref, { cell: flags.cell, mode: flags.mode }));
+        return;
+      }
+      if (flags.cell !== undefined || flags.mode !== undefined) {
+        throw new BoardError("--cell and --mode only apply with --template");
+      }
       const result = await publishHandoff(root, ref, flags.from, { name: flags.name });
       console.log(`published ${result.path}`);
       return;
