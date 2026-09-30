@@ -189,6 +189,27 @@ function wakeReport(rows, events) {
   };
 }
 
+// organism-infra/79: advisory route agreement is Jev's pick against the user's final choice at the dispatch
+// gate. Not a go-live bar (ADR 0015 amendment): these rows are the data for revisiting decision 5's bars.
+function advisoryReport(rows) {
+  const outcomes = rows.filter((r) => r && r.kind === "jev-advisory-outcome");
+  const byLabel = {};
+  let agreed = 0;
+  let total = 0;
+  for (const r of outcomes) {
+    if (!r.jevPick || r.jevPick === "other") continue;
+    const b = (byLabel[r.jevPick] ??= { picks: 0, agreed: 0 });
+    b.picks++;
+    total++;
+    if (r.jevPick === r.userChoice) { b.agreed++; agreed++; }
+  }
+  return {
+    rows: outcomes.length, byLabel, agreed, total, agreementPct: total ? (agreed / total) * 100 : 0,
+    bounced: outcomes.filter((r) => r.bounced === true).length,
+    orchestratorAgreed: outcomes.filter((r) => r.orchestratorPick && r.orchestratorPick === r.userChoice).length,
+  };
+}
+
 export function buildReport(rows, events = []) {
   const info = new Map(); // key -> { cells, bounces }
   const get = (k) => {
@@ -254,6 +275,7 @@ export function buildReport(rows, events = []) {
     priority: priorityReport(rows),
     scope: scopeReport(rows, tickets),
     wake: wakeReport(rows, events),
+    advisory: advisoryReport(rows),
   };
 }
 
@@ -309,6 +331,15 @@ export function formatReport(report) {
     lines.push(`wake coverage: ${ok(w.checks.coverage)} (${w.informational} informational of ${WAKE_BAR.informational}, ${w.rows} rows, ${w.fallbacks} fallbacks, ${w.capFired} cap, median ${w.medianMs} ms)`);
     lines.push(`wake safety: ${ok(w.checks.safety)} (${w.missedWakes.length} missed wakes${w.missedWakes.length ? ": " + w.missedWakes.join(", ") : ""})`);
     lines.push(`wake spend: ${ok(w.checks.spend)} (${w.capFired} cap hits)`);
+  }
+  const a = report.advisory;
+  if (a) {
+    lines.push("", "Advisory route (advisory-live; ADR 0015 amendment, not a go-live bar)");
+    for (const [label, x] of Object.entries(a.byLabel)) lines.push(`advisory agreement ${label}: ${x.agreed}/${x.picks} agreed`);
+    lines.push(
+      `advisory summary: ${a.agreed}/${a.total} = ${a.agreementPct.toFixed(1)}% of non-other Jev picks matched the user; ` +
+        `orchestrator matched the user ${a.orchestratorAgreed}/${a.rows}; ${a.bounced} bounced, ${a.rows} rows`,
+    );
   }
   return lines.join("\n") + "\n";
 }
