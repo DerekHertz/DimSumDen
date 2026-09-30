@@ -992,12 +992,7 @@ export async function release(root, ref, newStatus, reason, options = {}) {
             `release blocked: ${ref} has no claim lock; claim it first (use --force --reason to override)`
           );
         }
-        const handoffCheck = await validateHandoffState(
-          root,
-          feature,
-          ticket,
-          claimMtimeMs === undefined ? undefined : { cell, mode, mtimeMs: claimMtimeMs }
-        );
+        const handoffCheck = await validateHandoffState(root, feature, ticket, { cell, mode, mtimeMs: claimMtimeMs });
         if (!handoffCheck.ok) {
           throw new BoardError(
             `release blocked: ${ref} has no valid handoff State block: ${handoffCheck.errors.join("; ")}` +
