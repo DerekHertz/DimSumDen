@@ -1,6 +1,6 @@
 # Scene decisions, 2026-09-29
 
-The user picked these in a design session. The options and the composed target are in the zoom frames canvas (https://claude.ai/artifact/JsxZ5Vj7DxJQbekA2Ehoot): the options are on the "Design session 09-29" page, and the target is the "Level 1 · Den (target)" board on the "Zoom levels" page. Code references are to `apps/ui/src/scene/` on `main` at `f6be2f4`.
+The user picked these in a design session. For coordinates, constants and qa checks in one page, see [den-map.md](den-map.md). The options and the composed target are in the zoom frames canvas (https://claude.ai/artifact/JsxZ5Vj7DxJQbekA2Ehoot): the options are on the "Design session 09-29" page, and the target is the "Level 1 · Den (target)" board on the "Zoom levels" page. Code references are to `apps/ui/src/scene/` on `main` at `f6be2f4`.
 
 | Topic | Picked | Rejected |
 |---|---|---|
