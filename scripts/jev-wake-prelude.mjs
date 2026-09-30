@@ -14,20 +14,24 @@ import { parseJsonl } from "./metrics.mjs";
 import { buildSnapshot } from "../apps/bridge/snapshot.mjs";
 import { resolveRoot } from "../apps/organism-infra/board-service.mjs";
 
-const USAGE_WAKE = 0.8;
+const USAGE_WIND_DOWN = 0.8;
 const GH_TIMEOUT_MS = 15000;
 const CI_BAD = ["FAILURE", "ERROR", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE"];
 
+// Scope added (user verdict, 2026-09-30): usage alone never wakes. At 80%+ it suppresses the frontier wake, and
+// only wind-down items wake: CI red or unreadable, a merge conflict, a gate request, a cell in flight.
 export function codeDecides({
   frontierCount = 0, usagePct = 0, ciRed = false, conflicted = false, openVerdictRequest = false, ciUnknown = false,
+  inFlightCount = 0,
 } = {}) {
-  if (usagePct >= USAGE_WAKE) return { wake: true, reason: `usage at ${Math.round(usagePct * 100)}%` };
   if (ciRed) return { wake: true, reason: "CI red on an open PR" };
   if (conflicted) return { wake: true, reason: "merge conflict on an open PR" };
   if (ciUnknown) return { wake: true, reason: "CI state unreadable" };
   if (openVerdictRequest) return { wake: true, reason: "open gate request" };
-  if (frontierCount > 0) return { wake: true, reason: `frontier has ${frontierCount} ticket(s)` };
-  return { wake: false };
+  if (inFlightCount > 0) return { wake: true, reason: `${inFlightCount} cell(s) in flight` };
+  if (frontierCount === 0) return { wake: false };
+  if (usagePct < USAGE_WIND_DOWN) return { wake: true, reason: `frontier has ${frontierCount} ticket(s)` };
+  return { wake: false, reason: `usage at ${Math.round(usagePct * 100)}%: frontier wake suppressed` };
 }
 
 function codeWakeKind({ newComment, author, verdict }) {
@@ -59,7 +63,8 @@ export async function runPrelude({
     else if (row.pick !== "informational") wakes.push(`jev ${row.pick} on ${input.ticket}`);
   }
   if (wakes.length) return { wake: true, reason: wakes.join("; "), rows };
-  return { wake: false, reason: inputs.length ? "all new inputs informational" : "no new inputs", rows };
+  const quiet = inputs.length ? "all new inputs informational" : "no new inputs";
+  return { wake: false, reason: code.reason ? `${quiet}; ${code.reason}` : quiet, rows };
 }
 
 // The cutoff for "new": the orchestrator's latest board event, or null when it has none.
@@ -134,6 +139,7 @@ async function main(argv) {
       frontierCount: snap.frontier.length,
       usagePct: (snap.usage?.fiveHour ?? 0) / 100,
       openVerdictRequest: snap.requests.some((r) => r.state === "pending"),
+      inFlightCount: snap.tickets.filter((t) => t.holder).length,
     };
     const context = codeDecides(local).wake ? local : { ...local, ...readCi(root) };
     const ticketTextOf = (feature, ticket) => {

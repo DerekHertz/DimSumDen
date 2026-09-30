@@ -50,12 +50,18 @@ test("codeDecides wakes when CI state is unreadable", () => {
   assert.equal(codeDecides({ ciUnknown: true }).wake, true);
 });
 
-function board({ ready = false, pendingRequest = false, orchestratorEvent = true } = {}) {
+function board({ ready = false, pendingRequest = false, orchestratorEvent = true, fiveHour = null, lockedBy = null, secondReady = false } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), "wake-prelude-"));
   const issues = path.join(root, ".scratch", "feat", "issues");
   mkdirSync(issues, { recursive: true });
   const status = ready ? "ready-for-agent" : "in-review";
   writeFileSync(path.join(issues, "01-a.md"), `# 01: A\n\n**Status:** ${status}\n\n**Blocked by:** none\n`);
+  if (secondReady) writeFileSync(path.join(issues, "02-b.md"), `# 02: B\n\n**Status:** ready-for-agent\n\n**Blocked by:** none\n`);
+  if (lockedBy) writeFileSync(path.join(issues, "01-a.lock"), `${lockedBy} 2026-09-30T09:15:00.000Z\n`);
+  if (fiveHour !== null) {
+    const row = { kind: "usage", five_hour: fiveHour, weekly: 40, ts: "2026-09-30T09:20:00.000Z" };
+    writeFileSync(path.join(root, ".scratch", "usage.jsonl"), JSON.stringify(row) + "\n");
+  }
   const events = orchestratorEvent ? [ev({ cell: "orchestrator", ts: "2026-09-30T09:00:00.000Z" })] : [];
   writeFileSync(path.join(root, ".scratch", "events.jsonl"), events.map((e) => JSON.stringify(e)).join("\n") + "\n");
   if (pendingRequest) {
@@ -96,6 +102,22 @@ test("CLI: --since last with no orchestrator event wakes", () => {
   assert.equal(r.status, 0, r.stderr);
   assert.equal(r.out.wake, true);
   assert.match(r.out.reason, /no orchestrator event/);
+});
+
+test("CLI: at 85% usage a cell in flight still wakes, with no Jev row logged", () => {
+  const root = board({ lockedBy: "developer", secondReady: true, fiveHour: 85 });
+  const r = run(root);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.out.wake, true);
+  assert.match(r.out.reason, /in flight/);
+  assert.equal(r.out.jevCalls, 0);
+});
+
+test("CLI: at 79% usage a non-empty frontier still wakes", () => {
+  const r = run(board({ ready: true, fiveHour: 79 }));
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.out.wake, true);
+  assert.match(r.out.reason, /frontier/);
 });
 
 test("CLI: a bad --since exits 2", () => {
