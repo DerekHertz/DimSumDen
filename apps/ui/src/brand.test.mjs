@@ -2,7 +2,7 @@
 // heading); UI copy and numbers stay Nunito. Source-shape checks over index.html and styles.css.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 
 const read = (f) => readFileSync(new URL(f, import.meta.url), "utf8");
 const html = read("../index.html");
@@ -13,10 +13,16 @@ test("page title and header read Dim Sum Den", () => {
   assert.match(read("./App.jsx"), /<h1[^>]*>Dim Sum Den<\/h1>/);
 });
 
-test("index.html loads Long Cang from Google Fonts, and only that display family", () => {
-  assert.match(html, /<link[^>]+href="https:\/\/fonts\.googleapis\.com\/css2\?family=Long\+Cang&display=swap"/);
-  assert.match(html, /<link[^>]+rel="preconnect"[^>]+href="https:\/\/fonts\.gstatic\.com"/);
-  assert.equal((html.match(/family=/g) ?? []).length, 1);
+test("Long Cang is self-hosted (showcase-v1/08): local woff2 @font-face, OFL beside it, no Google Fonts host anywhere", () => {
+  assert.doesNotMatch(html, /fonts\.(googleapis|gstatic)\.com|family=/);
+  assert.doesNotMatch(css, /fonts\.(googleapis|gstatic)\.com/);
+  assert.doesNotMatch(read("./scene/TallyFace.jsx"), /fonts\.(googleapis|gstatic)\.com/);
+  const face = css.match(/@font-face\s*\{[^}]*Long Cang[^}]*\}/)?.[0] ?? "";
+  const url = face.match(/url\(["']?(\.\/fonts\/[^"')]+\.woff2)["']?\)/)?.[1];
+  assert.ok(url, "@font-face for Long Cang points at a local woff2");
+  assert.match(face, /font-display:\s*swap/);
+  assert.ok(existsSync(new URL("./" + url, import.meta.url)), "woff2 file exists");
+  assert.match(read("./fonts/OFL.txt"), /SIL Open Font License/);
 });
 
 test("--font-display names Long Cang; --font-sans stays Nunito with no Long Cang", () => {

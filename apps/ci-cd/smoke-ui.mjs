@@ -94,8 +94,21 @@ async function main() {
 
     browser = await launch(chromium);
     const page = await (await browser.newContext()).newPage();
+    const requested = [];
+    page.on("request", (r) => requested.push(r.url()));
     await page.goto(bridge.url, { waitUntil: "load" });
     await page.waitForSelector("[data-slot=queue] .qrow", { timeout: 15000 }).catch(() => {});
+
+    await check("font: Long Cang is self-hosted, no Google Fonts request", async () => {
+      const loaded = await page.evaluate(async () => {
+        await document.fonts.load("44px 'Long Cang'");
+        return document.fonts.check("44px 'Long Cang'") && [...document.fonts].some((f) => f.family.includes("Long Cang") && f.status === "loaded");
+      });
+      if (!loaded) throw new Error("Long Cang did not load from the bundled woff2");
+      const google = requested.filter((u) => /fonts\.(googleapis|gstatic)\.com/.test(u));
+      if (google.length) throw new Error("Google Fonts requested: " + google.join(", "));
+      return "bundled woff2, 0 Google requests";
+    });
 
     await check("scene: one chip per active ticket", async () => {
       await page

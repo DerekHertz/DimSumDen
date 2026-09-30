@@ -1,5 +1,13 @@
-/* Tokens from the Agent Office design system (tokens.json v1). Nunito stack for UI copy; Long Cang (Google Fonts,
-   showcase-v1/05) for display text only: header title, station labels, tally heading. */
+/* Long Cang, latin subset, self-hosted (showcase-v1/08). OFL license: ./fonts/OFL.txt */
+@font-face {
+  font-family: "Long Cang";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/long-cang-latin-400-normal.woff2") format("woff2");
+}
+/* Tokens from the Agent Office design system (tokens.json v1). Nunito stack for UI copy; Long Cang (self-hosted latin woff2,
+   showcase-v1/05, 08) for display text only: header title, station labels, tally heading. */
 :root {
   --surface-000: #efe8d8;
   --surface-100: #f8f3e8;
