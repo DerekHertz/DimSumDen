@@ -15,7 +15,7 @@ import { Backdrop } from "./Backdrop.jsx";
 import { Market } from "./Market.jsx";
 import { TallyFace } from "./TallyFace.jsx";
 import { BAO, parsePerch, placeCell, stationOf } from "./banquet-layout.mjs";
-import { ROAMER_TYPES, approachFor, roamObstacles, stepRoamer } from "./roam.mjs";
+import { ROAMER_TYPES, stepRoamer } from "./roam.mjs";
 
 // Each prop glb is fetched and parsed once, then cloned per plush.
 const propGlbs = createAssetCache((url) => new GLTFLoader().loadAsync(url));
@@ -236,11 +236,15 @@ function DenFigures({ cells, baskets, handoffs, selected, onSelect, stage }) {
   const counts = useMemo(() => {
     const n = {};
     for (const c of cells) n[stationOf(c.cellType)] = (n[stationOf(c.cellType)] ?? 0) + 1;
+    for (const type of ROAMER_TYPES) {
+      if (cells.some((c) => c.cellType === type)) continue;
+      const station = stationOf(type);
+      n[station] = (n[station] ?? 0) + 1;
+    }
     return n;
   }, [cells]);
-  const obstacles = useMemo(() => roamObstacles(counts), [counts]);
-  // One panda per roamer type is always in the scene: the first cell of a type is that panda (it walks
-  // to its slot and back); further cells of the type stand at the stall as before.
+  // One panda per type remains at its station even without active work. Further cells stand at
+  // their normal slots. Idle types take an unused slot, so Developer and Scout never stack up.
   const firstOf = {};
   for (const c of cells) if (ROAMER_TYPES.includes(c.cellType) && !firstOf[c.cellType]) firstOf[c.cellType] = c;
   const placed = (c) => {
@@ -248,6 +252,21 @@ function DenFigures({ cells, baskets, handoffs, selected, onSelect, stage }) {
     const at = placeCell(c.cellType, slot, counts[station]);
     return { at, station };
   };
+  const occupied = {};
+  for (const c of cells) {
+    const { station, slot } = parsePerch(c.perch);
+    (occupied[station] ??= new Set()).add(slot);
+  }
+  const idlePlaces = {};
+  for (const type of ROAMER_TYPES) {
+    if (firstOf[type]) continue;
+    const station = stationOf(type);
+    const taken = occupied[station] ??= new Set();
+    let slot = 0;
+    while (taken.has(slot)) slot++;
+    taken.add(slot);
+    idlePlaces[type] = { station, at: placeCell(type, slot, counts[station]) };
+  }
   return (
     <>
       <Market baskets={baskets} handoffs={handoffs} cells={cells} counts={counts} />
@@ -257,8 +276,8 @@ function DenFigures({ cells, baskets, handoffs, selected, onSelect, stage }) {
           key={type}
           type={type}
           cell={firstOf[type]}
-          place={firstOf[type] ? placed(firstOf[type]) : null}
-          obstacles={obstacles}
+          place={firstOf[type] ? placed(firstOf[type]) : idlePlaces[type]}
+          handoffs={handoffs}
           gltf={gltf}
           director={director}
           footLift={footLift}
@@ -291,35 +310,41 @@ function DenFigures({ cells, baskets, handoffs, selected, onSelect, stage }) {
   );
 }
 
-// An idle panda roams the grass (roam.mjs); when its type has a cell it walks to the slot, works with
-// that cell's pose, and walks out again when the cell goes. Reduced motion cross-fades instead.
-function RoamFigure({ type, cell, place, obstacles, gltf, director, footLift, selected, onSelect, stage }) {
+// Idle and working pandas stay at their slots. A source panda leaves only for a handoff and returns.
+function RoamFigure({ type, cell, place, handoffs, gltf, director, footLift, selected, onSelect, stage }) {
   const outer = useRef();
+  const cargo = useRef();
   const fade = useRef(1);
   const motion = useRef(undefined);
   const [pose, setPose] = useState("idle");
   const inputs = useRef({});
-  inputs.current = { cell, place, obstacles };
+  inputs.current = { cell, place, handoffs };
   useFrame((state, dt) => {
-    const { cell: c, place: pl, obstacles: obs } = inputs.current;
+    const { cell: c, place: pl, handoffs: events } = inputs.current;
     const now = performance.now() / 1000;
     const slot = pl ? { x: pl.at.x, y: pl.at.y, z: pl.at.z } : null;
     const next = stepRoamer(motion.current, {
-      seed: type, slot, approach: pl ? approachFor(pl.station, pl.at) : undefined, working: Boolean(c),
-      now, dt: Math.min(dt, 0.1), obstacles: obs, reduced: reducedMotion(),
+      seed: type, slot, working: Boolean(c), handoffs: events,
+      now, dt: Math.min(dt, 0.1), reduced: reducedMotion(),
     });
     motion.current = next;
     fade.current = next.opacity;
+    if (cargo.current) cargo.current.visible = next.phase === "handoff";
     const bob = next.moving && next.y === 0 ? Math.abs(Math.sin(now * 7)) * 0.04 : 0;
     if (outer.current) {
       outer.current.position.set(next.x, next.y + bob, next.z);
       outer.current.rotation.y = next.heading;
+      outer.current.userData.motion = { phase: next.phase, moving: next.moving, handoff: next.handoff?.ref };
     }
     const want = next.phase === "working" && c ? c.pose : "idle";
     setPose((p) => (p === want ? p : want));
   });
   return (
-    <group ref={outer}>
+    <group ref={outer} name={`station-panda:${type}`}>
+      <mesh ref={cargo} visible={false} position={[0, footLift + 0.1, 0.3]}>
+        <cylinderGeometry args={[0.13, 0.11, 0.12, 12]} />
+        <meshStandardMaterial color="#d9c08a" />
+      </mesh>
       <Figure
         id={`roam:${type}`}
         anchorId={cell?.ref ?? null}

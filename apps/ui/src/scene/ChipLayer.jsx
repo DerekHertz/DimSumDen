@@ -6,6 +6,7 @@ import { chipModel, stackChips } from "./chip-model.mjs";
 import { TALLY_ARIA_LABEL, TALLY_LABEL } from "./tally-face.mjs";
 import { stationLabels } from "./station-labels.mjs";
 import { stationOf, tallyAnchor } from "./banquet-layout.mjs";
+import { ROAMER_TYPES } from "./roam.mjs";
 
 export const TALLY_CHIP_ID = "__tally";
 
@@ -17,6 +18,11 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, o
   const labels = useMemo(() => {
     const counts = {};
     for (const c of cells) counts[stationOf(c.cellType)] = (counts[stationOf(c.cellType)] ?? 0) + 1;
+    for (const type of ROAMER_TYPES) {
+      if (cells.some((c) => c.cellType === type)) continue;
+      const station = stationOf(type);
+      counts[station] = (counts[station] ?? 0) + 1;
+    }
     return stationLabels(counts);
   }, [cells]);
   const labelsRef = useRef(labels);

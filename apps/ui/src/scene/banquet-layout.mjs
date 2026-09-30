@@ -1,5 +1,6 @@
 // ADR 0013: the banquet market anchor model. Pure; no three, React or DOM. Cell type and slot index
 // in, world position (where the plush's feet stand) out. Units are scene units, +z toward the camera.
+import { BASE_Z } from "./camera-default.mjs";
 
 /** Bao, host of the table, sits at the back. His local box is about 2 x 2 x 1.75 centred on the origin. */
 export const BAO = { position: [0, 1.4, -2.4], scale: 1.4 };
@@ -13,11 +14,11 @@ export const BELL = { x: 0.5, y: RAIL.y + RAIL.height / 2, z: BAO.position[2] };
  * Tally (showcase-v1/07): a stone stele on the front floor beside the Cubs basket, to its right, turned
  * toward the camera. The plinth bottom sits 0.02 below groundY; the tablet stands on the plinth top.
  */
+const TALLY_POSITION = { x: 1.8, z: 3.0 };
 export const TALLY = {
-  x: 1.5,
-  z: 3.4,
+  ...TALLY_POSITION,
   groundY: 0,
-  rotationY: -Math.atan2(1.5, 8.1), // the face turns toward the default camera
+  rotationY: -Math.atan2(TALLY_POSITION.x, BASE_Z - TALLY_POSITION.z), // face the shared default camera
   plinth: { width: 1.1, height: 0.25, depth: 0.4 },
   tablet: { width: 0.9, height: 1.3, depth: 0.14 },
 };
@@ -30,7 +31,7 @@ export const tallyAnchor = () => ({
 });
 
 export const TABLE = { x: 0, z: 0, radius: 1.3, height: 0.7 };
-export const CUB_BASKET = { x: 0, z: 3.4 };
+export const CUB_BASKET = { x: -1.8, z: 3.0 };
 export const CUB_BASKET_RADIUS = 0.55;
 
 const STALL_SPACING = 0.75;
@@ -51,10 +52,10 @@ const PASS = {
 const PASS_STEP = 0.4;
 
 const STALLS = {
-  steamers: { x: -4.8, z: -1.6, y: COUNTER_Y + BACK_PLATFORM, row: "back" },
-  "front-of-house": { x: 4.8, z: -1.6, y: COUNTER_Y + BACK_PLATFORM, row: "back" },
-  tea: { x: -4.0, z: 2.2, y: COUNTER_Y, row: "front" },
-  pantry: { x: 4.0, z: 2.2, y: COUNTER_Y, row: "front" },
+  steamers: { x: -3.3, z: -1.4, y: COUNTER_Y + BACK_PLATFORM, row: "back" },
+  "front-of-house": { x: 3.3, z: -1.4, y: COUNTER_Y + BACK_PLATFORM, row: "back" },
+  tea: { x: -4.9, z: 2.0, y: COUNTER_Y, row: "front" },
+  pantry: { x: 4.9, z: 2.0, y: COUNTER_Y, row: "front" },
   cubs: { x: 0, z: 4.6, y: 0 },
 };
 
@@ -67,6 +68,12 @@ const STATION = {
 export const STALL_CENTERS = Object.fromEntries(
   Object.entries(STALLS).filter(([k]) => k !== "cubs").map(([k, v]) => [k, { x: v.x, z: v.z }]),
 );
+
+/** Each kiosk faces the table, capped to preserve its counter's default-camera sight line. */
+export function stallYaw(station) {
+  const { x, z } = STALL_CENTERS[station];
+  return Math.max(-0.52, Math.min(0.52, Math.atan2(-x, -z)));
+}
 
 /** Height of a stall's platform (0 for the front row) and the roof it carries, for the renderer. */
 export const stallPlatform = (station) => (STALLS[station]?.row === "back" ? BACK_PLATFORM : 0);
@@ -97,8 +104,8 @@ export function stallCenterX(station, count = STALL_BASE_SLOTS) {
   return stall.x + Math.sign(stall.x) * extra / 2;
 }
 
-/** A stall can hold every cell the scene shows (scene-from-state MAX_PLUSH). */
-export const MAX_STALL_CELLS = 12;
+/** Twelve active cells (scene-from-state MAX_PLUSH) plus the other idle Steamers role. */
+export const MAX_STALL_CELLS = 13;
 
 /** Outer edge (|x|) of the widest stall: Steamers holding every cell. The camera must be able to reach it. */
 export const WIDEST_STALL_EDGE = Math.abs(stallCenterX("steamers", MAX_STALL_CELLS)) + stallWidth(MAX_STALL_CELLS) / 2;
@@ -122,7 +129,10 @@ export function placeCell(cellType, slot, count = STALL_BASE_SLOTS) {
   }
   const stall = STALLS[stationOf(cellType)];
   const n = Math.max(STALL_BASE_SLOTS, count, slot + 1);
-  return { x: stallCenterX(stationOf(cellType), n) + (slot - (n - 1) / 2) * STALL_SPACING, y: stall.y, z: stall.z };
+  const station = stationOf(cellType);
+  const offset = (slot - (n - 1) / 2) * STALL_SPACING;
+  const yaw = STALL_CENTERS[station] ? stallYaw(station) : 0;
+  return { x: stallCenterX(station, n) + offset * Math.cos(yaw), y: stall.y, z: stall.z - offset * Math.sin(yaw) };
 }
 
 export const MAX_BASKETS = 8;
