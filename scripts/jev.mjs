@@ -105,7 +105,7 @@ const INPUTS = {
 // ADR 0015 decision 6: code, not Jev, wakes on these comments.
 function codeWakes({ newComment, author, verdict }) {
   if (verdict || !newComment || /scope added/i.test(newComment)) return true;
-  return author !== undefined && !CELL_TYPES.includes(author);
+  return author == null || !CELL_TYPES.includes(author);
 }
 
 // Reserved budget (ADR 0015 decision 7): each point may always spend its own reservation inside CAP.

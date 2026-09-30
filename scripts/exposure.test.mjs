@@ -405,6 +405,7 @@ test("wake: decide handles the point and includes new comment but not handoff te
     ticket: TICKET,
     ticketText: "# 07\n\n**Status:** in-review\n**What to build:** a thing.\n",
     newComment: COMMENT,
+    author: "qa",
     handoffText: HANDOFF,
     now: NOW,
     env: { TYPESAFE_API_KEY: KEY },
@@ -438,6 +439,25 @@ test("wake: user-authored comment, Scope added, and verdict events produce zero 
       transport: fake(routeAns, calls),
     });
     assert.equal(calls.length, 0, `${s.label}: transport must not be called`);
+  }
+});
+
+// An absent author is not a known cell type, so code wakes (77 security bounce).
+test("wake: a comment with no author produces zero transport calls", async () => {
+  const { decide } = await load();
+  for (const author of [undefined, null]) {
+    const calls = [];
+    await decide({
+      point: "wake",
+      ticket: TICKET,
+      ticketText: "# 07\n\n**Status:** in-review\n",
+      newComment: "a plain comment",
+      author,
+      now: NOW,
+      env: { TYPESAFE_API_KEY: KEY },
+      transport: fake(routeAns, calls),
+    });
+    assert.equal(calls.length, 0, `author ${author}: transport must not be called`);
   }
 });
 
