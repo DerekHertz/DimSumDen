@@ -16,7 +16,7 @@ const DEFAULT_UI_DIR = fileURLToPath(new URL("../ui/dist", import.meta.url));
 const HOST = "127.0.0.1";
 const MAX_BODY = 4096;
 // 07 security forward: the panel renders agent text; forbid inline and foreign script.
-const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'";
+const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'";
 
 export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR } = {}) {
   let actualPort = port;
