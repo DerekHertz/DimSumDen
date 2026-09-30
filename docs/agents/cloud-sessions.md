@@ -48,3 +48,13 @@ export PW_CHROMIUM_PATH=/opt/pw-browsers/chromium
 (`/opt/pw-browsers/chromium` worked on 2026-09-30; the versioned path above it may change between container images.)
 
 `npm run smoke` and `npm run smoke:ui` (via `apps/ci-cd/launch-options.mjs`) then launch that executable with the software-GL flags `--use-angle=swiftshader --enable-unsafe-swiftshader`, ignoring the Chrome/Edge channel lookup. Unset or empty means today's behaviour.
+
+## Codex cloud session (2026-09-30)
+
+This session used gh successfully for PR and CI operations after api.github.com was allowed in environment network settings. Node 24.19, npm 11.9, and Chromium 151 were available. Use the reviewed environment setup for actual paths; historical Claude container paths above are not universal defaults.
+
+The working commands used npm_config_cache=/workspace/.npm and PW_CHROMIUM_PATH=/usr/bin/chromium. Full tests needed per-command TMPDIR=/home/agent/dimsumden-test-tmp with supported execution approval: platform guards at /tmp, /var/tmp, and /workspace otherwise made ancestry-sensitive fixture tests fail. Do not remove guards or weaken tests. Do not globally bind the isolated test directory as the platform temporary root.
+
+Codex CLI 0.159.0-alpha.3 supports account/rateLimits/read through app-server JSON-RPC after initialize/initialized. Temporary sqlite_home avoided a read-only state directory; the outer namespace needed supported execution approval. The account usage request then failed at chatgpt.com/backend-api/wham/usage because the network proxy blocked that domain. The environment draft adds api.github.com and chatgpt.com; saving a draft does not itself change runtime access. No credentials or account response secrets were copied. No live usage percentages were obtained; manual figures are attributed to the user.
+
+Cells did not inherit the writable npm cache automatically; cell-start must receive the environment binding from setup. Subagent tools did not expose token/duration metrics, so telemetry must not substitute placeholder zero counts. Existing board and handoff guards correctly refused overlapping claims, cross-claim handoff overwrites, and stale release state.

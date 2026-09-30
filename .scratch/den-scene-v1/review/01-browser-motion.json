@@ -1,0 +1,100 @@
+{
+  "start": {
+    "x": -5.5508643847582375,
+    "y": 0.6,
+    "z": 2.3726601033828025,
+    "motion": {
+      "phase": "working",
+      "moving": false
+    }
+  },
+  "observed": {
+    "moving": {
+      "frame": 1,
+      "x": -5.472760658587249,
+      "y": 0.5279999999999999,
+      "z": 2.3279408909768664,
+      "motion": {
+        "phase": "handoff",
+        "moving": true,
+        "handoff": "demo/01-add-login"
+      }
+    },
+    "delivery": {
+      "frame": 74,
+      "x": -3.3,
+      "y": 0.00951570086783023,
+      "z": -1.4,
+      "motion": {
+        "phase": "returning",
+        "moving": true,
+        "handoff": "demo/01-add-login"
+      }
+    },
+    "returned": {
+      "frame": 148,
+      "x": -5.5508643847582375,
+      "y": 0.6,
+      "z": 2.3726601033828025,
+      "motion": {
+        "phase": "idle",
+        "moving": false
+      }
+    },
+    "minRadius": 3.584689665786984,
+    "maxStep": 0.09000000000000066,
+    "others": [
+      {
+        "type": "product",
+        "xyz": [
+          -1.54,
+          2.016,
+          -2.155
+        ]
+      },
+      {
+        "type": "architect",
+        "xyz": [
+          1.54,
+          2.016,
+          -2.155
+        ]
+      },
+      {
+        "type": "designer",
+        "xyz": [
+          2.6491356152417627,
+          1.1,
+          -1.7726601033828024
+        ]
+      }
+    ],
+    "after": [
+      {
+        "type": "product",
+        "xyz": [
+          -1.54,
+          2.016,
+          -2.155
+        ]
+      },
+      {
+        "type": "architect",
+        "xyz": [
+          1.54,
+          2.016,
+          -2.155
+        ]
+      },
+      {
+        "type": "designer",
+        "xyz": [
+          2.6491356152417627,
+          1.1,
+          -1.7726601033828024
+        ]
+      }
+    ]
+  },
+  "errors": []
+}
