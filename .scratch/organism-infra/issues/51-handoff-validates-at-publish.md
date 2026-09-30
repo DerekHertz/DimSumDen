@@ -8,7 +8,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** claimed
+**Status:** blocked
 
 - [ ] An invalid State block (missing field, `pending` as strings) is refused at publish, nothing is written, and stderr shows the problems and the example (tests)
 - [ ] A valid block publishes as today (test)
@@ -22,3 +22,5 @@
 - **qa, 2026-09-29:** qa specify: failing tests on organism-infra/51-tests @ 6e4bd79; see handoffs/51-qa-specify.md. No human-verified criteria.
 - **orchestrator, 2026-09-29 (cloud 3):** Developer interrupted by the user's pause, mid-implementation. The untested partial work is saved on `organism-infra/51-wip` (f313ef7), on top of qa's tests 6e4bd79. The next developer resumes from that branch.
 - **developer, 2026-09-29:** developer interrupted by user pause; WIP saved on organism-infra/51-wip f313ef7
+- **developer, 2026-09-30:** developer: qa test 'a filled-in handoff satisfies the release gate' (board-handoff-validate.test.mjs:145) is wrong: it releases a qa specify claim at in-review, which board-service.mjs:967 refuses by design. Not edited. Needs qa to change the release status. All other 51 tests pass.
+- **developer, 2026-09-30:** qa test at board-handoff-validate.test.mjs:145 is wrong (specify claim cannot release at in-review)
