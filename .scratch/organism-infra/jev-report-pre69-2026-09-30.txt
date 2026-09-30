@@ -1,0 +1,69 @@
+(node:29981) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Jev shadow report (ADR 0010)
+
+Exit criteria per point
+point   | coverage (tickets, fallbacks, cap) | safety (bounces) | value (projected change vs baseline) | spend (jev cost, median ms)
+tier    | 24 tickets, 3 fallbacks, 0 cap | 2 bounces | savings -11.7% (projected 6668964 vs baseline 5968841 tokens; positive = fewer tokens, token change +11.7%) | $0.0006, 436 ms
+verify  | 20 tickets, 0 fallbacks, 0 cap | 2 bounces | savings +5.5% (projected 4517285.5 vs baseline 4777825 tokens; positive = fewer tokens, token change -5.5%) | $0.0037, 468.5 ms
+
+Per ticket (weighted tokens: baseline, projected tier / verify / both)
+character-animation/14: baseline 0, tier 0, verify 0, both 0, bounces 0
+character-animation/15: baseline 0, tier 0, verify 0, both 0, bounces 0
+character-animation/17: baseline 0, tier 0, verify 0, both 0, bounces 0
+character-animation/18: baseline 0, tier 0, verify 0, both 0, bounces 0
+ci-cd/03: baseline 190271, tier 190271, verify 190271, both 190271, bounces 1
+ci-cd/05: baseline 137429, tier 137429, verify 137429, both 137429, bounces 0
+dimsumden-ui-v0/01: baseline 95267, tier 95267, verify 95267, both 95267, bounces 0
+dimsumden-ui-v0/02: baseline 126850, tier 126850, verify 109340.5, both 109340.5, bounces 0
+dimsumden-ui-v0/03: baseline 159437, tier 159437, verify 144692, both 144692, bounces 0
+dimsumden-ui-v0/04: baseline 210219, tier 210219, verify 195001.5, both 195001.5, bounces 0
+dimsumden-ui-v0/05: baseline 130675, tier 181567, verify 116055, both 166947, bounces 0
+dimsumden-ui-v0/06: baseline 190265, tier 190265, verify 174625, both 174625, bounces 0
+dimsumden-ui-v0/07: baseline 463511, tier 574316, verify 447279.5, both 558084.5, bounces 1
+dimsumden-ui-v0/08: baseline 341546, tier 341546, verify 326156, both 326156, bounces 0
+dimsumden-ui-v0/09: baseline 282608, tier 282608, verify 265748.5, both 265748.5, bounces 0
+dimsumden-ui-v0/10: baseline 127816, tier 127816, verify 112952.5, both 112952.5, bounces 0
+dimsumden-ui-v0/11: baseline 234010, tier 234010, verify 216984.5, both 216984.5, bounces 0
+dimsumden-ui-v0/12: baseline 0, tier 0, verify 0, both 0, bounces 0
+dimsumden-ui-v0/13: baseline 186197, tier 248436, verify 171632.5, both 233871.5, bounces 0
+dimsumden-ui-v0/14: baseline 445068, tier 445068, verify 422784, both 422784, bounces 0
+dimsumden-ui-v0/15: baseline 159308, tier 280573, verify 140286.5, both 261551.5, bounces 0
+docs/01: baseline 0, tier 0, verify 0, both 0, bounces 0
+docs/02: baseline 80735, tier 80735, verify 80735, both 80735, bounces 0
+docs/03: baseline 0, tier 0, verify 0, both 0, bounces 0
+herald/01: baseline 0, tier 0, verify 0, both 0, bounces 0
+herald/02: baseline 163865, tier 163865, verify 163865, both 163865, bounces 0
+organism-infra/04: baseline 54033, tier 54033, verify 54033, both 54033, bounces 0
+organism-infra/05: baseline 472069, tier 472069, verify 472069, both 472069, bounces 1
+organism-infra/12: baseline 386856, tier 386856, verify 386856, both 386856, bounces 1
+organism-infra/14: baseline 79419, tier 79419, verify 79419, both 79419, bounces 0
+organism-infra/26: baseline 41543, tier 41543, verify 41543, both 41543, bounces 0
+organism-infra/28: baseline 40025, tier 40025, verify 40025, both 40025, bounces 0
+organism-infra/30: baseline 385074, tier 385074, verify 385074, both 385074, bounces 0
+organism-infra/32: baseline 162041, tier 162041, verify 162041, both 162041, bounces 0
+organism-infra/34: baseline 0, tier 0, verify 0, both 0, bounces 1
+organism-infra/35: baseline 41957, tier 41957, verify 41957, both 41957, bounces 0
+organism-infra/36: baseline 33617, tier 33617, verify 33617, both 33617, bounces 0
+organism-infra/37: baseline 0, tier 0, verify 0, both 0, bounces 0
+organism-infra/38: baseline 166796, tier 166796, verify 166796, both 166796, bounces 1
+organism-infra/41: baseline 362796, tier 446556, verify 316228.5, both 399988.5, bounces 1
+organism-infra/44: baseline 123982, tier 123982, verify 123982, both 123982, bounces 0
+organism-infra/45: baseline 166984, tier 217121, verify 166984, both 217121, bounces 0
+organism-infra/48: baseline 321360, tier 321360, verify 321360, both 321360, bounces 0
+organism-infra/49: baseline 193018, tier 247457, verify 193018, both 247457, bounces 0
+organism-infra/50: baseline 209872, tier 259732, verify 209872, both 259732, bounces 0
+organism-infra/51: baseline 247196, tier 314569, verify 247196, both 314569, bounces 0
+organism-infra/53: baseline 126108, tier 175461, verify 126108, both 175461, bounces 0
+organism-infra/55: baseline 167556, tier 167556, verify 167556, both 167556, bounces 0
+organism-infra/57: baseline 69524, tier 69524, verify 69524, both 69524, bounces 0
+organism-infra/58: baseline 219089, tier 219089, verify 219089, both 219089, bounces 0
+organism-infra/62: baseline 148508, tier 148508, verify 148508, both 148508, bounces 0
+showcase-v1/01: baseline 178631, tier 178631, verify 178631, both 178631, bounces 0
+showcase-v1/02: baseline 0, tier 0, verify 0, both 0, bounces 0
+showcase-v1/03: baseline 37118, tier 37118, verify 37118, both 37118, bounces 0
+showcase-v1/04: baseline 354859, tier 354859, verify 354859, both 354859, bounces 0
+showcase-v1/05: baseline 0, tier 0, verify 0, both 0, bounces 0
+showcase-v1/06: baseline 133276, tier 133276, verify 133276, both 133276, bounces 0
+showcase-v1/07: baseline 501203, tier 501203, verify 501203, both 501203, bounces 0
+showcase-v1/08: baseline 78876, tier 78876, verify 78876, both 78876, bounces 0
