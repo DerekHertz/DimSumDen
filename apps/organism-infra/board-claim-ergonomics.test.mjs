@@ -124,7 +124,9 @@ test("`board reclaim` on an unclaimed ticket is rejected and creates no lock", a
 test("`release --keep-status` frees the lock and leaves the status unchanged", async () => {
   const fx = await makeBoardFixture();
   try {
-    const claimed = await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "specify"], {
+    // organism-infra/55: a qa specify claim now restores the prior status, so this
+    // byte-identical check uses a developer claim.
+    const claimed = await runBoard(["claim", fx.ticketRelPath, "developer"], {
       cwd: fx.worktree,
     });
     assert.equal(claimed.code, 0, claimed.stderr);

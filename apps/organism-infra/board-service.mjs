@@ -681,6 +681,11 @@ async function prepare(root, ref) {
 // a qa claim without `--mode` at all -- the exact gap the original incident
 // (qa set in-review during a specify claim) exploited -- is rejected too.
 const CLAIM_MODES = new Set(["specify", "verify"]);
+// organism-infra/55: a designer claim names what it is doing.
+const DESIGNER_MODES = new Set(["review", "spec", "critique", "direction"]);
+function modeAllowed(cellType, mode) {
+  return CLAIM_MODES.has(mode) || (cellType === "designer" && DESIGNER_MODES.has(mode));
+}
 
 // organism-infra/24 security fix: identity is self-declared, but it must at
 // least name a real cell, so it can never carry newlines or forged markup.
@@ -702,9 +707,9 @@ export async function claim(root, ref, cellType, options = {}) {
   checkArgLength(cellType, "cell type");
   checkKnownCell(cellType, "cell type");
   checkArgLength(mode, "mode");
-  if (mode !== undefined && !CLAIM_MODES.has(mode)) {
+  if (mode !== undefined && !modeAllowed(cellType, mode)) {
     throw new BoardError(
-      `invalid mode: ${mode} (allowed: ${[...CLAIM_MODES].join(", ")})`
+      `invalid mode: ${mode} (allowed: ${[...CLAIM_MODES, ...(cellType === "designer" ? DESIGNER_MODES : [])].join(", ")})`
     );
   }
   if (cellType === "qa" && mode === undefined) {
@@ -739,10 +744,16 @@ export async function claim(root, ref, cellType, options = {}) {
       (cellType === "security" || (cellType === "qa" && (mode === "verify" || mode === "specify")));
     const newStatus = keepInReview ? "in-review" : "claimed";
     const updated = keepInReview ? content : replaceStatus(content, newStatus);
+    // organism-infra/55: a qa specify claim remembers the status it displaced,
+    // so release --keep-status can put it back instead of leaving `claimed`.
+    const prior =
+      cellType === "qa" && mode === "specify" && (fromStatus === "ready-for-agent" || fromStatus === "blocked")
+        ? ` ${fromStatus}`
+        : "";
     await commitWithEvent(paths.eventsPath, async () => {
       await writeFile(
         paths.claimLockPath,
-        `${cellType} ${new Date().toISOString()}${mode ? ` ${mode}` : ""}\n`,
+        `${cellType} ${new Date().toISOString()}${mode ? ` ${mode}` : ""}${prior}\n`,
         { encoding: "utf8", flag: "wx" }
       );
       await atomicWrite(paths.ticketPath, updated);
@@ -940,10 +951,13 @@ export async function release(root, ref, newStatus, reason, options = {}) {
     let cell = "unknown";
     let mode;
     let claimMtimeMs;
+    let priorStatus;
     if (await exists(paths.claimLockPath)) {
       const lockContent = await readFile(paths.claimLockPath, "utf8");
       cell = claimingCell(lockContent);
       mode = claimingMode(lockContent);
+      const p = lockContent.trim().split(/\s+/)[3];
+      if (p === "ready-for-agent" || p === "blocked") priorStatus = p;
       claimMtimeMs = (await stat(paths.claimLockPath)).mtimeMs;
     }
 
@@ -1007,8 +1021,10 @@ export async function release(root, ref, newStatus, reason, options = {}) {
     }
     const fromStatus = readStatus(content);
     // --keep-status: free the lock and leave the status line untouched.
-    const toStatus = keepStatus ? fromStatus : newStatus;
-    let updated = keepStatus ? content : replaceStatus(content, newStatus);
+    // organism-infra/55: a qa specify lock carries the pre-claim status; restore it.
+    const restore = keepStatus && cell === "qa" && mode === "specify" && fromStatus === "claimed" ? priorStatus : undefined;
+    const toStatus = restore ?? (keepStatus ? fromStatus : newStatus);
+    let updated = restore ? replaceStatus(content, restore) : keepStatus ? content : replaceStatus(content, newStatus);
     if (reason) {
       updated = `${updated.trimEnd()}\n- **${cell}, ${todayUTC()}:** ${reason}\n`;
     }
@@ -1179,7 +1195,7 @@ export async function getStatus(root, ref) {
   return readStatus(content);
 }
 
-const VERDICT_CELLS = new Set(["qa", "security", "orchestrator"]);
+const VERDICT_CELLS = new Set(["qa", "security", "orchestrator", "designer"]);
 
 export async function comment(root, ref, text, options = {}) {
   const { as, verdict } = options;
@@ -1225,9 +1241,12 @@ export async function comment(root, ref, text, options = {}) {
     if (verdict !== undefined && cell === "qa" && lockMode !== "verify") {
       throw new BoardError("comment rejected: a qa verdict needs a claim lock held in mode verify");
     }
+    if (verdict !== undefined && cell === "designer" && lockMode !== "review") {
+      throw new BoardError("comment rejected: a designer verdict needs a claim lock held in mode review");
+    }
     if (verdict !== undefined && !VERDICT_CELLS.has(cell)) {
       throw new BoardError(
-        `comment rejected: --verdict is only accepted from qa, security or orchestrator, not ${cell}`
+        `comment rejected: --verdict is only accepted from qa, security, designer or orchestrator, not ${cell}`
       );
     }
     const content = await readFile(paths.ticketPath, "utf8");
