@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] `--name` with a different `NN-` prefix is refused and the target file is untouched (test)
 - [ ] The error message names the expected prefix, e.g. `08-` (test)
