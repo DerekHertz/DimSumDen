@@ -607,3 +607,4 @@
 {"kind":"cell","ts":"2026-09-30T00:13:35.607Z","ticket":"organism-infra/51-handoff-validates-at-publish","cell":"security","tokens":37575,"ms":62832,"outcome":"pass; 4 low findings; gitleaks missing"}
 {"kind":"config","ts":"2026-09-30T00:16:05Z","change":"Jev paused (tier and verify calls skipped; relay uses defaults: developer sonnet, verify per genome) until smoke:ui Google Fonts failure is fixed (font self-hosted)","by":"user"}
 {"kind":"resolved","ts":"2026-09-30T00:16:48.523Z","ticket":"organism-infra/51-handoff-validates-at-publish","pr":82,"bounces":0}
+{"kind":"usage","ts":"2026-09-30T00:18:44Z","five_hour":20,"weekly":91,"event":"dispatch","ticket":null,"cell":"orchestrator"}
