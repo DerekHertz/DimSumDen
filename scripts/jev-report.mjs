@@ -55,6 +55,8 @@ function routeReport(rows, events, variant) {
   const latest = new Map();
   for (const r of rows) {
     if (r.kind !== "jev" || r.point !== "route" || (r.variant ?? "new") !== variant) continue;
+    // Advisory rows show the user Jev's pick, which can sway the claim; they belong to the advisory section only.
+    if (r.mode === "advisory") continue;
     const k = keyOf(r.ticket);
     if (!k) continue;
     const prev = latest.get(k);

@@ -230,3 +230,51 @@ test("[S2] buildReport reads jev-priority-verdict rows for the flags bar (existi
   // 10 >= 10 min and 100% >= 70%: should pass
   assert.equal(priority.checks.flagging, true);
 });
+
+// ── Scope add (user, 2026-09-30): the shadow route report excludes advisory-mode rows ─────
+
+function routeRow(over = {}) {
+  return {
+    kind: "jev", point: "route", variant: "new", ticket: "feat/01-thing", ts: "2026-09-30T09:00:00Z",
+    pick: "qa-specify", actual: "orchestrator", cost: 0.001, mode: "shadow", fallback: null, ms: 400, ...over,
+  };
+}
+function claimEvent(cell, ts = "2026-09-30T09:30:00Z") {
+  return { ts, feature: "feat", ticket: "01-thing", cell, op: "claim" };
+}
+
+test("advisory-mode route rows are not counted in the shadow new-ticket route report", async () => {
+  const { buildReport } = await load();
+  const rows = [routeRow({ mode: "advisory" }), outcome({ ticket: "feat/01" })];
+  const report = buildReport(rows, [claimEvent("qa")]);
+  assert.equal(report.route.newTicket.rows, 0);
+  assert.deepEqual(report.route.newTicket.byLabel, {});
+  assert.equal(report.advisory.rows, 1);
+});
+
+test("advisory-mode route-bounce rows are not counted in the shadow bounce route report", async () => {
+  const { buildReport } = await load();
+  const rows = [routeRow({ variant: "bounce", pick: "developer", mode: "advisory" })];
+  const report = buildReport(rows, [claimEvent("developer")]);
+  assert.equal(report.route.bounce.rows, 0);
+});
+
+test("a later advisory route row does not displace the ticket's shadow route row", async () => {
+  const { buildReport } = await load();
+  const rows = [
+    routeRow({ ts: "2026-09-30T09:00:00Z", pick: "qa-specify" }),
+    routeRow({ ts: "2026-09-30T09:10:00Z", pick: "architect", mode: "advisory" }),
+  ];
+  const nt = buildReport(rows, [claimEvent("qa")]).route.newTicket;
+  assert.equal(nt.rows, 1);
+  assert.equal(nt.agreed, 1);
+  assert.deepEqual(nt.byLabel, { "qa-specify": { picks: 1, agreed: 1 } });
+});
+
+test("formatReport shadow route lines omit advisory rows; they appear only in the advisory section", async () => {
+  const { buildReport, formatReport } = await load();
+  const rows = [routeRow({ pick: "architect", mode: "advisory" }), outcome({ ticket: "feat/01", jevPick: "architect", userChoice: "qa-specify" })];
+  const out = formatReport(buildReport(rows, [claimEvent("qa")]));
+  assert.doesNotMatch(out, /route agreement architect/);
+  assert.match(out, /advisory agreement architect: 0\/1/);
+});
