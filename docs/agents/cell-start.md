@@ -20,4 +20,6 @@ Notes (not implemented):
 - `npm ci` runs lifecycle scripts and reads `.npmrc` from the commit under review. Today's lockfile has none. For security and qa-verify hops, an `--ignore-scripts` option is worth considering; it is a trade-off left to the orchestrator.
 - The value check rejects `--x` but accepts `-x` at parse time; git refuses such values later, so it is harmless. `v.startsWith("-")` would be tighter.
 
+After it succeeds, pass the worktree's absolute path as `path` on every Grep and Glob call. Without it, those tools search the main checkout, not your worktree.
+
 Keep it a single plain command so the isolation guard allows it. The orchestrator takes `<sha>` from the prior hop's handoff.

@@ -56,8 +56,9 @@ function checkRoot(root, checkout) {
   }
   if (!statSync(abs).isDirectory()) throw new Refused("root", `invalid root: ${root} is not a directory`);
   const top = checkout ? realpathSync(checkout) : checkoutOf(abs);
-  const rel = top ? path.relative(top, abs) : abs;
-  if (top && (rel.startsWith("..") || path.isAbsolute(rel))) throw new Refused("root", `refused root ${root}: it is outside the checkout`);
+  if (!top) throw new Refused("root", `refused root ${root}: no checkout (.git ancestor) bounds it`);
+  const rel = path.relative(top, abs);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) throw new Refused("root", `refused root ${root}: it is outside the checkout`);
   const hidden = rel.split(path.sep).find((s) => s.startsWith("."));
   if (hidden) throw new Refused("root", `refused root ${root}: it lies inside ${hidden}/`);
   return abs;

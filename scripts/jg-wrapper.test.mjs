@@ -9,6 +9,12 @@ import { runJg } from "./jg.mjs";
 import { check } from "./hooks/bash-guard.mjs";
 
 const tmp = (p) => mkdtempSync(path.join(tmpdir(), p));
+// A root that has its own .git: a root with no .git ancestor and no explicit checkout is refused (batch B, security Low on 80).
+const repo = () => {
+  const r = tmp("jg80-r-");
+  mkdirSync(path.join(r, ".git"));
+  return r;
+};
 const ok = (files = 2) => {
   const calls = [];
   const stdout = Array.from({ length: files }, (_, i) => `## f${i}.mjs`).concat("End context.").join("\n");
@@ -30,7 +36,7 @@ function checkout() {
 test("a successful call appends one kind:jg row to usageRoot/.scratch/usage.jsonl", async () => {
   const usageRoot = tmp("jg80-u-");
   let t = 1000;
-  const { stdout, row } = await runJg({ query: "where is x", root: tmp("jg80-r-"), run: ok(3).run, usageRoot, now: () => (t += 5) });
+  const { stdout, row } = await runJg({ query: "where is x", root: repo(), run: ok(3).run, usageRoot, now: () => (t += 5) });
   assert.match(stdout, /## f0/);
   assert.deepEqual(rows(usageRoot), [row]);
   assert.deepEqual({ ...row, ts: undefined }, { kind: "jg", ts: undefined, queryLen: 10, filesReturned: 3, fallback: false, ms: 5 });
@@ -55,7 +61,7 @@ test("a query starting with '-' is refused so jg cannot read it as a flag", asyn
 });
 
 test("zero files returned counts as a fallback with no stdout", async () => {
-  const r = await runJg({ query: "q", root: tmp("jg80-r-"), run: ok(0).run });
+  const r = await runJg({ query: "q", root: repo(), run: ok(0).run });
   assert.equal(r.stdout, undefined);
   assert.equal(r.row.fallback, true);
   assert.equal(r.row.reason, "no-files");
@@ -87,12 +93,12 @@ test("a missing root is refused", async () => {
 test("jg older than 0.6.0 or an unreadable version falls back without running", async () => {
   for (const v of ["jg 0.5.9", null, "garbage"]) {
     const { run, calls } = ok();
-    const r = await runJg({ query: "q", root: tmp("jg80-r-"), run, version: async () => v });
+    const r = await runJg({ query: "q", root: repo(), run, version: async () => v });
     assert.equal(calls.length, 0, `version ${v}`);
     assert.equal(r.row.reason, "jg-version");
   }
   const { run, calls } = ok();
-  await runJg({ query: "q", root: tmp("jg80-r-"), run, version: async () => "0.7.0\n" });
+  await runJg({ query: "q", root: repo(), run, version: async () => "0.7.0\n" });
   assert.equal(calls.length, 1);
 });
 
