@@ -67,6 +67,11 @@ async function main() {
       return;
     }
     case "release": {
+      if (rest.some((a) => a === "--verdict" || a.startsWith("--verdict="))) {
+        throw new BoardError(
+          'release takes no --verdict; record the verdict first with `board comment <ref> --verdict pass|bounce "<text>"`, then release'
+        );
+      }
       const { positional, flags } = parseFlags(rest, {
         allowed: ["status", "reason", "force", "keep-status", "pr"],
         boolean: ["force", "keep-status"],
