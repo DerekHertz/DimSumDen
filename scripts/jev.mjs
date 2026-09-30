@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 // organism-infra/38: Jev pre-check script (ADR 0010).
-// Usage: node scripts/jev.mjs <tier|verify|route|route-bounce|priority|scope> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]
+// Usage: node scripts/jev.mjs <tier|verify|route|route-bounce|priority|scope> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live|advisory]
+//        node scripts/jev.mjs priority-verdict --ticket <ref> --verdict right|wrong
+//        node scripts/jev.mjs advisory-outcome --ticket <ref> --orchestrator <label> --jev <label|none> --user <label> --bounced true|false
+//        node scripts/jev.mjs order --actual <ref>[,<ref>...]
 // Always exits 0 (fallback on any failure) except invalid arguments, including a refused --tests path (exit 2).
 // Transport: plain HTTP per https://docs.typesafe.ai/api.md (POST /v1/systemone, Bearer key).
 import {
@@ -208,6 +211,8 @@ export async function decide({
   // Both route halves log as point "route" and share its reservation; the row's variant tells them apart.
   const rowPoint = isRoute ? "route" : point;
   const closedSet = CLOSED_SET.includes(point);
+  // organism-infra/79: advisory shows route's pick beside the orchestrator's, but never applies it.
+  const advisory = mode === "advisory" && isRoute;
   const labels = isBounce
     ? p.labels.filter((l) => l === "other" || !forbid.includes(l))
     : isRoute ? offeredLabels({ codeTicket, forbid }) : closedSet ? p.labels : null;
@@ -227,7 +232,7 @@ export async function decide({
     if (isRoute) row.variant = isBounce ? "bounce" : "new";
     const result = { pick, conf, effective: actual, applied: Boolean(live) && actual === pick, fallback: fb, floor };
     // ADR 0015 decisions 3 and 4: a shadow result must not show the pick, only the row carries it.
-    if (closedSet && !live) { delete result.pick; delete result.conf; }
+    if (closedSet && !live && !advisory) { delete result.pick; delete result.conf; }
     return { result, row };
   };
   const fail = (reason) => build({ fallback: reason });
@@ -331,10 +336,88 @@ function boardRoot() {
 }
 
 const CLI_POINTS = ["tier", "verify", "route", "route-bounce", "priority", "scope"];
+// organism-infra/79: log-only points append the orchestrator's own rows and never call Jev.
+const LOG_POINTS = {
+  "priority-verdict": ["--ticket", "--verdict"],
+  "advisory-outcome": ["--ticket", "--orchestrator", "--jev", "--user", "--bounced"],
+  order: ["--actual"],
+};
+const LABEL = /^[\w-]+$/;
+const validRef = (r) => /^[\w.-]+\/[\w.-]+$/.test(r) && !r.includes("..");
 
 function usage(msg) {
-  process.stderr.write(`jev: ${msg}\nusage: node scripts/jev.mjs <${CLI_POINTS.join("|")}> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live]\n`);
+  process.stderr.write(
+    `jev: ${msg}\nusage: node scripts/jev.mjs <${CLI_POINTS.join("|")}> --ticket <feature>/<NN-slug> [--tests <path>] [--mode shadow|live|advisory]\n` +
+      "       node scripts/jev.mjs priority-verdict --ticket <ref> --verdict right|wrong\n" +
+      "       node scripts/jev.mjs advisory-outcome --ticket <ref> --orchestrator <label> --jev <label|none> --user <label> --bounced true|false\n" +
+      "       node scripts/jev.mjs order --actual <ref>[,<ref>...]\n" +
+      "(--mode advisory is route and route-bounce only)\n",
+  );
   return 2;
+}
+
+const readOr = (f) => { try { return readFileSync(f, "utf8"); } catch { return ""; } };
+
+// Validates a log-only point's options; returns an error message or null.
+function logPointError(point, opts) {
+  if (point === "order") {
+    const refs = opts.actual?.split(",") ?? [];
+    return refs.length && refs.every(validRef) ? null : "--actual needs comma-separated <feature>/<NN-slug> refs";
+  }
+  if (!opts.ticket) return "--ticket is required";
+  if (!validRef(opts.ticket)) return "bad --ticket";
+  if (point === "priority-verdict") return ["right", "wrong"].includes(opts.verdict) ? null : "--verdict must be right or wrong";
+  for (const f of ["orchestrator", "jev", "user"]) if (!LABEL.test(opts[f] ?? "")) return `--${f} must be a label`;
+  return ["true", "false"].includes(opts.bounced) ? null : "--bounced must be true or false";
+}
+
+// The order CLI reads each frontier ticket from the board: P-level (none means P2), how many unresolved
+// tickets in its feature list it under Blocked by, and its latest answered scope row.
+const PRIORITY_LEVEL = /^\*\*Priority:\*\*[ \t]*P([0-3])[ \t]*$/m;
+const SCOPES = ["small", "medium", "large"];
+
+function frontierTickets(root, refs, usageRows) {
+  const shortKey = (r) => String(r ?? "").match(/^([^/]+\/\d+)/)?.[1];
+  return refs.map((ref) => {
+    const [feature, slug] = ref.split("/");
+    const dir = path.join(root, ".scratch", feature, "issues");
+    const nn = slug.match(/^\d+/)?.[0];
+    let unblockCount = 0;
+    if (nn) {
+      const edge = new RegExp(`(^|\\D)0*${Number(nn)}(?!\\d)`);
+      let files = [];
+      try { files = readdirSync(dir).filter((f) => f.endsWith(".md")); } catch {}
+      for (const f of files) {
+        const t = readOr(path.join(dir, f));
+        const blockedBy = t.match(/^\*\*Blocked by:\*\*(.*)$/m)?.[1];
+        const status = t.match(/^\*\*Status:\*\*\s*(\S+)/m)?.[1];
+        if (blockedBy && status !== "resolved" && edge.test(blockedBy)) unblockCount++;
+      }
+    }
+    const scopeRow = usageRows
+      .filter((r) => r?.kind === "jev" && r.point === "scope" && !r.fallback && SCOPES.includes(r.pick) && shortKey(r.ticket) === shortKey(ref))
+      .reduce((a, r) => (!a || String(r.ts ?? "") >= String(a.ts ?? "") ? r : a), null);
+    return {
+      key: ref,
+      priority: Number(readOr(path.join(dir, `${slug}.md`)).match(PRIORITY_LEVEL)?.[1] ?? 2),
+      unblockCount,
+      scope: scopeRow?.pick,
+      ticketNumber: nn ? Number(nn) : Infinity,
+    };
+  });
+}
+
+function logPointRow(point, opts, root, usageRows, now) {
+  if (point === "order") {
+    const refs = opts.actual.split(",");
+    return orderRow({ tickets: frontierTickets(root, refs, usageRows), actual: refs, now });
+  }
+  const base = { ts: now.toISOString(), ticket: opts.ticket };
+  if (point === "priority-verdict") return { kind: "jev-priority-verdict", ...base, right: opts.verdict === "right" };
+  return {
+    kind: "jev-advisory-outcome", ...base, orchestratorPick: opts.orchestrator,
+    jevPick: opts.jev === "none" ? null : opts.jev, userChoice: opts.user, bounced: opts.bounced === "true",
+  };
 }
 
 // organism-infra/77: --tests must be a regular, non-symlink file of at most 1 MB, and neither its path
@@ -358,17 +441,35 @@ function readTests(p) {
 
 async function main(argv) {
   const point = argv[0];
-  if (!CLI_POINTS.includes(point)) return usage(`point must be one of ${CLI_POINTS.join(", ")}`);
-  const opts = { mode: "shadow" };
+  const logFlags = Object.hasOwn(LOG_POINTS, point) ? LOG_POINTS[point] : null;
+  if (!CLI_POINTS.includes(point) && !logFlags) {
+    return usage(`point must be one of ${[...CLI_POINTS, ...Object.keys(LOG_POINTS)].join(", ")}`);
+  }
+  const flags = logFlags ?? ["--ticket", "--tests", "--mode"];
+  const opts = logFlags ? {} : { mode: "shadow" };
   for (let i = 1; i < argv.length; i += 2) {
     const k = argv[i];
     const v = argv[i + 1];
-    if (!["--ticket", "--tests", "--mode"].includes(k) || v === undefined) return usage(`bad argument ${k}`);
+    if (!flags.includes(k) || v === undefined) return usage(`bad argument ${k}`);
     opts[k.slice(2)] = v;
   }
+  const readRows = (f) => readOr(f).split("\n").filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } });
+  if (logFlags) {
+    const err = logPointError(point, opts);
+    if (err) return usage(err);
+    const root = boardRoot();
+    const usagePath = path.join(root, ".scratch", "usage.jsonl");
+    const row = logPointRow(point, opts, root, readRows(usagePath), new Date());
+    appendFileSync(usagePath, JSON.stringify(row) + "\n");
+    process.stdout.write(JSON.stringify(row) + "\n");
+    return 0;
+  }
   if (!opts.ticket) return usage("--ticket is required");
-  if (!/^[\w.-]+\/[\w.-]+$/.test(opts.ticket) || opts.ticket.includes("..")) return usage("bad --ticket");
-  if (!["shadow", "live"].includes(opts.mode)) return usage("--mode must be shadow or live");
+  if (!validRef(opts.ticket)) return usage("bad --ticket");
+  const isRoute = point === "route" || point === "route-bounce";
+  if (!(isRoute ? ["shadow", "live", "advisory"] : ["shadow", "live"]).includes(opts.mode)) {
+    return usage(isRoute ? "--mode must be shadow, live or advisory" : "--mode must be shadow or live (advisory is route only)");
+  }
   let testsText = "";
   if (opts.tests !== undefined) {
     const t = readTests(opts.tests);
@@ -380,8 +481,7 @@ async function main(argv) {
   const [feature, slug] = opts.ticket.split("/");
   const ticketPath = path.join(root, ".scratch", feature, "issues", `${slug}.md`);
   const usagePath = path.join(root, ".scratch", "usage.jsonl");
-  const readOr = (f) => { try { return readFileSync(f, "utf8"); } catch { return ""; } };
-  const usageRows = readOr(usagePath).split("\n").filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } });
+  const usageRows = readRows(usagePath);
 
   const nn = slug.match(/^\d+/)?.[0];
   let qaSpecified = false;
