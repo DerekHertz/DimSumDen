@@ -610,3 +610,4 @@
 {"kind":"usage","ts":"2026-09-30T00:18:44Z","five_hour":20,"weekly":91,"event":"dispatch","ticket":null,"cell":"orchestrator"}
 {"kind":"cell","ts":"2026-09-30T00:28:44.119Z","ticket":"showcase-v1/08-self-host-font","cell":"developer","tokens":40018,"ms":153120,"outcome":"in-review; 874/874, smoke:ui green"}
 {"kind":"incident","ts":"2026-09-30T00:28:44Z","ticket":"showcase-v1/08-self-host-font","cell":"developer","tool":"board handoff","what":"handoff --name 01-developer.md overwrote ticket 01s published handoff; developer then deleted it from the main checkout","cost":"orchestrator restored from git","fix":"git checkout of the tracked file","rule_change":"board handoff should refuse a --name whose NN differs from the ticket"}
+{"kind":"usage","ts":"2026-09-30T00:28:52Z","five_hour":25,"weekly":null,"event":"dispatch","ticket":"showcase-v1/08-self-host-font","cell":"qa"}
