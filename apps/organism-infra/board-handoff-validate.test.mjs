@@ -145,9 +145,10 @@ test("fills cell and mode from the claim lock when the State block omits them", 
 test("a filled-in handoff satisfies the release gate", async () => {
   const fx = await makeBoardFixture();
   try {
-    await claim(fx, "qa", "specify");
-    const src = await draft(fx, "01-qa-specify.md", validStateJson({ ticket: fx.ticketRelPath }));
-    assert.equal((await publish(fx, src, "01-qa-specify.md")).code, 0);
+    // A developer claim: developers release at in-review (qa may not, by design).
+    await claim(fx, "developer");
+    const src = await draft(fx, "01-developer.md", validStateJson({ ticket: fx.ticketRelPath }));
+    assert.equal((await publish(fx, src, "01-developer.md")).code, 0);
     const r = await runBoard(["release", fx.ticketRelPath, "--status", "in-review"], { cwd: fx.worktree, env: NO_ROOT });
     assert.equal(r.code, 0, r.stderr);
   } finally {
