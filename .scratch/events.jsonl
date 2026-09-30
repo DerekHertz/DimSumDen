@@ -737,3 +737,4 @@
 {"seq":344,"ts":"2026-09-30T00:13:20.564Z","feature":"organism-infra","ticket":"51-handoff-validates-at-publish","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":345,"ts":"2026-09-30T00:16:48.023Z","feature":"organism-infra","ticket":"51-handoff-validates-at-publish","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":346,"ts":"2026-09-30T00:16:48.519Z","feature":"organism-infra","ticket":"51-handoff-validates-at-publish","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":347,"ts":"2026-09-30T00:26:08.990Z","feature":"showcase-v1","ticket":"08-self-host-font","cell":"developer","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
