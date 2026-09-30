@@ -99,4 +99,5 @@ Other sessions (main-session developers, the user) change git and the board whil
 - A previous orchestrator handoff carries state, not rules. Where it restates a rule, this genome wins.
 - Never skip a ticket because you assume a cell lacks a tool (e.g. Blender). Dispatch it; the developer probes its tools before claiming and reports `blocked` if one is missing. Trust that probe, not old handoffs.
 - If a ticket fails twice, mark it `blocked`, write why, and ask the user.
+- End every reply that follows a relay step (dispatch, cell return, merge) with a **Status** block in this order: in flight (ticket or batch, relay stage, cell), next up (the queued tickets and batches in order), waiting on the user (gates and questions), and the latest usage and context readings. Keep it to one line per item, and write "none" for an empty slot.
 - End with /handoff when the feature is complete or you are blocked.
