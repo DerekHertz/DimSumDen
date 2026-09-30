@@ -17,3 +17,4 @@
 ## Comments
 - **Incident (orchestrator, 2026-09-30):** showcase-v1/08 developer overwrote then deleted `.scratch/showcase-v1/handoffs/01-developer.md`; restored from git.
 - **qa, 2026-09-30:** QA pass (light verify): 877 pass, 0 skipped, tests unchanged since specify, all 3 criteria covered. Only smoke:ui fonts fails (expected).
+- **security, 2026-09-30:** Security pass. No critical/high. Low: 1162 same-cell re-publish after re-claim now refused (fails closed); 1151-1169 pre-existing unlocked check-then-write, mtime-based ownership; 1074 unprefixed names skip guard (in scope). gitleaks not installed, pattern grep on changed files clean. Details in handoffs/62-security.md.
