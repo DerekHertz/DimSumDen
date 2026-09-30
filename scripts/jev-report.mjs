@@ -21,7 +21,59 @@ function median(xs) {
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-export function buildReport(rows) {
+const CELL_LABEL = { product: "product", architect: "architect", designer: "designer", qa: "qa-specify", developer: "developer-direct" };
+
+// ADR 0015 decisions 3 and 5: new-ticket route agreement against the next board claim, and the go-live bar.
+function routeReport(rows, events) {
+  const latest = new Map();
+  for (const r of rows) {
+    if (r.kind !== "jev" || r.point !== "route" || (r.variant ?? "new") !== "new") continue;
+    const k = keyOf(r.ticket);
+    if (!k) continue;
+    const prev = latest.get(k);
+    if (!prev || String(r.ts ?? "") >= String(prev.ts ?? "")) latest.set(k, r);
+  }
+  const claims = events
+    .filter((e) => e && e.op === "claim" && e.feature && keyOf(`${e.feature}/${e.ticket}`))
+    .map((e) => ({ key: keyOf(`${e.feature}/${e.ticket}`), cell: e.cell, ts: String(e.ts ?? "") }))
+    .sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+
+  const used = [];
+  for (const [key, r] of latest) {
+    const first = claims.find((c) => c.key === key && c.ts > String(r.ts ?? "") && CELL_LABEL[c.cell]);
+    if (first) used.push({ key, r, actual: CELL_LABEL[first.cell], hasQa: claims.some((c) => c.key === key && c.cell === "qa") });
+  }
+  const picked = used.filter((u) => u.r.pick);
+  const nonOther = picked.filter((u) => u.r.pick !== "other");
+  const agreed = nonOther.filter((u) => u.r.pick === u.actual);
+  const byLabel = {};
+  for (const u of nonOther) {
+    const b = (byLabel[u.r.pick] ??= { picks: 0, agreed: 0 });
+    b.picks++;
+    if (u.r.pick === u.actual) b.agreed++;
+  }
+  const n = used.length;
+  const fallbacks = used.filter((u) => u.r.fallback && u.r.fallback !== "cap").length;
+  const capFired = used.filter((u) => u.r.fallback === "cap").length;
+  const medianMs = median(used.map((u) => Number(u.r.ms) || 0));
+  const other = picked.length - nonOther.length;
+  const agreementPct = nonOther.length ? (agreed.length / nonOther.length) * 100 : 0;
+  const otherPct = n ? (other / n) * 100 : 0;
+  const safetyMisses = used.filter((u) => u.r.pick === "developer-direct" && u.hasQa).map((u) => u.key);
+  return {
+    rows: n, fallbacks, capFired, medianMs, other, otherPct, nonOther: nonOther.length, agreed: agreed.length, agreementPct, byLabel,
+    disagreements: nonOther.filter((u) => u.r.pick !== u.actual).map((u) => ({ ticket: u.key, pick: u.r.pick, actual: u.actual })),
+    safetyMisses,
+    checks: {
+      coverage: n >= 15 && fallbacks * 5 <= n && medianMs < 2000,
+      agreement: nonOther.length > 0 && agreementPct >= 85 && otherPct <= 35,
+      safety: safetyMisses.length === 0,
+      spend: capFired === 0,
+    },
+  };
+}
+
+export function buildReport(rows, events = []) {
   const info = new Map(); // key -> { cells, bounces }
   const get = (k) => {
     if (!info.has(k)) info.set(k, { cells: [], bounces: 0, resolved: false });
@@ -80,7 +132,7 @@ export function buildReport(rows) {
       bounces: rv.reduce((s, [k]) => s + byKey[k].bounces, 0),
     };
   }
-  return { tickets, points };
+  return { tickets, points, route: { newTicket: routeReport(rows, events) } };
 }
 
 const pct = (n) => `${n > 0 ? "+" : ""}${n.toFixed(1)}%`;
@@ -101,6 +153,19 @@ export function formatReport(report) {
   lines.push("", "Per ticket (weighted tokens: baseline, projected tier / verify / both)");
   for (const t of report.tickets) {
     lines.push(`${t.ticket}: baseline ${t.baseline}, tier ${t.projected.tier}, verify ${t.projected.verify}, both ${t.projected.both}, bounces ${t.bounces}`);
+  }
+  const r = report.route?.newTicket;
+  if (r) {
+    lines.push("", "Route (new ticket, shadow; ADR 0015)");
+    for (const [label, b] of Object.entries(r.byLabel)) lines.push(`route agreement ${label}: ${b.agreed}/${b.picks} agreed`);
+    const ok = (b) => (b ? "PASS" : "FAIL");
+    lines.push(
+      `route new-ticket coverage: ${ok(r.checks.coverage)} (${r.rows} rows of 15, ${r.fallbacks} fallbacks, ${r.capFired} cap, median ${r.medianMs} ms)`,
+      `route new-ticket agreement: ${ok(r.checks.agreement)} (${r.agreed}/${r.nonOther} = ${r.agreementPct.toFixed(1)}% of non-other, other ${r.otherPct.toFixed(1)}%)`,
+      `route new-ticket safety: ${ok(r.checks.safety)} (${r.safetyMisses.length} misses${r.safetyMisses.length ? ": " + r.safetyMisses.join(", ") : ""})`,
+      `route new-ticket spend: ${ok(r.checks.spend)} (${r.capFired} cap hits)`,
+    );
+    for (const d of r.disagreements) lines.push(`route disagreement ${d.ticket}: pick ${d.pick}, actual ${d.actual}`);
   }
   return lines.join("\n") + "\n";
 }
@@ -128,7 +193,14 @@ function main(argv) {
       // skip malformed lines
     }
   }
-  const report = buildReport(rows);
+  const events = [];
+  try {
+    for (const line of readFileSync(path.join(path.dirname(usage), "events.jsonl"), "utf8").split("\n")) {
+      if (!line.trim()) continue;
+      try { events.push(JSON.parse(line)); } catch {}
+    }
+  } catch {}
+  const report = buildReport(rows, events);
   process.stdout.write(json ? JSON.stringify(report, null, 2) + "\n" : formatReport(report));
   return 0;
 }
