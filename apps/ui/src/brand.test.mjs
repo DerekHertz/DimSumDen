@@ -48,10 +48,10 @@ test("no number or data text uses the display font", () => {
   assert.doesNotMatch(read("./scene/tally-face.mjs"), /Long Cang/, "the view-model carries no font");
 });
 
-test("station labels sit on a rice-paper pill", () => {
+// den-scene-v1/03: the noren sign replaced the visible pill; the anchor stays for screen readers.
+test("station labels are non-interactive anchors with no visible pill", () => {
   const rule = css.match(/\.station-label\s*\{([^}]*)\}/)?.[1] ?? "";
-  assert.match(rule, /border-radius:\s*var\(--radius-full\)/);
-  assert.match(rule, /background:\s*var\(--rice-paper\)/);
+  assert.doesNotMatch(rule, /background/);
   assert.match(rule, /pointer-events:\s*none/);
   assert.match(css, /--rice-paper:\s*#[0-9a-fA-F]{6}/);
 });
