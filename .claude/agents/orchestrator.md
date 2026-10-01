@@ -64,6 +64,7 @@ A ticket whose change touches `.claude/` or `CLAUDE.md`: the auto-mode classifie
 A batch is a set of small tickets in the same area run by one relay: one qa specify, one developer, one qa verify, one risk-check, one branch and one PR. Propose it like a ticket; the user's yes covers every ticket in it.
 - Name the batch (e.g. `batch A`) and list its tickets in a comment on each ticket and in every dispatch prompt.
 - A batch holds tickets whose files overlap each other but no other in-flight branch. It counts as one cell toward `max_concurrent_cells`.
+- To find candidates, run `node scripts/batch-groups.mjs [--max 3] [--json]`. It reads the board and open PRs, writes nothing, and prints proposed groups (refs, shared paths, reason), then singles, then tickets with `unknown files`. It is advisory: propose a group to the user as above. "No in-flight data" in its output means `gh` failed, so check open branches by hand.
 - Each relay cell claims every ticket in the batch as its own cell type (`cell-start --ticket` claims one; it claims the rest with `board claim`), publishes a handoff on each, and releases each. qa specify writes tests for every ticket and maps each criterion to its ticket.
 - One bounce on any ticket bounces the whole batch and counts toward fails-twice for each of its tickets.
 - After the PR merges, resolve every ticket in the batch with the same `--pr <n>`.
