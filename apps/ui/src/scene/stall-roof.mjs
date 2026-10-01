@@ -34,11 +34,37 @@ export function roofRing(width, depth, roof = DEFAULT_ROOF) {
 
 export const roofApex = (roof = DEFAULT_ROOF) => [0, roof.eave + roof.rise, 0];
 
-/** Flat position array (9 numbers per triangle), one triangle per ring edge, all facing the apex. */
+const lerp3 = (a, b, t) => a.map((c, k) => c + (b[k] - c) * t);
+const MID_INSET = 0.5;
+export const EAVE_TRIM_HEIGHT = 0.03;
+
+/**
+ * Flat position array (9 numbers per triangle), all facing the apex. Each face has two tile tiers:
+ * a lower band (ring -> mid ring) of two triangles and an upper triangle (mid ring -> apex).
+ */
 export function roofTriangles(width, depth, roof = DEFAULT_ROOF) {
   const ring = roofRing(width, depth, roof);
   const apex = roofApex(roof);
+  const mid = ring.map((p) => lerp3(p, apex, MID_INSET));
   const out = [];
-  for (let i = 0; i < ring.length; i++) out.push(...ring[(i + 1) % ring.length], ...ring[i], ...apex);
+  for (let i = 0; i < ring.length; i++) {
+    const j = (i + 1) % ring.length;
+    out.push(...ring[j], ...ring[i], ...mid[i]);
+    out.push(...ring[j], ...mid[i], ...mid[j]);
+    out.push(...mid[j], ...mid[i], ...apex);
+  }
+  return out;
+}
+
+/** A thin vertical band hanging EAVE_TRIM_HEIGHT under the eave ring, following it point for point. */
+export function eaveTrimTriangles(width, depth, roof = DEFAULT_ROOF) {
+  const ring = roofRing(width, depth, roof);
+  const low = (p) => [p[0], p[1] - EAVE_TRIM_HEIGHT, p[2]];
+  const out = [];
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length];
+    out.push(...a, ...b, ...low(b));
+    out.push(...a, ...low(b), ...low(a));
+  }
   return out;
 }

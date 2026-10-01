@@ -124,7 +124,7 @@ body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-w
 .scene-empty { left: 0; right: 0; top: 50%; text-align: center; }
 .scene-more { left: var(--space-4); bottom: var(--space-4); font-size: 12px; }
 .chip-tally { font-family: var(--font-display); font-size: 16px; font-weight: 400; }
-.station-label { position: absolute; transform: translate(-50%, -100%); pointer-events: none; padding: 0 var(--space-3); border-radius: var(--radius-full); background: var(--rice-paper); color: #23262b; border: 1px solid var(--line); font-family: var(--font-display); font-size: 18px; line-height: 24px; white-space: nowrap; }
+.station-label { position: absolute; transform: translate(-50%, -100%); pointer-events: none; color: var(--ink); font-family: var(--font-display); width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; } /* sr-only: the noren sign is the visible stall name */
 .chip-heart { position: absolute; left: 50%; bottom: calc(100% + 2px); width: 18px; height: 18px; margin-left: -9px; color: #d9707e; pointer-events: none; animation: heart-rise var(--dur-breath) var(--ease-soft) both; }
 @keyframes heart-rise { from { opacity: 0; transform: translateY(6px); } 20% { opacity: 1; } to { opacity: 1; transform: translateY(-4px); } }
 @media (prefers-reduced-motion: reduce) { .chip { transition: none; } .chip-heart { animation: none; } }

@@ -3,7 +3,7 @@
 import { CUB_BASKET, STALL_CENTERS, stallCenterX, stallPlatform, stallRoof } from "./banquet-layout.mjs";
 import { EAVE_Y, RISE } from "./stall-roof.mjs";
 
-const NAME = { steamers: "Steamers", "front-of-house": "Front of House", tea: "Tea", pantry: "Pantry", cubs: "Cubs" };
+export const NAME = { steamers: "Steamers", "front-of-house": "Front of House", tea: "Tea", pantry: "Pantry", cubs: "Cubs" };
 const ABOVE_APEX = 0.2;
 /** Just above the cub basket's rim (0.4 tall). */
 const CUB_BASKET_LABEL_Y = 0.65;

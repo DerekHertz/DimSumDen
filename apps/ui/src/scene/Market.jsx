@@ -10,8 +10,8 @@ import {
   BELL, RAIL, CUB_BASKET, CUB_BASKET_RADIUS, STALL_CENTERS, TABLE, stallCenterX, stallPlatform, stallRoof, stallWidth, stallYaw,
 } from "./banquet-layout.mjs";
 import { DUR_SLOW_MS, lanternState, susanLayout, turnAngle } from "./handoffs.mjs";
-import { POST_BASE, POST_SIZE, postHeight, postPositions, roofTriangles } from "./stall-roof.mjs";
-import { stationHue } from "./station-hues.mjs";
+import { POST_BASE, POST_SIZE, eaveTrimTriangles, postHeight, postPositions, roofTriangles } from "./stall-roof.mjs";
+import { kiosks } from "./kiosk.mjs";
 
 const TOP_RADIUS = 1.8;
 const TOP_THICKNESS = 0.1;
@@ -35,30 +35,101 @@ function subscribeTheme(onChange) {
   return () => query.removeEventListener("change", onChange);
 }
 
-function Lantern({ lit, position, radius = 0.14 }) {
+const trianglesGeometry = (flat) => {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(flat, 3));
+  g.computeVertexNormals();
+  return g;
+};
+
+// The noren sign: the station name drawn once on a canvas, spanning the curtain panels (decorative; the
+// ChipLayer anchor keeps the accessible name). Drawn with the fallback face first, redrawn once Long Cang loads.
+function useNorenTexture(noren) {
+  const { cloth, text, textColor } = noren;
+  const texture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 256;
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, []);
+  useEffect(() => {
+    let live = true;
+    const draw = () => {
+      const canvas = texture.image;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = cloth;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = textColor;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      let size = 160;
+      const face = (s) => `${s}px "Long Cang", "Nunito", cursive`;
+      ctx.font = face(size);
+      const fit = (canvas.width * 0.8) / Math.max(1, ctx.measureText(text).width);
+      if (fit < 1) { size = Math.floor(size * fit); ctx.font = face(size); }
+      ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+      texture.needsUpdate = true;
+    };
+    draw();
+    document.fonts.load(`48px "Long Cang"`).then(() => { if (live) draw(); }, () => {});
+    return () => { live = false; };
+  }, [texture, cloth, text, textColor]);
+  useEffect(() => () => texture.dispose(), [texture]);
+  return texture;
+}
+
+function Noren({ noren }) {
+  const texture = useNorenTexture(noren);
+  const { panels } = noren;
+  const left = panels[0].x - panels[0].width / 2;
+  const span = panels.at(-1).x + panels.at(-1).width / 2 - left;
+  const geometries = useMemo(() => panels.map((p) => {
+    const g = new THREE.PlaneGeometry(p.width, p.drop);
+    const u0 = (p.x - p.width / 2 - left) / span, u1 = (p.x + p.width / 2 - left) / span;
+    const uv = g.getAttribute("uv");
+    for (let i = 0; i < uv.count; i++) uv.setX(i, u0 + uv.getX(i) * (u1 - u0));
+    return g;
+  }), [panels, left, span]);
   return (
-    <mesh position={position}>
-      <sphereGeometry args={[radius, 12, 8]} />
-      <meshStandardMaterial
-        color={lit ? LANTERN_LIT : LANTERN_OFF}
-        emissive={lit ? LANTERN_LIT : "#000000"}
-        emissiveIntensity={lit ? 1.4 : 0}
-      />
-    </mesh>
+    <group name="noren">
+      {panels.map((p, i) => (
+        <mesh key={i} geometry={geometries[i]} position={[p.x, p.top - p.drop / 2, p.z]}>
+          <meshStandardMaterial map={texture} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
-function Stall({ station, x, z, hue, width, lit }) {
+// One 8-sided rice-paper lantern with thin caps; lit only from lanternState.
+function KioskLantern({ lantern }) {
+  const { name, x, y, z, radius, height, sides, lit, bodyColor, emissive, capColor } = lantern;
+  const cap = 0.02;
+  return (
+    <group name={name} position={[x, y, z]}>
+      <mesh>
+        <cylinderGeometry args={[radius, radius, height, sides]} />
+        <meshStandardMaterial color={bodyColor} emissive={emissive ?? "#000000"} emissiveIntensity={lit ? 1.4 : 0} />
+      </mesh>
+      {[1, -1].map((s) => (
+        <mesh key={s} position={[0, (s * (height + cap)) / 2, 0]}>
+          <cylinderGeometry args={[radius * 0.9, radius * 0.9, cap, sides]} />
+          <meshStandardMaterial color={capColor} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function Stall({ kiosk, x, z }) {
+  const { station, width, colors } = kiosk;
   const depth = 1;
   const roofSpec = stallRoof(station);
   const platform = stallPlatform(station);
-  const roof = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(roofTriangles(width, depth, roofSpec), 3));
-    g.computeVertexNormals();
-    return g;
-  }, [width, roofSpec]);
-  const eave = roofSpec ? roofSpec.eave : 1.7;
+  const roof = useMemo(() => trianglesGeometry(roofTriangles(width, depth, roofSpec)), [width, roofSpec]);
+  const trim = useMemo(() => trianglesGeometry(eaveTrimTriangles(width, depth, roofSpec)), [width, roofSpec]);
   return (
     <group name={`kiosk:${station}`} position={[x, 0, z]} rotation={[0, stallYaw(station), 0]}>
       {platform > 0 ? (
@@ -70,22 +141,26 @@ function Stall({ station, x, z, hue, width, lit }) {
       <group position={[0, platform, 0]}>
         <mesh position={[0, 0.25, 0]}>
           <boxGeometry args={[width, 0.5, depth]} />
-          <meshStandardMaterial color={WOOD} />
+          <meshStandardMaterial color={colors.counterBody} />
         </mesh>
         <mesh position={[0, 0.52, depth / 2]}>
           <boxGeometry args={[width + 0.1, 0.06, 0.1]} />
-          <meshStandardMaterial color={hue} />
+          <meshStandardMaterial color={colors.counterBand} />
         </mesh>
         {postPositions(width, depth).map(([px, pz]) => (
           <mesh key={`${px}:${pz}`} position={[px, POST_BASE + postHeight(roofSpec) / 2, pz]}>
             <boxGeometry args={[POST_SIZE, postHeight(roofSpec), POST_SIZE]} />
-            <meshStandardMaterial color={hue} />
+            <meshStandardMaterial color={colors.posts} />
           </mesh>
         ))}
         <mesh geometry={roof}>
-          <meshStandardMaterial color={INK} side={THREE.DoubleSide} />
+          <meshStandardMaterial color={colors.roof} side={THREE.DoubleSide} />
         </mesh>
-        <Lantern lit={lit} position={[0, eave - 0.2, depth / 2 - 0.05]} />
+        <mesh geometry={trim}>
+          <meshStandardMaterial color={colors.trim} side={THREE.DoubleSide} />
+        </mesh>
+        <Noren noren={kiosk.noren} />
+        <KioskLantern lantern={kiosk.lantern} />
       </group>
     </group>
   );
@@ -184,6 +259,7 @@ function ServiceBell({ lit }) {
 export function Market({ baskets, handoffs, cells, counts }) {
   const theme = useSyncExternalStore(subscribeTheme, systemTheme, () => "light");
   const lanterns = useMemo(() => lanternState(cells), [cells]);
+  const kioskList = useMemo(() => kiosks({ cells, counts, theme }), [cells, counts, theme]);
   return (
     <group name="banquet-market">
       {/* Flat round tabletop, larger than the anchor radius, on four short legs. */}
@@ -202,15 +278,12 @@ export function Market({ baskets, handoffs, cells, counts }) {
       })}
       <Susan baskets={baskets} handoffs={handoffs} />
       <ServiceBell lit={lanterns.bell} />
-      {Object.entries(STALL_CENTERS).map(([station, c]) => (
+      {kioskList.map((kiosk) => (
         <Stall
-          key={station}
-          station={station}
-          x={stallCenterX(station, counts[station] ?? 0)}
-          z={c.z}
-          hue={stationHue(station, theme)}
-          width={stallWidth(counts[station] ?? 0)}
-          lit={lanterns.stalls.has(station)}
+          key={kiosk.station}
+          kiosk={kiosk}
+          x={stallCenterX(kiosk.station, counts[kiosk.station] ?? 0)}
+          z={STALL_CENTERS[kiosk.station].z}
         />
       ))}
       <mesh position={[CUB_BASKET.x, 0.2, CUB_BASKET.z]}>
