@@ -11,7 +11,7 @@
 //     A timeout resolves { stdout, exitCode: null, timedOut: true }.
 //     jg search:  run("jg", [...flags, question, root], { timeoutMs: 90000, env: { NODE_USE_ENV_PROXY: "1", ... } })
 //                 flags include `--exclude .scratch/` and `--max-source-bytes 24576`.
-//     jg files:   run("jg", ["files", root]) prints a summary line `<N> files, <B> bytes eligible`.
+//     5 MB check: trackedBytes({ root, files }) seam (default: stat sizes of `git ls-files`, .scratch/ and .claude/ excluded).
 //     git:        run("git", ["ls-files", ...]) for the secret-in-root check (the fake passes git through to real git).
 //   exists(p): tracked-path test for paths named in the ticket (default: real fs under root).
 //
@@ -185,16 +185,25 @@ test("the exists seam decides which named paths count", async () => {
   assert.match(row.skipped, /path/);
 });
 
-test("skip: jg files reports more than 5 MB eligible; exactly 5 MB proceeds", async () => {
-  const over = fake({ files: "400 files, 5242881 bytes eligible" });
-  const r1 = await build({ root: makeRepo(), run: over.run });
+test("skip: tracked files total more than 5 MB; exactly 5 MB proceeds", async () => {
+  // trackedBytes({ root, files }) is the injected seam: it sums the byte sizes of `git ls-files` output (board dirs excluded).
+  const over = fake();
+  const r1 = await build({ root: makeRepo(), run: over.run, trackedBytes: async () => 5242881 });
   assert.equal(r1.file, undefined);
   assert.ok(r1.row.skipped, "skipped has a reason");
   assert.equal(over.searches().length, 0);
 
-  const at = fake({ files: "400 files, 5242880 bytes eligible" });
-  const r2 = await build({ root: makeRepo(), run: at.run });
+  const at = fake();
+  const r2 = await build({ root: makeRepo(), run: at.run, trackedBytes: async () => 5242880 });
   assert.ok(contentOf(r2.file));
+});
+
+test("the size check is handed tracked files only, not .scratch/ or .claude/", async () => {
+  const root = makeRepo({ "src/a.mjs": "x".repeat(100), ".scratch/big.md": "y".repeat(10), ".claude/s.md": "z".repeat(10) });
+  let seen;
+  const f = fake();
+  await build({ root, run: f.run, trackedBytes: async ({ files }) => { seen = files; return 0; } });
+  assert.deepEqual(seen, ["src/a.mjs"]);
 });
 
 // ── fallbacks (no file, row says why) ────────────────────────────────────────

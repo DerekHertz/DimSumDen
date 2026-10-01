@@ -219,3 +219,25 @@ test("runJg exits cleanly when run() throws (scout fallback)", async () => {
   assert.ok(result, "result must be returned (not thrown)");
   assert.equal(result.row.fallback, true, "row.fallback must be true when run() throws");
 });
+
+// ── organism-infra/87: trusted in-process flags (dispatch-context.mjs) ──────────
+
+test("runJg forwards in-process flags between the excludes and the query", async () => {
+  const { runJg } = await load();
+  const { run, calls } = fakeRun();
+  const root = makeRoot();
+  await runJg({ query: "q", root, flags: ["--max-source-bytes", "24576"], run });
+  const argv = calls[0];
+  assert.ok(argv.indexOf("--max-source-bytes") > argv.lastIndexOf("--exclude"));
+  assert.equal(argv[argv.indexOf("--max-source-bytes") + 1], "24576");
+  assert.equal(argv.at(-2), "q");
+});
+
+test("runJg refuses an in-process flag that widens the filter or adds an exclude", async () => {
+  const { runJg } = await load();
+  const { run, calls } = fakeRun();
+  for (const flag of ["--no-ignore", "--exclude"]) {
+    await assert.rejects(() => runJg({ query: "q", root: makeRoot(), flags: [flag], run }));
+  }
+  assert.equal(calls.length, 0);
+});

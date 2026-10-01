@@ -32,6 +32,14 @@ function checkFlags(extraArgs) {
   if (extraArgs.length) throw new Refused("flag", "caller flags are not allowed: run as jg.mjs \"<question>\" [root]");
 }
 
+// `flags` come from in-process callers (dispatch-context.mjs), never from the CLI: they may add a cap but never widen the filter.
+function checkTrustedFlags(flags) {
+  for (const a of flags) {
+    const flag = String(a).split("=")[0];
+    if (FORBIDDEN_FLAGS.includes(flag) || flag === "--exclude") throw new Refused("flag", `forbidden flag ${flag}: jg must not widen its default filter`);
+  }
+}
+
 function checkQuery(query) {
   if (typeof query !== "string" || !query.trim()) throw new Refused("query", "invalid query: a question is required");
   if (query.startsWith("-")) throw new Refused("query", "invalid query: it must not start with '-'");
@@ -75,7 +83,7 @@ function versionOk(text) {
 const countFiles = (stdout) => String(stdout ?? "").split("\n").filter((l) => l.startsWith("## ")).length;
 
 export async function runJg({
-  query, root = ".", extraArgs = [], run = spawnJg, now = () => Date.now(), usageRoot, checkout, version,
+  query, root = ".", extraArgs = [], flags = [], run = spawnJg, now = () => Date.now(), usageRoot, checkout, version,
 }) {
   const t0 = now();
   const row = (fields) => ({
@@ -94,6 +102,7 @@ export async function runJg({
   let absRoot;
   try {
     checkFlags(extraArgs);
+    checkTrustedFlags(flags);
     checkQuery(query);
     absRoot = checkRoot(root, checkout);
   } catch (e) {
@@ -107,7 +116,7 @@ export async function runJg({
     return { row: r };
   }
 
-  const argv = [...EXCLUDES.flatMap((x) => ["--exclude", x]), query, absRoot];
+  const argv = [...EXCLUDES.flatMap((x) => ["--exclude", x]), ...flags, query, absRoot];
   let result;
   try {
     result = await run(argv);
