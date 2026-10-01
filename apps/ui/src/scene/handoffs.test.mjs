@@ -85,7 +85,7 @@ test("trackedTickets: active plus frontier, with station", () => {
 
 test("stationBearing: angle from the table toward each stall, +z is 0, +x is positive", () => {
   assert.ok(Math.abs(stationBearing("cubs") + 0.5404195002705842) < 1e-9);
-  assert.ok(Math.abs(stationBearing("front-of-house") - Math.atan2(3.3, -1.4)) < 1e-9);
+  assert.ok(Math.abs(stationBearing("front-of-house") - Math.atan2(3.0, -1.4)) < 1e-9);
   assert.ok(stationBearing("steamers") < 0 && stationBearing("tea") < 0);
   assert.ok(stationBearing("pantry") > 0);
   // Bao's own station (Pass cells) sits at the back of the table.
