@@ -11,22 +11,23 @@ export const RAIL = { x: 0, y: 2.66, z: BAO.position[2], width: 1.3, height: 0.0
 export const BELL = { x: 0.5, y: RAIL.y + RAIL.height / 2, z: BAO.position[2] };
 
 /**
- * Tally (showcase-v1/07): a stone stele on the front floor beside the Cubs basket, to its right, turned
- * toward the camera. The plinth bottom sits 0.02 below groundY; the tablet stands on the plinth top.
+ * Tally (den-scene-v1/05): a wooden suanpan abacus on two short legs, on the front floor beside the
+ * Cubs basket, to its right, turned toward the camera. The legs stand on groundY; the frame bottom sits
+ * at groundY + leg.height and the frame stands on the legs.
  */
 const TALLY_POSITION = { x: 1.8, z: 3.0 };
 export const TALLY = {
   ...TALLY_POSITION,
   groundY: 0,
   rotationY: -Math.atan2(TALLY_POSITION.x, BASE_Z - TALLY_POSITION.z), // face the shared default camera
-  plinth: { width: 1.1, height: 0.25, depth: 0.4 },
-  tablet: { width: 0.9, height: 1.3, depth: 0.14 },
+  frame: { width: 1.1, height: 1.4, depth: 0.12, bar: 0.08 },
+  leg: { width: 0.08, height: 0.15 },
 };
 
-/** World point the Tally pill hangs from: centred over the tablet top, 0.27 above it. */
+/** World point the Tally pill hangs from: centred over the frame top, 0.27 above it. */
 export const tallyAnchor = () => ({
   x: TALLY.x,
-  y: TALLY.groundY - 0.02 + TALLY.plinth.height + TALLY.tablet.height + 0.27,
+  y: TALLY.groundY + TALLY.leg.height + TALLY.frame.height + 0.27,
   z: TALLY.z,
 });
 

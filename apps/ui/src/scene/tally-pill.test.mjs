@@ -1,6 +1,6 @@
-// Ticket showcase-v1/07 fix round: the Tally pill must project just above the stele's tablet top.
-// Expected pixel bounds come from the designer review (centre within 10px of the stele centre x,
-// 0 to 40px above the tablet top), measured with a real THREE camera at 1280x800.
+// Ticket den-scene-v1/05 (was showcase-v1/07 fix round): the Tally pill must project just above the
+// abacus frame top. Expected pixel bounds come from the designer review (centre within 10px of the
+// abacus centre x, 0 to 40px above the frame top), measured with a real THREE camera at 1280x800.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
@@ -21,13 +21,13 @@ const px = (v, cam) => {
   const p = v.clone().project(cam);
   return { x: ((p.x + 1) / 2) * W, y: ((1 - p.y) / 2) * H };
 };
-const tabletTop = TALLY.groundY - 0.02 + TALLY.plinth.height + TALLY.tablet.height;
+const frameTop = TALLY.groundY + TALLY.leg.height + TALLY.frame.height;
 
 for (const pan of [0, 2, -3]) {
-  test(`pill sits over the stele, 0-40px above the tablet top (pan ${pan})`, () => {
+  test(`pill sits over the abacus, 0-40px above the frame top (pan ${pan})`, () => {
     const cam = camAt(pan);
     const pill = px(new THREE.Vector3(tallyAnchor().x, tallyAnchor().y, tallyAnchor().z), cam);
-    const top = px(new THREE.Vector3(TALLY.x, tabletTop, TALLY.z), cam);
+    const top = px(new THREE.Vector3(TALLY.x, frameTop, TALLY.z), cam);
     assert.ok(Math.abs(pill.x - top.x) <= 10, `dx ${pill.x - top.x}`);
     const above = top.y - pill.y;
     assert.ok(above >= 0 && above <= 40, `above ${above}`);

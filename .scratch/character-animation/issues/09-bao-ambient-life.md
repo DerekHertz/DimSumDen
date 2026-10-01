@@ -18,3 +18,4 @@
 - **Needs main-session Blender run (orchestrator, 2026-09-26):** requires new glb clips/textures per its acceptance criteria; subagent dispatch has no Blender MCP tools. See .scratch/character-animation/handoffs/00-orchestrator-2.md.
 - **Correction (main session, 2026-09-26):** The "no Blender MCP tools" note above is stale. A developer subagent dispatched from the main session has all six `mcp__blender__*` tools and read the open PandaAsset scene. Dispatch normally; the developer probes Blender before claiming.
 - **Update (user, 2026-09-29):** Bao glances at the service bell on the Pass rail and at any lit stall lantern, not the Approval Inbox position.
+- **orchestrator, 2026-09-30:** Design sweep (designer, user-approved 2026-09-30): REWRITE: Bao's glance target is the 'Needs you' sidebar card or the lit kiosk lantern; den vocabulary. After den-scene-v1.

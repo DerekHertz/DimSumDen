@@ -51,3 +51,15 @@ test("no sample shows 'not sampled' with no fill", () => {
   assert.equal(m.level, "none");
   assert.equal(m.fillPercent, 0);
 });
+
+// den-scene-v1/05 (designer spec-2 section 2): the expanded Tally card shows the sample age on its own line.
+test("sampledText is 'Sampled 12 min ago' on its own; secondary is unchanged for the sidebar slot", () => {
+  const m = usageMeterModel(usage(74, 72, 12), NOW);
+  assert.equal(m.sampledText, "Sampled 12 min ago");
+  assert.equal(m.secondary, "weekly 72% · sampled 12 min ago");
+});
+
+test("no sample, or a sample with no timestamp, has no sampledText", () => {
+  assert.equal(usageMeterModel(null, NOW).sampledText ?? null, null);
+  assert.equal(usageMeterModel({ fiveHour: 50, weekly: 10 }, NOW).sampledText ?? null, null);
+});

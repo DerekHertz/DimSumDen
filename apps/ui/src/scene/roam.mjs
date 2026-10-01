@@ -15,7 +15,7 @@ export function roamObstacles(counts = {}) {
     rect(BAO.position[0], BAO.position[2], 1.4, 1.23),
     { kind: "circle", x: CUB_BASKET.x, z: CUB_BASKET.z, r: CUB_BASKET_RADIUS + PAD },
     rect(0, 4.6, stallWidth(counts.cubs ?? 0) / 2, 0.35),
-    rect(TALLY.x, TALLY.z, TALLY.plinth.width / 2 + 0.1, TALLY.plinth.depth / 2 + 0.1),
+    rect(TALLY.x, TALLY.z, TALLY.frame.width / 2 + 0.1, TALLY.frame.depth / 2 + 0.1),
   ];
   for (const [station, c] of Object.entries(STALL_CENTERS)) {
     const yaw = stallYaw(station), half = stallWidth(counts[station] ?? 0) / 2;

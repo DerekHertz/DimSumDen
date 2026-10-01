@@ -12,7 +12,8 @@ import { ROLE_PLACEMENT, SCARF_SOCKET } from "../assets/panda-contract.mjs";
 import { averageAttribute, clusterSimplify, dominantBones } from "./plush-lod.mjs";
 import { createAssetCache } from "./asset-cache.mjs";
 import { Backdrop } from "./Backdrop.jsx";
-import { Market, useSystemTheme } from "./Market.jsx";
+import { Market } from "./Market.jsx";
+import { useSystemTheme } from "./system-theme.js";
 import { headgearSpec, propSpec, scarfSpec } from "./headgear.mjs";
 import { buildGear } from "./gear-object.mjs";
 import { TallyFace } from "./TallyFace.jsx";
@@ -216,7 +217,7 @@ export function Den(props) {
   return (
     <>
       <Backdrop />
-      <TallyFace face={props.tallyFace} onOpen={props.onOpenTally} stage={props.stage} />
+      <TallyFace tally={props.tally} onOpen={props.onOpenTally} stage={props.stage} />
       <FiguresBoundary>
         <Suspense fallback={null}>
           <DenFigures {...props} />
