@@ -1,6 +1,6 @@
 # The UI steers live cells through the bridge: SSE down, authenticated POST up, a `CellRuntime` adapter whose Claude implementation drives `claude --bg` sessions, with a four-slice path from "dispatch, watch, kill" to full steering
 
-**Status:** proposed (architect, 2026-10-01). Needs the user's acceptance, and a `security` review of decision 6. It touches `apps/bridge`, `scripts/` and docs, so it crosses packages (an architect gate).
+**Status:** accepted (user, 2026-09-30, in chat; drafted by the architect, 2026-10-01). It touches `apps/bridge`, `scripts/` and docs, so it crosses packages (an architect gate). **Still open:** a `security` review of decision 6 must pass before slice 1 builds the auth code; the billing facts (does `claude --bg` count against plan usage; the `claude -p` credit change) are unconfirmed; and the proposed domain terms and the Gate request rewording are not in `CONTEXT.md` until the user rules on them (brain gate).
 
 **Context.** Ticket `organism-infra/11` asks for the channel that lets the UI watch and steer live cells: an inbox for tool-permission requests, taking over or pairing, a message mid-task, kill, and sub-second live state. ADR 0008 decision 8 left it open; ADR 0004 fixed only the adapter's verbs (spawn, stream events, send message, approve/deny, stop). The user's goal (2026-09-30) is to drive agent work from the UI within a day, so this ADR also names the thinnest first slice. Facts that shape the design:
 
