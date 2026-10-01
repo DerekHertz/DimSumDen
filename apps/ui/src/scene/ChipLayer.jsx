@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { chipModel, stackChips } from "./chip-model.mjs";
-import { TALLY_ARIA_LABEL, TALLY_LABEL } from "./tally-face.mjs";
+import { TALLY_ARIA_LABEL, TALLY_CARD_ID, TALLY_LABEL } from "./tally-face.mjs";
 import { stationLabels } from "./station-labels.mjs";
 import { stationOf, tallyAnchor } from "./banquet-layout.mjs";
 import { ROAMER_TYPES } from "./roam.mjs";
@@ -11,7 +11,7 @@ import { ROAMER_TYPES } from "./roam.mjs";
 export const TALLY_CHIP_ID = "__tally";
 
 // `hearts` is a Set of cell refs that just received a handoff (showcase-v1/04): a heart bubble shows.
-export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, onOpenTally }) {
+export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, onToggleTally, tallyOpen = false, tally }) {
   const nodes = useRef(new Map());
   // Station labels (showcase-v1/05): plain text on a rice-paper pill, placed over each stall roof.
   const labelNodes = useRef(new Map());
@@ -77,18 +77,35 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, o
           {l.text}
         </span>
       ))}
-      {onOpenTally ? (
+      {onToggleTally ? (
         <button
           type="button"
           ref={(el) => (el ? nodes.current.set(TALLY_CHIP_ID, el) : nodes.current.delete(TALLY_CHIP_ID))}
           className="chip chip-idle chip-tally"
           aria-label={TALLY_ARIA_LABEL}
+          aria-haspopup="dialog"
+          aria-expanded={tallyOpen}
+          aria-controls={TALLY_CARD_ID}
           style={{ visibility: "hidden" }}
-          onClick={onOpenTally}
+          onClick={onToggleTally}
         >
           {TALLY_LABEL}
         </button>
       ) : null}
+      {/* Visually hidden meters for the two usage rods. While the card is open its rows are the meters. */}
+      {tally && !tallyOpen
+        ? tally.rods.filter((r) => r.kind === "usage").map((r) => (
+            <span
+              key={r.id}
+              className="visually-hidden"
+              role="meter"
+              aria-label={r.ariaLabel}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={r.valueNow ?? undefined}
+            />
+          ))
+        : null}
       {cells.map((c) => {
         const chip = chipModel(c, titles.get(c.ref));
         return (

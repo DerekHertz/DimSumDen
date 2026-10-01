@@ -123,12 +123,14 @@ async function main() {
       expectEqual(titles, EXPECTED_QUEUE_HEAD, "frontier titles");
     });
 
-    await check("chart: pipeline charts render with an accessible title", async () => {
-      await page.waitForSelector("[data-slot=dashboard] figure.chart svg[role=img]", { timeout: 10000 });
-      const n = await page.locator("[data-slot=dashboard] figure.chart svg[role=img]").count();
+    await check("chart: the Tally card opens in place and its pipeline charts render with an accessible title", async () => {
+      await page.locator(".chip-tally").click({ timeout: 10000 });
+      await page.waitForSelector(".tally-card figure.chart svg[role=img]", { timeout: 10000 });
+      const n = await page.locator(".tally-card figure.chart svg[role=img]").count();
       if (n < 1) throw new Error("no chart rendered");
-      const title = (await page.locator("[data-slot=dashboard] figure.chart figcaption").first().textContent())?.trim();
+      const title = (await page.locator(".tally-card figure.chart figcaption").first().textContent())?.trim();
       if (!title) throw new Error("chart has no title");
+      await page.keyboard.press("Escape");
       return `${n} charts`;
     });
 
