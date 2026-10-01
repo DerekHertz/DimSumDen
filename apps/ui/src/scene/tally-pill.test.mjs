@@ -1,33 +1,22 @@
 // Ticket den-scene-v1/05 (was showcase-v1/07 fix round): the Tally pill must project just above the
 // abacus frame top. Expected pixel bounds come from the designer review (centre within 10px of the
-// abacus centre x, 0 to 40px above the frame top), measured with a real THREE camera at 1280x800.
+// abacus centre x, 0 to 40px above the frame top), measured through the isometric projection at 1280x800.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as THREE from "three";
-import { TALLY } from "./banquet-layout.mjs";
-import { tallyAnchor } from "./banquet-layout.mjs";
-import { cameraPosition } from "./camera-rig.mjs";
+import { TALLY, tallyAnchor } from "./banquet-layout.mjs";
+import { TARGET, worldToScreen } from "./iso-projection.mjs";
 
 const W = 1280, H = 800;
-function camAt(pan) {
-  const cam = new THREE.PerspectiveCamera(38, W / H, 0.1, 100);
-  cam.rotation.set(-0.2, 0, 0);
-  const [x, y, z] = cameraPosition(pan, 1);
-  cam.position.set(x, y, z);
-  cam.updateMatrixWorld();
-  return cam;
-}
-const px = (v, cam) => {
-  const p = v.clone().project(cam);
-  return { x: ((p.x + 1) / 2) * W, y: ((1 - p.y) / 2) * H };
-};
+// den-iso-v1/02: the isometric camera; a pan moves its look-at target along x.
+const viewAt = (pan) => ({ width: W, height: H, zoom: 1, target: [pan, TARGET[1], TARGET[2]] });
 const frameTop = TALLY.groundY + TALLY.leg.height + TALLY.frame.height;
 
 for (const pan of [0, 2, -3]) {
   test(`pill sits over the abacus, 0-40px above the frame top (pan ${pan})`, () => {
-    const cam = camAt(pan);
-    const pill = px(new THREE.Vector3(tallyAnchor().x, tallyAnchor().y, tallyAnchor().z), cam);
-    const top = px(new THREE.Vector3(TALLY.x, frameTop, TALLY.z), cam);
+    const view = viewAt(pan);
+    const a = tallyAnchor();
+    const pill = worldToScreen([a.x, a.y, a.z], view);
+    const top = worldToScreen([TALLY.x, frameTop, TALLY.z], view);
     assert.ok(Math.abs(pill.x - top.x) <= 10, `dx ${pill.x - top.x}`);
     const above = top.y - pill.y;
     assert.ok(above >= 0 && above <= 40, `above ${above}`);

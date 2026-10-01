@@ -147,6 +147,103 @@ async function main() {
       const req = rows.find((r) => r.ref === MERGE_REF && r.id !== HANDLED_ID);
       expectEqual(req?.kind, "merge-approve", "request kind");
     });
+
+    // den-iso-v1/02: the orthographic camera. Observables are the four station signs (`.station-label`, placed by
+    // projecting each kiosk's roof apex) and the Tally chip, measured against the scene box (`main.scene`).
+    // Expected values are literals from docs/design/2026-10-01-iso-den.md: at the default zoom every kiosk is in
+    // view at 1440x900 and at 375x667; wheel zoom scales the sign spacing by 1/d; a drag of dx px shifts every
+    // sign by dx px (an orthographic camera moves the whole scene rigidly).
+    const sceneProbe = () =>
+      page.evaluate(() => {
+        const scene = document.querySelector("main.scene").getBoundingClientRect();
+        const rel = (el) => {
+          const r = el.getBoundingClientRect();
+          return { x: r.left + r.width / 2 - scene.left, y: r.top + r.height / 2 - scene.top, left: r.left - scene.left, right: r.right - scene.left, top: r.top - scene.top, bottom: r.bottom - scene.top };
+        };
+        const signs = {};
+        for (const el of document.querySelectorAll(".chip-layer .station-label")) {
+          if (getComputedStyle(el).visibility === "visible") signs[el.textContent.trim()] = rel(el);
+        }
+        const tally = document.querySelector(".chip-layer .chip-tally");
+        return { width: scene.width, height: scene.height, signs, tally: tally ? rel(tally) : null };
+      });
+    const settle = async (predicate, what) => {
+      const deadline = Date.now() + 6000;
+      let last;
+      while (Date.now() < deadline) {
+        last = await sceneProbe();
+        if (predicate(last)) return last;
+        await page.waitForTimeout(150);
+      }
+      throw new Error(`${what}: not reached within 6 s; last ${JSON.stringify(last)}`);
+    };
+    const fits = (p) => {
+      const names = ["Steamers", "Front of House", "Tea", "Pantry"];
+      if (!names.every((n) => p.signs[n])) return false;
+      const all = [...names.map((n) => p.signs[n]), ...(p.tally ? [p.tally] : [])];
+      return all.every((r) => r.left >= 0 && r.right <= p.width && r.top >= 0 && r.bottom <= p.height);
+    };
+
+    await check("camera fit: every kiosk sign and the Tally are in the scene at 1440x900", async () => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      const p = await settle(fits, "1440x900 fit");
+      return `${Object.keys(p.signs).length} signs inside ${Math.round(p.width)}x${Math.round(p.height)}`;
+    });
+
+    // The shell still has a 1280 px minimum and a side panel (the floating cards of den-iso-v1/07 replace them),
+    // so at 375x667 the scene box would be 840 wide. Force the scene to the phone's size to test the camera's fit
+    // on its own: one column, no panel, no minimum width. The style is removed afterwards.
+    await check("camera fit: every kiosk sign and the Tally are in the scene at 375x667", async () => {
+      await page.setViewportSize({ width: 375, height: 667 });
+      await page.addStyleTag({ content: ".shell { min-width: 0 !important; grid-template-columns: 1fr !important; } .panel { display: none !important; }", }).then((h) => h.evaluate((el) => el.setAttribute("data-smoke-phone", "")));
+      try {
+        const p = await settle((q) => Math.abs(q.width - 375) < 2 && Math.abs(q.height - 667) < 2 && fits(q), "375x667 fit");
+        return `${Object.keys(p.signs).length} signs inside ${Math.round(p.width)}x${Math.round(p.height)}`;
+      } finally {
+        await page.evaluate(() => document.querySelector("style[data-smoke-phone]")?.remove());
+      }
+    });
+
+    await check("camera zoom: wheel zoom scales the sign spacing by 1/d and stays within the range", async () => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      // The signs follow a resize a few frames late (longer under load): the first probe can still show the
+      // phone-sized layout from the previous check, which also "fits". Take the baseline only once the signs are
+      // centred on the scene box (the default frame puts Bao's feet, the middle of the Steamers and Front of House
+      // signs, at the horizontal centre), which a stale layout from a different width is not.
+      const centred = (p) => p.signs["Steamers"] && p.signs["Front of House"] && Math.abs((p.signs["Steamers"].x + p.signs["Front of House"].x) / 2 - p.width / 2) < 2;
+      const base = await settle((p) => centred(p) && fits(p), "default frame before zoom");
+      const gap = (p) => p.signs["Front of House"].x - p.signs["Steamers"].x;
+      const box = await page.locator("main.scene").boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.wheel(0, -300); // zoom factor 1 -> 0.7: 1/0.7 = 1.4286 times wider
+      const zoomed = await settle((p) => Math.abs(gap(p) / gap(base) - 1 / 0.7) < 0.03, "zoom in by 0.3");
+      await page.mouse.wheel(0, -5000); // clamps at 0.55: 1/0.55 = 1.818
+      const nearest = await settle((p) => Math.abs(gap(p) / gap(base) - 1 / 0.55) < 0.04, "zoom clamps at 0.55");
+      await page.mouse.wheel(0, 20000); // clamps at 1.2: 1/1.2 = 0.833
+      const farthest = await settle((p) => Math.abs(gap(p) / gap(base) - 1 / 1.2) < 0.03, "zoom clamps at 1.2");
+      return `spacing x${(gap(zoomed) / gap(base)).toFixed(3)}, x${(gap(nearest) / gap(base)).toFixed(3)} (nearest), x${(gap(farthest) / gap(base)).toFixed(3)} (farthest)`;
+    });
+
+    await check("camera pan: dragging 100 px right moves every sign 100 px right", async () => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.mouse.wheel(0, -3000); // back to the nearest zoom, where there is room to pan sideways
+      const before = await settle((p) => p.signs["Tea"] && p.signs["Pantry"] && p.signs["Pantry"].x - p.signs["Tea"].x > 0, "zoomed in");
+      await page.waitForTimeout(800); // let the rig's easing finish before measuring
+      const start = await sceneProbe();
+      const box = await page.locator("main.scene").boundingBox();
+      const cx = box.x + box.width / 2;
+      const cy = box.y + box.height / 2;
+      await page.mouse.move(cx, cy);
+      await page.mouse.down();
+      await page.mouse.move(cx + 50, cy, { steps: 5 });
+      await page.mouse.move(cx + 100, cy, { steps: 5 });
+      await page.mouse.up();
+      const after = await settle((p) => ["Steamers", "Front of House", "Tea", "Pantry"].every((n) => p.signs[n] && Math.abs(p.signs[n].x - start.signs[n].x - 100) < 4), "drag by 100 px");
+      for (const n of ["Steamers", "Front of House", "Tea", "Pantry"]) {
+        if (Math.abs(after.signs[n].y - start.signs[n].y) > 4) throw new Error(`${n} sign moved vertically by ${after.signs[n].y - start.signs[n].y}`);
+      }
+      return `signs shifted ${Math.round(after.signs["Tea"].x - start.signs["Tea"].x)} px (was ${Math.round(before.signs["Tea"].x)})`;
+    });
   } finally {
     await browser?.close();
     await bridge.close();

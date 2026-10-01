@@ -4,8 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { PerspectiveCamera, Vector3 } from "three";
-import { cameraPosition, FOV_DEG } from "./camera-rig.mjs";
+import { defaultFrame, worldToScreen } from "./iso-projection.mjs";
 import { STALL_CENTERS, TABLE, stallCenterX, stallPlatform, stallRoof, stallWidth, stallYaw } from "./banquet-layout.mjs";
 import { stationLabels } from "./station-labels.mjs";
 
@@ -193,10 +192,8 @@ test("lantern hangs 0.12 below the front eave corner nearest the table", async (
 
 test("noren and lantern fit the default camera frame, default and widened Steamers", async () => {
   const { kiosks } = await mod();
-  const cam = new PerspectiveCamera(FOV_DEG, 1160 / 900, 0.1, 100);
-  cam.position.set(...cameraPosition(0, 1));
-  cam.rotation.set(-0.2, 0, 0);
-  cam.updateMatrixWorld();
+  const size = { width: 1160, height: 900 }; // the scene box beside the 440 px panel at 1600 px
+  const frame = defaultFrame(size);
   for (const counts of [{}, { steamers: 7 }]) {
     for (const k of kiosks({ cells: [], counts, theme: "light" })) {
       const yaw = stallYaw(k.station), cx = stallCenterX(k.station, counts[k.station] ?? 3);
@@ -204,8 +201,8 @@ test("noren and lantern fit the default camera frame, default and widened Steame
       const pts = k.noren.panels.flatMap((p) => [-1, 1].flatMap((sx) => [p.top, p.top - p.drop].map((y) => [p.x + sx * p.width / 2, y, p.z])));
       pts.push([k.lantern.x, k.lantern.y - k.lantern.height / 2, k.lantern.z], [k.lantern.x, k.lantern.y + k.lantern.height / 2, k.lantern.z]);
       for (const [x, y, z] of pts) {
-        const v = new Vector3(cx + x * Math.cos(yaw) + z * Math.sin(yaw), y + plat, cz - x * Math.sin(yaw) + z * Math.cos(yaw)).project(cam);
-        assert.ok(Math.abs(v.x) <= 1 && Math.abs(v.y) <= 1, `${k.station} ${JSON.stringify(counts)} off-frame at ${v.x.toFixed(2)},${v.y.toFixed(2)}`);
+        const v = worldToScreen([cx + x * Math.cos(yaw) + z * Math.sin(yaw), y + plat, cz - x * Math.sin(yaw) + z * Math.cos(yaw)], frame);
+        assert.ok(v.x >= 0 && v.x <= size.width && v.y >= 0 && v.y <= size.height, `${k.station} ${JSON.stringify(counts)} off-frame at ${v.x.toFixed(0)},${v.y.toFixed(0)} px`);
       }
     }
   }

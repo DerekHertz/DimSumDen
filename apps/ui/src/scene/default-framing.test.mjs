@@ -1,25 +1,19 @@
-// den-scene-v1/01 approved framing revision: 1600x900 desktop, 440px control panel.
-// Project complete kiosk geometry, including its roof/platform/posts, rather than centres alone.
+// den-iso-v1/02 (replaces the perspective framing tests of den-scene-v1/01): the default isometric frame.
+// Every kiosk, Bao, the susan, the hamper and the Tally fall inside the viewport at 1440x900 and 375x667
+// (digest section 1), and no sign or counter is covered by another kiosk, Bao or the table (den-map check 1).
+// Geometry is projected through iso-projection.mjs (defaultFrame + worldToScreen); the kiosk is its complete
+// geometry: roof, posts, counter, platform and noren, as in the old test.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PerspectiveCamera, Vector3 } from "three";
-import { cameraPosition, FOV_DEG } from "./camera-rig.mjs";
-import { BAO, TABLE, STALL_CENTERS, stallCenterX, stallPlatform, stallRoof, stallWidth, stallYaw } from "./banquet-layout.mjs";
+import { defaultFrame, worldToScreen } from "./iso-projection.mjs";
+import { BAO, CUB_BASKET, CUB_BASKET_RADIUS, TABLE, TALLY, STALL_CENTERS, stallCenterX, stallPlatform, stallRoof, stallWidth, stallYaw } from "./banquet-layout.mjs";
+import { stationLabels } from "./station-labels.mjs";
 import { EAVE_Y, POST_BASE, POST_SIZE, postHeight, postPositions, roofTriangles } from "./stall-roof.mjs";
 
-const counts = [{}, { steamers: 7 }]; // default 3-slot kiosks and captured current 6 active + idle Scout
-const camera = () => {
-  const c = new PerspectiveCamera(FOV_DEG, 1160 / 900, 0.1, 100);
-  c.position.set(...cameraPosition(0, 1));
-  c.rotation.set(-0.2, 0, 0);
-  c.updateMatrixWorld();
-  return c;
-};
+const SIZES = [{ width: 1440, height: 900 }, { width: 375, height: 667 }];
+const N = 3; // default three-slot kiosks: the layout constants, no extra cells
+
 const box = (x, y, z, hx, hy, hz) => [-1, 1].flatMap((sx) => [-1, 1].flatMap((sy) => [-1, 1].map((sz) => [x + sx * hx, y + sy * hy, z + sz * hz])));
-const bounds = (points, c) => {
-  const ps = points.map((p) => new Vector3(...p).project(c));
-  return { x0: Math.min(...ps.map((p) => p.x)), x1: Math.max(...ps.map((p) => p.x)), y0: Math.min(...ps.map((p) => p.y)), y1: Math.max(...ps.map((p) => p.y)) };
-};
 const world = (station, n, [x, y, z]) => {
   const yaw = stallYaw(station);
   return [stallCenterX(station, n) + x * Math.cos(yaw) + z * Math.sin(yaw), y + stallPlatform(station), STALL_CENTERS[station].z - x * Math.sin(yaw) + z * Math.cos(yaw)];
@@ -36,34 +30,74 @@ const completeKiosk = (station, n) => {
   if (platform) points.push(...box(0, -platform / 2, 0, (width + 0.3) / 2, platform / 2, 0.65));
   return points.map((p) => world(station, n, p));
 };
+const baoBox = () => { const [x, y, z] = BAO.position, s = BAO.scale; return box(x, y, z, s, s, s * 0.875); };
+const tableRing = () => Array.from({ length: 128 }, (_, i) => [TABLE.x + TABLE.radius * Math.cos(i * Math.PI / 64), TABLE.height, TABLE.z + TABLE.radius * Math.sin(i * Math.PI / 64)]);
+const hamper = () => box(CUB_BASKET.x, 0.2, CUB_BASKET.z, CUB_BASKET_RADIUS, 0.2, CUB_BASKET_RADIUS);
+const tally = () => box(TALLY.x, TALLY.groundY + TALLY.leg.height + TALLY.frame.height / 2, TALLY.z, TALLY.frame.width / 2, TALLY.frame.height / 2 + TALLY.leg.height / 2, TALLY.frame.depth / 2);
+const rect = (points, frame) => {
+  const ps = points.map((p) => worldToScreen(p, frame));
+  return { x0: Math.min(...ps.map((p) => p.x)), x1: Math.max(...ps.map((p) => p.x)), y0: Math.min(...ps.map((p) => p.y)), y1: Math.max(...ps.map((p) => p.y)) };
+};
+const inside = (r, { width, height }) => r.x0 >= 0 && r.x1 <= width && r.y0 >= 0 && r.y1 <= height;
 
-test("approved default uses z13.8 and FOV46 with original x/y", () => {
-  assert.deepEqual(cameraPosition(0, 1), [0, 4.2, 13.8]);
-  assert.equal(FOV_DEG, 46);
-});
-
-test("complete kiosks fit the desktop scene at approved default, including current widened Steamers", () => {
-  for (const occupancy of counts) for (const station of Object.keys(STALL_CENTERS)) {
-    const b = bounds(completeKiosk(station, occupancy[station] ?? 3), camera());
-    assert.ok(b.x0 >= -1 && b.x1 <= 1 && b.y0 >= -1 && b.y1 <= 1, `${station}: ${JSON.stringify(b)}`);
+test("the default frame contains every kiosk, Bao, the susan, the hamper and the Tally at 1440x900 and 375x667", () => {
+  for (const size of SIZES) {
+    const frame = defaultFrame(size);
+    const things = {
+      Bao: baoBox(), susan: tableRing(), hamper: hamper(), Tally: tally(),
+      ...Object.fromEntries(Object.keys(STALL_CENTERS).map((s) => [s, completeKiosk(s, N)])),
+    };
+    for (const [name, pts] of Object.entries(things)) {
+      const r = rect(pts, frame);
+      assert.ok(inside(r, size), `${name} at ${size.width}x${size.height}: ${JSON.stringify(r)}`);
+    }
   }
 });
 
+test("every station sign anchor is inside the default frame at both sizes", () => {
+  for (const size of SIZES) {
+    const frame = defaultFrame(size);
+    for (const l of stationLabels({})) {
+      const s = worldToScreen([l.x, l.y, l.z], frame);
+      assert.ok(s.x >= 0 && s.x <= size.width && s.y >= 0 && s.y <= size.height, `${l.id} at ${size.width}: ${JSON.stringify(s)}`);
+    }
+  }
+});
+
+test("the Tally faces the camera front-on (yaw 0) and no longer shares the perspective base distance", () => {
+  assert.equal(TALLY.rotationY, 0);
+});
+
 const overlaps = (a, b) => Math.min(a.x1, b.x1) > Math.max(a.x0, b.x0) + 1e-9 && Math.min(a.y1, b.y1) > Math.max(a.y0, b.y0) + 1e-9;
-test("approved desktop framing keeps every counter clear of other counters, Bao and tabletop", () => {
-  const c = camera(), [bx, by, bz] = BAO.position, s = BAO.scale;
-  const bao = bounds(box(bx, by, bz, s, s, s * 0.875), c);
-  const table = bounds(Array.from({ length: 128 }, (_, i) => [TABLE.x + 1.8 * Math.cos(i * Math.PI / 64), TABLE.height, TABLE.z + 1.8 * Math.sin(i * Math.PI / 64)]), c);
-  for (const occupancy of counts) {
-    const counters = Object.keys(STALL_CENTERS).map((station) => {
-      const n = occupancy[station] ?? 3;
-      return { station, rect: bounds([-1, 1].flatMap((x) => [-1, 1].map((z) => world(station, n, [x * stallWidth(n) / 2, 0.5, z * 0.5]))), c) };
-    });
+const within = (p, r) => p.x > r.x0 && p.x < r.x1 && p.y > r.y0 && p.y < r.y1;
+
+test("den-map check 1: at the default frame every counter is clear of other counters, Bao and the table", () => {
+  for (const size of SIZES) {
+    const frame = defaultFrame(size);
+    const bao = rect(baoBox(), frame), table = rect(tableRing(), frame);
+    const counters = Object.keys(STALL_CENTERS).map((station) => ({
+      station,
+      rect: rect([-1, 1].flatMap((x) => [-1, 1].map((z) => world(station, N, [x * stallWidth(N) / 2, 0.5, z * 0.5]))), frame),
+    }));
     for (let i = 0; i < counters.length; i++) {
-      const { station, rect } = counters[i];
-      assert.ok(!overlaps(rect, bao), `${station}/Bao`);
-      assert.ok(!overlaps(rect, table), `${station}/table`);
-      for (let j = i + 1; j < counters.length; j++) assert.ok(!overlaps(rect, counters[j].rect), `${station}/${counters[j].station}`);
+      const { station, rect: r } = counters[i];
+      assert.ok(!overlaps(r, bao), `${size.width}: ${station} counter / Bao`);
+      assert.ok(!overlaps(r, table), `${size.width}: ${station} counter / table`);
+      for (let j = i + 1; j < counters.length; j++) assert.ok(!overlaps(r, counters[j].rect), `${size.width}: ${station} / ${counters[j].station} counters`);
+    }
+  }
+});
+
+test("den-map check 1: at the default frame no kiosk sign sits behind another kiosk, Bao or the table", () => {
+  for (const size of SIZES) {
+    const frame = defaultFrame(size);
+    const bao = rect(baoBox(), frame), table = rect(tableRing(), frame);
+    const kiosks = Object.fromEntries(Object.keys(STALL_CENTERS).map((s) => [s, rect(completeKiosk(s, N), frame)]));
+    for (const l of stationLabels({}).filter((x) => STALL_CENTERS[x.station])) {
+      const sign = worldToScreen([l.x, l.y, l.z], frame);
+      assert.ok(!within(sign, bao), `${size.width}: ${l.station} sign / Bao`);
+      assert.ok(!within(sign, table), `${size.width}: ${l.station} sign / table`);
+      for (const [other, r] of Object.entries(kiosks)) if (other !== l.station) assert.ok(!within(sign, r), `${size.width}: ${l.station} sign / ${other} kiosk`);
     }
   }
 });

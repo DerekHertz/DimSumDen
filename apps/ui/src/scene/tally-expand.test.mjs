@@ -18,11 +18,10 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "vite";
 import { chromium } from "playwright";
-import * as THREE from "three";
 import { buildLaunchOptions } from "../../../ci-cd/launch-options.mjs";
 import { lightenScene } from "../../../ci-cd/light-scene.mjs";
 import { TALLY } from "./banquet-layout.mjs";
-import { cameraPosition } from "./camera-rig.mjs";
+import { defaultFrame, worldToScreen } from "./iso-projection.mjs";
 
 const TALLY_RODS_CAPTION = "Tally rods: Served 1 bead = 1 ticket this window; Tokens 1 bead = 20k per ticket; Spills 1 bead = 0.1 per ticket.";
 const VIEW = { width: 1280, height: 800 };
@@ -96,15 +95,10 @@ const focusInfo = (page) =>
   });
 const settle = (page) => page.waitForTimeout(450);
 
-// Screen position of a world point at the default camera, in page pixels (the scene starts at x 0, y 0).
+// Screen position of a world point at the default isometric frame (den-iso-v1/02), in page pixels (the scene starts at x 0, y 0).
 function screenOf(sceneBox, x, y, z) {
-  const cam = new THREE.PerspectiveCamera(38, sceneBox.width / sceneBox.height, 0.1, 100);
-  cam.rotation.set(-0.2, 0, 0);
-  const [cx, cy, cz] = cameraPosition(0, 1);
-  cam.position.set(cx, cy, cz);
-  cam.updateMatrixWorld();
-  const p = new THREE.Vector3(x, y, z).project(cam);
-  return { x: sceneBox.x + ((p.x + 1) / 2) * sceneBox.width, y: sceneBox.y + ((1 - p.y) / 2) * sceneBox.height };
+  const p = worldToScreen([x, y, z], defaultFrame({ width: sceneBox.width, height: sceneBox.height }));
+  return { x: sceneBox.x + p.x, y: sceneBox.y + p.y };
 }
 
 test("click on the pill opens the card in place: dialog shown, aria-expanded true, focus on the Tally heading, nothing scrolls (criterion 1)", { timeout: 90000 }, async () => {

@@ -2,10 +2,9 @@
 // Targets and tolerance come from docs/design/den-map.md, not existing placement math.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PerspectiveCamera, Vector3 } from "three";
 import * as layout from "./banquet-layout.mjs";
 import { stepRoamer, roamObstacles } from "./roam.mjs";
-import { cameraPosition, FOV_DEG } from "./camera-rig.mjs";
+import { defaultFrame, worldToScreen } from "./iso-projection.mjs";
 import { stationLabels } from "./station-labels.mjs";
 import * as handoffs from "./handoffs.mjs";
 
@@ -41,12 +40,10 @@ test("horseshoe: every kiosk faces the table with capped yaw", () => {
 
 // Project actual prop extents: counter 2.25×1, Bao 2×2×1.75 at scale 1.4,
 // tabletop radius 1.8 (Market.jsx). Rotating corners uses the same world axes as Three.
-const camera = new PerspectiveCamera(FOV_DEG, 16 / 9, 0.1, 100);
-camera.position.set(...cameraPosition(0, 1));
-camera.rotation.set(-0.2, 0, 0); // App.jsx default camera pitch
-camera.updateMatrixWorld();
+// den-iso-v1/02: the default frame is the orthographic isometric one (1440x900), projected through iso-projection.mjs.
+const frame = defaultFrame({ width: 1440, height: 900 });
 const bounds = (points) => {
-  const projected = points.map((p) => new Vector3(...p).project(camera));
+  const projected = points.map((p) => worldToScreen(p, frame));
   return { x0: Math.min(...projected.map((p) => p.x)), x1: Math.max(...projected.map((p) => p.x)), y0: Math.min(...projected.map((p) => p.y)), y1: Math.max(...projected.map((p) => p.y)) };
 };
 const box = (cx, cy, cz, hx, hy, hz) => [-1, 1].flatMap((sx) => [-1, 1].flatMap((sy) => [-1, 1].map((sz) => [cx + sx * hx, cy + sy * hy, cz + sz * hz])));
