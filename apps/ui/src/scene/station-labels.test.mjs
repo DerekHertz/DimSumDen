@@ -14,9 +14,9 @@ test("one label per stall with the station's name", () => {
 
 test("labels float above each roof: back stalls sit on the platform, so higher; front roofs are low", () => {
   const byStation = Object.fromEntries(stationLabels({}).map((l) => [l.station, l]));
-  // back: platform 0.5 + eave 1.7 + rise 0.7 = 2.9 apex, label 0.2 above; front: eave 1.4 + rise 0.4 = 1.8 apex
+  // back: platform 0.5 + eave 1.7 + rise 0.7 = 2.9 apex, label 0.2 above; front: eave 1.77 (raised from 1.4, den-scene-v1/09 round 2) + rise 0.4 = 2.17 apex
   assert.ok(Math.abs(byStation.steamers.y - 3.1) < 1e-9);
-  assert.ok(Math.abs(byStation.tea.y - 2.0) < 1e-9);
+  assert.ok(Math.abs(byStation.tea.y - 2.37) < 1e-9);
 });
 
 test("the Cubs pill floats just above the front-left cub basket, so it is not read as the queue", () => {

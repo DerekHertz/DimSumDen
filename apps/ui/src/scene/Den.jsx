@@ -8,17 +8,25 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { createCharacterDirector } from "../../../../packages/character-director/src/director.mjs";
-import { PROP_ASSETS } from "../assets/panda-contract.mjs";
+import { ROLE_PLACEMENT, SCARF_SOCKET } from "../assets/panda-contract.mjs";
 import { averageAttribute, clusterSimplify, dominantBones } from "./plush-lod.mjs";
 import { createAssetCache } from "./asset-cache.mjs";
 import { Backdrop } from "./Backdrop.jsx";
 import { Market } from "./Market.jsx";
+import { useSystemTheme } from "./system-theme.js";
+import { headgearSpec, propSpec, scarfSpec } from "./headgear.mjs";
+import { buildGear } from "./gear-object.mjs";
 import { TallyFace } from "./TallyFace.jsx";
 import { BAO, parsePerch, placeCell, stationOf } from "./banquet-layout.mjs";
 import { ROAMER_TYPES, stepRoamer } from "./roam.mjs";
 
-// Each prop glb is fetched and parsed once, then cloned per plush.
-const propGlbs = createAssetCache((url) => new GLTFLoader().loadAsync(url));
+// Each role's headgear, prop and the scarf are built once per theme and level of detail (key "kind|role|theme|lod"),
+// then cloned per plush. The parts come from headgear.mjs; sockets from ROLE_PLACEMENT.
+const SPECS = { headgear: headgearSpec, prop: propSpec, scarf: scarfSpec };
+const gearBuilds = createAssetCache((key) => {
+  const [kind, role, theme, lod] = key.split("|");
+  return Promise.resolve(buildGear(SPECS[kind](role, { theme, lod })));
+});
 
 const PLUSH_SCALE = 0.3;
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -111,22 +119,33 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
     }
   }, [director, id, pose, cellType]);
 
+  const theme = useSystemTheme();
+  // Headgear on the hat socket, the prop on the role's paw, the shared scarf on the body bone, all attached by
+  // socket name. Rigid on the socket, so reduced motion adds nothing. Rebuilt when the theme swaps.
   useEffect(() => {
-    const spec = cellType && PROP_ASSETS[cellType];
-    if (!spec) return undefined;
-    let added = null;
+    const placement = cellType && Object.hasOwn(ROLE_PLACEMENT, cellType) ? ROLE_PLACEMENT[cellType] : null;
+    if (!placement) return undefined;
+    const detail = lod ? "crowd" : "hero";
+    const attached = [];
     let cancelled = false;
-    propGlbs.get(`/models/${spec.file}`).then((p) => {
-      const socket = object.getObjectByName(spec.socket);
+    const attach = (kind, { socket: socketName, rotation, position }) => gearBuilds.get(`${kind}|${cellType}|${theme}|${detail}`).then((built) => {
+      const socket = object.getObjectByName(socketName);
       if (cancelled || !socket) return;
-      added = p.scene.clone(true);
-      socket.add(added);
+      const gear = built.clone(true);
+      if (rotation) gear.rotation.set(...rotation);
+      if (position) gear.position.set(...position);
+      gear.traverse((n) => { if (n.material) n.material = n.material.clone(); });
+      socket.add(gear);
+      attached.push(gear);
     }).catch(() => {});
+    attach("headgear", placement.headgear);
+    attach("prop", placement.prop);
+    attach("scarf", { socket: SCARF_SOCKET });
     return () => {
       cancelled = true;
-      added?.parent?.remove(added);
+      for (const g of attached) g.parent?.remove(g);
     };
-  }, [object, cellType]);
+  }, [object, cellType, theme, lod]);
 
   useFrame((_, dt) => {
     const now = performance.now() / 1000;

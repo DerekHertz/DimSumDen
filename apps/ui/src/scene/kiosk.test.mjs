@@ -145,7 +145,7 @@ test("noren panels hang at the front eave line: z depth/2+0.02, gap 0.02, drop 0
   const { kiosks } = await mod();
   for (const k of kiosks({ cells: [], counts: {}, theme: "light" })) {
     const front = !!stallRoof(k.station);
-    const eave = front ? 1.4 : 1.7;
+    const eave = front ? 1.77 : 1.7; // front eave raised from 1.4 by the user (den-scene-v1/09 round 2)
     const ps = k.noren.panels;
     assert.ok(ps.length >= 3 && ps.length <= 5);
     for (const p of ps) {
