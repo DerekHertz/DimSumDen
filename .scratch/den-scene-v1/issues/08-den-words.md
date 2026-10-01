@@ -45,3 +45,4 @@ The full list is in the design system's Glossary and in `CONTEXT.md` under "UI n
 
 - **Created (designer, 2026-09-30):** Filed from the 09-29/30 design session; the user approved every decision in this ticket.
 - **orchestrator, 2026-09-30:** Design sweep (designer, user-approved 2026-09-30): Scope added: absorbs ca/19 page <title>.
+- **orchestrator, 2026-10-01:** Related: organism-infra/90 carries the den words into genomes, skills, docs and command names (user, 2026-10-01). The line above, 'Code identifiers, file names, event names and genomes stay as they are', is narrowed: genomes and command names now change in 90. Data fields and code identifiers still stay. This ticket keeps UI copy only.
