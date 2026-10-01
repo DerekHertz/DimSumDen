@@ -71,7 +71,7 @@ Do NOT close or modify any parent issue.
 
 # <NN>: <Ticket title>
 
-**What to build:** the end-to-end behaviour this ticket makes work, from the user's perspective, not a layer-by-layer implementation list.
+**What to build:** the end-to-end behaviour this ticket makes work, from the user's perspective, not a layer-by-layer implementation list. Name the repo paths it will touch, each in backticks (e.g. `scripts/foo.mjs`); `scripts/batch-groups.mjs` reads them to propose batches.
 
 **Blocked by:** the numbers/titles of the tickets that gate this one, or "None (can start immediately)".
 
@@ -90,7 +90,7 @@ A reference to the parent issue on the tracker (if the source was an existing is
 
 ## What to build
 
-The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation.
+The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. Name the repo paths it will touch, each in backticks (e.g. `scripts/foo.mjs`); `scripts/batch-groups.mjs` reads them to propose batches.
 
 ## Acceptance criteria
 
