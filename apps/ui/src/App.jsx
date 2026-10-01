@@ -11,27 +11,11 @@ import { dashboardModel } from "./panel/dashboard-model.mjs";
 import { tallyRods } from "./scene/tally-face.mjs";
 import { TallyCard } from "./scene/TallyCard.jsx";
 import { trackedTickets } from "./scene/handoffs.mjs";
-import { UsageMeter, Queue, Detail, Gates, useNow } from "./panel/Panel.jsx";
-import { gatesModel } from "./panel/gates-model.mjs";
-import { pillModel, panelPlaceholder } from "./state/connection.mjs";
-
-function ConnectionPill({ connection }) {
-  const pill = pillModel(connection);
-  return (
-    <span className={`pill pill-${pill.tone}`} aria-live={pill.ariaLive ?? undefined}>
-      <span className="pill-dot" aria-hidden="true" />
-      {pill.label}
-    </span>
-  );
-}
-
-// Section slots for tickets 09 to 11. Headings only in the shell.
-const SECTIONS = [
-  ["usage", "Plan usage (5 h)"],
-  ["gates", "Needs you"],
-  ["queue", "Queue"],
-  ["detail", "Selected ticket"],
-];
+import { useNow } from "./panel/Panel.jsx";
+import { panelPlaceholder } from "./state/connection.mjs";
+import { createCameraStore } from "./scene/camera-store.mjs";
+import { LogoPill, Cards } from "./overlay/Cards.jsx";
+import { ZoomSwitcher, IntentBar, Timeline } from "./overlay/Bottom.jsx";
 
 function activeCount(snapshot) {
   const active = new Set(["claimed", "in-review", "blocked", "ready-for-human"]);
@@ -48,6 +32,7 @@ export function App() {
   const snapshot = demoSnapshot ?? live.snapshot;
   const placeholder = demo ? null : panelPlaceholder(connection);
   const [selected, setSelected] = useState(null);
+  const camera = useMemo(() => createCameraStore(), []);
   const stage = useMemo(() => ({ anchors: new Map(), camera: null, size: null }), []);
   const cells = useMemo(() => (snapshot ? sceneFromState(snapshot) : []), [snapshot]);
   // Bao's crown always holds the Pass: an idle stand-in when no orchestrator work is active.
@@ -79,7 +64,7 @@ export function App() {
     <div className="shell">
       <main aria-label="Den scene" aria-keyshortcuts="ArrowLeft ArrowRight + -" tabIndex={0} className="scene">
         <Canvas aria-hidden="true" orthographic camera={{ manual: true, zoom: 1, near: 0.1, far: 120 }} onPointerMissed={() => setSelected(null)}>
-          <CameraRig />
+          <CameraRig store={camera} />
           <ambientLight intensity={0.8} />
           <directionalLight position={[2, 4, 3]} intensity={1.2} />
           <Suspense fallback={null}>
@@ -91,25 +76,11 @@ export function App() {
         {snapshot && cells.length === 0 ? <p className="scene-caption scene-empty">The den is quiet. No active tickets.</p> : null}
         {overflow > 0 ? <p className="scene-caption scene-more">+{overflow} more in queue</p> : null}
       </main>
-      <aside aria-label="Control panel" className="panel">
-        <header className="panel-header">
-          <h1>Dim Sum Den</h1>
-          <ConnectionPill connection={connection} />
-        </header>
-        {placeholder ? (
-          <p className="muted">{placeholder}</p>
-        ) : (
-          SECTIONS.filter(([id]) => id !== "gates" || gatesModel(snapshot).visible).map(([id, heading]) => (
-            <section key={id} aria-labelledby={`h-${id}`} className="slot" data-slot={id}>
-              <h2 id={`h-${id}`}>{heading}{id === "gates" ? <span className="gate-count">{gatesModel(snapshot).count}</span> : null}</h2>
-              {id === "usage" && snapshot ? <UsageMeter usage={snapshot.usage} /> : null}
-              {id === "gates" ? <Gates snapshot={snapshot} /> : null}
-              {id === "queue" && snapshot ? <Queue snapshot={snapshot} selected={selected} onSelect={setSelected} /> : null}
-              {id === "detail" && snapshot ? <Detail snapshot={snapshot} selected={selected} /> : null}
-            </section>
-          ))
-        )}
-      </aside>
+      <LogoPill connection={connection} />
+      <Cards snapshot={snapshot} now={now} connection={connection} placeholder={placeholder} camera={camera} />
+      <ZoomSwitcher camera={camera} />
+      <IntentBar />
+      <Timeline snapshot={snapshot} now={now} />
     </div>
   );
 }

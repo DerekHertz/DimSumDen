@@ -88,7 +88,7 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, o
           aria-label={TALLY_ARIA_LABEL}
           aria-haspopup="dialog"
           aria-expanded={tallyOpen}
-          aria-controls={TALLY_CARD_ID}
+          aria-controls={tallyOpen ? TALLY_CARD_ID : undefined} /* the card exists only while open; a dangling aria-controls is an axe finding (07) */
           style={{ visibility: "hidden" }}
           onClick={onToggleTally}
         >

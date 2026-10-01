@@ -33,6 +33,12 @@ export function keyZoom(zoom, key) {
 
 export const wheelZoom = (zoom, deltaY) => clampZoom(zoom + deltaY * WHEEL_ZOOM_PER_DELTA);
 
+/** Pinch: the fingers moving apart (dist grows) dolly in, so the factor scales by startDist / dist from where the gesture began. */
+export function pinchZoom(startZoom, startDist, dist) {
+  if (!(startDist > 0) || !(dist > 0)) return clampZoom(startZoom);
+  return clampZoom((startZoom * startDist) / dist);
+}
+
 /** Dragging drags the ground with the pointer, so the target moves the other way. */
 export function dragPan(target, { dx, dy }, view) {
   const k = pixelsPerUnit(view);
