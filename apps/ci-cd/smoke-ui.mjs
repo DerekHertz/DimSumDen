@@ -206,7 +206,12 @@ async function main() {
 
     await check("camera zoom: wheel zoom scales the sign spacing by 1/d and stays within the range", async () => {
       await page.setViewportSize({ width: 1440, height: 900 });
-      const base = await settle(fits, "default frame before zoom");
+      // The signs follow a resize a few frames late (longer under load): the first probe can still show the
+      // phone-sized layout from the previous check, which also "fits". Take the baseline only once the signs are
+      // centred on the scene box (the default frame puts Bao's feet, the middle of the Steamers and Front of House
+      // signs, at the horizontal centre), which a stale layout from a different width is not.
+      const centred = (p) => p.signs["Steamers"] && p.signs["Front of House"] && Math.abs((p.signs["Steamers"].x + p.signs["Front of House"].x) / 2 - p.width / 2) < 2;
+      const base = await settle((p) => centred(p) && fits(p), "default frame before zoom");
       const gap = (p) => p.signs["Front of House"].x - p.signs["Steamers"].x;
       const box = await page.locator("main.scene").boundingBox();
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);

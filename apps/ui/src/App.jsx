@@ -1,7 +1,6 @@
 import { Suspense, useCallback, useMemo, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { CameraRig } from "./scene/CameraRig.jsx";
-import { cameraPosition, FOV_DEG } from "./scene/camera-rig.mjs";
 import { Den } from "./scene/Den.jsx";
 import { ChipLayer } from "./scene/ChipLayer.jsx";
 import { MAX_PLUSH, sceneFromState, withPassCell } from "./scene/scene-from-state.mjs";
@@ -79,7 +78,7 @@ export function App() {
   return (
     <div className="shell">
       <main aria-label="Den scene" aria-keyshortcuts="ArrowLeft ArrowRight + -" tabIndex={0} className="scene">
-        <Canvas aria-hidden="true" camera={{ position: cameraPosition(0, 1), fov: FOV_DEG, rotation: [-0.2, 0, 0] }} onPointerMissed={() => setSelected(null)}>
+        <Canvas aria-hidden="true" orthographic camera={{ manual: true, zoom: 1, near: 0.1, far: 120 }} onPointerMissed={() => setSelected(null)}>
           <CameraRig />
           <ambientLight intensity={0.8} />
           <directionalLight position={[2, 4, 3]} intensity={1.2} />

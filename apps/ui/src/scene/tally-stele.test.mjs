@@ -7,31 +7,38 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { TALLY, BAO, TABLE, CUB_BASKET, CUB_BASKET_RADIUS, placeCell, tallyAnchor } from "./banquet-layout.mjs";
+import { TALLY, BAO, TABLE, CUB_BASKET, CUB_BASKET_RADIUS, STALL_CENTERS, placeCell, stallCenterX, stallWidth, stallYaw, tallyAnchor } from "./banquet-layout.mjs";
 import { roamObstacles } from "./roam.mjs";
-import { cameraPosition } from "./camera-rig.mjs";
+import { YAW, defaultFrame, worldToScreen } from "./iso-projection.mjs";
+import { EAVE_Y } from "./stall-roof.mjs";
 import { TALLY_LABEL, TALLY_ARIA_LABEL } from "./tally-face.mjs";
 
 const read = (f) => readFileSync(new URL(f, import.meta.url), "utf8");
-const CAM = { x: 0, y: 4.2, z: 11.5 }; // default camera (camera-rig BASE_Y, BASE_Z)
+const FRAME = defaultFrame({ width: 1440, height: 900 }); // den-iso-v1/02: the isometric default frame
 const close = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg}: ${a} != ${b}`);
-// Screen position of a world point from the default camera: perspective divide by depth.
-const project = (x, y, z) => ({ x: (x - CAM.x) / (CAM.z - z), y: (y - CAM.y) / (CAM.z - z) });
+// Screen position in px of a world point at the default frame (y grows downward).
+const project = (x, y, z) => worldToScreen([x, y, z], FRAME);
+const rectOf = (points) => {
+  const ps = points.map(([x, y, z]) => project(x, y, z));
+  return { x0: Math.min(...ps.map((p) => p.x)), x1: Math.max(...ps.map((p) => p.x)), y0: Math.min(...ps.map((p) => p.y)), y1: Math.max(...ps.map((p) => p.y)) };
+};
+const boxPoints = (x, y, z, hx, hy, hz) => [-1, 1].flatMap((sx) => [-1, 1].flatMap((sy) => [-1, 1].map((sz) => [x + sx * hx, y + sy * hy, z + sz * hz])));
+const overlap = (a, b) => Math.min(a.x1, b.x1) > Math.max(a.x0, b.x0) && Math.min(a.y1, b.y1) > Math.max(a.y0, b.y0);
+// The abacus: frame and legs, from the floor to the frame top.
+const abacusRect = () => rectOf(boxPoints(TALLY.x, frameTop() / 2, TALLY.z, TALLY.frame.width / 2, frameTop() / 2, TALLY.frame.depth / 2));
 
 const frameBottom = () => TALLY.groundY + TALLY.leg.height;
 const frameTop = () => frameBottom() + TALLY.frame.height;
 
-test("Tally face bearing points toward the actual shared default camera", () => {
-  const [cx, , cz] = cameraPosition(0, 1);
-  const bearing = Math.atan2(cx - TALLY.x, cz - TALLY.z);
-  close(TALLY.rotationY, bearing, 1e-12, "Tally faces the current default camera");
+test("Tally face points toward the orthographic camera: front-on, the camera's heading", () => {
+  close(TALLY.rotationY, YAW, 1e-12, "Tally faces the isometric camera");
 });
 
-test("the abacus stands beside the Cubs basket: x 1.8, z 3.0, on the floor, turned to the camera (about -0.165 rad)", () => {
+test("the abacus stands beside the Cubs basket: x 1.8, z 3.0, on the floor, turned front-on to the camera (yaw 0)", () => {
   assert.equal(TALLY.x, 1.8);
   assert.equal(TALLY.z, 3.0);
   assert.equal(TALLY.groundY, 0);
-  close(TALLY.rotationY, -0.165, 0.01, "rotationY faces the default camera");
+  assert.equal(TALLY.rotationY, 0);
 });
 
 test("frame is 1.1 wide x 1.4 tall x 0.12 deep with 0.08 bars, on two 0.08 x 0.15 legs: frame bottom 0.15, top 1.55", () => {
@@ -92,44 +99,35 @@ test("grounded beside the basket: on the floor, level with the basket, 0.3+ clea
   assert.ok(front <= 4.6 - 0.35, `frame front ${front} stays behind the cub row`);
 });
 
-test("from the default camera the abacus covers only floor: its top is below Bao's feet and the table top, and it is clear of the table, Bao and the stalls sideways", () => {
-  const top = project(0, frameTop(), TALLY.z).y; // about -0.31
-  const baoFeet = project(0, 0, BAO.position[2]).y; // about -0.302
-  const tableTop = project(0, TABLE.height, TABLE.z).y; // -0.304
-  assert.ok(top < baoFeet, `abacus top ${top} is not below Bao's feet ${baoFeet}`);
-  assert.ok(top < tableTop, `abacus top ${top} is not below the table top ${tableTop}`);
+test("from the default frame the abacus covers only floor: its top is below Bao's feet and the table top on screen, and its box is clear of the table, Bao and the Pantry and Front of House kiosks", () => {
+  const top = project(0, frameTop(), TALLY.z).y; // about 631 px at 1440x900
+  const baoFeet = project(0, 0, BAO.position[2]).y; // 468 px
+  const tableTop = project(0, TABLE.height, TABLE.z).y; // 539 px
+  assert.ok(top > baoFeet, `abacus top ${top} is not below Bao's feet ${baoFeet}`);
+  assert.ok(top > tableTop, `abacus top ${top} is not below the table top ${tableTop}`);
 
-  const left = project(TALLY.x - TALLY.frame.width / 2, 0, TALLY.z).x;
-  const right = project(TALLY.x + TALLY.frame.width / 2, 0, TALLY.z).x;
-  const tableRight = project(TABLE.x + TABLE.radius, 0, TABLE.z).x;
-  const baoRight = project(BAO.scale * 1, 0, BAO.position[2]).x;
-  const pantryInner = project(4.0 - 3 * 0.75 / 2, 0, 2.2).x;
-  const fohInner = project(4.8 - 3 * 0.75 / 2, 0, -1.6).x;
-  assert.ok(left > tableRight, `abacus left ${left} overlaps the table edge ${tableRight}`);
-  assert.ok(left > baoRight, `abacus left ${left} overlaps Bao's right edge ${baoRight}`);
-  assert.ok(right < pantryInner, `abacus right ${right} runs into the Pantry stall ${pantryInner}`);
-  assert.ok(right < fohInner, `abacus right ${right} runs into Front of House ${fohInner}`);
-});
-
-test("the frame's left edge, projected to Bao's depth, clears Bao's right edge (1.4): lands at 1.5 or more", () => {
-  const f = (CAM.z - BAO.position[2]) / (CAM.z - TALLY.z);
-  const frameLeft = CAM.x + f * (TALLY.x - TALLY.frame.width / 2 - CAM.x);
-  assert.ok(frameLeft >= 1.5, `frame left edge lands at ${frameLeft} at Bao's depth`);
+  const box = abacusRect();
+  const table = rectOf(Array.from({ length: 128 }, (_, i) => [TABLE.x + TABLE.radius * Math.cos(i * Math.PI / 64), TABLE.height, TABLE.z + TABLE.radius * Math.sin(i * Math.PI / 64)]));
+  const [bx, by, bz] = BAO.position, s = BAO.scale;
+  const bao = rectOf(boxPoints(bx, by, bz, s, s, s * 0.875));
+  assert.ok(!overlap(box, table), "abacus box overlaps the table");
+  assert.ok(!overlap(box, bao), "abacus box overlaps Bao");
+  for (const station of ["pantry", "front-of-house"]) {
+    // the kiosk body: footprint (width + 0.3, depth 1.3) from the floor to the eave
+    const yaw = stallYaw(station), cx = stallCenterX(station, 3), cz = STALL_CENTERS[station].z, hw = (stallWidth(3) + 0.3) / 2;
+    const body = rectOf(boxPoints(0, EAVE_Y / 2, 0, hw, EAVE_Y / 2, 0.65).map(([x, y, z]) => [cx + x * Math.cos(yaw) + z * Math.sin(yaw), y, cz - x * Math.sin(yaw) + z * Math.cos(yaw)]));
+    assert.ok(!overlap(box, body), `abacus box overlaps the ${station} kiosk`);
+  }
 });
 
 test("cubs never cover the rods: a plush top (y 0.8) in the cub row projects below the frame bottom", () => {
-  const plush = project(0, 0.8, 4.6).y; // -0.493
-  const face = project(0, frameBottom(), TALLY.z).y; // -0.4765
-  assert.ok(plush < face, `cub top ${plush} reaches the frame bottom ${face}`);
+  const plush = project(0, 0.8, 4.6).y; // 766 px
+  const face = project(0, frameBottom(), TALLY.z).y; // 731 px
+  assert.ok(plush > face, `cub top ${plush} reaches the frame bottom ${face}`);
 });
 
 test("the abacus's screen box does not overlap any Pass perch, the Steamers/Front of House/Pantry perches, or the cub row", () => {
-  const b = {
-    x0: project(TALLY.x - TALLY.frame.width / 2, 0, TALLY.z).x,
-    x1: project(TALLY.x + TALLY.frame.width / 2, 0, TALLY.z).x,
-    y0: project(0, TALLY.groundY, TALLY.z).y,
-    y1: project(0, frameTop(), TALLY.z).y,
-  };
+  const b = abacusRect();
   const perches = [
     ["designer", [0, 1, 2]],
     ["architect", [0, 1]],

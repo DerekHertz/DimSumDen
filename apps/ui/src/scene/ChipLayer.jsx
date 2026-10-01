@@ -30,7 +30,10 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, o
   useEffect(() => {
     let raf = 0;
     const loop = () => {
-      const { camera, size } = stage;
+      const { camera } = stage;
+      // The orthographic frustum is sized in the rig's frame; project with the viewport it was built from, so a
+      // resize never pairs the new size with the old camera (the rig stamps it on the camera).
+      const size = camera?.userData.viewport ?? stage.size;
       if (camera && size) {
         // The camera moves in useFrame, before render; refresh its matrices so chips never lag it.
         camera.updateMatrixWorld();
