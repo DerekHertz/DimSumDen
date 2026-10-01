@@ -127,17 +127,19 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
     const detail = lod ? "crowd" : "hero";
     const attached = [];
     let cancelled = false;
-    const attach = (kind, socketName) => gearBuilds.get(`${kind}|${cellType}|${theme}|${detail}`).then((built) => {
+    const attach = (kind, { socket: socketName, rotation, position }) => gearBuilds.get(`${kind}|${cellType}|${theme}|${detail}`).then((built) => {
       const socket = object.getObjectByName(socketName);
       if (cancelled || !socket) return;
       const gear = built.clone(true);
+      if (rotation) gear.rotation.set(...rotation);
+      if (position) gear.position.set(...position);
       gear.traverse((n) => { if (n.material) n.material = n.material.clone(); });
       socket.add(gear);
       attached.push(gear);
     }).catch(() => {});
-    attach("headgear", placement.headgear.socket);
-    attach("prop", placement.prop.socket);
-    attach("scarf", SCARF_SOCKET);
+    attach("headgear", placement.headgear);
+    attach("prop", placement.prop);
+    attach("scarf", { socket: SCARF_SOCKET });
     return () => {
       cancelled = true;
       for (const g of attached) g.parent?.remove(g);

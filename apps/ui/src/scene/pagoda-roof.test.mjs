@@ -9,11 +9,11 @@ const verts = (flat) => Array.from({ length: flat.length / 3 }, (_, i) => flat.s
 const near = (a, b) => Math.abs(a - b) < 1e-9;
 const W = 2.25, D = 1;
 
-test("height budget is unchanged: EAVE_Y 1.7, RISE 0.7, UPTURN 0.1, FRONT_ROOF eave 1.4 rise 0.4", () => {
+test("height budget is unchanged: EAVE_Y 1.7, RISE 0.7, UPTURN 0.1, FRONT_ROOF eave 1.77 (raised from 1.4, 09 round 2) rise 0.4", () => {
   assert.equal(EAVE_Y, 1.7);
   assert.equal(RISE, 0.7);
   assert.equal(UPTURN, 0.1);
-  assert.deepEqual(FRONT_ROOF, { eave: 1.4, rise: 0.4 });
+  assert.deepEqual(FRONT_ROOF, { eave: 1.77, rise: 0.4 });
 });
 
 for (const [label, roof] of [["back", undefined], ["front", FRONT_ROOF]]) {

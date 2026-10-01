@@ -224,7 +224,8 @@ test("every part uses a station or neutral token, never a fur material", async (
   for (const role of ROLES) {
     const { headgear, prop, scarf } = await gear(role);
     for (const part of [...headgear, ...prop, ...scarf]) {
-      assert.ok(["station", ...NEUTRAL_TOKENS].includes(part.material), `${role} ${part.name}: material ${part.material}`);
+      // fail/pass: the developer tablet's red and green result lines (09 round 2, L1); never fur.
+      assert.ok(["station", ...NEUTRAL_TOKENS, "fail", "pass"].includes(part.material), `${role} ${part.name}: material ${part.material}`);
     }
   }
 });
@@ -297,4 +298,165 @@ test("the scene builds gear through the shared asset cache and tints from statio
   assert.match(spec, /stationHue/);
   assert.doesNotMatch(spec, /from "three"/, "the part descriptors stay pure (no three import)");
   assert.doesNotMatch(spec, /#(?:674698|2759a2|006e54|326a2d|00658b|c3a5f9|87b9ff|56d0af|8acb83|55c6f4)/i, "hues come from stationHue, not copied literals");
+});
+
+// ---- den-scene-v1/09 round 2 (designer review 030c706): fixes H1-H4, M1, M3, L1-L3 ----
+// Worked literals are the designer's raycast measurements of panda.glb at sit_still, not recomputed from the module.
+
+const part = (parts, name) => {
+  const p = parts.find((q) => q.name === name);
+  assert.ok(p, `no part ${name} in ${parts.map((q) => q.name)}`);
+  return p;
+};
+const near = (a, b, eps = 0.011) => Math.abs(a - b) <= eps;
+
+test("H1: every prop is held upright: ROLE_PLACEMENT turns its +y to world up and its face to the camera", () => {
+  // Measured paw sockets at sit_still (both paws): socket x -> world -x, socket y -> world +z (at the camera), socket z -> world up.
+  const socketToWorld = new THREE.Matrix4().makeBasis(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0));
+  for (const role of ROLES) {
+    const { rotation, position } = contract.ROLE_PLACEMENT[role].prop;
+    assert.equal(rotation?.length, 3, `${role}: prop rotation`);
+    assert.equal(position?.length, 3, `${role}: prop position`);
+    const m = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(...rotation)).premultiply(socketToWorld);
+    const up = new THREE.Vector3(0, 1, 0).transformDirection(m);
+    const face = new THREE.Vector3(0, 0, 1).transformDirection(m);
+    assert.ok(up.distanceTo(new THREE.Vector3(0, 1, 0)) < 1e-6, `${role}: long axis ${up.toArray()}`);
+    assert.ok(face.distanceTo(new THREE.Vector3(0, 0, 1)) < 1e-6, `${role}: face ${face.toArray()}`);
+  }
+});
+
+test("H1: flat props are held 0.26 toward the camera and 0.22 up; the long props need no offset", () => {
+  const FLAT = ["product", "architect", "developer", "security", "qa", "designer"];
+  for (const role of ROLES) {
+    const [x, y, z] = contract.ROLE_PLACEMENT[role].prop.position;
+    if (FLAT.includes(role)) assert.ok(near(y, 0.26) && near(z, 0.22), `${role} offset ${[x, y, z]}`);
+    else assert.deepEqual([x, y, z], [0, 0, 0], `${role} is held by the grip`);
+  }
+});
+
+test("M1: the cream teacup and plate stand 0.18 outward of the belly (paw_R socket +x, paw_L socket -x), ink-rimmed", async () => {
+  assert.ok(near(contract.ROLE_PLACEMENT.qa.prop.position[0], 0.18, 0.02), "qa teacup outward");
+  assert.ok(near(contract.ROLE_PLACEMENT.designer.prop.position[0], -0.18, 0.02), "designer plate outward");
+  const { prop: cup } = await gear("qa");
+  const { prop: plate } = await gear("designer");
+  assert.equal(part(cup, "teacup:rim").material, "ink");
+  assert.equal(part(plate, "plate:rim").material, "ink");
+  assert.ok(part(plate, "plate:rim").params.tube <= 0.03 / 2 + 1e-9, "the ink plate rim is 0.03 high");
+  assert.equal(part(cup, "teacup:cup").material, "cream", "the cream stays cream");
+  assert.equal(part(plate, "plate:dish").material, "cream", "the cream stays cream");
+});
+
+test("H4: spectacle rims sit on the face (z 0.27 at x 0.27, y -0.42) and yaw 0.5 rad outward with the surface", async () => {
+  for (const role of ["product", "architect"]) {
+    const { headgear } = await gear(role);
+    const L = part(headgear, "spectacles:rim_L"), R = part(headgear, "spectacles:rim_R");
+    assert.deepEqual([L.position[0], L.position[1]], [0.27, -0.42]);
+    assert.deepEqual([R.position[0], R.position[1]], [-0.27, -0.42]);
+    assert.ok(near(L.position[2], 0.27, 0.03) && near(R.position[2], 0.27, 0.03), `${role} rim z ${L.position[2]}`);
+    assert.ok(near(L.rotation[1], 0.5, 0.05) && near(R.rotation[1], -0.5, 0.05), `${role} rim yaw ${L.rotation} ${R.rotation}`);
+    assert.ok(near(part(headgear, "spectacles:bridge").position[2], 0.37, 0.03), "bridge z");
+  }
+});
+
+test("H4: goggles, headlamp and cap touch the brow (designer's surface-z targets), not 0.4 off it", async () => {
+  const goggles = (await gear("scout")).headgear;
+  for (const side of ["L", "R"]) {
+    assert.ok(near(part(goggles, `goggles:rim_${side}`).position[2], 0.21, 0.03), `rim_${side} z`);
+    assert.ok(near(part(goggles, `goggles:lens_${side}`).position[2], 0.25, 0.03), `lens_${side} z`);
+  }
+  assert.ok(near(part(goggles, "goggles:rim_L").position[0], 0.24, 0.02), "rims at x +-0.24");
+  assert.ok(part(goggles, "goggles:rim_L").rotation[2] < 0 && part(goggles, "goggles:rim_R").rotation[2] > 0, "lenses yawed to follow the brow");
+  const lamp = (await gear("debugger")).headgear;
+  assert.ok(near(part(lamp, "headlamp:lamp").position[2], 0.22, 0.03), "lamp z");
+  assert.ok(near(part(lamp, "headlamp:lens").position[2], 0.33, 0.03), "lamp lens z");
+  const cap = (await gear("security")).headgear;
+  assert.ok(near(part(cap, "cap:brim").position[2], 0.38, 0.03), "brim centre z");
+  assert.ok(near(part(cap, "cap:brim").rotation[0], 0.15, 0.03), "brim tilts down 0.15 rad");
+  assert.ok(near(part(cap, "cap:dome").scale[2], 0.75, 0.03), "dome is shallow in z");
+  // Nothing on the face stands further forward than the brim's front edge (0.58).
+  for (const role of ["product", "architect", "scout", "debugger", "security"]) {
+    const front = boxOf((await gear(role)).headgear).max.z;
+    assert.ok(front <= 0.62, `${role} front z ${front}`);
+  }
+});
+
+test("H4: goggle and headlamp straps are ellipses hugging the head (radius 0.64, z scale 0.62, centre z -0.15)", async () => {
+  for (const [role, name] of [["scout", "goggles:strap"], ["debugger", "headlamp:strap"]]) {
+    const strap = part((await gear(role)).headgear, name);
+    assert.ok(near(strap.params.radiusTop, 0.64, 0.02), `${name} radius`);
+    assert.ok(near(strap.scale[2], 0.62, 0.02) && strap.scale[0] === 1, `${name} scale`);
+    assert.ok(near(strap.position[2], -0.15, 0.02), `${name} centre z`);
+  }
+});
+
+test("H4: the toque, douli, beret and headphones sit over the head (centre z -0.15), not over the nose", async () => {
+  for (const role of ["orchestrator", "qa", "designer", "developer"]) {
+    const box = boxOf((await gear(role)).headgear);
+    assert.ok(near((box.max.z + box.min.z) / 2, -0.15, 0.04), `${role} centre z ${((box.max.z + box.min.z) / 2).toFixed(2)}`);
+  }
+});
+
+test("H2: the architect wears a big pencil behind the left ear; the product does not, so the pair differs at Level 1", async () => {
+  const arch = (await gear("architect")).headgear, prod = (await gear("product")).headgear;
+  assert.ok(!prod.some((p) => p.name.startsWith("pencil:")), "product has no pencil");
+  const parts = arch.filter((p) => p.name.startsWith("pencil:"));
+  const body = part(arch, "pencil:body");
+  assert.ok(body.params.radiusTop >= 0.09 - 1e-9, `pencil radius ${body.params.radiusTop}`);
+  assert.ok(parts.reduce((len, p) => len + p.params.height, 0) >= 0.7 - 1e-9, "pencil is at least 0.7 long");
+  assert.ok(near(body.position[0], -0.55, 0.12) && near(body.position[2], -0.42, 0.05), `pencil behind the ear (the ear disc spans z -0.15 to -0.35 on panda.glb; the designer's -0.2 runs through it) ${body.position}`);
+  assert.ok(near(body.rotation[2], (25 * Math.PI) / 180, 0.08), `tilted ~25 deg off vertical: ${body.rotation}`);
+  assert.equal(body.material, "wood");
+  assert.equal(part(arch, "pencil:tip").material, "ink");
+  assert.equal(part(arch, "pencil:ferrule").material, "cream");
+  const a = boxOf(arch), p = boxOf(prod);
+  assert.ok(a.min.x < p.min.x - 0.1, "the pencil widens the silhouette on the ear side");
+  assert.ok(a.max.y > p.max.y + 0.2, "the pencil rises above the ear line");
+});
+
+test("M3: the headphone band is raised off the black ears", async () => {
+  const { headgear } = await gear("developer");
+  assert.ok(part(headgear, "headphones:band").position[1] >= -0.42 + 0.05 - 1e-9, "band is 0.05 above the cup centres");
+});
+
+test("L1: the developer's tablet reports a red failed line and a green passed line, in semantic colours", async () => {
+  const { prop } = await gear("developer");
+  const red = lc(part(prop, "tablet:line_1").color), green = lc(part(prop, "tablet:line_2").color);
+  const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const [r1, g1, b1] = rgb(red), [r2, g2, b2] = rgb(green);
+  assert.ok(r1 > 150 && r1 > g1 * 2 && r1 > b1 * 2, `line_1 ${red} is red`);
+  assert.ok(g2 > 120 && g2 > r2 * 1.4 && g2 > b2 * 1.4, `line_2 ${green} is green`);
+  for (const c of [red, green]) assert.ok(!ALL_HUES.includes(c), "a result colour is never a station hue");
+});
+
+test("L2: the scarf tail sits forward of the belly (z >= 0.56)", async () => {
+  assert.ok(part((await gear("qa")).scarf, "scarf:tail").position[2] >= 0.56 - 1e-9);
+});
+
+test("L3: the headlamp has no long antenna box over the crown", async () => {
+  const { headgear } = await gear("debugger");
+  assert.ok(!headgear.some((p) => p.name === "headlamp:over"));
+  for (const p of headgear) {
+    const b = boxOf([p]);
+    assert.ok(b.max.y - b.min.y <= 0.4, `${p.name} stands ${(b.max.y - b.min.y).toFixed(2)} tall`);
+  }
+});
+
+test("H3: the Den's front-row noren hangs clear of the qa douli and security cap tips (bottom >= 1.55)", async () => {
+  const { kiosks } = await import("./kiosk.mjs");
+  const { counterTop, stallRoof } = await import("./banquet-layout.mjs");
+  const PLUSH = 0.3, FOOT_LIFT = 0.3, HAT_SOCKET_Y = 0.97; // panda-contract measurements, plush scale 0.3 in the Den
+  for (const [role, station] of [["qa", "tea"], ["security", "pantry"]]) {
+    const tipY = counterTop(station) + FOOT_LIFT + PLUSH * (HAT_SOCKET_Y + boxOf((await gear(role)).headgear).max.y);
+    const k = kiosks({ cells: [], counts: {}, theme: "light" }).find((x) => x.station === station);
+    assert.ok(stallRoof(station).eave >= 1.77 - 1e-9, `${station} eave ${stallRoof(station).eave}`);
+    const bottoms = k.noren.panels.map((p) => p.top - p.drop);
+    for (const b of bottoms) assert.ok(b >= 1.55 - 1e-9, `${station} noren bottom ${b} against hat tip ${tipY.toFixed(2)}`);
+    assert.ok(Math.min(...bottoms) >= tipY + 0.1, `${station}: the ${role} hat tip ${tipY.toFixed(2)} shows under the noren`);
+  }
+});
+
+test("Den applies each role's placement rotation and position to its prop, by socket name", () => {
+  const den = read("./Den.jsx");
+  assert.match(den, /rotation\.set\(\.\.\.rotation\)/);
+  assert.match(den, /position\.set\(\.\.\.position\)/);
 });

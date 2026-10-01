@@ -40,8 +40,12 @@ const COUNTER_Y = 0.6;
 
 /** The back stalls stand on a low platform so their cells rise above the front row's roofs (default camera). */
 export const BACK_PLATFORM = 0.5;
-/** The front stalls carry a low roof; its apex stays under the sight line to the back counters. */
-export const FRONT_ROOF = { eave: 1.4, rise: 0.4 };
+/**
+ * The front stalls carry a low roof. The eave is raised to 1.77 (user, 2026-10-01, den-scene-v1/09 round 2) so the
+ * noren bottom (eave - 0.22 = 1.55) clears the qa douli and security cap at head height; the roof does not hide the
+ * back counters from the default camera because the horseshoe puts it to the side of them on screen.
+ */
+export const FRONT_ROOF = { eave: 1.77, rise: 0.4 };
 
 /** Pass perches as fractions of Bao's box, plus which way extra cells of the same type step. */
 const PASS = {

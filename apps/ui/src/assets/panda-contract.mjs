@@ -25,16 +25,27 @@ export const PROP_ASSETS = {
 };
 // den-scene-v1/09: where each role's procedural headgear and handheld prop attach, by socket name (the parts
 // themselves are in apps/ui/src/scene/headgear.mjs). The scarf is shared and rides the body bone.
+//
+// A paw socket on panda.glb (measured at sit_still) has its +y axis pointing at the camera (world +z), +z up and +x
+// at world -x, so a prop built long-axis +y would be seen end-on. Every prop is turned by PROP_ROTATION (Euler XYZ,
+// radians) so its +y is world up and its face (+z) looks at the camera, and may carry a `position` in socket axes:
+// flat props (menu, slips, tablet, plate, teacup, seal) are held 0.26 toward the camera and 0.22 up so they clear the
+// fist, and the cream cup and plate stand 0.18 outward of the belly (L paw: world +x, R paw: world -x).
+export const PROP_ROTATION = [Math.PI / 2, Math.PI, 0];
+const FLAT_HELD = [0, 0.26, 0.22]; // socket axes: x sideways, y toward the camera, z up
+const flat = (socket, x = 0) => ({ socket, rotation: PROP_ROTATION, position: [x, FLAT_HELD[1], FLAT_HELD[2]] });
+const upright = (socket) => ({ socket, rotation: PROP_ROTATION, position: [0, 0, 0] });
+const OUTWARD = 0.18; // socket x: +x on paw_R and -x on paw_L both move the prop away from the body
 export const ROLE_PLACEMENT = {
-  orchestrator: { headgear: { socket: "hat" }, prop: { socket: "paw_R" } },
-  product: { headgear: { socket: "hat" }, prop: { socket: "paw_L" } },
-  architect: { headgear: { socket: "hat" }, prop: { socket: "paw_L" } },
-  developer: { headgear: { socket: "hat" }, prop: { socket: "paw_L" } },
-  scout: { headgear: { socket: "hat" }, prop: { socket: "paw_R" } },
-  debugger: { headgear: { socket: "hat" }, prop: { socket: "paw_R" } },
-  qa: { headgear: { socket: "hat" }, prop: { socket: "paw_R" } },
-  security: { headgear: { socket: "hat" }, prop: { socket: "paw_R" } },
-  designer: { headgear: { socket: "hat" }, prop: { socket: "paw_L" } },
+  orchestrator: { headgear: { socket: "hat" }, prop: upright("paw_R") },
+  product: { headgear: { socket: "hat" }, prop: flat("paw_L") },
+  architect: { headgear: { socket: "hat" }, prop: flat("paw_L") },
+  developer: { headgear: { socket: "hat" }, prop: flat("paw_L") },
+  scout: { headgear: { socket: "hat" }, prop: upright("paw_R") },
+  debugger: { headgear: { socket: "hat" }, prop: upright("paw_R") },
+  qa: { headgear: { socket: "hat" }, prop: flat("paw_R", OUTWARD) },
+  security: { headgear: { socket: "hat" }, prop: flat("paw_R") },
+  designer: { headgear: { socket: "hat" }, prop: flat("paw_L", -OUTWARD) },
 };
 export const SCARF_SOCKET = "body";
 export const FACE_FRAMES = [
