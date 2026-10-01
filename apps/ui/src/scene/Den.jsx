@@ -198,7 +198,7 @@ export function Den(props) {
   return (
     <>
       <Backdrop />
-      <TallyFace face={props.tallyFace} onOpen={props.onOpenTally} stage={props.stage} />
+      <TallyFace tally={props.tally} onOpen={props.onOpenTally} stage={props.stage} />
       <FiguresBoundary>
         <Suspense fallback={null}>
           <DenFigures {...props} />

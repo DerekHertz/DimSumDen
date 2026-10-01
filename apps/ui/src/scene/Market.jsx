@@ -3,7 +3,7 @@
 // panda-ink roofs and station-hue trim, roof lanterns that light when a cell there waits on the user,
 // the service bell on Bao's crown, and the cub basket. Positions come from banquet-layout.mjs. The
 // susan does not spin; a basket turns only on a handoff (handoffs.mjs), and jumps under reduced motion.
-import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import {
@@ -12,6 +12,7 @@ import {
 import { DUR_SLOW_MS, lanternState, susanLayout, turnAngle } from "./handoffs.mjs";
 import { POST_BASE, POST_SIZE, eaveTrimTriangles, postHeight, postPositions, roofTriangles } from "./stall-roof.mjs";
 import { kiosks } from "./kiosk.mjs";
+import { useSystemTheme } from "./system-theme.js";
 
 const TOP_RADIUS = 1.8;
 const TOP_THICKNESS = 0.1;
@@ -27,13 +28,6 @@ const LANTERN_OFF = "#7a6a4a";
 const SUSAN_Y = 0.75;
 
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-const systemTheme = () => matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-function subscribeTheme(onChange) {
-  const query = matchMedia("(prefers-color-scheme: dark)");
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
 
 const trianglesGeometry = (flat) => {
   const g = new THREE.BufferGeometry();
@@ -257,7 +251,7 @@ function ServiceBell({ lit }) {
 }
 
 export function Market({ baskets, handoffs, cells, counts }) {
-  const theme = useSyncExternalStore(subscribeTheme, systemTheme, () => "light");
+  const theme = useSystemTheme();
   const lanterns = useMemo(() => lanternState(cells), [cells]);
   const kioskList = useMemo(() => kiosks({ cells, counts, theme }), [cells, counts, theme]);
   return (

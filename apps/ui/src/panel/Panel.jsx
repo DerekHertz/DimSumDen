@@ -6,7 +6,7 @@ import { queueModel, detailModel } from "./queue-model.mjs";
 import { usageMeterModel } from "./usage-meter-model.mjs";
 import { parseMarkdown } from "./render-markdown.mjs";
 
-function useNow(intervalMs = 30_000) {
+export function useNow(intervalMs = 30_000) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), intervalMs);

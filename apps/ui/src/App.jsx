@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { CameraRig } from "./scene/CameraRig.jsx";
 import { cameraPosition, FOV_DEG } from "./scene/camera-rig.mjs";
@@ -9,10 +9,10 @@ import { useLiveState } from "./live.js";
 import { demoRequested, useDemoSnapshot, useHandoffs } from "./handoff-state.js";
 import { useMetrics } from "./metrics-state.js";
 import { dashboardModel } from "./panel/dashboard-model.mjs";
-import { tallyFace } from "./scene/tally-face.mjs";
+import { tallyRods } from "./scene/tally-face.mjs";
+import { TallyCard } from "./scene/TallyCard.jsx";
 import { trackedTickets } from "./scene/handoffs.mjs";
-import { UsageMeter, Queue, Detail, Gates } from "./panel/Panel.jsx";
-import { Dashboard } from "./panel/Dashboard.jsx";
+import { UsageMeter, Queue, Detail, Gates, useNow } from "./panel/Panel.jsx";
 import { gatesModel } from "./panel/gates-model.mjs";
 import { pillModel, panelPlaceholder } from "./state/connection.mjs";
 
@@ -32,7 +32,6 @@ const SECTIONS = [
   ["gates", "Needs you"],
   ["queue", "Queue"],
   ["detail", "Selected ticket"],
-  ["dashboard", "Pipeline"],
 ];
 
 function activeCount(snapshot) {
@@ -56,18 +55,21 @@ export function App() {
   const sceneCells = useMemo(() => withPassCell(cells), [cells]);
   const handoffs = useHandoffs(snapshot);
   const { metrics, failed: metricsFailed, retry: retryMetrics } = useMetrics(metricsRevision);
-  const face = useMemo(() => tallyFace(dashboardModel(metrics, { error: metricsFailed })), [metrics, metricsFailed]);
-  // Tally opens the Dashboard section: scroll it into view and move focus to its heading.
-  const [dashboardOpens, setDashboardOpens] = useState(0);
-  const openDashboard = useCallback(() => setDashboardOpens((n) => n + 1), []);
-  useEffect(() => {
-    if (!dashboardOpens) return;
-    const heading = document.getElementById("h-dashboard");
-    // Scroll only the panel's own container, never the document; focus without scrolling the page.
-    const panel = heading?.closest(".panel");
-    if (panel) panel.scrollTop += heading.getBoundingClientRect().top - panel.getBoundingClientRect().top;
-    heading?.focus?.({ preventScroll: true });
-  }, [dashboardOpens]);
+  const dashboard = useMemo(() => dashboardModel(metrics, { error: metricsFailed }), [metrics, metricsFailed]);
+  const now = useNow();
+  const tally = useMemo(() => tallyRods(snapshot?.usage ?? null, dashboard, now), [snapshot?.usage, dashboard, now]);
+  // Tally expands into an in-place card over the scene (nothing scrolls). Esc, Close and the pill return
+  // focus to the pill; an outside pointerdown closes without moving focus.
+  const [tallyOpen, setTallyOpen] = useState(false);
+  const openTally = useCallback(() => setTallyOpen(true), []);
+  const closeTally = useCallback((restoreFocus = false) => {
+    setTallyOpen(false);
+    if (restoreFocus) document.querySelector(".chip-tally")?.focus({ preventScroll: true });
+  }, []);
+  const toggleTally = useCallback(() => {
+    if (tallyOpen) closeTally(true);
+    else openTally();
+  }, [tallyOpen, openTally, closeTally]);
   const hearts = useMemo(() => new Set(handoffs.map((h) => h.ref)), [handoffs]);
   const baskets = useMemo(
     () => [...trackedTickets(snapshot)].map(([ref, t]) => ({ ref, station: t.station })),
@@ -82,10 +84,11 @@ export function App() {
           <ambientLight intensity={0.8} />
           <directionalLight position={[2, 4, 3]} intensity={1.2} />
           <Suspense fallback={null}>
-            <Den cells={sceneCells} baskets={baskets} handoffs={handoffs} tallyFace={face} onOpenTally={openDashboard} selected={selected} onSelect={setSelected} stage={stage} />
+            <Den cells={sceneCells} baskets={baskets} handoffs={handoffs} tally={tally} onOpenTally={openTally} selected={selected} onSelect={setSelected} stage={stage} />
           </Suspense>
         </Canvas>
-        <ChipLayer cells={cells} hearts={hearts} onOpenTally={openDashboard} tickets={snapshot?.tickets} selected={selected} onSelect={setSelected} stage={stage} />
+        <ChipLayer cells={cells} hearts={hearts} onToggleTally={toggleTally} tallyOpen={tallyOpen} tally={tally} tickets={snapshot?.tickets} selected={selected} onSelect={setSelected} stage={stage} />
+        {tallyOpen ? <TallyCard tally={tally} metrics={metrics} failed={metricsFailed} onRetry={retryMetrics} onClose={closeTally} stage={stage} /> : null}
         {snapshot && cells.length === 0 ? <p className="scene-caption scene-empty">The den is quiet. No active tickets.</p> : null}
         {overflow > 0 ? <p className="scene-caption scene-more">+{overflow} more in queue</p> : null}
       </main>
@@ -99,12 +102,11 @@ export function App() {
         ) : (
           SECTIONS.filter(([id]) => id !== "gates" || gatesModel(snapshot).visible).map(([id, heading]) => (
             <section key={id} aria-labelledby={`h-${id}`} className="slot" data-slot={id}>
-              <h2 id={`h-${id}`} tabIndex={id === "dashboard" ? -1 : undefined}>{heading}{id === "gates" ? <span className="gate-count">{gatesModel(snapshot).count}</span> : null}</h2>
+              <h2 id={`h-${id}`}>{heading}{id === "gates" ? <span className="gate-count">{gatesModel(snapshot).count}</span> : null}</h2>
               {id === "usage" && snapshot ? <UsageMeter usage={snapshot.usage} /> : null}
               {id === "gates" ? <Gates snapshot={snapshot} /> : null}
               {id === "queue" && snapshot ? <Queue snapshot={snapshot} selected={selected} onSelect={setSelected} /> : null}
               {id === "detail" && snapshot ? <Detail snapshot={snapshot} selected={selected} /> : null}
-              {id === "dashboard" ? <Dashboard metrics={metrics} failed={metricsFailed} onRetry={retryMetrics} /> : null}
             </section>
           ))
         )}
