@@ -3,7 +3,7 @@
 // panda-ink roofs and station-hue trim, roof lanterns that light when a cell there waits on the user,
 // the service bell on Bao's crown, and the cub basket. Positions come from banquet-layout.mjs. The
 // susan does not spin; a basket turns only on a handoff (handoffs.mjs), and jumps under reduced motion.
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import {
@@ -11,6 +11,7 @@ import {
 } from "./banquet-layout.mjs";
 import { DUR_SLOW_MS, lanternState, susanLayout, turnAngle } from "./handoffs.mjs";
 import { POST_BASE, POST_SIZE, postHeight, postPositions, roofTriangles } from "./stall-roof.mjs";
+import { stationHue } from "./station-hues.mjs";
 
 const TOP_RADIUS = 1.8;
 const TOP_THICKNESS = 0.1;
@@ -20,13 +21,19 @@ const WOOD = "#b98a55";
 const BAMBOO = "#d9c08a";
 // Platforms under the back stalls: station-neutral stone, not panda ink.
 const STONE = "#b3a892";
-const HUE = { steamers: "#e0a458", "front-of-house": "#d9707e", tea: "#6fae7a", pantry: "#5f8fbf" };
 // The lantern token (fill) and its unlit look.
 const LANTERN_LIT = "#f8bd40";
 const LANTERN_OFF = "#7a6a4a";
 const SUSAN_Y = 0.75;
 
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const systemTheme = () => matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+function subscribeTheme(onChange) {
+  const query = matchMedia("(prefers-color-scheme: dark)");
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
 
 function Lantern({ lit, position, radius = 0.14 }) {
   return (
@@ -175,6 +182,7 @@ function ServiceBell({ lit }) {
 }
 
 export function Market({ baskets, handoffs, cells, counts }) {
+  const theme = useSyncExternalStore(subscribeTheme, systemTheme, () => "light");
   const lanterns = useMemo(() => lanternState(cells), [cells]);
   return (
     <group name="banquet-market">
@@ -200,7 +208,7 @@ export function Market({ baskets, handoffs, cells, counts }) {
           station={station}
           x={stallCenterX(station, counts[station] ?? 0)}
           z={c.z}
-          hue={HUE[station]}
+          hue={stationHue(station, theme)}
           width={stallWidth(counts[station] ?? 0)}
           lit={lanterns.stalls.has(station)}
         />
