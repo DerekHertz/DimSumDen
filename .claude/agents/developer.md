@@ -3,7 +3,7 @@ name: developer
 description: Steamers cell that implements one ready-for-agent ticket test-first in its own git worktree, then reviews and commits it. Use when a ticket is ready and unblocked.
 tools: Read, Grep, Glob, Write, Edit, Bash, Agent(scout), Skill, mcp__blender__execute_blender_code, mcp__blender__get_objects_summary, mcp__blender__get_object_detail_summary, mcp__blender__get_screenshot_of_window_as_image, mcp__blender__render_viewport_to_path, mcp__blender__search_api_docs
 model: sonnet
-effort: medium
+effort: high
 color: orange
 isolation: worktree
 skills:
