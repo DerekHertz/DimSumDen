@@ -3,11 +3,17 @@ name: usage-watch
 description: Check plan usage and wind work down before the limit hits. Use at every dispatch decision, when a cell returns, and every 30 minutes or so in a long session. If the 5-hour window is at or above 80%, start wrapping up.
 ---
 
-Read usage with `mcp__ccd_session_mgmt__get_usage` (main session only; the `5-hour limit` window's `percentUsed`). The desktop app doesn't provide that tool to WSL sessions, so there run `node scripts/usage.mjs`: it prints `{"5-hour":{"percent","resets_at"},"weekly":{...}}` and exits 1 on any failure (if it reports no token, the user needs to log in to `claude` in WSL). If both fail, or you're a subagent, ask the main session or the user for the number rather than guessing.
+Select the provider from the active session, never from installed CLIs, credential files, or the chosen model. Use `node scripts/usage.mjs --provider codex` in Codex and `node scripts/usage.mjs --provider claude` in Claude. A legacy invocation without `--provider` still selects Claude; it must not be used to read Codex usage.
 
-In a cloud session (`CLAUDE_CODE_REMOTE` set) there is no credentials file, so `node scripts/usage.mjs` can't read the real numbers. Ask the user to paste their `/usage` report and log its 5-hour and weekly % in the usage row. Ask at every dispatch or merge gate; between gates, the script's `weighted_tokens` estimate shows the trend only.
+For Claude, `mcp__ccd_session_mgmt__get_usage` (main session only; the `5-hour limit` window's `percentUsed`) is also supported when available. The Claude CLI adapter preserves the existing credential-backed behavior and cloud estimate behavior. A weighted-token estimate is a trend estimate, never a live account quota reading.
 
-The user is on the **Pro** plan. If `get_usage` reports a different plan (e.g. it reported "Max" on 2026-09-27, likely stale), warn the user rather than silently trusting it.
+The Codex adapter uses the supported app-server `account/rateLimits/read` exchange. It selects Codex account limits, maps 300-minute and 10080-minute windows to `5-hour` and `weekly`, and converts reset times to ISO. It does not read Claude credentials or substitute Claude estimates. Both providers retain the canonical `{"5-hour":{"percent","resets_at"},"weekly":{...}}` window fields. Missing or invalid Codex limits and CLI, auth, network, or timeout failures exit nonzero with a sanitized diagnostic.
+
+Attribute every reading to its provider and source: live account, user-reported, or estimate. If live usage is unavailable, say so and ask the user for the active provider's usage report. Log unavailable windows and reset times as unknown; never invent them. If the user reports a percentage remaining, convert it to percent used (`100 - remaining`). Subagents ask the orchestrator for usage instead of reading a different account.
+
+In a Claude cloud session (`CLAUDE_CODE_REMOTE` set), the legacy adapter cannot read live account numbers. Ask for the user's Claude usage report and log its 5-hour and weekly percentages with source attribution. In Codex cloud sessions, try the Codex adapter; if the supported invocation is unavailable, report the actual limitation and use a clearly attributed manual reading. Ask for fresh manual usage at dispatch or merge decisions when live readings are unavailable. Between decisions, estimates show trends only.
+
+The recorded **Pro** plan assumption applies to Claude only. If Claude reports a different plan, flag the discrepancy. Do not carry Claude's plan name or limits into Codex; use Codex's reported account limits and treat an unavailable plan as unknown.
 
 | 5-hour usage | Action |
 |---|---|
