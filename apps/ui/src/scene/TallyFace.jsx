@@ -22,6 +22,7 @@ const PAPER_Z = -0.04;
 const PAPER_PX = { w: 512, h: 675 }; // 0.94 x 1.24 inner area
 const L = abacusLayout();
 const F = TALLY.frame;
+const ROD_LEFT = L.labelColumnRight - 0.02; // rods start at the label column, so the sans labels sit clear of them
 const FRAME_CY = TALLY.groundY + TALLY.leg.height + F.height / 2; // group-local frame centre height
 const INNER_W = F.width - 2 * F.bar;
 const INNER_H = F.height - 2 * F.bar;
@@ -91,8 +92,8 @@ function Rod({ rod, y, colors }) {
   const beadColor = colors[rod.color];
   return (
     <group position={[0, y, 0]}>
-      <mesh rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[ROD_R, ROD_R, INNER_W, 8]} />
+      <mesh position={[(ROD_LEFT + L.innerRight) / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[ROD_R, ROD_R, L.innerRight - ROD_LEFT, 8]} />
         <meshStandardMaterial color={WOOD_DEEP} />
       </mesh>
       {Array.from({ length: 10 }, (_, i) => (
@@ -101,12 +102,6 @@ function Rod({ rod, y, colors }) {
           <meshStandardMaterial color={i >= 10 - counted ? beadColor : WOOD} />
         </mesh>
       ))}
-      {rod.mark80 ? (
-        <mesh position={[L.mark80X, 0, 0.005]}>
-          <boxGeometry args={[0.012, 0.1, 0.02]} />
-          <meshStandardMaterial color={colors["lantern-fill"]} />
-        </mesh>
-      ) : null}
     </group>
   );
 }
@@ -174,6 +169,16 @@ export function TallyFace({ tally, onOpen, stage }) {
           <planeGeometry args={[INNER_W, INNER_H]} />
           <meshBasicMaterial map={texture} toneMapped={false} />
         </mesh>
+        {/* The 80% mark: lantern ticks on the inner edges of the top and bottom bars, over the boundary with
+            8 counted beads to its right. On the frame, so counted-bead packing never hides it. */}
+        {tally.rods.some((r) => r.mark80)
+          ? [-1, 1].map((s) => (
+              <mesh key={`mark${s}`} position={[L.mark80X, s * (INNER_H / 2), F.depth / 2]}>
+                <boxGeometry args={[0.014, 0.04, 0.016]} />
+                <meshStandardMaterial color={colors["lantern-fill"]} />
+              </mesh>
+            ))
+          : null}
         {tally.rods.map((rod, i) => (
           <Rod key={rod.id} rod={rod} y={L.rodYs[i]} colors={colors} />
         ))}

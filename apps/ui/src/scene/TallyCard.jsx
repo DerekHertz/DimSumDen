@@ -3,7 +3,7 @@
 // from the same tallyRods view-model as the abacus, so card and abacus never disagree.
 // Esc, the Close button and the pill close it and return focus to the pill; a pointerdown outside the card
 // and the pill closes it without moving focus.
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef } from "react";
 import { Dashboard } from "../panel/Dashboard.jsx";
 import { TALLY_CARD_ID } from "./tally-face.mjs";
 
@@ -138,8 +138,12 @@ export function TallyCard({ tally, metrics, failed, onRetry, onClose, stage }) {
         <section className="tally-section">
           <h3 className="tally-h3">The rods</h3>
           <p className="small tally-caption">{tally.caption}</p>
-          {tally.rods.map((rod) => <RodRow key={rod.id} rod={rod} />)}
-          {tally.sampledText ? <p className="small tally-caption">{tally.sampledText}</p> : null}
+          {tally.rods.map((rod) => (
+            <Fragment key={rod.id}>
+              <RodRow rod={rod} />
+              {rod.id === "week" && tally.sampledText ? <p className="small tally-caption">{tally.sampledText}</p> : null}
+            </Fragment>
+          ))}
         </section>
         <section className="tally-section">
           <h3 className="tally-h3">Pipeline</h3>

@@ -33,6 +33,7 @@ const usageRod = ({ id, label, ariaName, value }) => {
     label,
     kind: "usage",
     counted: sampled ? beadCount(value, 100) : 0,
+    // Designer spec: counted beads turn alarm past 95 (strictly); the status text follows the sidebar meter's >= 95.
     color: sampled && value > 95 ? "alarm" : "qi",
     valueText: sampled ? `${value}%` : "not sampled",
     statusText: !sampled ? null : value >= 95 ? "At limit" : value >= 80 ? "Wind down" : null,
