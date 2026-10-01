@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,7 +20,7 @@ function git(cwd, args) {
 }
 
 function initRepo() {
-  const root = mkdtempSync(path.join(tmpdir(), "worktree-gc-26-"));
+  const root = mkdtempSync(path.join(realpathSync(tmpdir()), "worktree-gc-26-"));
   git(root, ["init", "-q"]);
   git(root, ["config", "user.email", "test@example.com"]);
   git(root, ["config", "user.name", "Test"]);
