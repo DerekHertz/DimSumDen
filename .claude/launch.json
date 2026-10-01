@@ -3,9 +3,30 @@
   "configurations": [
     {
       "name": "panda-viewer",
-      "runtimeExecutable": "python",
+      "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8124", "--directory", "apps/ui"],
       "port": 8124
+    },
+    {
+      "name": "ui-review",
+      "runtimeExecutable": "/Users/zvonbehren/.nvm/versions/node/v24.21.0/bin/node",
+      "runtimeArgs": [
+        "/Users/zvonbehren/Desktop/derek_repos/DimSumDen/.claude/worktrees/ui-review/node_modules/vite/bin/vite.js",
+        "--config",
+        "/Users/zvonbehren/Desktop/derek_repos/DimSumDen/.claude/worktrees/ui-review/apps/ui/vite.config.mjs",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "5174",
+        "--strictPort"
+      ],
+      "port": 5174
+    },
+    {
+      "name": "ui-review-bridge",
+      "runtimeExecutable": "/Users/zvonbehren/.nvm/versions/node/v24.21.0/bin/node",
+      "runtimeArgs": ["/Users/zvonbehren/Desktop/derek_repos/DimSumDen/apps/bridge/server.mjs"],
+      "port": 4317
     }
   ]
 }
