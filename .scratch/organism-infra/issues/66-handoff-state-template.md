@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] `--template` output, with its placeholders filled, passes the same validation `board handoff` runs (test)
 - [ ] Ticket, cell and mode are pre-filled from the ref and the held lock (test)
@@ -16,3 +16,6 @@
 
 ## Comments
 - **Retro (user, 2026-09-30):** approved as the code fix for the repeated State-block failures.
+- **developer, 2026-09-30:** Batch A developer done on feat/batchA-board-friction at c9f8ab0 (npm test 1208/1208). .claude parts scripted, not applied. See handoffs/66-developer.md
+- **qa, 2026-09-30:** QA pass. 1208/1208. board-handoff-template.test.mjs covers criterion 1 (template output passes validateState, lines 48-69) and criterion 2 (ticket/cell/mode pre-filled from ref and lock, lines 84-136). Criterion 3 (.claude/ edit naming the command) is human-verified: organism-protocol SKILL.md and handoff SKILL.md updated in commit 1191686. Test files unchanged from f7be419.
+- **security, 2026-09-30:** Security pass: no critical/high findings; gitleaks 0 leaks; npm audit 0 vulns; all shell-outs use execFileSync/spawnSync without shell:true with no untrusted args; refuseWorktreeDraft path guard correct; no new dependencies.

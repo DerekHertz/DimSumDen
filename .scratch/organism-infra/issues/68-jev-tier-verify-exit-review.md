@@ -18,3 +18,9 @@ Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 
 ## Comments
 - **orchestrator, 2026-09-30:** Verdicts (orchestrator, 2026-09-30, evidence from scout): tier STAY SHADOW: 24 tickets, 3 fallbacks, median 436 ms, 2 bounces (dimsumden-ui-v0/07, organism-infra/41), neither caused or avoidable by the pick; value fails (+11.7% tokens vs -30% needed). verify STAY SHADOW: 20 tickets, 0 fallbacks, median 468.5 ms, same 2 bounces unrelated to depth; value fails (-5.5% vs -30%). No live switch. Criterion 2 NOT met: jev-report prints bounces but not their cause or a per-criterion PASS/FAIL, so the safety judgement needed hand reading. Ticket stays open until jev-report prints that.
+- **orchestrator, 2026-09-30:** Batch B: criterion 2 runs in batch B with 47; criteria 1 and 3 are orchestrator work after merge.
+- **qa, 2026-09-30:** qa specify: 11 failing tests for criterion 2 on tests/batch-B @ 77ea34b (jev-report-exit-criteria.test.mjs). Batched with 47; one relay. Handoff: 68-qa-specify.md.
+- **developer, 2026-09-30:** developer
+- **qa, 2026-09-30:** QA pass (criterion 2). 1274/1274 tests pass (0 skip). All 11 jev-report-exit-criteria.test.mjs tests pass without modification. QA test file byte-for-byte identical to specify commit 77ea34b. Criteria 1 and 3 remain for orchestrator post-merge. See handoff 68-qa-verify.md.
+- **security, 2026-09-30:** Security pass. Batched with organism-infra/47; see 47-security.md for full review. gitleaks: no leaks. npm audit: 0 vulns. No new deps, no CI changes. All risk-check hits are false positives or security improvements. No critical or high findings.
+- **orchestrator, 2026-09-30:** criterion 2 merged in PR 100; criteria 1 and 3 are orchestrator verdict work

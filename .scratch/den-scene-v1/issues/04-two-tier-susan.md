@@ -39,3 +39,4 @@ Turn the susan into two tiers so it shows the queue and the work at once, and re
 ## Comments
 
 - **Created (designer, 2026-09-30):** Filed from the 09-29/30 design session; the user approved every decision in this ticket.
+- **orchestrator, 2026-09-30:** Design sweep (designer, user-approved 2026-09-30): Scope added: low-poly first (simple plates and baskets).

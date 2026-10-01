@@ -8,7 +8,7 @@
 
 **Blocked by:** 04, 14
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] hop, waddle and land-squish clips are in the glb and pass the asset contract check
 - [ ] Director tests cover hop vs waddle choice, the mid-hop drop, and the reduced-motion cross-fade
@@ -18,3 +18,5 @@
 - **Needs main-session Blender run (orchestrator, 2026-09-26):** requires new glb clips/textures per its acceptance criteria; subagent dispatch has no Blender MCP tools. See .scratch/character-animation/handoffs/00-orchestrator-2.md.
 - **Correction (main session, 2026-09-26):** The "no Blender MCP tools" note above is stale. A developer subagent dispatched from the main session has all six `mcp__blender__*` tools and read the open PandaAsset scene. Dispatch normally; the developer probes Blender before claiming.
 - **Scope change (user, 2026-09-29):** banquet market layout. Travel is now cub basket to stall, stall to table, and hops onto Bao's crown and shoulders for the 3 Pass cells only. Paths come from ADR 0013's anchors. Now also blocked by 14. Canvas: https://claude.ai/artifact/LQjpimx1jfX5bjZEoTo3za
+- **orchestrator, 2026-09-30:** Design sweep (designer, user-approved 2026-09-30): SUPERSEDED by den-scene-v1/01: pandas no longer roam; handoff travel along the kiosk arc is the only movement. Reduced-motion cross-fade moves to ca/06.
+- **orchestrator, 2026-09-30:** superseded by den-scene-v1/01

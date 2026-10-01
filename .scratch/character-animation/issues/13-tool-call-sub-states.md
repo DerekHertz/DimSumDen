@@ -22,3 +22,4 @@
 
 - **Created (orchestrator, 2026-09-28):** The user chose a separate ticket over folding this into 04. `designer` runs `spec` mode before the relay.
 - **unknown, 2026-09-28:** Clarified (user, 2026-09-28): developer cells stay modern (a laptop, a modern look, no dynastic props). The traditional Chinese elements (scroll, hats, dynastic touches) go to the other cells. Kitchen actions like pleating can still apply, but with a modern style.
+- **orchestrator, 2026-09-30:** Design sweep (designer, user-approved 2026-09-30): KEEP (later): check wording against den vocabulary before dispatch.

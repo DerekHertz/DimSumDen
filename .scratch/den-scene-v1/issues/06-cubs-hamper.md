@@ -29,3 +29,4 @@ Replace the open cub basket with a lidded bamboo hamper.
 ## Comments
 
 - **Created (designer, 2026-09-30):** Filed from the 09-29/30 design session; the user approved every decision in this ticket.
+- **orchestrator, 2026-09-30:** Design sweep (designer, user-approved 2026-09-30): Scope added: low-poly first (box with a hinged lid). Cubs wear a nightcap.
