@@ -50,9 +50,11 @@ qa turns it into tests. Consider /design:design-handoff and /design:ux-copy.
 
 Run the branch's UI in the browser pane and compare it against the spec, the design system and the zoom frames at desktop and mobile widths, in both themes, and with reduced motion. Run /design:accessibility-review against WCAG 2.1 AA: contrast, keyboard, focus, screen reader, and reduced motion. Write `Design pass` or `Design bounce` in `## Comments`, with each finding as a screenshot reference or `file:line` plus one line of why.
 
+**Review budget.** Every tool call re-reads your whole context, and screenshots are the largest part of it. Take one screenshot per view in the checklist (desktop and 375px, light and dark, reduced motion) and at most 6 detail crops. Use at most 40 tool calls in total. Don't re-capture a view to compare it; measure from code or one render instead. If the budget runs out, write the verdict on what you checked and list what you didn't check under `Unchecked`.
+
 ## critique (on an asset ticket)
 
-Run `asset-critique` rounds on the developer's exported glb, measuring with the Blender tools. Write ranked fixes in `## Comments` for the developer. When a round has no high-severity findings, mark the ticket `ready-for-human`; the user gives the final verdict.
+Run `asset-critique` rounds on the developer's exported glb, measuring with the Blender tools. The review budget above applies to each round. Write ranked fixes in `## Comments` for the developer. When a round has no high-severity findings, mark the ticket `ready-for-human`; the user gives the final verdict.
 
 ## Design system upkeep
 
