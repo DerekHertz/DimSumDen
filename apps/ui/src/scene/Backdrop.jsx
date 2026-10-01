@@ -115,12 +115,7 @@ function buildDressing(tokens) {
 function Dressing() {
   const theme = useSystemTheme();
   const group = useMemo(() => buildDressing(readDressingTokens()), [theme]);
-  return (
-    <>
-      <primitive object={group} />
-      <Dressing />
-    </>
-  );
+  return <primitive object={group} />;
 }
 
 export function Backdrop() {
@@ -144,5 +139,10 @@ export function Backdrop() {
       if (layer) layer.position.x = SWAY_REACH * swayAngle(t + phase, reduced.matches);
     }
   });
-  return <primitive object={group} />;
+  return (
+    <>
+      <primitive object={group} />
+      <Dressing />
+    </>
+  );
 }

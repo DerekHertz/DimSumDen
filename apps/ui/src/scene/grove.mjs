@@ -105,6 +105,11 @@ export function applyGroveTheme(group, tokens) {
   });
 }
 
+// The orthographic camera stands 40 units from its target (iso-projection.mjs), so every market object is 32 to 48 units
+// away, even at the pan and zoom limits. Fog starts just past that and thins only the grove beyond the market.
+export const FOG_NEAR = 49;
+export const FOG_FAR = 75;
+
 export function groveFog(tokens) {
-  return new THREE.Fog(tokens["grove-mist"], 18, 40);
+  return new THREE.Fog(tokens["grove-mist"], FOG_NEAR, FOG_FAR);
 }
