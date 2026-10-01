@@ -71,8 +71,15 @@ A point where a cell must stop and get the user's explicit approval.
 _Avoid_: Checkpoint, approval step
 
 **Gate request**:
-The user's approve or reject on a pass gate, made in the UI and recorded as one line in `.scratch/_requests/requests.jsonl`. The orchestrator reads it, acts, and marks it handled. A gate request never runs anything itself.
-_Avoid_: Command, action (the UI does not execute)
+The user's approve or reject on a pass gate, made in the UI and recorded as one line in `.scratch/_requests/requests.jsonl`. The line is an audit record and proves nothing about who wrote it; it runs nothing. The orchestrator reads it, acts, and marks it handled. A cell starts from the UI only through a token-authenticated dispatch (a steering command), never because a line appeared.
+_Avoid_: Command, action (for a gate request; see steering command)
+
+**Steering command**:
+A UI-originated action on a live cell (dispatch, answer a permission request, send a message, kill) that the bridge executes and logs. It is authorized only by the UI's per-run token, never by a line in a file.
+_Avoid_: Command (alone), gate request (a gate request only records and runs nothing)
+
+**Permission request**:
+A live cell asking to use a tool, held by the bridge until the user allows or denies it in the UI, where it appears under Needs you beside the pass gates. No answer, or an expired one, means deny. Allow is possible only after the full tool input has been shown.
 
 **Autonomy**:
 How many pass gates apply: supervised, gated, or autopilot. It is set per organism, station, or cell.
@@ -138,4 +145,4 @@ What each term is called in anything a user sees (UI copy, labels, `aria-label`s
 | Genome | recipe card |
 | Apoptosis | clocking out |
 | Endocrine limits | plan usage, kitchen limits |
-| Pass gate, gate request | Needs you |
+| Pass gate, gate request, permission request | Needs you |
