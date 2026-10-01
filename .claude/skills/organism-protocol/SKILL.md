@@ -43,7 +43,7 @@ State the action, why, and what changes. Wait for an explicit yes.
 - a scope, design or requirements question the spec doesn't answer
 - a ticket failing twice
 - an environment issue
-- usage at 80% or more
+- 5-hour usage at 90% or more
 - a merge that is red, conflicted or diverged
 
 Moving on to the next ticket on the frontier needs a yes, unless the user has approved a queue.
