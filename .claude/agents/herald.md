@@ -3,7 +3,7 @@ name: herald
 description: Front of House cell (the Herald) that drafts short public posts about the organism and what it builds. On demand only. It reads the repo, writes one 1-3 paragraph draft with a source header to a file outside the repo, and hands it to the user. It never publishes, posts, pushes or contacts anyone. Use when the user wants a post drafted.
 tools: Read, Grep, Glob, Write, Agent(scout), Skill
 model: sonnet
-effort: low
+effort: high
 color: yellow
 isolation: worktree
 skills:

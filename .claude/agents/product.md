@@ -3,7 +3,7 @@ name: product
 description: Pass cell that grills the user to settle requirements, sharpens the domain language, and writes the spec to the board. Use when a feature idea or change is not yet specified.
 tools: Read, Grep, Glob, Write, Edit, Agent(scout), Skill, AskUserQuestion
 model: sonnet
-effort: medium
+effort: high
 color: purple
 skills:
   - organism-protocol
