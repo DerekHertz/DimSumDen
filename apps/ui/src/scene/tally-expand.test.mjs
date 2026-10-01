@@ -20,6 +20,7 @@ import { createServer } from "vite";
 import { chromium } from "playwright";
 import * as THREE from "three";
 import { buildLaunchOptions } from "../../../ci-cd/launch-options.mjs";
+import { lightenScene } from "../../../ci-cd/light-scene.mjs";
 import { TALLY } from "./banquet-layout.mjs";
 import { cameraPosition } from "./camera-rig.mjs";
 
@@ -54,6 +55,8 @@ after(async () => {
 
 async function openApp({ usage = usageAt(79, 41), metrics = metricsOk(), metricsStatus = 200, reducedMotion = "no-preference", quiet = false } = {}) {
   const context = await browser.newContext({ viewport: VIEW, reducedMotion });
+  // organism-infra/94: software GL rasterising the scene is what made these clicks flake on CI; see light-scene.mjs.
+  await lightenScene(context);
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));

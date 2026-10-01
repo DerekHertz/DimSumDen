@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { makeStateFixture, FEATURE, HANDLED_ID } from "../bridge/bridge-fixture.mjs";
 import { startBridge } from "../bridge/server.mjs";
 import { buildLaunchOptions } from "./launch-options.mjs";
+import { lightenScene } from "./light-scene.mjs";
 
 const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../", import.meta.url)));
 
@@ -93,7 +94,11 @@ async function main() {
     report("load", load.code === 0, load.code === 0 ? "" : load.out.trim());
 
     browser = await launch(chromium);
-    const page = await (await browser.newContext()).newPage();
+    const context = await browser.newContext();
+    // organism-infra/94: the software-rendered scene made the Tally click flake on CI. The clean load above (smoke.mjs
+    // --url) already ran with real draws; these checks read the DOM, so draws are skipped here. See light-scene.mjs.
+    await lightenScene(context);
+    const page = await context.newPage();
     const requested = [];
     page.on("request", (r) => requested.push(r.url()));
     await page.goto(bridge.url, { waitUntil: "load" });
