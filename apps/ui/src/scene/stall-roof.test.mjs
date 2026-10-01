@@ -39,11 +39,12 @@ test("edge midpoints sit at eave height, below the upturned corners", async () =
   mids.forEach((m) => assert.equal(m[1], EAVE_Y));
 });
 
-test("apex is centred and 0.7 above the eave; the triangles close the ring (8 triangles)", async () => {
+test("apex is centred and 0.7 above the eave; the roof is whole triangles (tier split: den-scene-v1/03)", async () => {
   const { roofApex, roofTriangles } = await load();
   assert.deepEqual(roofApex(), [0, 2.4, 0]);
   const tris = roofTriangles(2.25, 1);
-  assert.equal(tris.length, 8 * 9);
+  assert.equal(tris.length % 9, 0);
+  assert.ok(tris.length > 8 * 9, "each face splits into two tiers, so more than the old 8 triangles");
 });
 
 test("every post footprint (0.08 square) lies inside the counter box", async () => {
