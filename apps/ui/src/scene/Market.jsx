@@ -34,6 +34,8 @@ function subscribeTheme(onChange) {
   query.addEventListener("change", onChange);
   return () => query.removeEventListener("change", onChange);
 }
+/** The live system theme ("light" | "dark"); re-renders on a theme swap. */
+export const useSystemTheme = () => useSyncExternalStore(subscribeTheme, systemTheme, () => "light");
 
 const trianglesGeometry = (flat) => {
   const g = new THREE.BufferGeometry();
@@ -257,7 +259,7 @@ function ServiceBell({ lit }) {
 }
 
 export function Market({ baskets, handoffs, cells, counts }) {
-  const theme = useSyncExternalStore(subscribeTheme, systemTheme, () => "light");
+  const theme = useSystemTheme();
   const lanterns = useMemo(() => lanternState(cells), [cells]);
   const kioskList = useMemo(() => kiosks({ cells, counts, theme }), [cells, counts, theme]);
   return (

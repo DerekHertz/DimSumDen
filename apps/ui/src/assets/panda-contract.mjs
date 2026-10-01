@@ -23,6 +23,20 @@ export const PROP_ASSETS = {
   product: { file: "props/scroll.glb", socket: "paw_L", clip: "scroll_unroll" },
   architect: { file: "props/blueprint.glb", socket: "paw_L", clip: "blueprint_unroll" },
 };
+// den-scene-v1/09: where each role's procedural headgear and handheld prop attach, by socket name (the parts
+// themselves are in apps/ui/src/scene/headgear.mjs). The scarf is shared and rides the body bone.
+export const ROLE_PLACEMENT = {
+  orchestrator: { headgear: { socket: "hat" }, prop: { socket: "paw_R" } },
+  product: { headgear: { socket: "hat" }, prop: { socket: "paw_L" } },
+  architect: { headgear: { socket: "hat" }, prop: { socket: "paw_L" } },
+  developer: { headgear: { socket: "hat" }, prop: { socket: "paw_L" } },
+  scout: { headgear: { socket: "hat" }, prop: { socket: "paw_R" } },
+  debugger: { headgear: { socket: "hat" }, prop: { socket: "paw_R" } },
+  qa: { headgear: { socket: "hat" }, prop: { socket: "paw_R" } },
+  security: { headgear: { socket: "hat" }, prop: { socket: "paw_R" } },
+  designer: { headgear: { socket: "hat" }, prop: { socket: "paw_L" } },
+};
+export const SCARF_SOCKET = "body";
 export const FACE_FRAMES = [
   "blink", "content_squint", "wide_eyes", "half_lidded", "focused_squint",
   "narrowed", "eyes_shut_savoring", "sour_pucker", "sleepy", "yawn",
