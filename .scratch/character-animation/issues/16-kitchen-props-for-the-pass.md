@@ -8,7 +8,7 @@
 
 **Blocked by:** None (07 resolved)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Ladle, menu and slip clip in the glb, attached to sockets by name, pass the asset contract check
 - [ ] Director mapping for the three Pass idle habits updated, with tests
@@ -16,3 +16,5 @@
 
 ## Comments
 - **Source (orchestrator, 2026-09-29):** planned with the user in a mockup session. Canvas: https://claude.ai/artifact/LQjpimx1jfX5bjZEoTo3za (boards "Banquet market", "Station plan", "Level 1"). Design system: https://claude.ai/artifact/HBXgYhAzu6YmekpW71WM7j.
+- **orchestrator, 2026-09-30:** Design sweep (designer, user-approved 2026-09-30): MERGED into den-scene-v1/09: carry over the three Pass idle habits and the socket-by-name asset contract.
+- **orchestrator, 2026-09-30:** superseded by den-scene-v1/09

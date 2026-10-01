@@ -13,7 +13,7 @@
 
 **Blocked by:** 07
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] The blueprint meets the size targets, and all placement tests pass
 - [ ] dev-scene renders on the first load of a newly opened Browser pane
@@ -22,3 +22,5 @@
 ## Comments
 
 - **Created (orchestrator, 2026-09-27):** Split from ticket 07 at the user's request. It's low priority: animation polish waits until the organism loop and the office MVP are up.
+- **orchestrator, 2026-09-30:** Design sweep (designer, user-approved 2026-09-30): SUPERSEDED by den-scene-v1/09 (blueprint prop replaced by order slips). Dev-scene first-frame resize fix split to its own ticket.
+- **orchestrator, 2026-09-30:** superseded by den-scene-v1/09

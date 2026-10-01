@@ -18,3 +18,4 @@
 
 - **Created (orchestrator, 2026-09-29):** User asked why the page is dark; it follows the OS setting. User approved a switch ticket.
 - **Designer follow-up (orchestrator, 2026-09-29):** The backdrop only follows prefers-color-scheme; when this switch lands, Backdrop.jsx must also watch data-theme (handoffs/14-designer-review.md).
+- **orchestrator, 2026-09-30:** Design sweep (designer, user-approved 2026-09-30): KEEP: no den-scene ticket covers it. Backdrop.jsx must watch data-theme.
