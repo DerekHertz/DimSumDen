@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** in-review
+**Status:** resolved
 
 **Design refs:** `docs/design/den-map.md` (coordinates, constants, checks) and `docs/design/2026-09-29-scene-decisions.md` (the why), on branch `design/scene-decisions-0929` until it merges. Target frame: "Level 1 · Den (target)" on the Zoom levels page of the zoom frames canvas (https://claude.ai/artifact/JsxZ5Vj7DxJQbekA2Ehoot). Design system: https://claude.ai/artifact/HBXgYhAzu6YmekpW71WM7j (Scene, Glossary, Panda roles).
 
@@ -40,3 +40,7 @@ Replace the hard-coded `HUE` map in `Market.jsx` (steamers `#e0a458`, front-of-h
 - **orchestrator, 2026-10-01:** User approved isolated verification via supported unsandboxed execution and fresh TMPDIR, avoiding platform-injected Git ancestry; no guards or tests changed.
 - **qa, 2026-10-01:** QA verify partial at bf0a5f6: suite stopped at user usage limit, no verdict. Tests unchanged vs9b51ba1; scope clean. Handoff: .scratch/den-scene-v1/handoffs/02-qa-verify.md.
 - **orchestrator, 2026-10-01:** Wrap-up at user-reported92%used5h; implementation pushed to feat/station-hues02 atbf0a5f6. QA interrupted with no verdict; finish isolated full verify then designer/risk review next session. No product PR or merge yet.
+- **qa, 2026-10-01:** QA pass at bf0a5f6: full suite 1320/1320, no failures/skips/cancellations; acceptance 4/4. Tests unchanged vs9b51ba1; scope clean. Completed handoff: .scratch/den-scene-v1/handoffs/02-qa-verify-finish.md (supersedes prior partial report).
+- **designer, 2026-10-01:** Design pass at bf0a5f6: approved station hues match tokens; actual UI reviewed desktop/mobile light/dark with reduced motion, no runtime/console errors. Screenshots /tmp/02-{desktop,mobile}-{light,dark}.png; Market.jsx:32,213. Existing styles.css:98 min-width clips mobile; unchanged and outside hue-only scope. Handoff: 02-designer-review.md.
+- **designer, 2026-10-01:** Review reference correction: pre-existing mobile minimum width is styles.css:87 (not :98). Hue changes affect decorative 3D trim; text contrast and semantic control paths are unchanged.
+- **security, 2026-10-01:** Security pass at bf0a5f6: no findings in five-file diff; live fixture binds loopback/ephemeral port with cleanup, theme subscription unsubscribes, no dependency changes. Commit-pattern secret fallback clear; gitleaks unavailable. Details: handoffs/02-security.md.

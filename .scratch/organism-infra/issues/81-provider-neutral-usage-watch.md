@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** in-review
+**Status:** resolved
 
 ## What to build
 
@@ -30,3 +30,7 @@ User explicitly requested real Codex usage in usage-watch and a model agnostic p
 - **orchestrator, 2026-10-01:** User approved isolated verification via supported unsandboxed execution and fresh TMPDIR, avoiding platform-injected Git ancestry; no guards or tests changed.
 - **qa, 2026-10-01:** QA partial: full suite stopped on user usage-limit wrap-up; no verdict. Tests unchanged, AC5/6 reviewed. See81-qa-verify.md; complete full verify next.
 - **orchestrator, 2026-10-01:** Wrap-up at user-reported92%used5h; implementation pushed to feat/provider-neutral-usage-watch81 at4fcf134. QA interrupted with no verdict; finish isolated full verify then risk/security next session. No product PR or merge yet.
+- **qa, 2026-10-01:** QA pass: isolated full suite1344/1344, zero failures/skips; saved tests unchanged; AC1-4 tests and AC5/6 human review covered. Handoff81-qa-verify-finish.md; security next.
+- **scout, 2026-10-01:** Scout handoff: .scratch/organism-infra/handoffs/81-scout-risk.md; risk-check failed with spawnSync git EPERM, merge-tree succeeded.
+- **scout, 2026-10-01:** Scout risk-check hit; full security review required. Details: .scratch/organism-infra/handoffs/81-scout-risk-finish.md
+- **security, 2026-10-01:** Security pass: no actionable findings. scripts/usage-codex.mjs:38 fixed argv spawn, bounded RPC and kill/reap cleanup; scripts/usage-provider.test.mjs:12,82,97 synthetic secret/credential/spawn fixtures, no real credentials. Four-commit redacted pattern/manual secret scan clean (gitleaks missing); Claude unchanged; no dependency/CI changes. See handoffs/81-security.md.
