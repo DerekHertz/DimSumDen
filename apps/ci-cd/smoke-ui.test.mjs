@@ -6,6 +6,8 @@
 //   2. `npm run smoke:ui` : builds the UI, starts the bridge on a fixture .scratch/ tree, loads
 //      it, checks scene count, queue order, a chart, and one Approve round trip. Each check
 //      prints a line starting with PASS (or FAIL) that names it (scene, queue, chart, approve).
+//      den-iso-v1/02 adds the orthographic camera: "camera fit" at 1440x900 and 375x667 (every kiosk sign and
+//      the Tally inside the scene), "camera zoom" (wheel scales sign spacing by 1/d, clamped) and "camera pan" (drag shifts the scene rigidly).
 // Needs Playwright plus an installed browser, like smoke.test.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -96,7 +98,7 @@ test("smoke --url exits non-zero when the URL is unreachable", async () => {
 test("npm run smoke:ui passes on main: scene count, queue order, chart and one Approve round trip", async () => {
   const { code, stdout, stderr } = await run(["smoke:ui"], { timeoutMs: 170000 });
   assert.equal(code, 0, `smoke:ui must exit 0.\nstdout: ${stdout}\nstderr: ${stderr}`);
-  for (const check of ["scene", "queue", "chart", "approve"]) {
+  for (const check of ["scene", "queue", "chart", "approve", "camera fit.*1440x900", "camera fit.*375x667", "camera zoom", "camera pan"]) {
     assert.match(
       stdout,
       new RegExp(`^PASS.*${check}`, "im"),

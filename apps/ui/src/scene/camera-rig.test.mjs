@@ -1,23 +1,36 @@
-// Ticket showcase-v1/01 fix round: camera pan (x only) and zoom limits. Pure clamp and step math.
-// Expected values are hand-worked literals from the limits (pan +-9, zoom 0.55..1.2, key step 0.5).
+// den-iso-v1/02: camera input math for the orthographic den. Pure. Zoom keeps the old semantics
+// (factor 0.55..1.2, wheel +0.001 per deltaY, keys step 0.1); pan now moves the look-at target on the
+// ground (digest section 1): drag dtx = -dx/k, dtz = -dy/(k sin p); arrow keys step 0.5 in x; limits from panLimits.
+// Expected values are hand-worked from the digest, not recomputed from the module.
+//
+// Interface under test (apps/ui/src/scene/camera-rig.mjs), view = { width, height, zoom }, target = [x, y, z]:
+//   ZOOM_MIN, ZOOM_MAX, clampZoom, keyZoom(zoom, key), wheelZoom(zoom, deltaY)
+//   clampTarget(target, view), keyPan(target, key, view), dragPan(target, { dx, dy }, view)
+// The perspective rig's exports (PAN_LIMIT, FOV_DEG, BASE_Y, BASE_Z, cameraPosition, panLimit, visibleHalfWidth,
+// clampPan) are gone; the old perspective tests of those were replaced by iso-projection.test.mjs and this file.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 const load = () => import("./camera-rig.mjs");
+const near = (a, b, tol, what = "") => assert.ok(Math.abs(a - b) <= tol, `${what} expected ${b} +-${tol}, got ${a}`);
 
-test("limits are the agreed literals", async () => {
-  const { PAN_LIMIT, ZOOM_MIN, ZOOM_MAX } = await load();
-  assert.equal(PAN_LIMIT, 9);
+const DESKTOP = { width: 1440, height: 900 };
+const PHONE = { width: 375, height: 667 };
+const FEET = [0, 0, -2.4];
+
+test("zoom limits are the agreed literals", async () => {
+  const { ZOOM_MIN, ZOOM_MAX } = await load();
   assert.equal(ZOOM_MIN, 0.55);
   assert.equal(ZOOM_MAX, 1.2);
 });
 
-test("clampPan holds x within +-9", async () => {
-  const { clampPan } = await load();
-  assert.equal(clampPan(0), 0);
-  assert.equal(clampPan(3.2), 3.2);
-  assert.equal(clampPan(12), 9);
-  assert.equal(clampPan(-12), -9);
+test("the perspective camera constants are gone", async () => {
+  const m = await load();
+  for (const name of ["FOV_DEG", "BASE_Y", "BASE_Z", "cameraPosition", "PAN_LIMIT", "visibleHalfWidth", "panLimit", "clampPan"]) {
+    assert.ok(!(name in m), `${name} must not be exported by camera-rig.mjs`);
+  }
+  const d = await import("./camera-default.mjs");
+  for (const name of ["FOV_DEG", "BASE_Y", "BASE_Z"]) assert.ok(!(name in d), `${name} must not be exported by camera-default.mjs`);
 });
 
 test("clampZoom holds the factor within 0.55..1.2", async () => {
@@ -25,15 +38,6 @@ test("clampZoom holds the factor within 0.55..1.2", async () => {
   assert.equal(clampZoom(1), 1);
   assert.equal(clampZoom(0.1), 0.55);
   assert.equal(clampZoom(3), 1.2);
-});
-
-test("keyPan steps by 0.5 and stops at the edge; other keys do nothing", async () => {
-  const { keyPan } = await load();
-  assert.equal(keyPan(0, "ArrowRight"), 0.5);
-  assert.equal(keyPan(0, "ArrowLeft"), -0.5);
-  assert.equal(keyPan(8.8, "ArrowRight"), 9);
-  assert.equal(keyPan(-9, "ArrowLeft"), -9);
-  assert.equal(keyPan(1, "ArrowUp"), 1);
 });
 
 test("keyZoom: plus zooms in (smaller factor), minus zooms out, clamped", async () => {
@@ -46,7 +50,7 @@ test("keyZoom: plus zooms in (smaller factor), minus zooms out, clamped", async 
   assert.equal(keyZoom(1, "a"), 1);
 });
 
-test("wheelZoom: scrolling down (positive deltaY) zooms out, up zooms in, clamped", async () => {
+test("wheelZoom: scrolling down (positive deltaY) zooms out, up zooms in, clamped to the digest's range", async () => {
   const { wheelZoom } = await load();
   assert.equal(wheelZoom(1, 100), 1.1);
   assert.equal(wheelZoom(1, -100), 0.9);
@@ -54,55 +58,69 @@ test("wheelZoom: scrolling down (positive deltaY) zooms out, up zooms in, clampe
   assert.equal(wheelZoom(1, -100000), 0.55);
 });
 
-test("dragPan: dragging right moves the camera left, scaled by zoom, clamped", async () => {
+test("keyPan steps the target 0.5 in x and stops at the pan limit; other keys do nothing", async () => {
+  const { keyPan } = await load();
+  const { panLimits } = await import("./iso-projection.mjs");
+  const view = { ...PHONE, zoom: 1 };
+  const lim = panLimits(view).x;
+  assert.ok(lim > 4, "phone at default has room to pan sideways");
+  assert.deepEqual(keyPan(FEET, "ArrowRight", view), [0.5, 0, -2.4]);
+  assert.deepEqual(keyPan(FEET, "ArrowLeft", view), [-0.5, 0, -2.4]);
+  near(keyPan([lim - 0.2, 0, -2.4], "ArrowRight", view)[0], lim, 1e-9, "stops at the right limit");
+  near(keyPan([-lim + 0.2, 0, -2.4], "ArrowLeft", view)[0], -lim, 1e-9, "stops at the left limit");
+  assert.deepEqual(keyPan([1, 0, -2.4], "ArrowUp", view), [1, 0, -2.4]);
+  assert.deepEqual(keyPan([1, 0, -2.4], "a", view), [1, 0, -2.4]);
+});
+
+// 1440x900, zoom 0.55: k = 87.805 / 0.55 = 159.64; sin p = 0.57735.
+//   100 px right: dtx = -100 / 159.64 = -0.6264. 100 px down: dtz = -100 / (159.64 * 0.57735) = -1.0850.
+test("dragPan: dragging right moves the target left, dragging down moves it back (away from the camera), by 1/k", async () => {
   const { dragPan } = await load();
-  // 100 px at 1000 px wide, zoom 1: 100/1000 * 12 = 1.2 world units, opposite the drag
-  assert.ok(Math.abs(dragPan(0, 100, 1000, 1) + 1.2) < 1e-9);
-  assert.ok(Math.abs(dragPan(0, -100, 1000, 0.5) - 0.6) < 1e-9);
-  assert.equal(dragPan(8.5, -1000, 1000, 1), 9);
+  const view = { ...DESKTOP, zoom: 0.55 };
+  const right = dragPan(FEET, { dx: 100, dy: 0 }, view);
+  near(right[0], -0.6264, 1e-3, "dtx");
+  near(right[2], -2.4, 1e-9, "no z change");
+  assert.equal(right[1], 0);
+  const left = dragPan(FEET, { dx: -100, dy: 0 }, view);
+  near(left[0], 0.6264, 1e-3, "dtx");
+  const down = dragPan(FEET, { dx: 0, dy: 100 }, view);
+  near(down[0], 0, 1e-9, "no x change");
+  near(down[2], -2.4 - 1.0850, 1e-3, "dtz");
+  const up = dragPan(FEET, { dx: 0, dy: -100 }, view);
+  near(up[2], -2.4 + 1.0850, 1e-3, "dtz");
 });
 
-test("cameraPosition: x is the pan, y fixed, z is 13.8 times the zoom factor", async () => {
-  const { cameraPosition } = await load();
-  assert.deepEqual(cameraPosition(2, 0.5), [2, 4.2, 6.9]);
+test("dragPan keeps the ground point under the cursor under the cursor", async () => {
+  const { dragPan } = await load();
+  const { worldToScreen } = await import("./iso-projection.mjs");
+  const view = { ...DESKTOP, zoom: 0.55 };
+  const p = [1.8, 0, 0.5];
+  const before = worldToScreen(p, { ...view, target: FEET });
+  const target = dragPan(FEET, { dx: 80, dy: -30 }, view);
+  const after = worldToScreen(p, { ...view, target });
+  near(after.x - before.x, 80, 1e-6, "moved with the drag in x");
+  near(after.y - before.y, -30, 1e-6, "moved with the drag in y");
 });
 
-// showcase-v1/04: the pan limit follows the viewport so the widest stall's outer edge stays reachable.
-// Worked by hand: half-width at the stall row = (13.8 * zoom + 1.6) * tan(23 deg) * aspect, and the
-// widest stall (12 active cells plus idle Scout) ends at x = 7.05 + 4.875 = 11.925,
-// so limit = max(0, 11.925 - half-width); user-approved framing revises base distance/FOV; zoom factors remain unchanged.
-test("panLimit: narrow window pans further than a wide one", async () => {
-  const { panLimit } = await load();
-  assert.ok(Math.abs(panLimit(1, 1) - 5.3881) < 1e-3);
-  assert.ok(Math.abs(panLimit(0.5, 1) - 8.6565) < 1e-3);
-  assert.equal(panLimit(3, 1), 0);
-});
-
-test("panLimit: zoomed in pans further than zoomed out", async () => {
-  const { panLimit } = await load();
-  assert.ok(Math.abs(panLimit(1.5, 0.55) - 6.0736) < 1e-3);
-  assert.ok(Math.abs(panLimit(1.5, 1.2) - 0.3623) < 1e-3);
-});
-
-test("panLimit: the widest stall's outer edge is always inside the view at the limit", async () => {
-  const { panLimit, visibleHalfWidth, WIDEST_STALL_EDGE } = await load();
-  assert.ok(Math.abs(WIDEST_STALL_EDGE - 11.925) < 1e-9);
-  for (const aspect of [0.4, 0.8, 1.3, 1.8, 2.4, 3.5]) {
-    for (const zoom of [0.55, 0.8, 1, 1.2]) {
-      const limit = panLimit(aspect, zoom);
-      assert.ok(limit >= 0);
-      assert.ok(limit + visibleHalfWidth(aspect, zoom) >= WIDEST_STALL_EDGE - 1e-9, `aspect ${aspect} zoom ${zoom}`);
-    }
-  }
-});
-
-test("clampPan, keyPan and dragPan take an optional limit", async () => {
-  const { clampPan, keyPan, dragPan } = await load();
-  assert.equal(clampPan(7, 3), 3);
-  assert.equal(clampPan(-7, 3), -3);
-  assert.equal(keyPan(2.8, "ArrowRight", 3), 3);
-  assert.equal(dragPan(0, -10000, 1000, 1, 3), 3);
-  assert.equal(clampPan(7, 0), 0);
+test("pan clamps: no vertical pan at the default; about 1.9 units either way at the nearest zoom; x stops at the widest stall", async () => {
+  const { dragPan, clampTarget } = await load();
+  const { panLimits } = await import("./iso-projection.mjs");
+  // default zoom, desktop: z cannot move at all
+  assert.deepEqual(dragPan(FEET, { dx: 0, dy: 5000 }, { ...DESKTOP, zoom: 1 }).slice(2), [-2.4]);
+  assert.deepEqual(dragPan(FEET, { dx: 0, dy: -5000 }, { ...DESKTOP, zoom: 1 }).slice(2), [-2.4]);
+  // nearest zoom: |tz + 2.4| <= 1.872 (see iso-projection.test.mjs)
+  const near55 = { ...DESKTOP, zoom: 0.55 };
+  near(dragPan(FEET, { dx: 0, dy: -5000 }, near55)[2], -2.4 + 1.872, 0.01, "forward limit");
+  near(dragPan(FEET, { dx: 0, dy: 5000 }, near55)[2], -2.4 - 1.872, 0.01, "back limit");
+  // x on the phone stops where the widest stall's outer edge reaches the screen edge
+  const phone = { ...PHONE, zoom: 1 };
+  const lim = panLimits(phone).x;
+  near(dragPan(FEET, { dx: -100000, dy: 0 }, phone)[0], lim, 1e-9, "x right limit");
+  near(dragPan(FEET, { dx: 100000, dy: 0 }, phone)[0], -lim, 1e-9, "x left limit");
+  // clampTarget pulls an out-of-range target back in and leaves an in-range one alone
+  assert.deepEqual(clampTarget([0.5, 0, -2.4], phone), [0.5, 0, -2.4]);
+  near(clampTarget([99, 0, -2.4], phone)[0], lim, 1e-9, "clampTarget x");
+  near(clampTarget([0, 0, 40], near55)[2], -2.4 + 1.872, 0.01, "clampTarget z");
 });
 
 test("MAX_STALL_CELLS includes the scene's active cap plus the other idle Steamers role", async () => {
