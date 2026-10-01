@@ -38,7 +38,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -56,7 +56,7 @@ function currentHeadSha(cwd) {
 
 // Builds a disposable "main checkout" with an initial commit on `main`.
 function initRepo() {
-  const root = mkdtempSync(path.join(tmpdir(), "worktree-gc-"));
+  const root = mkdtempSync(path.join(realpathSync(tmpdir()), "worktree-gc-"));
   git(root, ["init", "-q"]);
   git(root, ["config", "user.email", "test@example.com"]);
   git(root, ["config", "user.name", "Test"]);
@@ -250,7 +250,7 @@ test("--apply ignores a merged, clean worktree that lives outside .claude/worktr
   const root = initRepo();
   try {
     const branch = "merged-elsewhere";
-    const outsideDir = mkdtempSync(path.join(tmpdir(), "worktree-gc-outside-"));
+    const outsideDir = mkdtempSync(path.join(realpathSync(tmpdir()), "worktree-gc-outside-"));
     rmSync(outsideDir, { recursive: true, force: true }); // git worktree add requires a fresh path
     git(root, ["worktree", "add", "-q", "-b", branch, outsideDir, "main"]);
     commitFile(outsideDir, "feature.txt", "done\n");

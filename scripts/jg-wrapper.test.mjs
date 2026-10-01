@@ -2,13 +2,13 @@
 // the usage row on disk, checkout-relative root rules, the version floor, caller flags, and guard edges.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { runJg } from "./jg.mjs";
 import { check } from "./hooks/bash-guard.mjs";
 
-const tmp = (p) => mkdtempSync(path.join(tmpdir(), p));
+const tmp = (p) => mkdtempSync(path.join(realpathSync(tmpdir()), p));
 // A root that has its own .git: a root with no .git ancestor and no explicit checkout is refused (batch B, security Low on 80).
 const repo = () => {
   const r = tmp("jg80-r-");

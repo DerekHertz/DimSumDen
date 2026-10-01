@@ -14,7 +14,7 @@
 // See .scratch/organism-infra/issues/05-dispatch-into-existing-branch.md
 // ("Scope approved", 2026-09-27) for the rule this implements.
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 function parseArgs(argv) {
@@ -46,7 +46,13 @@ const DISPOSITIONS = {
 // slash, so paths from git output and from `path.join` compare equal
 // regardless of platform separators or trailing slashes.
 function normalizedAbsolutePath(p) {
-  return path.resolve(p).replace(/\\/g, "/").replace(/\/$/, "");
+  let resolved = path.resolve(p);
+  try {
+    resolved = realpathSync(resolved);
+  } catch {
+    // Missing path (e.g. a prunable worktree): compare the lexical form.
+  }
+  return resolved.replace(/\\/g, "/").replace(/\/$/, "");
 }
 
 // Parses `git worktree list --porcelain` into an array of
