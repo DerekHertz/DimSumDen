@@ -1,0 +1,198 @@
+#!/usr/bin/env node
+// organism-infra/87: supply jg context to a cold cell at dispatch (docs/adr/0014 decisions 3, 5, 7).
+// Usage: node scripts/dispatch-context.mjs --ticket <feature>/<NN-slug> [--root <dir>] [--refresh]
+// Runs jg once per ticket through the scripts/jg.mjs wrapper, writes $ORGANISM_ROOT/.scratch/_context/<feature>/<NN-slug>.md
+// and prints one JSON line {path, bytes, skipped, fallback}. Exit 0 always, except exit 2 for bad arguments. A skip or a
+// fallback writes no file, so the relay runs cold exactly as before. Appends a kind:"jg" row to .scratch/usage.jsonl.
+import { spawn } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { hasSecret } from "./exposure.mjs";
+import { runJg } from "./jg.mjs";
+import { appendUsageLine, resolveRoot } from "../apps/organism-infra/board-service.mjs";
+
+const QUESTION = "Where would this change be made, and which tests cover it?";
+const WHAT_MAX = 1500;
+const OUTPUT_CAP = 24576;
+const ROOT_CAP = 5242880;
+const TIMEOUT_MS = 90000;
+const CODE_TYPES = new Set(["feature", "task", "fix", "bug", "chore", "refactor"]);
+const BOARD_DIRS = [".scratch/", ".claude/"];
+
+const inBoard = (rel) => BOARD_DIRS.some((d) => rel.startsWith(d));
+
+function parseTicket(text) {
+  const type = (/^\*\*Type:\*\*[ \t]*([A-Za-z-]+)/m.exec(text)?.[1] ?? "").toLowerCase();
+  const what = /^\*\*What to build:\*\*[ \t]*([\s\S]*?)(?=^\*\*[A-Za-z][^*\n]*:\*\*|^## |(?![\s\S]))/m.exec(text)?.[1].trim() ?? "";
+  return { type, what };
+}
+
+// Distinct file paths (a slash and an extension) in the text that exist under root.
+function namedPaths(what, root, exists) {
+  const found = new Set();
+  for (const m of what.matchAll(/[\w.@-]+(?:\/[\w.@-]+)+\.\w+/g)) if (exists(m[0])) found.add(m[0]);
+  return found;
+}
+
+// Classify a jg call that produced no usable stdout, from the raw result the wrapper saw.
+function failureReason(raw) {
+  if (!raw) return "jg-error";
+  if (raw.error) return raw.error.code === "ENOENT" ? "jg-missing" : "jg-error";
+  const r = raw.result;
+  if (r.timedOut) return "timeout";
+  if (/not authenticated/i.test(`${r.stderr ?? ""}${r.stdout ?? ""}`)) return "not-authenticated";
+  if (r.exitCode !== 0) return `jg-exit-${r.exitCode}`;
+  return "jg-error";
+}
+
+export async function buildContext({
+  ticketText, root, run = spawnRun, exists, now = () => Date.now(), ticket, trackedBytes = statBytes,
+}) {
+  const t0 = now();
+  const has = exists ?? ((p) => existsSync(path.resolve(root, p)));
+  const finish = ({ file, files = 0, skipped = null, fallback = null }) => {
+    const bytes = file === undefined ? 0 : Buffer.byteLength(file);
+    const row = { kind: "jg", ts: new Date(t0).toISOString(), ...(ticket && { ticket }), bytes, files, ms: Math.max(0, now() - t0), skipped, fallback };
+    return file === undefined ? { row } : { file, row };
+  };
+
+  const { type, what } = parseTicket(ticketText);
+  if (!CODE_TYPES.has(type)) return finish({ skipped: `non-code type${type ? ` (${type})` : ""}` });
+  if (namedPaths(what, root, has).size >= 2) return finish({ skipped: "two or more named paths already located" });
+
+  // Tracked files outside the board are what jg could send; one listing feeds the size check and the secret check.
+  let tracked;
+  try {
+    const r = await run("git", ["ls-files", "-z"], { cwd: root });
+    if (r.exitCode !== 0) return finish({ fallback: "git-ls-files-failed" });
+    tracked = r.stdout.split("\0").filter((f) => f && !inBoard(f));
+  } catch {
+    return finish({ fallback: "git-ls-files-failed" });
+  }
+  if ((await trackedBytes({ root, files: tracked })) > ROOT_CAP) return finish({ skipped: "root over 5 MB eligible" });
+  for (const f of tracked) {
+    let body;
+    try {
+      body = readFileSync(path.join(root, f), "utf8");
+    } catch {
+      continue; // deleted, a symlink to nowhere, a directory (submodule): nothing to send
+    }
+    if (hasSecret(body)) return finish({ fallback: "secret-in-root" });
+  }
+
+  let raw;
+  const spy = async (argv) => {
+    try {
+      const result = await run("jg", argv, { timeoutMs: TIMEOUT_MS, env: { NODE_USE_ENV_PROXY: "1" } });
+      raw = { result };
+      return result;
+    } catch (error) {
+      raw = { error };
+      throw error;
+    }
+  };
+  let out;
+  try {
+    out = await runJg({
+      query: `${QUESTION}\n\n${what.slice(0, WHAT_MAX)}`, root, flags: ["--max-source-bytes", String(OUTPUT_CAP)], run: spy, now,
+    });
+  } catch (e) {
+    if (e.kind) return finish({ fallback: `refused-${e.kind}` });
+    throw e;
+  }
+
+  if (out.stdout === undefined) return finish({ fallback: raw?.result?.exitCode === 0 && !raw.result.timedOut ? "incomplete" : failureReason(raw) });
+  if (!/^End context\.[ \t]*$/m.test(out.stdout)) return finish({ fallback: "incomplete" });
+  if (hasSecret(out.stdout)) return finish({ fallback: "secret-in-output" });
+  if (Buffer.byteLength(out.stdout) > OUTPUT_CAP) return finish({ fallback: "output-too-large" });
+  return finish({ file: out.stdout, files: out.row.filesReturned });
+}
+
+function statBytes({ root, files }) {
+  let sum = 0;
+  for (const f of files) {
+    try {
+      sum += statSync(path.join(root, f)).size;
+    } catch {
+      /* gone since the listing */
+    }
+  }
+  return sum;
+}
+
+// Production seam: spawn cmd, resolve {stdout, stderr, exitCode, timedOut}; a missing binary rejects with ENOENT.
+function spawnRun(cmd, args, opts = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { cwd: opts.cwd, env: { ...process.env, ...opts.env }, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (d) => { stdout += d; });
+    child.stderr.on("data", (d) => { stderr += d; });
+    const timer = opts.timeoutMs ? setTimeout(() => { timedOut = true; child.kill("SIGTERM"); }, opts.timeoutMs) : null;
+    child.on("error", (e) => { clearTimeout(timer); reject(e); });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ stdout, stderr, exitCode: timedOut ? null : (code ?? 1), ...(timedOut && { timedOut }) });
+    });
+  });
+}
+
+function parseArgs(argv) {
+  const opts = { refresh: false };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--refresh") opts.refresh = true;
+    else if (a === "--ticket" || a === "--root") {
+      const v = argv[++i];
+      if (v === undefined || v.startsWith("--")) return { error: `${a} needs a value` };
+      opts[a.slice(2)] = v;
+    } else return { error: `unknown argument ${a}` };
+  }
+  if (!opts.ticket) return { error: "--ticket <feature>/<NN-slug> is required" };
+  if (!/^[\w.-]+\/[\w.-]+$/.test(opts.ticket) || opts.ticket.split("/").some((s) => s.startsWith("."))) return { error: `bad ticket ref ${opts.ticket}` };
+  return opts;
+}
+
+async function main(argv) {
+  const opts = parseArgs(argv);
+  if (opts.error) {
+    process.stderr.write(`dispatch-context: ${opts.error}\nusage: node scripts/dispatch-context.mjs --ticket <feature>/<NN-slug> [--root <dir>] [--refresh]\n`);
+    return 2;
+  }
+  const boardRoot = resolveRoot(process.cwd(), process.env);
+  const [feature, slug] = opts.ticket.split("/");
+  const ticketFile = path.join(boardRoot, ".scratch", feature, "issues", `${slug}.md`);
+  if (!existsSync(ticketFile)) {
+    process.stderr.write(`dispatch-context: no ticket at ${ticketFile}\n`);
+    return 2;
+  }
+  const outFile = path.join(boardRoot, ".scratch", "_context", feature, `${slug}.md`);
+  const print = (o) => process.stdout.write(JSON.stringify({ path: null, bytes: 0, skipped: null, fallback: null, ...o }) + "\n");
+
+  if (!opts.refresh && existsSync(outFile)) {
+    print({ path: outFile, bytes: statSync(outFile).size });
+    return 0;
+  }
+  const { file, row } = await buildContext({
+    ticketText: readFileSync(ticketFile, "utf8"), root: path.resolve(opts.root ?? boardRoot), ticket: opts.ticket,
+  });
+  if (file !== undefined) {
+    mkdirSync(path.dirname(outFile), { recursive: true });
+    writeFileSync(outFile, file);
+  }
+  try {
+    await appendUsageLine(boardRoot, JSON.stringify(row) + "\n");
+  } catch (e) {
+    process.stderr.write(`dispatch-context: usage row not logged (${e.code ?? e.message})\n`);
+  }
+  print({ path: file === undefined ? null : outFile, bytes: row.bytes, skipped: row.skipped, fallback: row.fallback });
+  return 0;
+}
+
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
+  main(process.argv.slice(2)).then((c) => process.exit(c));
+}
