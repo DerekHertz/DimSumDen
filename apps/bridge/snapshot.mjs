@@ -4,6 +4,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { parsePriority, orderFrontier } from "../organism-infra/priority.mjs";
 import { buildRequests } from "./requests-log.mjs";
+import { compareRefs } from "../../packages/board-refs/src/compare-refs.mjs";
 
 const HANDOFF_CAP = 8192;
 
@@ -167,7 +168,7 @@ export async function buildSnapshot(root, seq = 0) {
 
   const tickets = [];
   const candidates = [];
-  for (const t of [...all.values()].sort((a, b) => (a.ref < b.ref ? -1 : 1))) {
+  for (const t of [...all.values()].sort((a, b) => compareRefs(a.ref, b.ref))) {
     if (t.status === "resolved") continue;
     const blockedBy = [];
     for (const b of t.blockers) {

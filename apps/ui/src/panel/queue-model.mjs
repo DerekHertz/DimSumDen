@@ -1,4 +1,5 @@
 // Queue and selected-ticket view-models (pure; tested under node --test).
+import { compareRefs } from "../../../../packages/board-refs/src/compare-refs.mjs";
 const IN_FLIGHT = new Set(["claimed", "in-review", "blocked", "ready-for-human"]);
 const NO_SELECTION = "Select a ticket in the queue or the scene.";
 
@@ -28,7 +29,7 @@ export function queueModel(snapshot) {
   const frontier = (snapshot.frontier ?? []).filter((r) => byRef.has(r)).map((r) => row(byRef.get(r)));
   const inFlight = snapshot.tickets
     .filter((t) => IN_FLIGHT.has(t.status) && !frontierRefs.has(t.ref))
-    .sort((a, b) => (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0))
+    .sort((a, b) => compareRefs(a.ref, b.ref))
     .map(row);
   return { frontier, inFlight, empty: frontier.length === 0 && inFlight.length === 0 };
 }

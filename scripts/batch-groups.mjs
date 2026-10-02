@@ -7,6 +7,7 @@ import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { compareRefs } from "../packages/board-refs/src/compare-refs.mjs";
 
 const run = promisify(execFile);
 const CODE_TYPES = new Set(["feature", "task", "fix", "bug", "chore", "refactor"]);
@@ -143,7 +144,7 @@ function defaultReadBoard() {
   for (const feature of readdirSync(scratch, { withFileTypes: true })) {
     const dir = path.join(scratch, feature.name, "issues");
     if (!feature.isDirectory() || feature.name.startsWith("_") || !existsSync(dir)) continue;
-    for (const f of readdirSync(dir).filter((n) => n.endsWith(".md")).sort()) {
+    for (const f of readdirSync(dir).filter((n) => n.endsWith(".md")).sort(compareRefs)) {
       const slug = f.slice(0, -3);
       tickets.push({
         ref: `${feature.name}/${slug}`,

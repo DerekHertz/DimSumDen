@@ -160,3 +160,11 @@ describe("applyEvent: purity", () => {
     assert.equal(next.schema, 1);
   });
 });
+
+describe("applyEvent: three-digit tickets", () => {
+  test("a pushed ticket sorts by ticket number, so 99 comes before 100", () => {
+    const s = { ...base(), tickets: [ticket("fx/100-b")] };
+    const next = applyEvent(s, { seq: 43, type: "ticket", ref: "fx/99-a", ticket: ticket("fx/99-a") });
+    assert.deepEqual(next.tickets.map((x) => x.ref), ["fx/99-a", "fx/100-b"]);
+  });
+});

@@ -63,7 +63,7 @@ export function validStateJson(overrides = {}) {
 export async function writeValidHandoff(fx, { filename, ticket = fx.ticket, overrides = {} } = {}) {
   const dir = path.join(fx.root, ".scratch", fx.feature, "handoffs");
   await mkdir(dir, { recursive: true });
-  const nn = /^(\d{2})-/.exec(ticket)?.[1] ?? "00";
+  const nn = /^(\d{2,})-/.exec(ticket)?.[1] ?? "00";
   const name = filename ?? `${nn}-setup.md`;
   // organism-infra/35: the gate binds a handoff to the releasing cell (and
   // mode) and to the current claim, so infer both from the live claim lock

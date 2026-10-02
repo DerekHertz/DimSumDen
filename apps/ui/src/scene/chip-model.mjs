@@ -1,4 +1,5 @@
 // Status chip copy and tone per pose (designer spec section 2). Pure.
+import { compareRefs } from "../../../../packages/board-refs/src/compare-refs.mjs";
 const CHIPS = {
   working: { label: "Working", tone: "working" },
   waiting_on_user: { label: "Needs you", tone: "lantern" },
@@ -12,7 +13,7 @@ const CHIPS = {
 export function stackChips(items, { width = 96, height = 22, gap = 2 } = {}) {
   const out = new Map();
   const placed = [];
-  for (const it of [...items].sort((a, b) => (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0))) {
+  for (const it of [...items].sort((a, b) => compareRefs(a.ref, b.ref))) {
     let y = it.y;
     for (let moved = true; moved; ) {
       moved = false;

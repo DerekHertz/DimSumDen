@@ -5,6 +5,7 @@
 //   lanternState(cells)         which stall lanterns and whether the service bell glow
 import { ACTIVE_STATUSES, cellTypeOf } from "./scene-from-state.mjs";
 import { BAO, CUB_BASKET, STALL_CENTERS, TABLE, stationOf } from "./banquet-layout.mjs";
+import { compareRefs } from "../../../../packages/board-refs/src/compare-refs.mjs";
 
 /** dur-slow: the motion token for a basket turning between stalls. */
 export const DUR_SLOW_MS = 700;
@@ -22,7 +23,7 @@ export function trackedTickets(snapshot) {
   const out = new Map();
   const list = tickets
     .filter((t) => ACTIVE_STATUSES.has(t.status) || frontier.has(t.ref))
-    .sort((a, b) => (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0));
+    .sort((a, b) => compareRefs(a.ref, b.ref));
   for (const t of list) {
     const cellType = cellTypeOf(t);
     out.set(t.ref, { cellType, station: stationOf(cellType) });

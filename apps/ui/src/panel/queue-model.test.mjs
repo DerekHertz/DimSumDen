@@ -158,3 +158,14 @@ test("the selection follows a fresh snapshot: the handoff text updates for the s
   );
   assert.equal(detailModel(next, "fx/10-with").handoff.text, "newer");
 });
+
+test("in-flight rows order by ticket number, so 99 comes before 100", () => {
+  const s = snap(
+    [
+      t({ ref: "fx/100-b", status: "claimed", ready: false }),
+      t({ ref: "fx/99-a", status: "claimed", ready: false }),
+    ],
+    [],
+  );
+  assert.deepEqual(queueModel(s).inFlight.map((r) => r.ref), ["fx/99-a", "fx/100-b"]);
+});

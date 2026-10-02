@@ -64,7 +64,7 @@ if (f["allow-no-handoff"] !== undefined) {
   if (f["allow-no-handoff"].length > 300) fail("--allow-no-handoff reason must be at most 300 characters");
 } else {
   const dir = path.join(root, ".scratch", m[1], "handoffs");
-  const nn = /^(\d{2})-/.exec(m[2])?.[1];
+  const nn = /^(\d{2,})-/.exec(m[2])?.[1];
   const refs = new Set([f.ticket, nn && `${m[1]}/${nn}`]);
   const maxAgeMs = 24 * 3600_000;
   let found = false;
