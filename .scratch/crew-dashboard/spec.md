@@ -1,6 +1,6 @@
 # Crew dashboard: a role-centric view of the den, with role contracts
 
-Status: ready-for-agent (spec); tickets not yet published. The test seams below are proposed and need the user's confirmation before the orchestrator breaks this into tickets.
+Status: ready-for-agent (spec); tickets published as crew-dashboard 01-14. The user approved the three test seams below (2026-10-01).
 
 Source: the user's video of the agent-office idea that sparked DimSumDen (a Codex write-up, 2026-10-01). Its first screen is a "The crew" page: one card per agent with its responsibility, trigger, last run and Talk / Run now / Details buttons. The user asked for this view and for explicit role contracts (conversation, 2026-10-01). Decision: the Front of House door guard is a skin on Needs you (A); a real gatekeeper role (B) is parked.
 
