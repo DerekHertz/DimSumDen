@@ -1,0 +1,3 @@
+# Handoff: three-digit ticket numbers, qa full verify (direct fix, no ticket)
+
+QA pass on `fix/three-digit-tickets` d036934. The diff against f991aeb is complete: no `\d{2}` ticket assumptions remain (only date patterns), two-digit ordering is preserved, and the tests exercise claim, comment, handoff, release, resolve, audit and log-cell on a three-digit ticket. `npm run ui:build` passes. `npm test` was 1807/1807 on one run; two other runs each had one unrelated flaky test that passes in isolation (`floating-cards.test.mjs` "Ctrl+Enter in the Note...", `dev-server.test.mjs` "npm run dev serves a .mjs file as text/javascript"). smoke:ui not run (no browser).

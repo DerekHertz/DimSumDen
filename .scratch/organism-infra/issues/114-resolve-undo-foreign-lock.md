@@ -6,7 +6,7 @@
 
 **Blocked by:** 98
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## What to build
 
@@ -23,3 +23,6 @@ Files: `apps/organism-infra/board-service.mjs`, `apps/organism-infra/board-resol
 
 ## Comments
 - **orchestrator, 2026-10-02:** Filed from 98's security pass (one medium, two lows), user yes 2026-10-02.
+- **qa, 2026-10-02:** Light verify: all 4 acceptance criteria covered and passing. Full test suite green (1814 tests). See handoff 114-qa-verify.md.
+- **qa, 2026-10-02:** handoff published before re-claim
+- **security, 2026-10-02:** Security pass-with-nits: no critical/high. 2 medium (board-service.mjs:1323-1328 reclaim TOCTOU before force release; :1291/1325 undo keyed on cell type, not on this run's own claim), 3 low. Details in 114-security.md.

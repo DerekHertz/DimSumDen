@@ -33,7 +33,7 @@ Always ask before:
 - deleting files outside your ticket's scope
 - adding a dependency
 - changing an ADR, `CONTEXT.md` or `CLAUDE.md`
-- changing anything under `.claude/` (genomes, skills, settings). Only the orchestrator edits it, and only with the user's permission. Other cells propose the change in their handoff.
+- changing anything under `.claude/` (genomes, skills, settings). Only the orchestrator edits it, and only with the user's permission. Other cells don't edit it: they write the change as a patch to `.scratch/_handoffs/gated/<NN>-<slug>.patch` in the main checkout and name it in their handoff. The user applies it with `!npm run apply-gated` (see `docs/agents/gated-patches.md`).
 - anything your genome lists under `gates`
 
 State the action, why, and what changes. Wait for an explicit yes.
