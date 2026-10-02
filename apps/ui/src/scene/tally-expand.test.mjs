@@ -87,7 +87,7 @@ async function openApp({ usage = usageAt(79, 41), metrics = metricsOk(), metrics
 
 const dialogOf = (page) => page.getByRole("dialog", { name: "Tally" });
 const scrollState = (page) =>
-  page.evaluate(() => ({ doc: document.scrollingElement.scrollTop, panel: document.querySelector(".panel").scrollTop }));
+  page.evaluate(() => ({ doc: document.scrollingElement.scrollTop, scene: document.querySelector("main.scene").scrollTop }));
 const focusInfo = (page) =>
   page.evaluate(() => {
     const a = document.activeElement;
@@ -120,7 +120,7 @@ test("click on the pill opens the card in place: dialog shown, aria-expanded tru
     assert.match(f.tag, /^H[1-6]$/, "focus moves to a heading");
     assert.equal(f.text, "Tally");
     assert.equal(f.inDialog, true);
-    assert.deepEqual(await scrollState(page), before, "document and .panel scrollTop unchanged");
+    assert.deepEqual(await scrollState(page), before, "document and scene scrollTop unchanged");
     assert.deepEqual(errors, []);
   } finally {
     await context.close();
@@ -251,7 +251,7 @@ test("exactly two role=meter in the scene, closed and open, with the exact perce
       { label: "Week 41%", min: "0", max: "100", now: "41", tabindex: null },
     ];
     assert.deepEqual(await read(scene.getByRole("meter")), want, "closed: the hidden twins");
-    assert.equal(await page.locator("aside").getByRole("meter").count(), 1, "the sidebar usage meter stays in 05 (07 removes it)");
+    assert.equal(await page.locator(".card").getByRole("meter").count(), 0, "the floating cards carry no usage meter (07 removed it)");
     await pill.click();
     const dialog = dialogOf(page);
     await dialog.waitFor({ state: "visible" });
@@ -437,17 +437,17 @@ test("reduced motion: the card shows with no transform transition and no animati
   }
 });
 
-test("the sidebar has no Pipeline slot, keeps its usage slot, and the Dashboard charts are mounted once (criterion 9)", { timeout: 90000 }, async () => {
+test("the cards have no Pipeline or usage slot, and the Dashboard charts are mounted once (criterion 9)", { timeout: 90000 }, async () => {
   const { page, pill, context } = await openApp();
   try {
     const sidebar = () =>
       page.evaluate(() => ({
-        h2: [...document.querySelectorAll("aside h2")].map((h) => h.textContent.trim()),
-        dashboardSlot: document.querySelectorAll('aside [data-slot="dashboard"]').length,
-        charts: document.querySelectorAll("aside figure.chart").length,
+        h2: [...document.querySelectorAll(".card h2")].map((h) => h.textContent.trim()),
+        dashboardSlot: document.querySelectorAll('.card [data-slot="dashboard"]').length,
+        charts: document.querySelectorAll(".card figure.chart").length,
       }));
     const closed = await sidebar();
-    assert.ok(closed.h2.includes("Plan usage (5 h)"), `usage slot stays: ${closed.h2}`);
+    assert.ok(!closed.h2.some((h) => /Plan usage/.test(h)), `no usage slot on the cards: ${closed.h2}`);
     assert.ok(!closed.h2.some((h) => /Pipeline/.test(h)), `no Pipeline slot: ${closed.h2}`);
     assert.equal(closed.dashboardSlot, 0);
     assert.equal(closed.charts, 0);
@@ -456,7 +456,7 @@ test("the sidebar has no Pipeline slot, keeps its usage slot, and the Dashboard 
     const ids = await page.evaluate(() => [...document.querySelectorAll('[id^="chart-title-"]')].map((e) => e.id));
     assert.equal(ids.length, 3, `chart title ids: ${ids}`);
     assert.equal(new Set(ids).size, 3, "no duplicate chart ids");
-    assert.equal((await sidebar()).charts, 0, "still none in the sidebar when the card is open");
+    assert.equal((await sidebar()).charts, 0, "still none on the cards when the Tally is open");
   } finally {
     await context.close();
   }

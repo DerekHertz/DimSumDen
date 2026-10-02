@@ -102,7 +102,7 @@ async function main() {
     const requested = [];
     page.on("request", (r) => requested.push(r.url()));
     await page.goto(bridge.url, { waitUntil: "load" });
-    await page.waitForSelector("[data-slot=queue] .qrow", { timeout: 15000 }).catch(() => {});
+    await page.waitForSelector("[data-overlay=stations] .queue-row", { timeout: 15000 }).catch(() => {});
 
     await check("font: Long Cang is self-hosted, no Google Fonts request", async () => {
       const loaded = await page.evaluate(async () => {
@@ -124,7 +124,7 @@ async function main() {
     });
 
     await check("queue: frontier in priority order", async () => {
-      const titles = await page.locator("[data-slot=queue] ul.qlist").first().locator(".qrow-title").allTextContents();
+      const titles = await page.locator("[data-overlay=stations] .queue-rows").first().locator(".queue-title").allTextContents();
       expectEqual(titles, EXPECTED_QUEUE_HEAD, "frontier titles");
     });
 
@@ -140,8 +140,11 @@ async function main() {
     });
 
     await check("approve: round trip writes a merge-approve request and the card shows it pending", async () => {
-      const card = page.locator(".gate-card", { hasText: MERGE_REF });
-      await card.getByRole("button", { name: "Approve merge" }).click();
+      // den-scene-v1/07: the Needs you card shows one request at a time; pick the merge ticket's if another leads.
+      const card = page.locator("[data-overlay=needs-you]");
+      const short = MERGE_REF.slice(MERGE_REF.indexOf("/") + 1);
+      if (!(await card.locator(".needs-title", { hasText: short }).count())) await card.locator(".request-row", { hasText: short }).click();
+      await card.getByRole("button", { name: /^Approve/ }).click();
       await card.getByText("Approval sent, waiting for the orchestrator").waitFor({ timeout: 10000 });
       const rows = (await readFile(reqFile, "utf8")).split("\n").filter(Boolean).map((l) => JSON.parse(l));
       const req = rows.find((r) => r.ref === MERGE_REF && r.id !== HANDLED_ID);
@@ -190,18 +193,11 @@ async function main() {
       return `${Object.keys(p.signs).length} signs inside ${Math.round(p.width)}x${Math.round(p.height)}`;
     });
 
-    // The shell still has a 1280 px minimum and a side panel (the floating cards of den-iso-v1/07 replace them),
-    // so at 375x667 the scene box would be 840 wide. Force the scene to the phone's size to test the camera's fit
-    // on its own: one column, no panel, no minimum width. The style is removed afterwards.
+    // The scene is the full viewport (den-scene-v1/07 floating cards), so the scene box is the phone's size as it is.
     await check("camera fit: every kiosk sign and the Tally are in the scene at 375x667", async () => {
       await page.setViewportSize({ width: 375, height: 667 });
-      await page.addStyleTag({ content: ".shell { min-width: 0 !important; grid-template-columns: 1fr !important; } .panel { display: none !important; }", }).then((h) => h.evaluate((el) => el.setAttribute("data-smoke-phone", "")));
-      try {
-        const p = await settle((q) => Math.abs(q.width - 375) < 2 && Math.abs(q.height - 667) < 2 && fits(q), "375x667 fit");
-        return `${Object.keys(p.signs).length} signs inside ${Math.round(p.width)}x${Math.round(p.height)}`;
-      } finally {
-        await page.evaluate(() => document.querySelector("style[data-smoke-phone]")?.remove());
-      }
+      const p = await settle((q) => Math.abs(q.width - 375) < 2 && Math.abs(q.height - 667) < 2 && fits(q), "375x667 fit");
+      return `${Object.keys(p.signs).length} signs inside ${Math.round(p.width)}x${Math.round(p.height)}`;
     });
 
     await check("camera zoom: wheel zoom scales the sign spacing by 1/d and stays within the range", async () => {

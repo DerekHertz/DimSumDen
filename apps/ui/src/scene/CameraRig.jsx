@@ -1,40 +1,67 @@
 // Camera controls for the isometric den: pan (drag, arrow keys) moves the look-at target on the ground and zoom
-// (wheel, +/-) is a dolly factor, within the limits in camera-rig.mjs. Keys work when the scene has focus.
-// Reduced motion snaps straight to the target; otherwise the camera eases toward it. The orthographic camera
-// itself comes from cameraConfig (iso-projection.mjs), applied each frame.
+// (wheel, two-finger pinch, +/-) is a dolly factor, within the limits in camera-rig.mjs. Keys work when the scene
+// has focus. The goal (zoom and target) lives in the camera store, so the zoom switcher and the station pills move
+// the same camera; this rig only eases toward it. Reduced motion snaps straight to the goal; otherwise the camera
+// eases toward it. The orthographic camera itself comes from cameraConfig (iso-projection.mjs), applied each frame.
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { TARGET, cameraConfig } from "./iso-projection.mjs";
-import { clampTarget, clampZoom, dragPan, keyPan, keyZoom, wheelZoom } from "./camera-rig.mjs";
+import { cameraConfig } from "./iso-projection.mjs";
+import { clampTarget, clampZoom, dragPan, keyPan, pinchZoom, wheelZoom } from "./camera-rig.mjs";
 
-export function CameraRig() {
+export function CameraRig({ store }) {
   const { camera, gl, size } = useThree();
-  // The viewport follows the canvas; kept in a ref for the event handlers.
+  // The viewport follows the canvas (the whole scene box: the cards float over it); kept in a ref for the handlers.
   const viewport = useRef({ width: size.width, height: size.height });
   viewport.current = { width: size.width, height: size.height };
-  const goal = useRef({ target: [...TARGET], zoom: 1 });
-  const now = useRef({ target: [...TARGET], zoom: 1 });
+  const now = useRef({ target: [...store.getTarget()], zoom: store.getZoom() });
 
   useEffect(() => {
     const el = gl.domElement;
     const host = el.parentElement?.closest("main") ?? el;
-    const t = goal.current;
-    const view = (zoom = t.zoom) => ({ ...viewport.current, zoom });
+    const view = (zoom = store.getZoom()) => ({ ...viewport.current, zoom });
+    // One finger drags the ground; two fingers pinch the zoom (the gesture's own start is the reference).
+    const pointers = new Map();
     let drag = null;
-    const onDown = (e) => { drag = { x: e.clientX, y: e.clientY }; el.setPointerCapture?.(e.pointerId); };
+    let pinch = null;
+    const spread = () => {
+      const [a, b] = [...pointers.values()];
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    };
+    const onDown = (e) => {
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size === 2) {
+        drag = null;
+        pinch = { dist: spread(), zoom: store.getZoom() };
+      } else if (pointers.size === 1) {
+        drag = { x: e.clientX, y: e.clientY };
+      }
+      el.setPointerCapture?.(e.pointerId);
+    };
     const onMove = (e) => {
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch && pointers.size === 2) {
+        store.setZoom(pinchZoom(pinch.zoom, pinch.dist, spread()));
+        return;
+      }
       if (!drag) return;
-      t.target = dragPan(t.target, { dx: e.clientX - drag.x, dy: e.clientY - drag.y }, view());
+      store.setTarget(dragPan(store.getTarget(), { dx: e.clientX - drag.x, dy: e.clientY - drag.y }, view()));
       drag = { x: e.clientX, y: e.clientY };
     };
-    const onUp = (e) => { drag = null; el.releasePointerCapture?.(e.pointerId); };
-    const onWheel = (e) => { e.preventDefault(); t.zoom = wheelZoom(t.zoom, e.deltaY); };
+    const onUp = (e) => {
+      pointers.delete(e.pointerId);
+      el.releasePointerCapture?.(e.pointerId);
+      if (pointers.size < 2) pinch = null;
+      // The finger left behind carries on as a drag from where it stands.
+      drag = pointers.size === 1 ? { ...[...pointers.values()][0] } : null;
+    };
+    const onWheel = (e) => { e.preventDefault(); store.setZoom(wheelZoom(store.getZoom(), e.deltaY)); };
     const onKey = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (!["ArrowLeft", "ArrowRight", "+", "=", "-", "_"].includes(e.key)) return;
       e.preventDefault();
-      t.target = keyPan(t.target, e.key, view());
-      t.zoom = keyZoom(t.zoom, e.key);
+      store.setTarget(keyPan(store.getTarget(), e.key, view()));
+      store.stepZoom(e.key);
     };
     el.addEventListener("pointerdown", onDown);
     el.addEventListener("pointermove", onMove);
@@ -50,20 +77,20 @@ export function CameraRig() {
       el.removeEventListener("wheel", onWheel);
       host.removeEventListener("keydown", onKey);
     };
-  }, [gl]);
+  }, [gl, store]);
 
   useFrame((_, dt) => {
-    const t = goal.current;
     const n = now.current;
     // A zoom-out or a resize can shrink the pan limits under the goal: pull it back in.
-    t.target = clampTarget(t.target, { ...viewport.current, zoom: t.zoom });
+    store.setTarget(clampTarget(store.getTarget(), { ...viewport.current, zoom: store.getZoom() }));
+    const goal = { target: store.getTarget(), zoom: store.getZoom() };
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      n.target = [...t.target];
-      n.zoom = t.zoom;
+      n.target = [...goal.target];
+      n.zoom = goal.zoom;
     } else {
       const k = 1 - Math.exp(-10 * dt);
-      n.target = n.target.map((v, i) => v + (t.target[i] - v) * k);
-      n.zoom += (t.zoom - n.zoom) * k;
+      n.target = n.target.map((v, i) => v + (goal.target[i] - v) * k);
+      n.zoom += (goal.zoom - n.zoom) * k;
     }
     const zoom = clampZoom(n.zoom);
     const { width, height } = viewport.current;

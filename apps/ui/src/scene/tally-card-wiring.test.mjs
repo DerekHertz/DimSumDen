@@ -21,9 +21,11 @@ test("App no longer scrolls to a dashboard heading: no openDashboard counter, no
   assert.match(app, /closeTally/);
 });
 
-test("the sidebar usage slot is still wired (07 removes it, not 05)", () => {
-  assert.match(app, /Plan usage \(5 h\)/);
-  assert.match(app, /<UsageMeter/);
+test("the usage meter is off the cards (07 removed it); it lives on the Tally", () => {
+  const cards = read("../overlay/Cards.jsx");
+  assert.doesNotMatch(app + cards, /Plan usage \(5 h\)/);
+  assert.doesNotMatch(app + cards, /<UsageMeter/);
+  assert.match(read("./tally-face.mjs"), /usage-meter-model/, "the Tally face still reads the usage model");
 });
 
 test("the Dashboard component is mounted once across the UI sources, and the scene still wires the pill and the abacus click", () => {
