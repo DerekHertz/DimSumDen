@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** in-review
+**Status:** resolved
 
 ## What to build
 

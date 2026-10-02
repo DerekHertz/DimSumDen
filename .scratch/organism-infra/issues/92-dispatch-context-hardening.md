@@ -6,7 +6,7 @@
 
 **Blocked by:** 87 merged
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## What to build
 
@@ -25,3 +25,6 @@ Follow-ups from the 87 security review (`.scratch/organism-infra/handoffs/87-sec
 ## Comments
 
 - **orchestrator, 2026-10-01:** Filed after the 87 security pass. M2 (the ticket's "What to build" text goes to the jg provider) is allowed by ADR 0014 and needs no ticket.
+- **orchestrator, 2026-10-02:** batch J = organism-infra/92-dispatch-context-hardening + organism-infra/95-context-size-gate-counts-binaries (same file, same listing). One relay, one branch, one PR (user approved 2026-10-02).
+- **qa, 2026-10-02:** QA pass (batch J, full verify, 431728d): 1657/1657, tests unchanged since specify, AC1-3 mapped to passing tests.
+- **security, 2026-10-02:** Security pass (batch J). No critical/high. Low: dispatch-context.mjs:86-90 FIFO symlink hang; :205-215 tmp name predictable, no wx flag. gitleaks clean. See 92-security.md.

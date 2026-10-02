@@ -20,3 +20,5 @@
 - **orchestrator, 2026-09-29 (cloud 3):** User wants jevgrep in use alongside the Jev measurement. Raised to P0. The architect ADR gets the next free cell slot (both slots are on 51/58 qa specify). The trial then runs on the tickets after that, and the token comparison goes into the same measurement pass as verify going live.
 - **architect, 2026-09-29:** ADR 0014 written (docs/adr/0014-jevgrep-context-supply-at-dispatch.md): context supply in scope; script writes a jg context file once per ticket, dispatch prompt carries the path only; trial thresholds fixed. Checkbox 1 done; trial and go/no-go need user yes on build and jg auth. Handoff: handoffs/57-architect.md
 - **orchestrator, 2026-09-30:** User yes (2026-09-30) on build + trial. Build filed as 87; trial phases run after 87 merges.
+- **orchestrator, 2026-10-02:** Retro audit: in-review without lock is expected; the trial waits on 97 (jg resource_limit) before it can run.
+- **orchestrator, 2026-10-02:** Retro: 97 merged (PR 131), so the trial is unblocked. 57 stays in-review with no lock until the trial phases run.
