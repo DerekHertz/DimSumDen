@@ -249,8 +249,9 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
 const PASS_SEAT_TYPES = ["orchestrator", "product", "architect"]; // the cells that stand on Bao (bao-seats.mjs)
 const PAD_CHIP_HEIGHT = 0.3; // world units tall; the width follows the canvas aspect
 // The pill sits on the floor plane (it was 0.1 above). At 375x667 that 0.1 put the Library pill's top 2 px into the product
-// shoulder chip's bottom; on the ground it clears by about 0.4 px (den-scene-v1/11, T5). Nothing else in the scene reads this y.
-const PAD_CHIP_Y = 0;
+// shoulder chip's bottom; at -0.05 (designer review) it clears by about 1.5 px and still reads centred on the dashed ring (the
+// sprite is depth-test off, so the floor never clips it). Nothing else in the scene reads this y.
+const PAD_CHIP_Y = -0.05;
 
 function padChipTexture(text) {
   const style = getComputedStyle(document.documentElement);
