@@ -4,7 +4,7 @@
 
 **Priority:** P1
 
-**Blocked by:** None (can start immediately)
+**Blocked by:** organism-infra/98 (both change the board CLI; sequence 98 first)
 
 **Status:** ready-for-agent
 

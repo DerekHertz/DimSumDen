@@ -2,7 +2,7 @@
 
 **Type:** feature
 
-**Priority:** P1
+**Priority:** P0
 
 **Blocked by:** None
 
@@ -24,3 +24,5 @@ Files: `apps/organism-infra/` (board CLI and its tests), `docs/agents/issue-trac
 ## Comments
 - **orchestrator, 2026-10-02:** Filed by pipeline-retro (board-claim/board-handoff incidents, 2 in the window). User yes 2026-10-02.
 - **orchestrator, 2026-10-02:** Hit again resolving 04 and 96 (State block not JSON, pending not {item,owner}, handoff filename must start with NN-); 04 sat at `claimed` unnoticed for ~1h. `board resolve` should also refuse silently partial runs.
+
+- **orchestrator, 2026-10-01:** Raised to P0 for 10-02 (user): lands before crew-dashboard/02.

@@ -8,7 +8,7 @@
 
 **Blocked by:** None. Sequenced after 02 (user, 2026-09-27).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] ADR picks the UI transport (likely localhost HTTP/WebSocket, since a browser can't open a named pipe) and says why
 - [ ] ADR states how a steering command reaches a live cell: hooks, stdin, signals, per runtime through the adapter
@@ -19,3 +19,7 @@
 
 - **Created (orchestrator, 2026-09-27):** Out of the architect/orchestrator discussion on ticket 01. IPC is needed in Agent Office, but at the daemon↔UI↔cell seam, not the board. ADR 0008 conflated the two. See `.scratch/organism-infra/handoffs/01-security.md`.
 - **unknown, 2026-09-28:** Input (user, 2026-09-28): the source for cell events is transcript tailing (~/.claude/projects/*.jsonl), not Claude Code hooks, for now. One reader feeds both tool-call animation and cost/tokens. The hook design stays as a fallback. See .scratch/_handoffs/refs/agentsystemlabs-agent-office.md (user, 2026-09-28).
+
+## Answer
+
+Resolved by `docs/adr/0016-ui-steering-channel.md` (accepted 2026-09-30). Implementation is tracked in organism-infra/105 (spikes), 106 (slice 1) and 107 (slice 2). Marked resolved at the user's request, 2026-10-01.

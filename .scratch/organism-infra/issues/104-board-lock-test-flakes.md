@@ -2,7 +2,7 @@
 
 **Type:** bug
 
-**Priority:** P2
+**Priority:** P1
 
 **Blocked by:** None
 
@@ -25,3 +25,5 @@ Make them deterministic (inject the clock or timeouts, or widen the bounds with 
 ## Comments
 - **orchestrator, 2026-10-02:** Filed on the user's yes after batch K qa verify reported the two flakes.
 - **orchestrator, 2026-10-02:** Add: 07's Ctrl+Enter Note test flaked again in round 5 qa verify (about 1 full run in 3, three rounds running).
+
+- **orchestrator, 2026-10-01:** Raised to P1 for 10-02 (user): pipeline saver.

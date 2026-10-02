@@ -4,7 +4,7 @@
 
 **Priority:** P1
 
-**Blocked by:** None (can start immediately)
+**Blocked by:** organism-infra/90 (both edit genomes; sequence 90 first)
 
 **Status:** ready-for-agent
 
