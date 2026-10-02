@@ -10,6 +10,7 @@ node scripts/cell-start.mjs --base <sha> --detach --ticket <ref> --cell security
 
 The cell runs it first, inside its worktree. It:
 
+0. Reads the orchestrator's context (`scripts/context.mjs`; a cell shares the orchestrator's `CLAUDE_CODE_SESSION_ID`, organism-infra/119). At 70k or more it prints a warning that the orchestrator should start no new tickets. At 80k or more it refuses with exit 1 (`orchestrator context <n>k ≥ 80k: write the session handoff and ask the user to /compact`) before claiming or switching anything. `--force` skips the refusal. `--continue`, for a fix round or a later hop of a ticket already in flight, gets the warning but never the refusal. A null reading never blocks.
 1. Refuses (non-zero exit, reason on stderr, nothing changed) in the main checkout, in a dirty worktree (untracked files count), for an unknown `<sha>`, for an existing `<name>`, or for bad arguments.
 2. Switches to a new branch at `<sha>`, or detaches there.
 3. Runs `npm ci` with cwd at the worktree's toplevel; a failure exits non-zero. A base commit with no root `package.json` is refused before switching, because npm would otherwise walk up and reinstall in the main checkout.

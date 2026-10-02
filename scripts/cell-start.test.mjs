@@ -67,7 +67,7 @@ function run(fx, cwd, args) {
   return spawnSync("node", [SCRIPT, ...args], {
     cwd,
     encoding: "utf8",
-    env: { ...process.env, PATH: `${fx.bin}${path.delimiter}${process.env.PATH}`, ORGANISM_ROOT: "" },
+    env: { ...process.env, PATH: `${fx.bin}${path.delimiter}${process.env.PATH}`, ORGANISM_ROOT: "", CLAUDE_CODE_SESSION_ID: "" },
   });
 }
 

@@ -2,6 +2,7 @@
 // organism-infra/48: append one validated kind:"cell" row to .scratch/usage.jsonl (ADR 0008).
 // Usage: node scripts/log-cell.mjs --ticket <feature>/<NN-slug> --cell <type> [--mode <m>] [--model <id>]
 //          --tokens <int> --ms <int> --outcome "<text>"
+//          [--context <int>]                 (the cell's final `context.mjs --self` reading; organism-infra/119)
 //          [--allow-no-handoff "<reason>"]   (skip the recent-handoff check; reason is logged in the row)
 // Root is $ORGANISM_ROOT, else the current directory. Any rejection exits 1 and writes nothing.
 import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, writeSync } from "node:fs";
@@ -9,7 +10,7 @@ import path from "node:path";
 
 const CELLS = ["product", "architect", "orchestrator", "developer", "scout", "qa", "security", "designer"];
 const REF_RE = /^([a-z0-9-]+)\/([A-Za-z0-9][A-Za-z0-9._-]*)$/;
-const FLAGS = ["ticket", "cell", "mode", "model", "tokens", "ms", "outcome", "failures", "allow-no-handoff"];
+const FLAGS = ["ticket", "cell", "mode", "model", "tokens", "ms", "outcome", "failures", "allow-no-handoff", "context"];
 const TOOLS = ["bash-guard", "board-claim", "board-release", "board-comment", "board-handoff", "handoff-state", "git", "npm", "write", "ci", "other"];
 
 function fail(msg) {
@@ -32,6 +33,8 @@ if (!CELLS.includes(f.cell)) fail(`--cell must be one of ${CELLS.join(", ")}`);
 for (const n of ["tokens", "ms"]) {
   if (!/^[0-9]{1,15}$/.test(f[n] ?? "")) fail(`--${n} must be a non-negative integer`);
 }
+// organism-infra/119: the cell's final `context.mjs --self` reading, same integer rule as --tokens.
+if (f.context !== undefined && !/^[0-9]{1,15}$/.test(f.context)) fail("--context must be a non-negative integer");
 if (!f.outcome || !f.outcome.trim()) fail("--outcome must be non-empty");
 if (f.mode !== undefined && !f.mode.trim()) fail("--mode must be non-empty when given");
 if (f.model !== undefined && !f.model.trim()) fail("--model must be non-empty when given");
@@ -102,6 +105,7 @@ const row = {
   tokens: Number(f.tokens),
   ms: Number(f.ms),
   outcome: f.outcome,
+  ...(f.context !== undefined ? { context: Number(f.context) } : {}),
   ...(f["allow-no-handoff"] !== undefined ? { allow_no_handoff: f["allow-no-handoff"] } : {}),
 };
 const scratch = path.join(root, ".scratch");
