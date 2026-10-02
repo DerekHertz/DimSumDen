@@ -85,7 +85,8 @@ test("trackedTickets: active plus frontier, with station", () => {
 
 test("stationBearing: angle from the table toward each stall, +z is 0, +x is positive", () => {
   assert.ok(Math.abs(stationBearing("cubs") + 0.5404195002705842) < 1e-9);
-  assert.ok(Math.abs(stationBearing("front-of-house") - Math.atan2(3.0, -1.4)) < 1e-9);
+  assert.ok(Math.abs(stationBearing("front-of-house") - Math.atan2(3.6, -1.4)) < 1e-9); // den-scene-v1/11: the Front of House kiosk stands at x 3.6
+  assert.ok(Math.abs(Math.abs(stationBearing("orchestrator")) - Math.PI) < 1e-9, "Bao's bearing follows BAO.position z -3.3, straight back from the table");
   assert.ok(stationBearing("steamers") < 0 && stationBearing("tea") < 0);
   assert.ok(stationBearing("pantry") > 0);
   // Bao's own station (Pass cells) sits at the back of the table.
@@ -166,7 +167,14 @@ test("the service bell stands on Bao's crown", async () => {
   const { RAIL } = await import("./banquet-layout.mjs");
   assert.ok(Math.abs(BELL.y - (RAIL.y + RAIL.height / 2)) < 1e-9, "the bell is seated on the Pass rail, not floating");
   assert.ok(Math.abs(BELL.x - RAIL.x) <= RAIL.width / 2, "within the rail's length");
-  assert.ok(Math.abs(RAIL.y - (BAO.position[1] + BAO.scale * (-1 + 0.96 * 2))) < 0.05, "the rail is at the orchestrator's crown perch height");
+  // den-scene-v1/11: the rail is a 2.0-wide fitting 0.05 thick on Bao's crown (designer's measured rest numbers, world), the bell
+  // stands 0.75 along it. They ride the head bone at run time (bao-seats.test.mjs); these are the rest values.
+  assert.equal(RAIL.width, 2.0);
+  assert.equal(RAIL.height, 0.05);
+  assert.ok(Math.abs(RAIL.y - 4.2465) <= 0.063, `rail centre y ${RAIL.y} vs 4.2465`);
+  assert.ok(Math.abs(RAIL.z - -3.6885) <= 0.063, `rail z ${RAIL.z} vs -3.6885`);
+  assert.equal(RAIL.x, 0);
+  assert.ok(Math.abs(BELL.x - 0.75) < 1e-9, "the bell stands at x 0.75 on the rail top, the orchestrator slots step away from it");
   assert.equal(TABLE.x, 0);
 });
 
@@ -184,4 +192,46 @@ test("wiring: App derives handoffs and passes baskets, handoffs and hearts down;
   assert.match(read("./Den.jsx"), /<Market baskets=\{baskets\} handoffs=\{handoffs\} cells=\{cells\}/);
   assert.match(read("./ChipLayer.jsx"), /chip-heart/);
   assert.match(read("../styles.css"), /reduce\)[^\n]*\.chip-heart \{ animation: none/);
+});
+
+// den-scene-v1/11 T7: Bao's roam footprint comes from his scale, and the rear handoff arc stays outside it.
+const baoRect = (obstacles) => obstacles.find((o) => o.kind === "rect" && o.x0 < 0 && o.x1 > 0 && o.z0 < BAO.position[2] && o.z1 > BAO.position[2]);
+
+test("roamObstacles: Bao's rect is half sizes scale*1.0 by scale*0.875 around BAO.position, padded 0.4 (2.1 -> 2.5 by 2.2375)", async () => {
+  const { roamObstacles } = await import("./roam.mjs");
+  const r = baoRect(roamObstacles());
+  assert.ok(r, "a rect around Bao");
+  const near = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-9, `${m}: ${a} vs ${b}`);
+  near(r.x0, -2.5, "x0"); near(r.x1, 2.5, "x1");
+  near(r.z0, -3.3 - 1.8375 - 0.4, "z0"); near(r.z1, -3.3 + 1.8375 + 0.4, "z1");
+});
+
+test("every handoff arc between two kiosks stays outside Bao's padded roam rect (the rear arc radius is at least 6.1)", async () => {
+  const { roamObstacles } = await import("./roam.mjs");
+  const { handoffPath } = await import("./handoffs.mjs");
+  const { STALL_CENTERS } = await import("./banquet-layout.mjs");
+  const r = baoRect(roamObstacles());
+  const stations = Object.keys(STALL_CENTERS);
+  let arcs = 0;
+  for (const from of stations) for (const to of stations) {
+    if (from === to) continue;
+    arcs++;
+    for (const p of handoffPath(from, to)) {
+      const inside = p.x > r.x0 && p.x < r.x1 && p.z > r.z0 && p.z < r.z1;
+      assert.ok(!inside, `${from} -> ${to}: sample (${p.x.toFixed(2)}, ${p.z.toFixed(2)}) is inside Bao's padded rect`);
+    }
+  }
+  assert.equal(arcs, 12, "every ordered pair of the four kiosks");
+  // the rear arc between the two back kiosks rides at least 6.1 out
+  const arcPoints = handoffPath("steamers", "front-of-house").slice(1, -1);
+  assert.ok(arcPoints.length > 0);
+  for (const p of arcPoints) assert.ok(Math.hypot(p.x, p.z) >= 6.1 - 1e-9, `arc radius ${Math.hypot(p.x, p.z)} < 6.1`);
+});
+
+test("no layout module hard-codes Bao's old z (-2.4): everything follows BAO.position", async () => {
+  const { readFileSync } = await import("node:fs");
+  for (const f of ["banquet-layout.mjs", "roam.mjs", "handoffs.mjs", "Market.jsx", "Den.jsx", "grove-layout.mjs", "iso-projection.mjs"]) {
+    const code = readFileSync(new URL(f, import.meta.url), "utf8").split("\n").map((l) => l.replace(/\/\/.*$/, "")).filter((l) => !/^\s*\*|^\s*\/\*/.test(l)).join("\n");
+    assert.doesNotMatch(code, /-\s?2\.4\b/, `${f} still carries the literal -2.4`);
+  }
 });
