@@ -6,6 +6,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { loadContextTokens } from "./context-state.mjs";
 
 const WINDOW = Number(process.env.CONTEXT_WINDOW_TOKENS) || 1_000_000;
 
@@ -69,7 +70,11 @@ const home = process.env.HOME || os.homedir();
 const projects = path.join(home, ".claude", "projects");
 const id = process.env.CLAUDE_CODE_SESSION_ID;
 const dir = path.join(projects, process.cwd().replace(/[^A-Za-z0-9]/g, "-"));
-const t = (id && sessionTranscript(projects, id)) || newestTranscript(dir);
-const tokens = t ? lastUsageTokens(t.file) : null;
+// organism-infra/109: the status line records the real number for this session; it wins over
+// the transcript. Sessions it hasn't seen fall back to transcripts as before.
+const seen = id ? loadContextTokens(home, id) : null;
+const t = seen !== null ? null : (id && sessionTranscript(projects, id)) || newestTranscript(dir);
+const tokens = seen !== null ? seen : t ? lastUsageTokens(t.file) : null;
+const session = seen !== null ? id : t ? t.session : null;
 const percent = tokens === null ? null : Math.min(100, Math.round((tokens / WINDOW) * 10000) / 100);
-console.log(JSON.stringify({ session: t ? t.session : null, context_tokens: tokens, percent }));
+console.log(JSON.stringify({ session, context_tokens: tokens, percent }));
