@@ -1,0 +1,78 @@
+// organism-infra/122: launcher for a fresh orchestrator session.
+//
+//   node scripts/next-session.mjs [--root <dir>] [--run]
+//
+// Finds the latest orchestrator session handoff in <root>/.scratch/_handoffs/
+// (files named YYYY-MM-DD-orchestrator[-cloud]-N.md), then prints
+// `claude --agent orchestrator "<prompt>"`. With --run it starts claude instead.
+// Root is --root, else $ORGANISM_ROOT, else the cwd.
+import { spawnSync } from "node:child_process";
+import { readdirSync } from "node:fs";
+import path from "node:path";
+
+const HANDOFF = /^(\d{4}-\d{2}-\d{2})-orchestrator(?:-cloud)?-(\d+)\.md$/;
+
+function fail(msg) {
+  process.stderr.write(`next-session: ${msg}\n`);
+  process.exit(1);
+}
+
+export function latestHandoff(root) {
+  let names;
+  try {
+    names = readdirSync(path.join(root, ".scratch", "_handoffs"), { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  let best = null;
+  for (const e of names) {
+    if (!e.isFile()) continue;
+    const m = HANDOFF.exec(e.name);
+    if (!m) continue;
+    const key = [m[1], Number(m[2])];
+    if (!best || key[0] > best.key[0] || (key[0] === best.key[0] && key[1] > best.key[1])) {
+      best = { name: e.name, key };
+    }
+  }
+  return best ? best.name : null;
+}
+
+export function buildPrompt(root, name) {
+  const file = path.join(root, ".scratch", "_handoffs", name);
+  return `Read ${file}, then propose the next ticket from the frontier.`;
+}
+
+function shellQuote(s) {
+  return `'${s.replaceAll("'", `'\\''`)}'`;
+}
+
+function parseArgs(argv) {
+  const opts = { root: null, run: false };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--run") opts.run = true;
+    else if (a === "--root") {
+      const v = argv[++i];
+      if (!v || v.startsWith("--")) fail("--root needs a value");
+      opts.root = v;
+    } else fail(`unknown argument ${a}`);
+  }
+  return opts;
+}
+
+function main() {
+  const opts = parseArgs(process.argv.slice(2));
+  const root = path.resolve(opts.root ?? process.env.ORGANISM_ROOT ?? process.cwd());
+  const name = latestHandoff(root);
+  if (!name) fail(`no orchestrator handoff found in ${path.join(root, ".scratch", "_handoffs")}`);
+  const prompt = buildPrompt(root, name);
+  if (opts.run) {
+    const r = spawnSync("claude", ["--agent", "orchestrator", prompt], { stdio: "inherit" });
+    if (r.error) fail(`could not start claude: ${r.error.message}`);
+    process.exit(r.status ?? 1);
+  }
+  process.stdout.write(`claude --agent orchestrator ${shellQuote(prompt)}\n`);
+}
+
+import { fileURLToPath } from "node:url";
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
