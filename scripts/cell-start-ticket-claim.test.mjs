@@ -81,6 +81,7 @@ function run(fx, cwd, args) {
       ...process.env,
       PATH: `${fx.bin}${path.delimiter}${process.env.PATH}`,
       ORGANISM_ROOT: fx.main,
+      CLAUDE_CODE_SESSION_ID: "", // keep the live session's context out of the 119 gate
     },
   });
 }

@@ -3,16 +3,25 @@
 //
 //   node scripts/cell-start.mjs --base <sha> (--branch <name> | --detach)
 //                               [--ticket <ref> --cell <type> [--mode <m>]]
+//                               [--force | --continue]
 //
 // Run first, inside the worktree. Refuses in the main checkout or a dirty
 // worktree; otherwise switches to a new branch at <sha> (or detaches there),
 // then runs `npm ci`. An existing branch is checked out and fast-forwarded to <sha>.
 // organism-infra/60: with --ticket, it then runs `board claim` and exits
 // non-zero, with the board's message, if the claim is refused.
+// organism-infra/119: before anything else it reads the orchestrator's context (context.mjs, which
+// a cell sees through the shared CLAUDE_CODE_SESSION_ID). At 70k+ it warns that the orchestrator
+// should start no new tickets; at 80k+ it refuses (exit 1) unless --force. --continue (a fix round
+// or later hop of a ticket already in flight) gets the warning, never the refusal. A null reading
+// never blocks.
 import { spawnSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+const CONTEXT = fileURLToPath(new URL("./context.mjs", import.meta.url));
+const WARN_AT = 70_000;
+const REFUSE_AT = 80_000;
 const BOARD = fileURLToPath(new URL("../apps/organism-infra/board.mjs", import.meta.url));
 
 function fail(msg) {
@@ -25,10 +34,12 @@ function git(args) {
 }
 
 function parseArgs(argv) {
-  const opts = { base: null, branch: null, detach: false, ticket: null, cell: null, mode: null };
+  const opts = { base: null, branch: null, detach: false, ticket: null, cell: null, mode: null, force: false, continue: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--detach") opts.detach = true;
+    else if (a === "--force") opts.force = true;
+    else if (a === "--continue") opts.continue = true;
     else if (["--base", "--branch", "--ticket", "--cell", "--mode"].includes(a)) {
       const v = argv[++i];
       if (!v || v.startsWith("--")) fail(`${a} needs a value`);
@@ -44,6 +55,27 @@ function parseArgs(argv) {
 }
 
 const opts = parseArgs(process.argv.slice(2));
+
+// organism-infra/119: orchestrator context gate. Runs before the claim and the switch, so a refusal
+// leaves the board and the worktree untouched.
+function orchestratorContext() {
+  const r = spawnSync(process.execPath, [CONTEXT], { encoding: "utf8", timeout: 15000 });
+  if (r.status !== 0) return null;
+  try {
+    const n = JSON.parse(r.stdout).context_tokens;
+    return typeof n === "number" && Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+const ctx = orchestratorContext();
+if (ctx !== null && ctx >= WARN_AT) {
+  const k = Math.floor(ctx / 1000);
+  if (ctx >= REFUSE_AT && !opts.force && !opts.continue) {
+    fail(`orchestrator context ${k}k ≥ 80k: write the session handoff and ask the user to /compact (--force overrides; --continue is for a ticket already in flight)`);
+  }
+  process.stdout.write(`cell-start: warning: orchestrator context ${k}k (≥ 70k): start no new tickets; finish the relay in flight, then hand off and /compact\n`);
+}
 
 const top = git(["rev-parse", "--show-toplevel"]);
 if (top.status !== 0) fail("not inside a git worktree");

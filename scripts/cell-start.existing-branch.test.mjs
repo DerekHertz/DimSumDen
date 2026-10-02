@@ -48,7 +48,7 @@ const run = (fx, args) =>
   spawnSync("node", [SCRIPT, ...args], {
     cwd: fx.wt,
     encoding: "utf8",
-    env: { ...process.env, PATH: `${fx.bin}${path.delimiter}${process.env.PATH}`, ORGANISM_ROOT: "" },
+    env: { ...process.env, PATH: `${fx.bin}${path.delimiter}${process.env.PATH}`, ORGANISM_ROOT: "", CLAUDE_CODE_SESSION_ID: "" },
   });
 const npmCalls = (fx) => (existsSync(fx.log) ? readFileSync(fx.log, "utf8").trim().split("\n") : []);
 function withFixture(fn) {

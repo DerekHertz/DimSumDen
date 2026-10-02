@@ -3,7 +3,9 @@
 // {"session","context_tokens","percent"}. Reads the newest top-level transcript in
 // $HOME/.claude/projects/<cwd with non-alphanumerics -> "-">/ (subagent transcripts
 // live in subdirectories and are ignored). No transcript: context_tokens null, exit 0.
-import { readdirSync, readFileSync, statSync } from "node:fs";
+// --self (organism-infra/119): the calling subagent's own reading, chosen by transcript cwd ==
+// this worktree; prints {"session","context_tokens","percent","scope":"self"}, null when none matches.
+import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { loadContextTokens } from "./context-state.mjs";
@@ -66,9 +68,73 @@ function sessionTranscript(projects, id) {
   return null;
 }
 
+// organism-infra/119: first `cwd` recorded in a transcript (every subagent record carries it).
+function transcriptCwd(file) {
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    if (!line.includes('"cwd"')) continue;
+    try {
+      const c = JSON.parse(line)?.cwd;
+      if (typeof c === "string") return c;
+    } catch {
+      // skip malformed line
+    }
+  }
+  return null;
+}
+
+const real = (p) => {
+  try {
+    return realpathSync(p);
+  } catch {
+    return p;
+  }
+};
+
+// The calling subagent's own transcript: <projects>/<slug>/<session>/subagents/agent-*.jsonl whose
+// cwd is this worktree. Never "newest file": two cells run at once. Newest of the matches wins.
+function selfTranscript(projects, id) {
+  if (!id) return null;
+  const here = real(process.cwd());
+  let best = null;
+  let slugs = [];
+  try {
+    slugs = readdirSync(projects, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  for (const d of slugs) {
+    if (!d.isDirectory()) continue;
+    const sub = path.join(projects, d.name, id, "subagents");
+    let files = [];
+    try {
+      files = readdirSync(sub, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const e of files) {
+      if (!e.isFile() || !e.name.startsWith("agent-") || !e.name.endsWith(".jsonl")) continue;
+      const file = path.join(sub, e.name);
+      const cwd = transcriptCwd(file);
+      if (cwd === null || real(cwd) !== here) continue;
+      const mtime = statSync(file).mtimeMs;
+      if (!best || mtime > best.mtime) best = { file, mtime };
+    }
+  }
+  return best;
+}
+
 const home = process.env.HOME || os.homedir();
 const projects = path.join(home, ".claude", "projects");
 const id = process.env.CLAUDE_CODE_SESSION_ID;
+
+if (process.argv.includes("--self")) {
+  const t = selfTranscript(projects, id);
+  const tokens = t ? lastUsageTokens(t.file) : null;
+  const percent = tokens === null ? null : Math.min(100, Math.round((tokens / WINDOW) * 10000) / 100);
+  console.log(JSON.stringify({ session: id || null, context_tokens: tokens, percent, scope: "self" }));
+  process.exit(0);
+}
+
 const dir = path.join(projects, process.cwd().replace(/[^A-Za-z0-9]/g, "-"));
 // organism-infra/109: the status line records the real number for this session; it wins over
 // the transcript. Sessions it hasn't seen fall back to transcripts as before.

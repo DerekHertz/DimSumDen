@@ -86,6 +86,20 @@ export function computeMetrics({ usageLines = [], eventLines = [] } = {}) {
   };
 }
 
+// organism-infra/119: partial returns and the median final cell context, over kind:"cell" rows.
+// Kept out of computeMetrics so the --json shape stays as it was.
+export function contextStats(usageLines = []) {
+  const cells = usageLines.filter((r) => r && r.kind === "cell");
+  const partial = cells.filter((r) => typeof r.outcome === "string" && /^partial/i.test(r.outcome.trim())).length;
+  const ctx = cells.map((r) => r.context).filter((n) => typeof n === "number" && Number.isFinite(n)).sort((a, b) => a - b);
+  let median = null;
+  if (ctx.length) {
+    const mid = ctx.length >> 1;
+    median = Math.round(ctx.length % 2 ? ctx[mid] : (ctx[mid - 1] + ctx[mid]) / 2);
+  }
+  return { partialReturns: partial, medianFinalContext: median };
+}
+
 export function parseJsonl(text) {
   const out = [];
   for (const line of text.split(/\r?\n/)) {
@@ -121,9 +135,13 @@ export function formatText(m) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const root = process.env.ORGANISM_ROOT || process.cwd();
-  const m = computeMetrics({
-    usageLines: readRows(path.join(root, ".scratch", "usage.jsonl")),
-    eventLines: readRows(path.join(root, ".scratch", "events.jsonl")),
-  });
-  console.log(process.argv.includes("--json") ? JSON.stringify(m) : formatText(m));
+  const usageLines = readRows(path.join(root, ".scratch", "usage.jsonl"));
+  const m = computeMetrics({ usageLines, eventLines: readRows(path.join(root, ".scratch", "events.jsonl")) });
+  if (process.argv.includes("--json")) console.log(JSON.stringify(m));
+  else {
+    const s = contextStats(usageLines);
+    console.log(
+      [formatText(m), `Partial returns: ${s.partialReturns}`, `Median final cell context: ${s.medianFinalContext ?? "n/a"}`].join("\n"),
+    );
+  }
 }
