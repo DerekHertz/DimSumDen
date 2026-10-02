@@ -5,6 +5,7 @@ import {
   resolveRoot,
   claim,
   release,
+  resolve,
   reclaim,
   getStatus,
   comment,
@@ -84,6 +85,13 @@ async function main() {
         pr: flags.pr,
       });
       console.log(`released ${ref}: ${result.status}`);
+      return;
+    }
+    case "resolve": {
+      // organism-infra/98: claim, orchestrator handoff and resolved release in one step.
+      const { positional, flags } = parseFlags(rest, { allowed: ["pr", "note"] });
+      const result = await resolve(root, positional, { pr: flags.pr, note: flags.note });
+      for (const ref of result.resolved) console.log(`resolved ${ref}`);
       return;
     }
     case "handoff": {
