@@ -266,7 +266,7 @@ console.log("## scripts/a.mjs\\nexcerpt\\nEnd context.");
     chmodSync(jg, 0o755);
   }
   const searchCalls = () =>
-    (existsSync(log) ? readFileSync(log, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []).filter((a) => a[0] !== "files");
+    (existsSync(log) ? readFileSync(log, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []).filter((a) => a[0] !== "files" && a[0] !== "--version");
   return { bin, searchCalls, home: tmp("dc87-home-") };
 }
 

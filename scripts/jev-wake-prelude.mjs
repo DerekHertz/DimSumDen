@@ -14,11 +14,11 @@ import { parseJsonl } from "./metrics.mjs";
 import { buildSnapshot } from "../apps/bridge/snapshot.mjs";
 import { resolveRoot } from "../apps/organism-infra/board-service.mjs";
 
-const USAGE_WIND_DOWN = 0.8;
+const USAGE_WIND_DOWN = 0.9;
 const GH_TIMEOUT_MS = 15000;
 const CI_BAD = ["FAILURE", "ERROR", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE"];
 
-// Scope added (user verdict, 2026-09-30): usage alone never wakes. At 80%+ it suppresses the frontier wake, and
+// Scope added (user verdict, 2026-09-30): usage alone never wakes. At 90%+ it suppresses the frontier wake, and
 // only wind-down items wake: CI red or unreadable, a merge conflict, a gate request, a cell in flight.
 export function codeDecides({
   frontierCount = 0, usagePct = 0, ciRed = false, conflicted = false, openVerdictRequest = false, ciUnknown = false,

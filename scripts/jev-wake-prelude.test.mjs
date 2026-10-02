@@ -8,8 +8,8 @@
 // Pinned contract (developer implements against this):
 //   codeDecides(ctx) is a pure function returning { wake: true, reason } when any code-decidable
 //   condition holds: ciRed, conflicted, ciUnknown, openVerdictRequest, inFlightCount > 0, or
-//   frontierCount > 0 while usagePct < 0.8. Usage alone never wakes; at 0.8+ it suppresses the frontier wake
-//   (Scope added, user verdict 2026-09-30). Returns { wake: false } when none hold.
+//   frontierCount > 0 while usagePct < 0.9. Usage alone never wakes; at 0.9+ it suppresses the frontier wake
+//   (Scope added, user verdict 2026-09-30; wind-down moved from 80% to 90%, user 2026-10-01, organism-infra/91). Returns { wake: false } when none hold.
 //
 //   runPrelude(args) runs the full prelude:
 //     1. Calls codeDecides first; if wake, returns { wake: true, reason, rows: [] } without calling Jev.
@@ -86,30 +86,46 @@ test("codeDecides: frontierCount 0 does not wake", async () => {
   assert.equal(codeDecides({ ...noCode, frontierCount: 0 }).wake, false);
 });
 
-// Scope added (user verdict, 2026-09-30), superseding qa's pinned "usage at 80% wakes": at 80%+ usage never
-// wakes on its own and suppresses frontier wakes; wind-down items still wake.
+// Scope added (user verdict, 2026-09-30), superseding qa's pinned "usage at 80% wakes": at 90%+ usage (organism-infra/91
+// moved the line from 80%) never wakes on its own and suppresses frontier wakes; wind-down items still wake.
 test("codeDecides: usage alone never wakes, at any level", async () => {
   const { codeDecides } = await load();
-  for (const usagePct of [0.5, 0.799, 0.8, 1.0]) {
+  for (const usagePct of [0.5, 0.799, 0.8, 0.899, 0.9, 1.0]) {
     assert.equal(codeDecides({ ...noCode, usagePct }).wake, false, `${usagePct * 100}% alone must not wake`);
   }
 });
 
-test("codeDecides: usage at 80%+ suppresses a frontier wake; 79.9% does not", async () => {
+test("[91] AC1: usage at 90%+ suppresses a frontier wake; 89.9% does not", async () => {
   const { codeDecides } = await load();
-  for (const usagePct of [0.8, 1.0]) {
+  for (const usagePct of [0.9, 0.95, 1.0]) {
     const r = codeDecides({ ...noCode, frontierCount: 2, usagePct });
     assert.equal(r.wake, false, `frontier must not wake at ${usagePct * 100}%`);
     assert.match(r.reason, /suppress/, "a suppressed frontier says so in the reason");
   }
-  assert.equal(codeDecides({ ...noCode, frontierCount: 2, usagePct: 0.799 }).wake, true, "79.9% keeps the frontier wake");
+  assert.equal(codeDecides({ ...noCode, frontierCount: 2, usagePct: 0.899 }).wake, true, "89.9% keeps the frontier wake");
 });
 
-test("codeDecides: wind-down items still wake at 80%+ usage", async () => {
+test("[91] AC1: the old 80% line no longer suppresses a frontier wake (80%, 85%, 89% all wake)", async () => {
   const { codeDecides } = await load();
-  const high = { ...noCode, frontierCount: 2, usagePct: 0.9 };
-  for (const item of [{ inFlightCount: 1 }, { ciRed: true }, { conflicted: true }, { openVerdictRequest: true }, { ciUnknown: true }]) {
-    assert.equal(codeDecides({ ...high, ...item }).wake, true, `${JSON.stringify(item)} must wake at 90%`);
+  for (const usagePct of [0.8, 0.85, 0.89]) {
+    const r = codeDecides({ ...noCode, frontierCount: 2, usagePct });
+    assert.equal(r.wake, true, `frontier must still wake at ${usagePct * 100}%`);
+    assert.match(r.reason, /frontier/);
+  }
+});
+
+test("[91] AC1: the suppression reason names the 90% reading", async () => {
+  const { codeDecides } = await load();
+  assert.match(codeDecides({ ...noCode, frontierCount: 2, usagePct: 0.9 }).reason, /usage at 90%/);
+});
+
+test("[91] AC2: wind-down items still wake at 90%+ usage, including exactly 90% and 89.9%", async () => {
+  const { codeDecides } = await load();
+  for (const usagePct of [0.899, 0.9, 1.0]) {
+    const high = { ...noCode, frontierCount: 2, usagePct };
+    for (const item of [{ inFlightCount: 1 }, { ciRed: true }, { conflicted: true }, { openVerdictRequest: true }, { ciUnknown: true }]) {
+      assert.equal(codeDecides({ ...high, ...item }).wake, true, `${JSON.stringify(item)} must wake at ${usagePct * 100}%`);
+    }
   }
 });
 
@@ -121,10 +137,10 @@ test("codeDecides: a cell in flight wakes; none does not", async () => {
   assert.equal(codeDecides({ ...noCode, inFlightCount: 0 }).wake, false);
 });
 
-test("runPrelude: at 80%+ usage a frontier alone does not wake, and says why", async () => {
+test("[91] AC1: runPrelude at 90%+ usage: a frontier alone does not wake, and says why", async () => {
   const { runPrelude } = await load();
   const r = await runPrelude({
-    context: { ...noCode, frontierCount: 3, usagePct: 0.85 },
+    context: { ...noCode, frontierCount: 3, usagePct: 0.9 },
     inputs: [],
     usageRows: [],
     env: { TYPESAFE_API_KEY: KEY },
@@ -135,7 +151,21 @@ test("runPrelude: at 80%+ usage a frontier alone does not wake, and says why", a
   assert.match(r.reason, /suppress/);
 });
 
-test("runPrelude: at 80%+ usage, user-authored, Scope added and verdict comments still wake without Jev", async () => {
+test("[91] AC1: runPrelude at 85% usage: a frontier still wakes (the line is 90%)", async () => {
+  const { runPrelude } = await load();
+  const r = await runPrelude({
+    context: { ...noCode, frontierCount: 3, usagePct: 0.85 },
+    inputs: [],
+    usageRows: [],
+    env: { TYPESAFE_API_KEY: KEY },
+    now: NOW,
+    transport: fake(needsClaude),
+  });
+  assert.equal(r.wake, true);
+  assert.match(r.reason, /frontier/);
+});
+
+test("[91] AC2: runPrelude at 90%+ usage, user-authored, Scope added and verdict comments still wake without Jev", async () => {
   const { runPrelude } = await load();
   const inputs = [
     { newComment: "looks good", author: "user", ticket: TICKET, ticketText: TICKET_TEXT },

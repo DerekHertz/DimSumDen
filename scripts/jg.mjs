@@ -33,7 +33,7 @@ function checkFlags(extraArgs) {
 }
 
 // `flags` come from in-process callers (dispatch-context.mjs), never from the CLI: an allowlist, so the only thing they can do is cap the output.
-const TRUSTED_FLAGS = ["--max-source-bytes"];
+const TRUSTED_FLAGS = ["--max-source-bytes", "--max-output-bytes"];
 function checkTrustedFlags(flags) {
   for (let i = 0; i < flags.length; i++) {
     const [flag, ...inline] = String(flags[i]).split("=");
@@ -42,6 +42,18 @@ function checkTrustedFlags(flags) {
     const value = inline.length ? inline.join("=") : String(flags[i]);
     if (!/^\d+$/.test(value)) throw new Refused("flag", `bad value for ${flag}: a byte count is required`);
   }
+}
+
+// organism-infra/97: `excludes` also come from in-process callers only (never the CLI). Each entry is a root-relative file path as
+// git lists it; the wrapper anchors and escapes it into a gitignore pattern, so an exclude can only hide that one file.
+function excludePatterns(excludes) {
+  if (!Array.isArray(excludes)) throw new Refused("exclude", "invalid excludes: an array of root-relative file paths is required");
+  return excludes.map((p) => {
+    if (typeof p !== "string" || !p) throw new Refused("exclude", "invalid exclude: a non-empty path string is required");
+    if (p.startsWith("/") || path.isAbsolute(p)) throw new Refused("exclude", `invalid exclude ${JSON.stringify(p)}: must be relative to the root`);
+    if (p.split(/[\\/]/).includes("..") || /[\u0000-\u001f]/.test(p)) throw new Refused("exclude", `invalid exclude ${JSON.stringify(p)}`);
+    return "/" + p.replace(/[\\*?[\]]/g, "\\$&").replace(/ +$/, (sp) => "\\ ".repeat(sp.length));
+  });
 }
 
 function checkQuery(query) {
@@ -76,18 +88,26 @@ function checkRoot(root, checkout) {
   return abs;
 }
 
-function versionOk(text) {
+// true or false for a version found in the text, null when none can be read.
+export function versionAtLeast(text, min) {
   const m = String(text ?? "").match(/(\d+)\.(\d+)\.(\d+)/);
-  if (!m) return false;
+  if (!m) return null;
   const v = m.slice(1).map(Number);
-  for (let i = 0; i < 3; i++) if (v[i] !== MIN_VERSION[i]) return v[i] > MIN_VERSION[i];
+  for (let i = 0; i < 3; i++) if (v[i] !== min[i]) return v[i] > min[i];
   return true;
 }
+const versionOk = (text) => versionAtLeast(text, MIN_VERSION) === true;
 
-const countFiles = (stdout) => String(stdout ?? "").split("\n").filter((l) => l.startsWith("## ")).length;
+// jg 0.8.0 opens a search with "Jevgrep: N relevant files." (no per-file "## " headers); the test fakes use "## <path>".
+function countFiles(stdout) {
+  const text = String(stdout ?? "");
+  const headers = text.split("\n").filter((l) => l.startsWith("## ")).length;
+  const stated = Number(/^Jevgrep: (\d+) relevant files?\b/m.exec(text)?.[1] ?? 0);
+  return Math.max(headers, stated);
+}
 
 export async function runJg({
-  query, root = ".", extraArgs = [], flags = [], run = spawnJg, now = () => Date.now(), usageRoot, checkout, version,
+  query, root = ".", extraArgs = [], flags = [], excludes = [], run = spawnJg, now = () => Date.now(), usageRoot, checkout, version,
 }) {
   const t0 = now();
   const row = (fields) => ({
@@ -104,9 +124,11 @@ export async function runJg({
   };
 
   let absRoot;
+  let extra;
   try {
     checkFlags(extraArgs);
     checkTrustedFlags(flags);
+    extra = excludePatterns(excludes);
     checkQuery(query);
     absRoot = checkRoot(root, checkout);
   } catch (e) {
@@ -120,7 +142,7 @@ export async function runJg({
     return { row: r };
   }
 
-  const argv = [...EXCLUDES.flatMap((x) => ["--exclude", x]), ...flags, query, absRoot];
+  const argv = [...[...EXCLUDES, ...extra].flatMap((x) => ["--exclude", x]), ...flags, query, absRoot];
   let result;
   try {
     result = await run(argv);

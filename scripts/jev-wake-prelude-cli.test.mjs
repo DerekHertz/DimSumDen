@@ -104,8 +104,8 @@ test("CLI: --since last with no orchestrator event wakes", () => {
   assert.match(r.out.reason, /no orchestrator event/);
 });
 
-test("CLI: at 85% usage a cell in flight still wakes, with no Jev row logged", () => {
-  const root = board({ lockedBy: "developer", secondReady: true, fiveHour: 85 });
+test("[91] AC2: CLI at 90% usage a cell in flight still wakes, with no Jev row logged", () => {
+  const root = board({ lockedBy: "developer", secondReady: true, fiveHour: 90 });
   const r = run(root);
   assert.equal(r.status, 0, r.stderr);
   assert.equal(r.out.wake, true);
@@ -113,8 +113,15 @@ test("CLI: at 85% usage a cell in flight still wakes, with no Jev row logged", (
   assert.equal(r.out.jevCalls, 0);
 });
 
-test("CLI: at 79% usage a non-empty frontier still wakes", () => {
-  const r = run(board({ ready: true, fiveHour: 79 }));
+test("[91] AC1: CLI at 89% usage a non-empty frontier still wakes", () => {
+  const r = run(board({ ready: true, fiveHour: 89 }));
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.out.wake, true);
+  assert.match(r.out.reason, /frontier/);
+});
+
+test("[91] AC1: CLI at 85% usage a non-empty frontier still wakes (it was suppressed at the old 80% line)", () => {
+  const r = run(board({ ready: true, fiveHour: 85 }));
   assert.equal(r.status, 0, r.stderr);
   assert.equal(r.out.wake, true);
   assert.match(r.out.reason, /frontier/);

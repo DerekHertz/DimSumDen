@@ -9,7 +9,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, rea
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { hasSecret } from "./exposure.mjs";
-import { runJg } from "./jg.mjs";
+import { runJg, versionAtLeast } from "./jg.mjs";
 import { appendUsageLine, resolveRoot } from "../apps/organism-infra/board-service.mjs";
 
 const QUESTION = "Where would this change be made, and which tests cover it?";
@@ -19,6 +19,11 @@ const ROOT_CAP = 5242880;
 const TIMEOUT_MS = 90000;
 const CODE_TYPES = new Set(["feature", "task", "fix", "bug", "chore", "refactor"]);
 const BOARD_DIRS = [".scratch/", ".claude/"];
+// organism-infra/97: jg refuses to read any file over 16 MiB (resource_limit), so each one is excluded per call. --max-output-bytes
+// (what keeps a search under OUTPUT_CAP) arrived in jg 0.7.1 (checked against the 0.6.0, 0.7.0 and 0.7.1 packages); an older jg
+// also lacks the flag, and 0.4.4 lacks --exclude.
+const JG_FILE_LIMIT = 16 * 1024 * 1024;
+const MIN_JG_VERSION = [0, 7, 1];
 
 const inBoard = (rel) => BOARD_DIRS.some((d) => rel.startsWith(d));
 
@@ -68,8 +73,10 @@ function failureReason(raw) {
   return "jg-error";
 }
 
+// `jgVersion` (optional, the CLI passes it) returns the text of `jg --version`. A version it can read below MIN_JG_VERSION falls
+// back jg-version before any search; an unreadable one is no verdict, so the search runs and fails as it always did.
 export async function buildContext({
-  ticketText, root, run = spawnRun, exists, now = () => Date.now(), ticket, trackedBytes = statBytes,
+  ticketText, root, run = spawnRun, exists, now = () => Date.now(), ticket, trackedBytes = statBytes, jgVersion,
 }) {
   const t0 = now();
   const has = exists ?? ((p) => existsSync(path.resolve(root, p)));
@@ -85,10 +92,13 @@ export async function buildContext({
 
   // Text files (tracked, or untracked and not ignored) outside the board are what jg could send; one listing feeds the size check and the secret check.
   let tracked;
+  let oversize;
   try {
     const r = await run("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: root });
     if (r.exitCode !== 0) return finish({ fallback: "git-ls-files-failed" });
-    tracked = r.stdout.split("\0").filter((f) => f && !inBoard(f) && !isBinary(root, f));
+    const listed = r.stdout.split("\0").filter((f) => f && !inBoard(f));
+    tracked = listed.filter((f) => !isBinary(root, f));
+    oversize = overLimit(root, listed); // binaries too: the 97 MB .blend is what jg refuses
   } catch {
     return finish({ fallback: "git-ls-files-failed" });
   }
@@ -102,6 +112,8 @@ export async function buildContext({
     }
     if (hasSecret(body)) return finish({ fallback: "secret-in-root" });
   }
+
+  if (jgVersion && versionAtLeast(await jgVersion(), MIN_JG_VERSION) === false) return finish({ fallback: "jg-version" });
 
   let raw;
   const spy = async (argv) => {
@@ -117,7 +129,8 @@ export async function buildContext({
   let out;
   try {
     out = await runJg({
-      query: `${QUESTION}\n\n${what.slice(0, WHAT_MAX)}`, root, flags: ["--max-source-bytes", String(OUTPUT_CAP)], run: spy, now,
+      query: `${QUESTION}\n\n${what.slice(0, WHAT_MAX)}`, root, excludes: oversize,
+      flags: ["--max-source-bytes", String(OUTPUT_CAP), "--max-output-bytes", String(OUTPUT_CAP)], run: spy, now,
     });
   } catch (e) {
     if (e.kind) return finish({ fallback: `refused-${e.kind}` });
@@ -141,6 +154,28 @@ function statBytes({ root, files }) {
     }
   }
   return sum;
+}
+
+// Listed files over jg's per-file limit; a file that vanished since the listing is skipped.
+function overLimit(root, files) {
+  const big = [];
+  for (const f of files) {
+    try {
+      if (statSync(path.join(root, f)).size > JG_FILE_LIMIT) big.push(f);
+    } catch {
+      /* gone since the listing */
+    }
+  }
+  return big;
+}
+
+async function installedJgVersion() {
+  try {
+    const r = await spawnRun("jg", ["--version"], { timeoutMs: 10000 });
+    return r.exitCode === 0 ? r.stdout : null;
+  } catch {
+    return null;
+  }
 }
 
 // Production seam: spawn cmd, resolve {stdout, stderr, exitCode, timedOut}; a missing binary rejects with ENOENT.
@@ -201,6 +236,7 @@ async function main(argv) {
   }
   const { file, row } = await buildContext({
     ticketText: readFileSync(ticketFile, "utf8"), root: path.resolve(opts.root ?? boardRoot), ticket: opts.ticket,
+    jgVersion: installedJgVersion,
   });
   if (file !== undefined) {
     mkdirSync(path.dirname(outFile), { recursive: true });
