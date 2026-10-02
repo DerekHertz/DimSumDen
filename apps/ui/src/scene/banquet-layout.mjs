@@ -56,8 +56,8 @@ const PASS = {
 const PASS_STEP = 0.4;
 
 const STALLS = {
-  steamers: { x: -3.3, z: -1.4, y: COUNTER_Y + BACK_PLATFORM, row: "back" },
-  "front-of-house": { x: 3.3, z: -1.4, y: COUNTER_Y + BACK_PLATFORM, row: "back" },
+  steamers: { x: -3.0, z: -1.4, y: COUNTER_Y + BACK_PLATFORM, row: "back" },
+  "front-of-house": { x: 3.0, z: -1.4, y: COUNTER_Y + BACK_PLATFORM, row: "back" },
   tea: { x: -4.9, z: 2.0, y: COUNTER_Y, row: "front" },
   pantry: { x: 4.9, z: 2.0, y: COUNTER_Y, row: "front" },
   cubs: { x: 0, z: 4.6, y: 0 },
@@ -151,3 +151,88 @@ export function susanBaskets(n) {
     return { x: TABLE.x + SUSAN_RADIUS * Math.sin(a), y: SUSAN_Y, z: TABLE.z + SUSAN_RADIUS * Math.cos(a) };
   });
 }
+
+// ---- den-iso-v1/04: scene dressing (docs/design/2026-10-01-iso-den.md section 2). The ring, pads and bamboo are
+// placed here so the den-map checks (and the tests) see the same numbers the scene draws.
+
+/** A ring of flat stepping stones around Bao's feet: an oval in the world, even in parametric angle (index 0 at +x, then toward +z). */
+export const STONE_RING = {
+  center: { x: BAO.position[0], z: BAO.position[2] },
+  semiX: 7.3,
+  semiZ: 6.3,
+  count: 48,
+  stone: { diameter: 0.34, thickness: 0.04 },
+};
+
+const PLATFORM_HALF_DEPTH = 0.65; // a kiosk's platform reaches 0.65 front and back of its centre
+const PLATFORM_MARGIN = 0.15; // and 0.15 past each end of the counter
+
+/** A point's distance into a footprint, in the footprint's own frame: negative inside, positive outside. */
+const clearOfKiosk = (station, x, z) => {
+  const yaw = stallYaw(station);
+  const dx = x - stallCenterX(station);
+  const dz = z - STALL_CENTERS[station].z;
+  const lx = dx * Math.cos(yaw) - dz * Math.sin(yaw);
+  const lz = dx * Math.sin(yaw) + dz * Math.cos(yaw);
+  const hx = (stallWidth(STALL_BASE_SLOTS) + 2 * PLATFORM_MARGIN) / 2;
+  const ox = Math.abs(lx) - hx;
+  const oz = Math.abs(lz) - PLATFORM_HALF_DEPTH;
+  return Math.hypot(Math.max(ox, 0), Math.max(oz, 0)) + Math.min(Math.max(ox, oz), 0);
+};
+
+const clearOfBox = (cx, cz, hx, hz, x, z) => {
+  const ox = Math.abs(x - cx) - hx;
+  const oz = Math.abs(z - cz) - hz;
+  return Math.hypot(Math.max(ox, 0), Math.max(oz, 0)) + Math.min(Math.max(ox, oz), 0);
+};
+
+/** Distance from a ground point to the nearest kiosk platform, table, hamper or Tally (negative inside one). */
+const clearance = (x, z) => Math.min(
+  ...Object.keys(STALL_CENTERS).map((s) => clearOfKiosk(s, x, z)),
+  Math.hypot(x - TABLE.x, z - TABLE.z) - TABLE.radius,
+  Math.hypot(x - CUB_BASKET.x, z - CUB_BASKET.z) - CUB_BASKET_RADIUS,
+  clearOfBox(TALLY.x, TALLY.z, TALLY.frame.width / 2, TALLY.frame.depth / 2, x, z),
+);
+
+/** The ring's stones that survive the footprint rule: a step is dropped when its stone would touch a kiosk, table, hamper or Tally. */
+export function stepStones() {
+  const { center, semiX, semiZ, count, stone } = STONE_RING;
+  const stones = [];
+  for (let index = 0; index < count; index++) {
+    const t = (2 * Math.PI * index) / count;
+    const x = center.x + semiX * Math.cos(t);
+    const z = center.z + semiZ * Math.sin(t);
+    if (clearance(x, z) < stone.diameter / 2) continue;
+    stones.push({ index, x, z });
+  }
+  return stones;
+}
+
+/** Dashed pads for roles not online yet. Dormant: no pandas, no click target beyond the label chip. */
+export const DORMANT_PADS = [
+  { id: "library", name: "Library", x: -2.9, z: -7.2 },
+  { id: "drum", name: "Drum", x: 2.9, z: -7.2 },
+].map((pad) => ({
+  ...pad,
+  radius: 0.65,
+  dashed: true,
+  dormant: true,
+  label: `${pad.name} · coming online`,
+  ariaLabel: `${pad.name}, coming online`,
+}));
+
+/** Bamboo borders: cluster centres on the ground, stalks in a row along x. */
+export const BAMBOO_CLUSTERS = [
+  { id: "back-left", x: -3.4, z: -8.5, stalks: 3, height: 3.0 },
+  { id: "back-right", x: 3.6, z: -8.7, stalks: 3, height: 3.0 },
+  { id: "right-edge", x: 7.8, z: 0.8, stalks: 2, height: 2.6 },
+];
+export const BAMBOO_STALK = { width: 0.13, spacing: 0.27 };
+
+export const bambooStalks = () => BAMBOO_CLUSTERS.flatMap((c) => Array.from({ length: c.stalks }, (_, i) => ({
+  cluster: c.id,
+  x: c.x + (i - (c.stalks - 1) / 2) * BAMBOO_STALK.spacing,
+  z: c.z,
+  height: c.height,
+  width: BAMBOO_STALK.width,
+})));

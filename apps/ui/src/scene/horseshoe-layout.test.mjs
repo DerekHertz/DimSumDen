@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as layout from "./banquet-layout.mjs";
 import { stepRoamer, roamObstacles } from "./roam.mjs";
-import { defaultFrame, worldToScreen } from "./iso-projection.mjs";
+import { PITCH, defaultFrame, worldToScreen } from "./iso-projection.mjs";
 import { stationLabels } from "./station-labels.mjs";
 import * as handoffs from "./handoffs.mjs";
 
@@ -47,6 +47,15 @@ const bounds = (points) => {
   return { x0: Math.min(...projected.map((p) => p.x)), x1: Math.max(...projected.map((p) => p.x)), y0: Math.min(...projected.map((p) => p.y)), y1: Math.max(...projected.map((p) => p.y)) };
 };
 const box = (cx, cy, cz, hx, hy, hz) => [-1, 1].flatMap((sx) => [-1, 1].flatMap((sy) => [-1, 1].map((sz) => [cx + sx * hx, cy + sy * hy, cz + sz * hz])));
+// Convex polygons (screen points) overlap when no edge normal separates them (separating-axis test), with the same 1e-9 slack as overlaps().
+const hull = (points) => points.map((p) => worldToScreen(p, frame));
+const polygonsOverlap = (a, b) => ![a, b].some((poly) => poly.some((p, i) => {
+  const q = poly[(i + 1) % poly.length], nx = q.y - p.y, ny = p.x - q.x;
+  const range = (pts) => { const d = pts.map((v) => v.x * nx + v.y * ny); return [Math.min(...d), Math.max(...d)]; };
+  const [a0, a1] = range(a), [b0, b1] = range(b);
+  return Math.min(a1, b1) <= Math.max(a0, b0) + 1e-9 * Math.hypot(nx, ny);
+}));
+const depth = ([, y, z]) => z * Math.sin(PITCH) + y * Math.cos(PITCH); // toward the camera: larger is nearer
 const overlaps = (a, b) => Math.min(a.x1, b.x1) > Math.max(a.x0, b.x0) + 1e-9 && Math.min(a.y1, b.y1) > Math.max(a.y0, b.y0) + 1e-9;
 
 test("horseshoe: default-camera counter rectangles clear kiosks, Bao and table", () => {
@@ -56,18 +65,25 @@ test("horseshoe: default-camera counter rectangles clear kiosks, Bao and table",
       const x = sx * layout.stallWidth(3) / 2, z = sz * 0.5;
       return [c.x + x * Math.cos(yaw) + z * Math.sin(yaw), layout.stallPlatform(station) + 0.5, c.z - x * Math.sin(yaw) + z * Math.cos(yaw)];
     }));
-    return { station, rect: bounds(points) };
+    return { station, rect: bounds(points), shape: hull([points[0], points[1], points[3], points[2]]), depth: points.map(depth).reduce((a, b) => a + b, 0) / points.length };
   });
   const [bx, by, bz] = layout.BAO.position, s = layout.BAO.scale;
   const bao = bounds(box(bx, by, bz, s, s, s * 0.875));
-  const table = bounds(Array.from({ length: 128 }, (_, i) => {
+  const tabletop = Array.from({ length: 128 }, (_, i) => {
     const angle = i * 2 * Math.PI / 128;
     return [layout.TABLE.x + 1.8 * Math.cos(angle), layout.TABLE.height, layout.TABLE.z + 1.8 * Math.sin(angle)];
-  }));
+  });
+  const table = { shape: hull(tabletop), depth: tabletop.map(depth).reduce((a, b) => a + b, 0) / tabletop.length };
   for (let i = 0; i < counters.length; i++) {
-    const { station, rect } = counters[i];
+    const { station, rect, shape, depth: counterDepth } = counters[i];
     assert.ok(!overlaps(rect, bao), `${station} counter overlaps Bao`);
-    assert.ok(!overlaps(rect, table), `${station} counter overlaps table`);
+    // Table versus counter: a true occlusion fails, a near miss of bounding rectangles does not. The tabletop is a flat disc and a counter
+    // a flat slab, so each is a convex outline on screen; they must not share any pixel (the nearer one would be drawn over the other,
+    // the way scene-dressing-framing's "covers" check treats scenery in front of a counter). At 1440x900 the Steamers counter's
+    // bounding rect (x 349.05-564.12) pokes 2.17 px into the tabletop's (x 561.95-878.05), but the counter's inner corner sits at
+    // y 440.7, above the table's far rim (y 448.2), and the disc has already curved away: no shared pixel.
+    const front = table.depth > counterDepth ? "table" : `${station} counter`;
+    assert.ok(!polygonsOverlap(shape, table.shape), `${station} counter and table occlude each other (the ${front} is in front)`);
     for (let j = i + 1; j < counters.length; j++) assert.ok(!overlaps(rect, counters[j].rect), `${station} counter overlaps ${counters[j].station}`);
   }
 });
