@@ -2,9 +2,11 @@
 
 A local web app for observing and steering AI agents across the SDLC, modeled as an organism. Vocabulary lives in `CONTEXT.md`; use its terms. Decisions live in `docs/adr/`.
 
+Stack: Node ESM scripts (`.mjs`, tests via `node --test`); Vite is the only build step. `apps/ui` is React + React Three Fiber; `apps/bridge` serves the UI and board state; `apps/organism-infra` is the board CLI; `apps/ci-cd` holds the dev server and smoke scripts; `scripts/` holds relay tooling. Common scripts: `npm test`, `npm run board -- <cmd>`, `npm run ui`, `npm run smoke:ui`, `npm run risk-check`.
+
 ## Cells
 
-Cell types are defined by genomes in `.claude/agents/`, grouped into stations:
+Cell types are defined by genomes in `.Codex/agents/`, grouped into stations:
 - `product`, `architect`, `orchestrator` (Pass)
 - `developer`, `scout` (Steamers)
 - `qa`, `security` (Tea & Pantry)
@@ -14,7 +16,7 @@ Code tickets run a relay: qa `specify` writes failing tests, developer makes the
 
 Relay autonomy (see `organism-protocol`): once the user approves a ticket, the orchestrator runs its relay end to end, PR and merge included. Other gates still apply. It stops for user verdicts, open scope questions, a twice-failed ticket, environment issues, 5-hour usage at 90%+, or a red or conflicted merge. Up to two cells run at once (`max_concurrent_cells: 2`), on different tickets with non-overlapping files.
 
-Run a cell as the main session with `claude --agent <cell-type>`. If a session is asked to act as a cell without that flag, read `.claude/agents/<cell-type>.md` first and follow it.
+Run a cell as the main session with `Codex --agent <cell-type>`. If a session is asked to act as a cell without that flag, read `.Codex/agents/<cell-type>.md` first and follow it.
 
 ## Cloud sessions
 
