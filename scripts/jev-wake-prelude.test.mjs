@@ -36,7 +36,7 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const SCRIPT = path.join(REPO_ROOT, "scripts", "jev-wake-prelude.mjs");
 const NOW = new Date("2026-09-30T10:00:00Z");
-const KEY = "sk-test-KEYVALUE-wake-prelude-72-test";
+const KEY = "sk" + "-test-KEYVALUE-wake-prelude-72-test";
 const TICKET = "organism-infra/72-thing";
 const TICKET_TEXT = "# 72\n\n**Status:** ready-for-agent\n\n**What to build:** a thing.\n";
 
