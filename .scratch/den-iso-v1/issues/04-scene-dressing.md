@@ -6,7 +6,7 @@
 
 **Blocked by:** 02
 
-**Status:** in-review
+**Status:** resolved
 
 **Design refs:** `docs/design/2026-10-01-iso-den.md` (placements; written by 01), `.scratch/den-iso-v1/spec.md`, `docs/design/den-map.md`.
 
@@ -31,3 +31,6 @@ The den gains the frame's dressing: a ring of stepping stones around Bao, dashed
 - **orchestrator, 2026-10-01:** Scope added (user, 2026-10-01): at the default frame the whole scene must be clear of fog. The ortho camera sits 40 units from the target but grove.mjs groveFog is Fog(grove-mist, 18, 40), so everything is at or past full fog (user screenshot: kiosks and backdrop washed out, only Bao clear because he ignores fog). Set fog for the 40-unit camera: no fog on anything in the market, Bao, kiosks, Tally, hamper or pads at the default frame and at both zoom-range ends, light mist only on the far grove. Add a test comparing camera-to-object distance with fog.near (grove.test.mjs 'starts beyond the market' pins near >= 16 for the old camera). Check the whole scene is visible after the fix.
 - **developer, 2026-10-01:** fog fixed, Dressing recursion fixed; npm test 1673/1673; smoke:ui not rerun
 - **orchestrator, 2026-10-01:** Wrap-up at 90% usage (2026-10-01). State: feat/scene-dressing04 at 6f04653, npm test 1673/1673, qa verified ef7d73a only. NEXT: (1) light qa re-verify of 6f04653 (new: fog 49/75 distance test, Dressing self-render bug fixed, Bao fog hack removed); smoke:ui not rerun; (2) risk-check; (3) PR and merge on green. User asked to check at 1440x900: Library/Drum pad chips are partly hidden behind the Steamers chips and the mound, and the bamboo clusters blend into the dense grove, so the dashed pads are hard to see. Also note the Dressing bug (nothing drawn) passed qa verify at ef7d73a: add a rendered-scene check.
+- **qa, 2026-10-02:** QA bounce at 6f04653. npm test 1673/1673, smoke:ui 10/10, specify tests untouched, fog test sound. Real render: pad chip text clipped (Den.jsx:214, 217: 'ibrary . coming onlin'); no test builds or draws the dressing (only source regexes). Pad/bamboo visibility left to designer and user. See handoffs/04-qa-verify-2.md.
+- **qa, 2026-10-02:** QA pass at c972a7b. npm test 1680/1680, smoke:ui 10/10, specify tests unweakened, chips whole in real render, dressing.test.mjs builds the group. Pad/bamboo visibility and criterion 5 stay with designer and user. See handoffs/04-qa-verify-3.md.
+- **orchestrator, 2026-10-02:** User visual check (criterion 5, pads and bamboo at 1440x900) on c972a7b: pass, approved.

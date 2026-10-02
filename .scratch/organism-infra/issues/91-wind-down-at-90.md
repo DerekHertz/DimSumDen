@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## What to build
 
@@ -21,3 +21,7 @@ User decision (2026-10-01): the 5-hour wind-down moves from 80% to 90%. `scripts
 ## Comments
 
 - **orchestrator, 2026-10-01:** Filed on the user's "limit to 90% for 5 hour window". Small; fold into the next developer batch (e.g. with 88 and 89).
+- **orchestrator, 2026-10-02:** batch K = organism-infra/97-jg-resource-limit-full-root + organism-infra/91-wind-down-at-90 (both in scripts/). One relay, one branch, one PR (user approved 2026-10-02).
+- **orchestrator, 2026-10-02:** 91 done at ba57b9a on feat/jg-limit-batchK. User decision: it stays in batch K and ships with 97.
+- **qa, 2026-10-02:** QA pass at 97275b0: npm test 1729/1729, qa tests unchanged; see 91-qa-verify.md
+- **security, 2026-10-02:** Security pass at 97275b0. No findings: one constant (0.8 to 0.9) and a comment in scripts/jev-wake-prelude.mjs, no new input or exposure. Details: handoffs/91-security.md.
