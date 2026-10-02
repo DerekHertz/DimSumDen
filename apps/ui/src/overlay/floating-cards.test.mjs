@@ -30,8 +30,13 @@
 //                   aria-label "Zoom in" and "Zoom out". The nav carries data-zoom="<number>", the live dolly factor
 //                   (digest section 1: [0.55, 1.2], default 1, smaller is closer). Wheel, pinch, + and - keys, and the
 //                   Zoom in/out buttons all move that one value.
-//   intent bar      input placeholder "Give the den an intent…", a "Ctrl K" hint, a Send button, an autonomy toggle button
-//                   (name contains "utonomy"), and the text "Current intent" above.
+//   intent bar      input placeholder "Give the den an intent…", a "Ctrl K" hint, a Send button, an autonomy chip button
+//                   (name contains "utonomy"), and the text "Current intent" above. The chip shows the current mode ("Gated")
+//                   but is disabled for now (aria-disabled, still a tab stop so its reason is reachable) with a "coming
+//                   soon" tooltip; the real control is den-scene-v1/13. Rulings 2026-10-02 (user + designer review F1-F3, F7):
+//                   Note label carries an `m` chip and Ctrl/Cmd+Enter in the Note denies with that note; the card title is in
+//                   a persistent aria-live region; the zoom levels stack vertically; the timeline hides under 900px; the
+//                   `Ctrl K` hint hides under 600px; the intent input is 44px tall at a coarse pointer.
 //   timeline        "Live", a time (h:mm), and the caption "Drag back to replay the den's history".
 //   no sidebar      no aside, no .panel, no "Plan usage" text, no role=meter inside the cards.
 import { test, before, after } from "node:test";
@@ -87,8 +92,9 @@ function fixture() {
 }
 const quietSnapshot = () => ({ schema: 1, seq: 1, tickets: [], frontier: [], usage: null, requests: [] });
 
-async function openApp({ snapshot = fixture(), viewport = DESKTOP, hasTouch = false } = {}) {
-  const context = await browser.newContext({ viewport, reducedMotion: "reduce", hasTouch });
+async function openApp({ snapshot = fixture(), viewport = DESKTOP, hasTouch = false, isMobile = false } = {}) {
+  // isMobile gives a coarse pointer, which the 44px touch-target rules key on.
+  const context = await browser.newContext({ viewport, reducedMotion: "reduce", hasTouch: hasTouch || isMobile, isMobile });
   // organism-infra/94: software GL rasterising the scene starves Playwright clicks (test 18 clicks 80 times); see
   // ci-cd/light-scene.mjs. These tests read DOM only, never pixels.
   await lightenScene(context);
@@ -261,7 +267,68 @@ test("'j' and 'k' step through the waiting requests; the next 'a' acts on the on
   await needs.getByText(/verify-it.* wants merge approval/).first().waitFor({ state: "visible" });
 }));
 
-test("card keys are card-scoped: 'a' does nothing from the scene or from inside the Tally dialog", { timeout: 90000 }, withApp({}, async ({ page, needs, posts }) => {
+// User ruling 2026-10-02: `m` = deny with message. It focuses the Note (chip `m` on the Note label), and Ctrl or Cmd +
+// Enter in the Note sends Deny with that note. Designer helper line: "Ctrl Enter denies with this note".
+test("deny with message: the Note label carries an 'm' chip and a 'Ctrl Enter denies with this note' helper (ruling: m)", { timeout: 90000 }, withApp({}, async ({ needs }) => {
+  const note = needs.getByRole("textbox", { name: /note/i });
+  await note.waitFor({ state: "visible" });
+  const chip = await note.evaluate((el) => {
+    const label = el.labels?.[0];
+    if (!label) return { label: false };
+    const leaf = [...label.querySelectorAll("*")].find((c) => c.children.length === 0 && c.textContent.trim() === "m");
+    return { label: true, chip: !!leaf, visible: !!leaf && leaf.getClientRects().length > 0 };
+  });
+  assert.equal(chip.label, true, "the Note field has a label");
+  assert.equal(chip.chip, true, "the Note label holds an element whose whole text is 'm'");
+  assert.equal(chip.visible, true, "the m chip is visible");
+  assert.match(await needs.innerText(), /Ctrl[\s+]*Enter denies with this note/i);
+}));
+
+test("Ctrl+Enter in the Note sends Deny with that note; Cmd+Enter does too; plain Enter only adds a line (ruling: m)", { timeout: 90000 }, withApp({}, async ({ page, needs, posts }) => {
+  await header(needs).focus();
+  await page.keyboard.press("m");
+  const note = needs.getByRole("textbox", { name: /note/i });
+  assert.equal(await note.evaluate((el) => el === document.activeElement), true, "m focuses the Note field");
+  await page.keyboard.type("needs a rewrite");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(150);
+  assert.deepEqual(posts, [], "plain Enter files nothing");
+  await note.fill("needs a rewrite");
+  await page.keyboard.press("Control+Enter");
+  await expectPost(posts, { kind: "merge-reject", ref: "demo/02-verify-it" });
+  assert.equal(posts[0].note, "needs a rewrite", "the note travels with the deny");
+  posts.length = 0;
+  await note.fill("second thoughts");
+  await note.focus();
+  await page.keyboard.press("Meta+Enter");
+  await expectPost(posts, { kind: "merge-reject", ref: "demo/02-verify-it" });
+  assert.equal(posts[0].note, "second thoughts");
+}));
+
+// Designer F7: j and k change the card with no announcement. The title sits in one aria-live region that persists
+// across the change (a region that is re-created each time announces nothing).
+test("'j' and 'k' are announced: the request title lives in a persistent aria-live region (designer F7)", { timeout: 90000 }, withApp({}, async ({ page, needs }) => {
+  const first = needs.getByText(/02-verify-it.* wants merge approval/).first();
+  const second = /ship-it.* wants dispatch approval/;
+  await first.waitFor({ state: "visible" });
+  const mark = await first.evaluate((el) => {
+    const region = el.closest('[aria-live="polite"], [aria-live="assertive"], [role="status"]');
+    if (region) region.dataset.qaMark = "1";
+    return !!region;
+  });
+  assert.equal(mark, true, "the shown request's title is inside an aria-live region");
+  await header(needs).focus();
+  await page.keyboard.press("j");
+  await needs.getByText(second).first().waitFor({ state: "visible" });
+  const after = await needs.getByText(second).first().evaluate((el) => {
+    const region = el.closest('[aria-live="polite"], [aria-live="assertive"], [role="status"]');
+    return { live: !!region, same: region?.dataset.qaMark === "1" };
+  });
+  assert.equal(after.live, true, "the new title is in an aria-live region");
+  assert.equal(after.same, true, "the same live region persists across j, so the change is announced");
+}));
+
+test("card keys are card-scoped:'a' does nothing from the scene or from inside the Tally dialog", { timeout: 90000 }, withApp({}, async ({ page, needs, posts }) => {
   assert.equal(await needs.getByRole("button", { name: /^Approve/ }).count(), 1, "precondition: the card is there with a request to act on");
   await page.locator('main[aria-label="Den scene"]').focus();
   await page.keyboard.press("a");
@@ -486,6 +553,91 @@ test("timeline: Live, a time, and the replay caption", { timeout: 90000 }, withA
   assert.match(text, /Drag back to replay the den's history/);
 }));
 
+// Designer F3 + user ruling 2026-10-02: the chip shows the mode but is disabled until den-scene-v1/13 builds the real control.
+test("autonomy chip shows the mode and is disabled with a 'coming soon' tooltip; clicking changes nothing (designer F3, den-scene-v1/13)", { timeout: 90000 }, withApp({}, async ({ intent }) => {
+  const chip = intent.getByRole("button", { name: /utonomy/ });
+  assert.equal(await chip.count(), 1);
+  const info = await chip.evaluate((el) => ({
+    name: el.getAttribute("aria-label") ?? el.textContent,
+    text: el.textContent,
+    disabled: el.disabled === true || el.getAttribute("aria-disabled") === "true",
+    reason: [el.getAttribute("title"), ...(el.getAttribute("aria-describedby") ?? "").split(/\s+/).map((id) => document.getElementById(id)?.textContent)].filter(Boolean).join(" "),
+  }));
+  assert.match(info.text, /gated/i, "shows the mode");
+  assert.equal(info.disabled, true, "disabled (aria-disabled keeps it a tab stop so its reason is reachable)");
+  assert.match(info.reason, /coming soon/i, "tooltip or description says 'coming soon'");
+  assert.doesNotMatch(info.name, /change/i, "the name must not offer a change it cannot make");
+  await chip.click({ force: true });
+  await chip.click({ force: true });
+  assert.match(await chip.textContent(), /gated/i, "clicking does not cycle the mode");
+}));
+
+// Designer F1: at 1440 the zoom switcher overlapped the intent bar, and the intent bar overlapped the timeline below 1052.
+test("bottom overlays never overlap: zoom levels stack vertically, the timeline hides under 900px, nothing overflows sideways (designer F1)", { timeout: 120000 }, withApp({}, async ({ page, zoom, intent, timeline }) => {
+  const overlap = (a, b) => a.x < b.x + b.width - 0.5 && b.x < a.x + a.width - 0.5 && a.y < b.y + b.height - 0.5 && b.y < a.y + a.height - 0.5;
+  for (const width of [1440, 1280, 1024, 900]) {
+    await page.setViewportSize({ width, height: 900 });
+    const [z, i, t] = await Promise.all([zoom, intent, timeline].map((x) => x.boundingBox()));
+    assert.ok(z && i && t, `${width}: zoom, intent and timeline are all visible`);
+    assert.equal(overlap(z, i), false, `${width}: zoom ${JSON.stringify(z)} overlaps intent ${JSON.stringify(i)}`);
+    assert.equal(overlap(i, t), false, `${width}: intent ${JSON.stringify(i)} overlaps timeline ${JSON.stringify(t)}`);
+    assert.ok(i.width >= 360, `${width}: intent stays usable, got ${i.width}`);
+    assert.ok(near(i.x + i.width / 2, width / 2), `${width}: intent stays centred`);
+  }
+  await page.setViewportSize(DESKTOP);
+  const levels = await Promise.all(["1 · Den", "2 · Station", "3 · Panda", "4 · Workspace"].map((n) => zoom.getByRole("button", { name: n }).boundingBox()));
+  const z = await zoom.boundingBox();
+  for (let k = 1; k < levels.length; k++) {
+    assert.ok(near(levels[k].x, levels[0].x, 1), `level ${k + 1} is in the same column as level 1`);
+    assert.ok(levels[k].y >= levels[k - 1].y + levels[k - 1].height - 1, `level ${k + 1} sits below level ${k}`);
+  }
+  assert.ok(z.width <= 150, `the stacked switcher is narrow (frame: about 112px), got ${z.width}`);
+  for (const width of [899, 768, 600]) {
+    await page.setViewportSize({ width, height: 900 });
+    assert.equal(await timeline.isVisible(), false, `${width}: the timeline is hidden under 900px`);
+    const i = await intent.boundingBox();
+    const zb = await zoom.boundingBox();
+    assert.equal(overlap(zb, i), false, `${width}: zoom does not overlap intent`);
+    assert.ok(i.x + i.width <= width - 16 + 0.5 && i.x >= 16 - 0.5, `${width}: intent stays inside the gutters`);
+  }
+  for (const width of [1440, 1024, 768, 600, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${width}: no horizontal overflow`);
+  }
+}));
+
+// Designer F2: at 375 the placeholder read "Give the den". The Ctrl K hint has no use without a Ctrl key.
+test("Ctrl K hint hides under 600px and shows from 600px (designer F2)", { timeout: 90000 }, withApp({}, async ({ page, intent }) => {
+  const hint = intent.getByText("Ctrl K").first();
+  await page.setViewportSize({ width: 600, height: 900 });
+  assert.equal(await hint.isVisible(), true, "visible at 600");
+  await page.setViewportSize({ width: 599, height: 900 });
+  assert.equal(await hint.isVisible(), false, "hidden at 599");
+  await page.setViewportSize({ width: 375, height: 667 });
+  assert.equal(await hint.isVisible(), false, "hidden at 375");
+}));
+
+test("phone 375 with a coarse pointer: the full placeholder fits the input and the input is at least 44px tall (designer F2)", { timeout: 90000 }, async () => {
+  const app = await openApp({ viewport: { width: 375, height: 667 }, isMobile: true });
+  try {
+    const { page, intent } = app;
+    assert.equal(await page.evaluate(() => matchMedia("(pointer: coarse)").matches), true, "precondition: the context has a coarse pointer");
+    const input = intent.getByPlaceholder("Give the den an intent…");
+    const fit = await input.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      const ctx = document.createElement("canvas").getContext("2d");
+      ctx.font = cs.font;
+      const text = ctx.measureText(el.placeholder).width;
+      const room = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      return { text, room, height: el.getBoundingClientRect().height };
+    });
+    assert.ok(fit.text <= fit.room, `the placeholder needs ${fit.text.toFixed(0)}px but the input has ${fit.room.toFixed(0)}px`);
+    assert.ok(fit.height >= 44, `touch target is ${fit.height}px, want 44 or more`);
+  } finally {
+    await app.context.close();
+  }
+});
+
 // ---- Phone width -----------------------------------------------------------------------------------------------
 
 test("phone (390 px): cards stack under the logo pill at full width less the gutters, start collapsed, opening one closes the other; zoom switcher and timeline hide; intent bar spans 100vw - 32px", { timeout: 90000 }, async () => {
@@ -576,7 +728,7 @@ test("accessibility basics: every button, link and field has a name, ids are uni
     const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
     const broken = [...document.querySelectorAll("[aria-controls]")].filter((e) => !document.getElementById(e.getAttribute("aria-controls"))).map((e) => e.outerHTML.slice(0, 80));
     const unnamedRegions = [...document.querySelectorAll('section, nav, [role="region"]')].filter((e) => !e.getAttribute("aria-label") && !e.getAttribute("aria-labelledby")).map((e) => e.outerHTML.slice(0, 80));
-    const words = /\b(organism|organ|cell|cells|genome|apoptosis|endocrine)\b/i;
+    const words = /\b(organism|organisms|cell|cells|genome|apoptosis|endocrine)\b/i;
     const biology = [...document.querySelectorAll("[data-overlay]")].flatMap((root) => [root, ...root.querySelectorAll("*")])
       .flatMap((e) => [e.getAttribute("aria-label"), e.children.length === 0 ? e.textContent : null, e.getAttribute("placeholder")])
       .filter((t) => t && words.test(t));
