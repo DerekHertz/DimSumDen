@@ -4,9 +4,9 @@
 
 **Priority:** P1
 
-**Blocked by:** 05
+**Blocked by:** 05, den-iso-v1/01
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 **Design refs:** `docs/design/den-map.md` (coordinates, constants, checks) and `docs/design/2026-09-29-scene-decisions.md` (the why), on branch `design/scene-decisions-0929` until it merges. Target frame: "Level 1 · Den (target)" on the Zoom levels page of the zoom frames canvas (https://claude.ai/artifact/JsxZ5Vj7DxJQbekA2Ehoot). Design system: https://claude.ai/artifact/HBXgYhAzu6YmekpW71WM7j (Scene, Glossary, Panda roles).
 
@@ -45,3 +45,7 @@ Remove the plan usage meter from the sidebar; it's on the Tally now (05).
 ## Comments
 
 - **Created (designer, 2026-09-30):** Filed from the 09-29/30 design session; the user approved every decision in this ticket.
+- **orchestrator, 2026-10-01:** Scope added (user, 2026-10-01): free zoom as well as the level switcher: scroll wheel and pinch zoom between the Level 1 framing and close enough to read a panda's headgear, clamped so the camera never goes inside a kiosk or below the floor. The + and − buttons step the same zoom. Add a test for the clamp.
+- **orchestrator, 2026-10-01:** Scope changed (user, 2026-10-01): the 400px sidebar becomes floating 320px cards over the scene, per the frame 'Level 1 · Den (isometric, floating cards)' (https://claude.ai/artifact/AFEGyVKV5s6GbTFraA5U3G) and docs/design/2026-10-01-iso-den.md (den-iso-v1/01). Read 'sidebar' as: logo pill top-left, a Needs you card and a Stations & queue card on the right (collapsible). Contents, keys (a/d/m/j/k), copy and the bottom overlays stand. The 'Sidebar order' criterion becomes: logo pill, Needs you, Stations & queue; no usage meter. Blocked by den-iso-v1/01.
+- **developer, 2026-10-01:** WIP at usage wrap-up; see handoff 07-developer.md
+- **orchestrator, 2026-10-01:** Wrap-up at 90% usage (2026-10-01). State: WIP on feat/floating-cards07 at 1105e00, status stays claimed (no lock). qa's tests: 22 of 25 green, 25 fixed not rerun, test 24 cannot pass as written (Tab walk starts at the clicked Stations header: qa to fix the test), test 18 (+/- clamp, 80 clicks) times out at 49 s, cause undiagnosed. NEXT: developer finishes: migrate tally-card-wiring, tally-expand, brand tests and apps/ci-cd/smoke-ui.mjs, add camera-store and overlay-model unit tests, run the full suite and smoke:ui, then qa verify. First send qa to fix test 24. Details in handoff 07-developer.md. Then 03 unblocks.

@@ -4,7 +4,7 @@
 
 **Priority:** P2
 
-**Blocked by:** 03
+**Blocked by:** 03, den-iso-v1/02
 
 **Status:** ready-for-agent
 
@@ -26,3 +26,4 @@ At 375px viewport width the default camera crops the side stalls of the horsesho
 ## Comments
 
 - **orchestrator, 2026-10-01:** Filed on the user's yes (2026-10-01) from the designer's out-of-scope finding on 03.
+- **orchestrator, 2026-10-01:** Retired (user, 2026-10-01): the den moves to an orthographic isometric camera (den-iso-v1/02), which includes the phone-width fit. Do not dispatch; resolve as superseded once 02 merges.
