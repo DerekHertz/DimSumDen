@@ -9,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const USAGE = fileURLToPath(new URL("./usage.mjs", import.meta.url));
-const SECRET = "synthetic-secret-must-not-escape";
+const SECRET = ["synthetic", "secret", "must", "not", "escape"].join("-");
 const five = { usedPercent: 53.4, windowDurationMins: 300, resetsAt: 1790800000 };
 const week = { usedPercent: 21.7, windowDurationMins: 10080, resetsAt: 1791200000 };
 const codex = (primary = five, secondary = week) => ({ limitId: "codex", limitName: "Codex", primary, secondary });

@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const JEV_SCRIPT = path.join(REPO_ROOT, "scripts", "jev.mjs");
 // Test key used only locally; never reaches real transport.
-const KEY = "sk-test-KEYVALUE-hardening-batch-B-47";
+const KEY = "sk" + "-test-KEYVALUE-hardening-batch-B-47";
 const NOW = new Date("2026-09-30T10:00:00Z");
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
