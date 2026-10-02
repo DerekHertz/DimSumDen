@@ -25,7 +25,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFile, execFileSync, spawnSync } from "node:child_process";
 import { promisify } from "node:util";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -362,4 +362,119 @@ test("CLI: bad arguments exit 2 (no --ticket, unknown flag, --root without a val
   assert.equal(cli(["--ticket", "feat-x/01-thing", "--bogus"], { root, env: e }).status, 2);
   assert.equal(cli(["--ticket", "feat-x/01-thing", "--root"], { root, env: e }).status, 2);
   assert.equal(e.searchCalls().length, 0);
+});
+
+// ── organism-infra/95: the size gate measures what jg would send (text), not binaries ──────────────────────────
+// No trackedBytes seam is injected here: these tests drive the DEFAULT size check against real files in a real git repo.
+// Binary fixtures hold NUL bytes AND a binary extension, so either detection the ticket allows (NUL in the first 8 KB, or
+// a known extension list) classifies them. Criterion 3 ("binaries never sent to jg") is covered by jg's own filter and
+// by the existing tests staying green; criterion 4 (run against this repo, eligible bytes) is human-verified in the handoff.
+
+const MB = 1024 * 1024;
+const binary = (bytes) => Buffer.alloc(bytes); // all NUL
+const text = (bytes) => Buffer.alloc(bytes, "a");
+
+test("[95] AC1: under 5 MB of text plus over 5 MB of binaries is not skipped and jg is called", async () => {
+  const root = makeRepo({
+    "src/a.mjs": text(1 * MB),
+    "design/3d/den.blend": binary(3 * MB),
+    "apps/ui/atlas.png": binary(3 * MB),
+  });
+  const f = fake();
+  const { file, row } = await build({ root, run: f.run });
+  assert.equal(row.skipped ?? null, null);
+  assert.equal(row.fallback ?? null, null);
+  assert.ok(contentOf(file));
+  assert.equal(f.searches().length, 1, "jg is called once");
+});
+
+test("[95] AC1: the same holds end to end through the CLI", () => {
+  const root = makeRepo({ "scripts/jg.mjs": "x", "design/3d/den.blend": binary(6 * MB) });
+  mkdirSync(path.join(root, ".scratch", "feat-x", "issues"), { recursive: true });
+  writeFileSync(path.join(root, ".scratch", "feat-x", "issues", "01-thing.md"), ticket());
+  const e = cliEnv();
+  const { status, out } = cli(["--ticket", "feat-x/01-thing", "--root", root], { root, env: e });
+  assert.equal(status, 0);
+  assert.equal(out.skipped ?? null, null);
+  assert.equal(out.fallback ?? null, null);
+  assert.equal(e.searchCalls().length, 1);
+});
+
+test("[95] AC2: over 5 MB of tracked text is still skipped with the 'root over 5 MB eligible' reason", async () => {
+  const root = makeRepo({ "src/big.mjs": text(5 * MB + 1024), "design/3d/den.blend": binary(1 * MB) });
+  const f = fake();
+  const { file, row } = await build({ root, run: f.run });
+  assert.equal(file, undefined);
+  assert.equal(row.skipped, "root over 5 MB eligible");
+  assert.equal(f.searches().length, 0);
+});
+
+test("[95] AC3: a big binary beside a text file holding a secret still falls back with secret-in-root", async () => {
+  const root = makeRepo({ "src/config.mjs": `export const k = "${FAKE_AWS_KEY}";\n`, "design/3d/den.blend": binary(6 * MB) });
+  const f = fake();
+  const { file, row } = await build({ root, run: f.run });
+  assert.equal(file, undefined);
+  assert.equal(row.skipped ?? null, null, "not skipped on size");
+  assert.equal(row.fallback, "secret-in-root");
+  assert.equal(f.searches().length, 0, "nothing is sent to jg");
+});
+
+// ── organism-infra/92 M1: the root listing includes untracked, non-ignored files ──────────────────────────────
+
+test("[92] AC1: a secret in an untracked, non-ignored file falls back with secret-in-root and never calls jg", async () => {
+  const root = makeRepo({ "src/a.mjs": "x" });
+  mkdirSync(path.join(root, "src"), { recursive: true });
+  writeFileSync(path.join(root, "src", "untracked.env"), `AWS=${FAKE_AWS_KEY}\n`); // never `git add`ed
+  const f = fake();
+  const { file, row } = await build({ root, run: f.run });
+  assert.equal(file, undefined);
+  assert.equal(row.fallback, "secret-in-root");
+  assert.equal(f.searches().length, 0, "nothing is sent to jg");
+});
+
+test("[92] AC1: the listing handed to the size check adds untracked files but not ignored ones or the board", async () => {
+  const root = makeRepo({ ".gitignore": "local.env\n", "src/a.mjs": "x" });
+  writeFileSync(path.join(root, "src", "new.mjs"), "y");
+  writeFileSync(path.join(root, "local.env"), "z");
+  mkdirSync(path.join(root, ".scratch"), { recursive: true });
+  writeFileSync(path.join(root, ".scratch", "note.md"), "n");
+  let seen;
+  const f = fake();
+  await build({ root, run: f.run, trackedBytes: async ({ files }) => { seen = files; return 0; } });
+  assert.deepEqual([...seen].sort(), [".gitignore", "src/a.mjs", "src/new.mjs"]);
+});
+
+test("[92] AC1: a secret in an untracked file under .scratch/ or .claude/ stays out of the scan", async () => {
+  const root = makeRepo({ "src/a.mjs": "x" });
+  for (const dir of [".scratch", ".claude"]) {
+    mkdirSync(path.join(root, dir), { recursive: true });
+    writeFileSync(path.join(root, dir, "note.md"), `AWS=${FAKE_AWS_KEY}\n`);
+  }
+  const f = fake();
+  const { file, row } = await build({ root, run: f.run });
+  assert.ok(contentOf(file));
+  assert.equal(row.fallback ?? null, null);
+  assert.equal(f.searches().length, 1);
+});
+
+// ── organism-infra/92 L2: the context file is written by rename ───────────────────────────────────────────────
+
+test("[92] AC3: --refresh replaces the context file by rename, so a reader of the old file never sees a partial write", () => {
+  const root = cliWorld();
+  const e = cliEnv();
+  const args = ["--ticket", "feat-x/01-thing", "--root", root];
+  const first = cli(args, { root, env: e });
+  const outFile = first.out.path;
+  assert.ok(outFile, "the first run wrote a context file");
+
+  // A second hard link to the same inode stands in for a reader holding the old file open.
+  writeFileSync(outFile, "OLD CONTENT\n");
+  const held = path.join(tmp("dc92-held-"), "old.md");
+  linkSync(outFile, held);
+
+  const second = cli([...args, "--refresh"], { root, env: e });
+  assert.equal(second.status, 0);
+  assert.match(readFileSync(outFile, "utf8"), /## scripts\/a\.mjs/, "the new context is in place");
+  assert.equal(readFileSync(held, "utf8"), "OLD CONTENT\n", "the old inode was left whole, not rewritten in place");
+  assert.deepEqual(readdirSync(path.dirname(outFile)), ["01-thing.md"], "no temp file is left behind");
 });

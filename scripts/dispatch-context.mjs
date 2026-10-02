@@ -5,7 +5,7 @@
 // and prints one JSON line {path, bytes, skipped, fallback}. Exit 0 always, except exit 2 for bad arguments. A skip or a
 // fallback writes no file, so the relay runs cold exactly as before. Appends a kind:"jg" row to .scratch/usage.jsonl.
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { hasSecret } from "./exposure.mjs";
@@ -21,6 +21,28 @@ const CODE_TYPES = new Set(["feature", "task", "fix", "bug", "chore", "refactor"
 const BOARD_DIRS = [".scratch/", ".claude/"];
 
 const inBoard = (rel) => BOARD_DIRS.some((d) => rel.startsWith(d));
+
+// organism-infra/95: jg never sends binaries, so neither the size gate nor the secret scan counts them.
+const BINARY_EXTS = new Set([
+  ".blend", ".blend1", ".glb", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bin", ".zip", ".gz", ".woff", ".woff2",
+  ".ttf", ".otf", ".pdf", ".mp3", ".mp4", ".wav", ".ogg", ".webm", ".exr", ".hdr", ".ktx2", ".basis",
+]);
+const SNIFF_BYTES = 8192;
+
+// A known binary extension, or a NUL byte in the first 8 KB. Unreadable or missing files are not binary (the callers skip them).
+function isBinary(root, rel) {
+  if (BINARY_EXTS.has(path.extname(rel).toLowerCase())) return true;
+  let fd;
+  try {
+    fd = openSync(path.join(root, rel), "r");
+    const buf = Buffer.alloc(SNIFF_BYTES);
+    return buf.subarray(0, readSync(fd, buf, 0, SNIFF_BYTES, 0)).includes(0);
+  } catch {
+    return false;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
 
 function parseTicket(text) {
   const type = (/^\*\*Type:\*\*[ \t]*([A-Za-z-]+)/m.exec(text)?.[1] ?? "").toLowerCase();
@@ -61,12 +83,12 @@ export async function buildContext({
   if (!CODE_TYPES.has(type)) return finish({ skipped: `non-code type${type ? ` (${type})` : ""}` });
   if (namedPaths(what, root, has).size >= 2) return finish({ skipped: "two or more named paths already located" });
 
-  // Tracked files outside the board are what jg could send; one listing feeds the size check and the secret check.
+  // Text files (tracked, or untracked and not ignored) outside the board are what jg could send; one listing feeds the size check and the secret check.
   let tracked;
   try {
-    const r = await run("git", ["ls-files", "-z"], { cwd: root });
+    const r = await run("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: root });
     if (r.exitCode !== 0) return finish({ fallback: "git-ls-files-failed" });
-    tracked = r.stdout.split("\0").filter((f) => f && !inBoard(f));
+    tracked = r.stdout.split("\0").filter((f) => f && !inBoard(f) && !isBinary(root, f));
   } catch {
     return finish({ fallback: "git-ls-files-failed" });
   }
@@ -182,7 +204,15 @@ async function main(argv) {
   });
   if (file !== undefined) {
     mkdirSync(path.dirname(outFile), { recursive: true });
-    writeFileSync(outFile, file);
+    // Write beside the target and rename, so a reader never sees a partial file.
+    const tmpFile = path.join(path.dirname(outFile), `.${path.basename(outFile)}.${process.pid}.tmp`);
+    try {
+      writeFileSync(tmpFile, file);
+      renameSync(tmpFile, outFile);
+    } catch (e) {
+      rmSync(tmpFile, { force: true });
+      throw e;
+    }
   }
   try {
     await appendUsageLine(boardRoot, JSON.stringify(row) + "\n");

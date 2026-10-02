@@ -241,3 +241,25 @@ test("runJg refuses an in-process flag that widens the filter or adds an exclude
   }
   assert.equal(calls.length, 0);
 });
+
+// ── organism-infra/92 L1: in-process flags are an allowlist (--max-source-bytes only) ─────────────────────────
+
+test("[92] AC2: runJg refuses any in-process flag other than --max-source-bytes", async () => {
+  const { runJg } = await load();
+  const { run, calls } = fakeRun();
+  const refused = [
+    ["--verbose"],
+    ["--include-ignored"],
+    ["--follow-symlinks"],
+    ["--max-source-bytes", "24576", "--verbose"],
+    ["--verbose", "--max-source-bytes", "24576"],
+  ];
+  for (const flags of refused) {
+    await assert.rejects(
+      () => runJg({ query: "q", root: makeRoot(), flags, run }),
+      (e) => e.kind === "flag",
+      `refused: ${flags.join(" ")}`,
+    );
+  }
+  assert.equal(calls.length, 0, "jg never runs for a refused flag");
+});
