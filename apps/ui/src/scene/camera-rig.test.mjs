@@ -16,7 +16,7 @@ const near = (a, b, tol, what = "") => assert.ok(Math.abs(a - b) <= tol, `${what
 
 const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 375, height: 667 };
-const FEET = [0, 0, -2.4];
+const FEET = [0, 0, -2.9];
 
 test("zoom limits are the agreed literals", async () => {
   const { ZOOM_MIN, ZOOM_MAX } = await load();
@@ -64,12 +64,12 @@ test("keyPan steps the target 0.5 in x and stops at the pan limit; other keys do
   const view = { ...PHONE, zoom: 1 };
   const lim = panLimits(view).x;
   assert.ok(lim > 4, "phone at default has room to pan sideways");
-  assert.deepEqual(keyPan(FEET, "ArrowRight", view), [0.5, 0, -2.4]);
-  assert.deepEqual(keyPan(FEET, "ArrowLeft", view), [-0.5, 0, -2.4]);
-  near(keyPan([lim - 0.2, 0, -2.4], "ArrowRight", view)[0], lim, 1e-9, "stops at the right limit");
-  near(keyPan([-lim + 0.2, 0, -2.4], "ArrowLeft", view)[0], -lim, 1e-9, "stops at the left limit");
-  assert.deepEqual(keyPan([1, 0, -2.4], "ArrowUp", view), [1, 0, -2.4]);
-  assert.deepEqual(keyPan([1, 0, -2.4], "a", view), [1, 0, -2.4]);
+  assert.deepEqual(keyPan(FEET, "ArrowRight", view), [0.5, 0, -2.9]);
+  assert.deepEqual(keyPan(FEET, "ArrowLeft", view), [-0.5, 0, -2.9]);
+  near(keyPan([lim - 0.2, 0, -2.9], "ArrowRight", view)[0], lim, 1e-9, "stops at the right limit");
+  near(keyPan([-lim + 0.2, 0, -2.9], "ArrowLeft", view)[0], -lim, 1e-9, "stops at the left limit");
+  assert.deepEqual(keyPan([1, 0, -2.9], "ArrowUp", view), [1, 0, -2.9]);
+  assert.deepEqual(keyPan([1, 0, -2.9], "a", view), [1, 0, -2.9]);
 });
 
 // 1440x900, zoom 0.55: k = 87.805 / 0.55 = 159.64; sin p = 0.57735.
@@ -79,15 +79,15 @@ test("dragPan: dragging right moves the target left, dragging down moves it back
   const view = { ...DESKTOP, zoom: 0.55 };
   const right = dragPan(FEET, { dx: 100, dy: 0 }, view);
   near(right[0], -0.6264, 1e-3, "dtx");
-  near(right[2], -2.4, 1e-9, "no z change");
+  near(right[2], -2.9, 1e-9, "no z change");
   assert.equal(right[1], 0);
   const left = dragPan(FEET, { dx: -100, dy: 0 }, view);
   near(left[0], 0.6264, 1e-3, "dtx");
   const down = dragPan(FEET, { dx: 0, dy: 100 }, view);
   near(down[0], 0, 1e-9, "no x change");
-  near(down[2], -2.4 - 1.0850, 1e-3, "dtz");
+  near(down[2], -2.9 - 1.0850, 1e-3, "dtz");
   const up = dragPan(FEET, { dx: 0, dy: -100 }, view);
-  near(up[2], -2.4 + 1.0850, 1e-3, "dtz");
+  near(up[2], -2.9 + 1.0850, 1e-3, "dtz");
 });
 
 test("dragPan keeps the ground point under the cursor under the cursor", async () => {
@@ -106,21 +106,21 @@ test("pan clamps: no vertical pan at the default; about 1.9 units either way at 
   const { dragPan, clampTarget } = await load();
   const { panLimits } = await import("./iso-projection.mjs");
   // default zoom, desktop: z cannot move at all
-  assert.deepEqual(dragPan(FEET, { dx: 0, dy: 5000 }, { ...DESKTOP, zoom: 1 }).slice(2), [-2.4]);
-  assert.deepEqual(dragPan(FEET, { dx: 0, dy: -5000 }, { ...DESKTOP, zoom: 1 }).slice(2), [-2.4]);
-  // nearest zoom: |tz + 2.4| <= 1.872 (see iso-projection.test.mjs)
+  assert.deepEqual(dragPan(FEET, { dx: 0, dy: 5000 }, { ...DESKTOP, zoom: 1 }).slice(2), [-2.9]);
+  assert.deepEqual(dragPan(FEET, { dx: 0, dy: -5000 }, { ...DESKTOP, zoom: 1 }).slice(2), [-2.9]);
+  // nearest zoom: |tz + 2.9| <= 1.872 (see iso-projection.test.mjs)
   const near55 = { ...DESKTOP, zoom: 0.55 };
-  near(dragPan(FEET, { dx: 0, dy: -5000 }, near55)[2], -2.4 + 1.872, 0.01, "forward limit");
-  near(dragPan(FEET, { dx: 0, dy: 5000 }, near55)[2], -2.4 - 1.872, 0.01, "back limit");
+  near(dragPan(FEET, { dx: 0, dy: -5000 }, near55)[2], -2.9 + 1.872, 0.01, "forward limit");
+  near(dragPan(FEET, { dx: 0, dy: 5000 }, near55)[2], -2.9 - 1.872, 0.01, "back limit");
   // x on the phone stops where the widest stall's outer edge reaches the screen edge
   const phone = { ...PHONE, zoom: 1 };
   const lim = panLimits(phone).x;
   near(dragPan(FEET, { dx: -100000, dy: 0 }, phone)[0], lim, 1e-9, "x right limit");
   near(dragPan(FEET, { dx: 100000, dy: 0 }, phone)[0], -lim, 1e-9, "x left limit");
   // clampTarget pulls an out-of-range target back in and leaves an in-range one alone
-  assert.deepEqual(clampTarget([0.5, 0, -2.4], phone), [0.5, 0, -2.4]);
-  near(clampTarget([99, 0, -2.4], phone)[0], lim, 1e-9, "clampTarget x");
-  near(clampTarget([0, 0, 40], near55)[2], -2.4 + 1.872, 0.01, "clampTarget z");
+  assert.deepEqual(clampTarget([0.5, 0, -2.9], phone), [0.5, 0, -2.9]);
+  near(clampTarget([99, 0, -2.9], phone)[0], lim, 1e-9, "clampTarget x");
+  near(clampTarget([0, 0, 40], near55)[2], -2.9 + 1.872, 0.01, "clampTarget z");
 });
 
 test("MAX_STALL_CELLS includes the scene's active cap plus the other idle Steamers role", async () => {

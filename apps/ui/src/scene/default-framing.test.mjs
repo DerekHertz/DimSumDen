@@ -101,3 +101,31 @@ test("den-map check 1: at the default frame no kiosk sign sits behind another ki
     }
   }
 });
+
+// den-scene-v1/11 A1 (-2 spec): the back kiosks stand at x +-3.6 beside the bigger Bao, which pulled the Tea sign under the
+// Steamers kiosk until Tea and Pantry moved out to x +-5.2. These two tests hold that margin (measured 15 px at 1440x900,
+// 5 px at 375x667, and the front kiosks 2 px inside the 375 edge).
+const pxOutside = (p, r) => Math.hypot(Math.max(r.x0 - p.x, p.x - r.x1, 0), Math.max(r.y0 - p.y, p.y - r.y1, 0));
+
+test("den-scene-v1/11 A1: every kiosk sign anchor is at least 4 px outside every other kiosk's rectangle at both sizes", () => {
+  for (const size of SIZES) {
+    const frame = defaultFrame(size);
+    const kiosks = Object.fromEntries(Object.keys(STALL_CENTERS).map((s) => [s, rect(completeKiosk(s, N), frame)]));
+    for (const l of stationLabels({}).filter((x) => STALL_CENTERS[x.station])) {
+      const sign = worldToScreen([l.x, l.y, l.z], frame);
+      for (const [other, r] of Object.entries(kiosks)) {
+        if (other !== l.station) assert.ok(pxOutside(sign, r) >= 4, `${size.width}: ${l.station} sign is ${pxOutside(sign, r).toFixed(1)} px from the ${other} kiosk`);
+      }
+    }
+  }
+});
+
+test("den-scene-v1/11 A1: the Tea and Pantry kiosk rectangles are at least 1 px inside the viewport at both sizes", () => {
+  for (const size of SIZES) {
+    const frame = defaultFrame(size);
+    for (const station of ["tea", "pantry"]) {
+      const r = rect(completeKiosk(station, N), frame);
+      assert.ok(r.x0 >= 1 && r.x1 <= size.width - 1 && r.y0 >= 1 && r.y1 <= size.height - 1, `${station} at ${size.width}: ${JSON.stringify(r)}`);
+    }
+  }
+});

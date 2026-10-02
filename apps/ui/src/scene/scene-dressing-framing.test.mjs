@@ -79,15 +79,16 @@ test("both dormant pads fall inside the viewport at 1440x900 and 375x667", () =>
 test("the pads sit behind Bao's shoulders at the digest's pixels: Library left of the ring centre, Drum right, level with each other", () => {
   const frame = defaultFrame(SIZES[0]);
   const [lib, drum] = DORMANT_PADS.map((p) => worldToScreen([p.x, 0, p.z], frame));
-  // hand-worked: x = 720 +- 2.9 * 87.8 = 465.4 / 974.6; y = 468 - 4.8 * 0.57735 * 87.8 = 224.7
-  assert.ok(Math.abs(lib.x - 465.4) < 2 && Math.abs(drum.x - 974.6) < 2, `x ${lib.x}, ${drum.x}`);
-  assert.ok(Math.abs(lib.y - 224.7) < 2 && Math.abs(drum.y - 224.7) < 2, `y ${lib.y}, ${drum.y}`);
+  // hand-worked (den-scene-v1/11: pads at (+-3.4, -7.65), look-at z -2.9): x = 720 +- 3.4 * 87.8 = 421.5 / 1018.5;
+  // y = 468 - (7.65 - 2.9) * 0.57735 * 87.8 = 227.2
+  assert.ok(Math.abs(lib.x - 421.5) < 2 && Math.abs(drum.x - 1018.5) < 2, `x ${lib.x}, ${drum.x}`);
+  assert.ok(Math.abs(lib.y - 227.2) < 2 && Math.abs(drum.y - 227.2) < 2, `y ${lib.y}, ${drum.y}`);
 });
 
 test("the Steamers and Front of House move reaches the screen: kiosk centres at the digest's pixels at both sizes", () => {
   const table = [
-    [{ width: 1440, height: 900 }, "steamers", 457, 483], [{ width: 1440, height: 900 }, "front-of-house", 983, 483],
-    [{ width: 375, height: 667 }, "steamers", 101, 352], [{ width: 375, height: 667 }, "front-of-house", 274, 352],
+    [{ width: 1440, height: 900 }, "steamers", 404, 508], [{ width: 1440, height: 900 }, "front-of-house", 1036, 508],
+    [{ width: 375, height: 667 }, "steamers", 84, 360], [{ width: 375, height: 667 }, "front-of-house", 291, 360],
   ];
   for (const [size, station, px, py] of table) {
     const p = worldToScreen([stallCenterX(station, N), 0.5, STALL_CENTERS[station].z], defaultFrame(size));

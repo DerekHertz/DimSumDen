@@ -7,7 +7,7 @@ import { createCameraStore, levelOfZoom, LEVEL_ZOOM } from "./camera-store.mjs";
 test("starts at the Level 1 framing: zoom 1, the default look-at", () => {
   const s = createCameraStore();
   assert.equal(s.getZoom(), 1);
-  assert.deepEqual(s.getTarget(), [0, 0, -2.4]);
+  assert.deepEqual(s.getTarget(), [0, 0, -2.9]);
 });
 
 test("setZoom clamps to [0.55, 1.2] so the camera never goes inside a kiosk", () => {
@@ -43,14 +43,14 @@ test("goToLevel: 1 resets zoom and target, 2 and 3 dolly in where the camera alr
   assert.equal(s.getZoom(), 0.75);
   s.goToLevel(1);
   assert.equal(s.getZoom(), 1);
-  assert.deepEqual(s.getTarget(), [0, 0, -2.4]);
+  assert.deepEqual(s.getTarget(), [0, 0, -2.9]);
 });
 
 test("goToStation dollies to Level 2 and moves the look-at off the default target", () => {
   const s = createCameraStore();
   s.goToStation("tea");
   assert.equal(s.getZoom(), 0.75);
-  assert.notDeepEqual(s.getTarget(), [0, 0, -2.4]);
+  assert.notDeepEqual(s.getTarget(), [0, 0, -2.9]);
   assert.equal(s.getTarget()[1], 0);
 });
 
@@ -60,7 +60,7 @@ test("subscribers hear a change once, and not a no-op write", () => {
   const off = s.subscribe(() => n++);
   s.setZoom(0.8);
   s.setZoom(0.8);
-  s.setTarget([0, 0, -2.4]);
+  s.setTarget([0, 0, -2.9]);
   assert.equal(n, 1);
   off();
   s.setZoom(0.9);

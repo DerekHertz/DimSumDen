@@ -24,12 +24,29 @@ test("layers sit at increasing depth: far behind mid behind near", () => {
   assert.ok(Math.max(...zs("mid")) < Math.min(...zs("near")));
 });
 
-test("everything stands behind Bao's back and clear of the stalls", () => {
-  const g = groveLayout(3);
+// den-scene-v1/11 T8 (A3 of the -2 spec): Bao grows to scale 2.1, so the old "everything behind his back" rule no longer
+// holds (ground tufts and leaves stand beside and under him; the user picked the grove as rendered). The rule that
+// stays is the one a stalk can break visibly: no far, mid or near stalk pokes through Bao's footprint box.
+const baoBox = () => {
+  const s = BAO.scale, z0 = BAO.position[2] - 0.875 * s, z1 = BAO.position[2] + 0.875 * s;
+  return { x: s, z0, z1 };
+};
+const outsideBox = (p, box) => Math.hypot(Math.max(Math.abs(p.x) - box.x, 0), Math.max(box.z0 - p.z, p.z - box.z1, 0));
+
+test("far, mid and near stalks stand at least 0.3 world outside Bao's footprint box, for seeds 1, 3, 5, 7 and 11", () => {
+  const box = baoBox();
+  assert.ok(Math.abs(box.z0 - -5.1375) < 1e-9 && Math.abs(box.z1 - -1.4625) < 1e-9, "the box is x +-2.1, z -5.1375 to -1.4625 at Bao's new place");
+  for (const seed of [1, 3, 5, 7, 11]) {
+    const g = groveLayout(seed);
+    for (const s of [...g.far, ...g.mid, ...g.near]) {
+      assert.ok(outsideBox(s, box) >= 0.3, `seed ${seed}: stalk at ${s.x.toFixed(2)}, ${s.z.toFixed(2)} is ${outsideBox(s, box).toFixed(3)} from Bao's box`);
+    }
+  }
+});
+
+test("every stall stands in front of Bao's back plane", () => {
   const baoBack = BAO.position[2] - 0.875 * BAO.scale;
-  const all = [...g.far, ...g.mid, ...g.near, ...g.tufts];
-  for (const s of all) assert.ok(s.z < baoBack, `z ${s.z} is behind Bao's back ${baoBack}`);
-  for (const l of g.leaves) assert.ok(l.z < baoBack);
+  assert.ok(Math.abs(baoBack - -5.1375) < 1e-9, "Bao's back plane is z -5.1375");
   for (const c of Object.values(STALL_CENTERS)) assert.ok(c.z > baoBack);
 });
 

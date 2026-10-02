@@ -3,7 +3,7 @@
 // default-frame pixel table, pan rule), not recomputed from the module.
 //
 // Interface under test (apps/ui/src/scene/iso-projection.mjs), view = { width, height, zoom = 1, target = TARGET }:
-//   YAW (0), PITCH (atan(1/sqrt 2)), TARGET ([0, 0, -2.4]), ZOOM_MIN, ZOOM_MAX, clampZoom(z)
+//   YAW (0), PITCH (atan(1/sqrt 2)), TARGET ([0, 0, -2.9]), ZOOM_MIN, ZOOM_MAX, clampZoom(z)
 //   pixelsPerUnit(view)              -> px per world unit
 //   worldToScreen([x, y, z], view)   -> { x, y } in px from the viewport's top-left
 //   screenToWorld({ x, y }, view, groundY = 0) -> [x, y, z] on the plane y = groundY
@@ -26,7 +26,7 @@ test("pitch is true isometric (35.264 degrees) and the heading is 0", async () =
   near(Math.sin(PITCH), 0.57735, 1e-5, "sin p");
   near(Math.cos(PITCH), 0.81650, 1e-5, "cos p");
   assert.equal(YAW, 0);
-  assert.deepEqual(TARGET, [0, 0, -2.4]);
+  assert.deepEqual(TARGET, [0, 0, -2.9]); // den-scene-v1/11: Bao stands at z -3.3, the camera looks at z -2.9
 });
 
 test("pixels per world unit: 87.8 at 1440x900, 28.8 at 375x667; zoom divides it", async () => {
@@ -39,14 +39,14 @@ test("pixels per world unit: 87.8 at 1440x900, 28.8 at 375x667; zoom divides it"
 
 // The default-frame table, section 1.
 const TABLE = [
-  ["Bao feet", [0, 0, -2.4], [720, 468], [188, 347]],
-  ["Steamers", [-3.0, 0.5, -1.4], [457, 483], [101, 352]],
-  ["Front of House", [3.0, 0.5, -1.4], [983, 483], [274, 352]],
-  ["Tea", [-4.9, 0, 2.0], [290, 691], [46, 420]],
-  ["Pantry", [4.9, 0, 2.0], [1150, 691], [329, 420]],
-  ["Susan top", [0, 0.7, 0], [720, 539], [188, 370]],
-  ["Hamper", [-1.8, 0, 3.0], [562, 742], [136, 437]],
-  ["Tally", [1.8, 0, 3.0], [878, 742], [239, 437]],
+  ["Bao feet", [0, 0, -3.3], [720, 448], [188, 340]],
+  ["Steamers", [-3.6, 0.5, -1.4], [404, 508], [84, 360]],
+  ["Front of House", [3.6, 0.5, -1.4], [1036, 508], [291, 360]],
+  ["Tea", [-5.2, 0, 2.0], [263, 716], [38, 428]],
+  ["Pantry", [5.2, 0, 2.0], [1177, 716], [338, 428]],
+  ["Susan top", [0, 0.7, 0], [720, 565], [188, 379]],
+  ["Hamper", [-1.8, 0, 3.0], [562, 767], [136, 445]],
+  ["Tally", [1.8, 0, 3.0], [878, 767], [239, 445]],
 ];
 
 test("default frame reproduces the digest's pixel table within 2 px at both sizes", async () => {
@@ -72,7 +72,7 @@ test("defaultFrame is zoom 1 on Bao's feet", async () => {
 test("orthographic: one world unit spans the same pixels at every depth", async () => {
   const { defaultFrame, worldToScreen } = await load();
   const f = defaultFrame(DESKTOP);
-  for (const z of [-8.7, -2.4, 0, 3.0]) {
+  for (const z of [-8.7, -3.3, 0, 3.0]) {
     const a = worldToScreen([0, 0, z], f);
     const b = worldToScreen([1, 0, z], f);
     near(b.x - a.x, 87.805, 0.01, `1 unit in x at z=${z}`);
@@ -88,10 +88,10 @@ test("orthographic: one world unit spans the same pixels at every depth", async 
 
 test("world to screen to world round-trips at several zooms, sizes and heights", async () => {
   const { worldToScreen, screenToWorld } = await load();
-  const samples = [[0, 0, -2.4], [-4.9, 0.6, 2.0], [4.9, 0, 2.0], [3.0, 1.2, -1.4], [-7.8, 0, 0.8], [1.8, 1.55, 3.0], [0, 2.8, -2.4]];
+  const samples = [[0, 0, -3.3], [-5.2, 0.6, 2.0], [5.2, 0, 2.0], [3.6, 1.2, -1.4], [-7.8, 0, 0.8], [1.8, 1.55, 3.0], [0, 4.2, -3.3]];
   for (const size of [DESKTOP, PHONE]) {
     for (const zoom of [0.55, 0.8, 1, 1.2]) {
-      for (const target of [[0, 0, -2.4], [1.5, 0, -2.4], [-2, 0, -1.8]]) {
+      for (const target of [[0, 0, -2.9], [1.5, 0, -2.9], [-2, 0, -1.8]]) {
         const view = { ...size, zoom, target };
         for (const p of samples) {
           const back = screenToWorld(worldToScreen(p, view), view, p[1]);
@@ -105,11 +105,11 @@ test("world to screen to world round-trips at several zooms, sizes and heights",
 test("ground pick: the screen anchor is Bao's feet; the table's Tally pixel picks the Tally's floor point", async () => {
   const { defaultFrame, screenToWorld } = await load();
   const f = defaultFrame(DESKTOP);
-  const feet = screenToWorld({ x: 720, y: 468 }, f);
+  const feet = screenToWorld({ x: 720, y: 448 }, f);
   near(feet[0], 0, 0.02, "x");
   near(feet[1], 0, 1e-9, "y");
-  near(feet[2], -2.4, 0.02, "z");
-  const tally = screenToWorld({ x: 878, y: 742 }, f);
+  near(feet[2], -3.3, 0.03, "z");
+  const tally = screenToWorld({ x: 878, y: 767 }, f);
   near(tally[0], 1.8, 0.03, "tally x");
   near(tally[2], 3.0, 0.03, "tally z");
 });
@@ -123,11 +123,11 @@ test("cameraConfig is orthographic, yaw 0, pitch 35.264 degrees, looking at the 
   assert.deepEqual(c.up, [0, 1, 0]);
   assert.equal(c.near, 0.1);
   assert.equal(c.far, 120);
-  assert.deepEqual(c.target, [0, 0, -2.4]);
+  assert.deepEqual(c.target, [0, 0, -2.9]);
   // position = target + 40 * (0, sin p, cos p)
   near(c.position[0], 0, 1e-9, "x");
   near(c.position[1], 40 * 0.57735, 1e-3, "y");
-  near(c.position[2], -2.4 + 40 * 0.8165, 1e-3, "z");
+  near(c.position[2], -2.9 + 40 * 0.8165, 1e-3, "z");
   assert.ok(!("fov" in c), "no perspective field of view");
 });
 
@@ -176,7 +176,7 @@ test("the config follows zoom and pan: it agrees with worldToScreen", async () =
   const { cameraConfig, worldToScreen } = await load();
   const view = { ...DESKTOP, zoom: 0.7, target: [2.5, 0, -2.0] };
   const cam = threeCamera(cameraConfig(view));
-  for (const p of [[0, 0, -2.4], [-4.9, 0.5, 2.0], [4.9, 0, 2.0], [1.8, 1.5, 3.0]]) {
+  for (const p of [[0, 0, -3.3], [-5.2, 0.5, 2.0], [5.2, 0, 2.0], [1.8, 1.5, 3.0]]) {
     const a = worldToScreen(p, view);
     const b = toPixels(p, cam, DESKTOP);
     near(b.x, a.x, 0.5, `x of ${p}`);
@@ -195,7 +195,7 @@ test("zoom range is the digest's 0.55 to 1.2 (73 to 160 px per unit at 1440x900)
   near(pixelsPerUnit({ ...DESKTOP, zoom: ZOOM_MIN }), 160, 0.5, "near end");
 });
 
-// Pan limits, section 1. z: |tz + 2.4| <= max(0, 3.9 - H/2k) / sin p, worked by hand:
+// Pan limits, section 1. z: |tz + 2.9| <= max(0, 3.9 - H/2k) / sin p, worked by hand:
 //   1440x900, zoom 0.55: k = 159.64, H/2k = 2.819, (3.9 - 2.819) / 0.57735 = 1.872
 //   1440x900, zoom 0.7:  k = 125.44, H/2k = 3.587, (3.9 - 3.587) / 0.57735 = 0.542
 test("pan z-limit: none at the default, about 1.1 units of screen height at the nearest zoom", async () => {
@@ -221,6 +221,8 @@ test("pan x-limit keeps the widest stall's outer edge reachable and is zero when
   }
   // phone, zoom 1: half-width 6.5 units, so the widest edge (>= 11) needs pan
   assert.ok(panLimits({ ...PHONE, zoom: 1 }).x > 4);
-  // desktop, zoom 1: half-width 8.2 units
-  assert.ok(panLimits({ ...DESKTOP, zoom: 1 }).x < 4);
+  // desktop, zoom 1: half-width 8.2 units. den-scene-v1/11 (A1): Tea and Pantry stand 0.3 farther out, so the widest
+  // edge is 0.3 larger and the limit is 4.025 (it was 3.725); a literal, run from the module at the final constants.
+  near(panLimits({ ...DESKTOP, zoom: 1 }).x, 4.025, 0.01, "desktop zoom 1 pan x-limit");
+  near(panLimits({ ...PHONE, zoom: 1 }).x, 5.725, 0.01, "phone zoom 1 pan x-limit");
 });
