@@ -89,14 +89,22 @@ const Decision = forwardRef(function Decision({ request }, ref) {
     deny: () => { if (canAct) send(request.rejectKind); },
     focusNote: () => noteField.current?.focus(),
   }), [canAct, send, request.approveKind, request.rejectKind]);
+  // Deny with message: Ctrl or Cmd + Enter in the Note denies with that note. Plain Enter adds a line.
+  const onNoteKeyDown = (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && canAct) {
+      e.preventDefault();
+      send(request.rejectKind);
+    }
+  };
 
   if (request.pending) {
     return <p className="small gate-pending" aria-live="polite">{request.pending.text}</p>;
   }
   return (
     <div aria-live="polite">
-      <label className="note-label" htmlFor="needs-note">Note</label>
-      <textarea id="needs-note" ref={noteField} className="note-field" rows={2} maxLength={500} placeholder="Optional" value={note} onChange={(e) => setNote(e.target.value)} />
+      <label className="note-label" htmlFor="needs-note">Note<kbd aria-hidden="true">m</kbd></label>
+      <textarea id="needs-note" ref={noteField} className="note-field" rows={2} maxLength={500} placeholder="Optional" aria-describedby="needs-note-help" value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={onNoteKeyDown} />
+      <p id="needs-note-help" className="small muted note-help">Ctrl Enter denies with this note</p>
       {counter.show ? <p className="small muted">{counter.text}</p> : null}
       <div className="decision-buttons">
         <button type="button" className="btn btn-solid" aria-keyshortcuts="a" disabled={locked} onClick={() => send(request.approveKind)}>
@@ -148,7 +156,7 @@ export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder 
         {!placeholder && !current ? <p className="muted">Nothing is waiting on you.</p> : null}
         {current ? (
           <>
-            <div className="needs-head">
+            <div className="needs-head" aria-live="polite">
               <span className="portrait" style={{ "--zone": `var(${STATION_HUE[current.station]}-zone)` }} aria-hidden="true"><PandaFace /></span>
               <div className="needs-text">
                 <p className="eyebrow">{current.eyebrow}</p>

@@ -1,8 +1,8 @@
 // The three overlays along the bottom of the scene (den-scene-v1/07): zoom switcher bottom-left, intent bar
 // bottom-centre, timeline bottom-right. Numbers and copy: docs/design/2026-10-01-iso-den.md section 4.
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { LEVEL_ZOOM, levelOfZoom } from "../scene/camera-store.mjs";
-import { AUTONOMY_MODES, STATION_HUE, clockText, timelineMarkers } from "./overlay-model.mjs";
+import { STATION_HUE, clockText, timelineMarkers } from "./overlay-model.mjs";
 
 const LEVELS = [
   { level: 1, label: "1 · Den" },
@@ -43,19 +43,21 @@ export function ZoomSwitcher({ camera }) {
           );
         })}
       </div>
-      <button type="button" className="zoom-step" aria-label="Zoom in" onClick={() => camera.stepZoom("+")}><Glyph d="M8 3v10M3 8h10" /></button>
-      <button type="button" className="zoom-step" aria-label="Zoom out" onClick={() => camera.stepZoom("-")}><Glyph d="M3 8h10" /></button>
+      <div className="zoom-steps">
+        <button type="button" className="zoom-step" aria-label="Zoom in" onClick={() => camera.stepZoom("+")}><Glyph d="M8 3v10M3 8h10" /></button>
+        <button type="button" className="zoom-step" aria-label="Zoom out" onClick={() => camera.stepZoom("-")}><Glyph d="M3 8h10" /></button>
+      </div>
     </nav>
   );
 }
 
 /**
  * The intent bar. The bridge has no intent endpoint yet (ADR 0016 slices cover dispatch, approve, message, kill), so
- * Send is marked aria-disabled and the autonomy chip is a local preference: neither reaches the den.
+ * Send is marked aria-disabled. The autonomy chip shows the mode but is disabled until den-scene-v1/13 builds the real
+ * control; it stays a focusable button (aria-disabled, not the disabled attribute) so a keyboard user reaches the reason.
  */
 export function IntentBar() {
   const input = useRef(null);
-  const [autonomy, setAutonomy] = useState("gated");
   useEffect(() => {
     const onKey = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -66,15 +68,15 @@ export function IntentBar() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
-  const cycle = () => setAutonomy(AUTONOMY_MODES[(AUTONOMY_MODES.indexOf(autonomy) + 1) % AUTONOMY_MODES.length]);
   return (
     <section className="intent" data-overlay="intent" aria-label="Intent">
       <p className="intent-current"><span className="intent-current-label">Current intent</span><span className="intent-current-value">none set</span></p>
       <form className="intent-bar" onSubmit={(e) => e.preventDefault()}>
-        <button type="button" className="autonomy-chip" aria-label={`Autonomy: ${autonomy}. Change`} onClick={cycle}>
+        <button type="button" className="autonomy-chip" aria-label="Autonomy: gated" aria-disabled="true" aria-describedby="autonomy-reason" title="Autonomy controls are coming soon">
           <span className="autonomy-dot" aria-hidden="true" />
-          <span className="autonomy-text">{autonomy}</span>
+          <span className="autonomy-text">gated</span>
         </button>
+        <span id="autonomy-reason" className="visually-hidden">Autonomy controls are coming soon.</span>
         <input ref={input} className="intent-input" type="text" aria-label="Give the den an intent" placeholder="Give the den an intent…" autoComplete="off" />
         <kbd className="intent-hint">Ctrl K</kbd>
         <button type="submit" className="intent-send" aria-disabled="true" title="Intents are not connected to the den yet">Send</button>

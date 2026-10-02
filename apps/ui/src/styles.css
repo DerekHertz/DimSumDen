@@ -236,6 +236,8 @@ body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-w
 .code-well { margin: 0; padding: 8px 10px; background: var(--surface-100); border: 1px solid var(--line); border-radius: var(--radius-m); font: 500 12px/16px var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .code-well code { font: inherit; }
 .note-label { display: block; font: 700 12px/16px var(--font-sans); color: var(--ink-muted); }
+.note-label kbd { margin-left: var(--space-2); }
+.note-help { font-size: 11px; line-height: 14px; }
 .note-field { display: block; width: 100%; margin-top: var(--space-1); padding: var(--space-2); border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: var(--surface-100); color: var(--ink); font: inherit; resize: none; }
 .decision-buttons { display: flex; gap: var(--space-2); margin-top: var(--space-2); }
 .btn { flex: 1; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); padding: 0 var(--space-3); border-radius: var(--radius-m); font: 700 13px/18px var(--font-sans); cursor: pointer; }
@@ -265,20 +267,22 @@ button.pill-station:hover { background: var(--surface-300); }
 .pchip { flex: none; padding: 0 var(--space-1); border: 1px solid var(--ink); border-radius: var(--radius-s); font: 700 11px/14px var(--font-mono); }
 .queue-title { min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.zoom-switcher { left: 16px; bottom: 16px; display: flex; align-items: center; gap: var(--space-1); padding: var(--space-1) 6px; border-radius: var(--radius-full); border: 1px solid var(--line); background: var(--surface-glass); box-shadow: var(--shadow-panel); }
-.zoom-levels { display: flex; align-items: center; }
-.zoom-level { padding: 4px var(--space-2); border: 0; border-radius: var(--radius-full); background: none; color: var(--ink-muted); font: 700 12px/16px var(--font-sans); cursor: pointer; white-space: nowrap; }
+.zoom-switcher { left: 16px; bottom: 16px; display: flex; flex-direction: column; align-items: stretch; gap: var(--space-1); padding: var(--space-2) 6px; border-radius: var(--radius-l); border: 1px solid var(--line); background: var(--surface-glass); box-shadow: var(--shadow-panel); }
+.zoom-levels { display: flex; flex-direction: column; align-items: stretch; }
+.zoom-steps { display: flex; justify-content: center; gap: var(--space-1); }
+.zoom-level { text-align: left; padding: 4px var(--space-2); border: 0; border-radius: var(--radius-full); background: none; color: var(--ink-muted); font: 700 12px/16px var(--font-sans); cursor: pointer; white-space: nowrap; }
 .zoom-level[aria-current="true"] { color: var(--qi); }
 .zoom-level[aria-disabled="true"] { cursor: default; opacity: var(--opacity-dim); }
 .zoom-step { width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0; border: 1px solid var(--line-strong); border-radius: 8px; background: none; color: var(--ink); cursor: pointer; }
 .zoom-step:hover { background: var(--surface-300); }
 
-.intent { left: 50%; bottom: 16px; transform: translateX(-50%); width: min(580px, calc(100vw - 32px)); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.intent { left: 50%; bottom: 16px; transform: translateX(-50%); width: min(580px, calc(100vw - 504px)); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
 .intent-current { margin: 0; display: inline-flex; align-items: baseline; gap: 6px; padding: 2px 10px; border-radius: var(--radius-full); border: 1px solid var(--line); background: var(--surface-glass); font-size: 12px; line-height: 16px; pointer-events: auto; }
 .intent-current-label { font-weight: 800; color: var(--ink-muted); }
 .intent-current-value { color: var(--ink); }
 .intent-bar { pointer-events: auto; width: 100%; display: flex; align-items: center; gap: var(--space-2); padding: 6px; border-radius: var(--radius-full); border: 2px solid var(--line-strong); background: var(--surface-glass); box-shadow: var(--shadow-panel); }
-.autonomy-chip { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: var(--radius-full); background: var(--surface-000); color: var(--ink); font: 700 12px/16px var(--font-sans); text-transform: capitalize; cursor: pointer; }
+.autonomy-chip { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: var(--radius-full); background: var(--surface-000); color: var(--ink); font: 700 12px/16px var(--font-sans); text-transform: capitalize; cursor: default; }
+.autonomy-chip[aria-disabled="true"] { opacity: var(--opacity-dim); }
 .autonomy-dot { width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--qi); }
 .intent-input { flex: 1 1 auto; min-width: 0; padding: 6px var(--space-2); border: 0; background: transparent; color: var(--ink); font: 14px/20px var(--font-sans); }
 .intent-input::placeholder { color: var(--ink-muted); opacity: 1; }
@@ -296,7 +300,18 @@ button.pill-station:hover { background: var(--surface-300); }
 .timeline-dot-alarm { top: 0; width: 12px; height: 12px; margin-left: -6px; }
 .timeline-caption { margin: 0; font-size: 11px; line-height: 14px; color: var(--ink-muted); }
 
+@media (max-width: 899px) {
+  .timeline { display: none; }
+  .intent { width: min(580px, calc(100vw - 288px)); }
+}
 @media (max-width: 599px) {
+  .intent { width: calc(100vw - 32px); }
+  .intent-hint { display: none; }
+  /* A phone's bar is 343px: trim the gaps so the whole placeholder reads (designer F2). */
+  .intent-bar { gap: var(--space-1); }
+  .autonomy-chip { padding: 4px var(--space-2); }
+  .intent-input { padding: 6px var(--space-1); }
+  .intent-send { padding: 6px var(--space-3); }
   .cards { left: 16px; right: auto; top: 74px; width: calc(100% - 32px); max-height: calc(100% - 74px - 88px); }
   .zoom-switcher, .timeline { display: none; }
   .scene-more { bottom: 88px; }
@@ -305,5 +320,6 @@ button.pill-station:hover { background: var(--surface-300); }
   .card-toggle, .zoom-level, .zoom-step, .request-row, .btn, .intent-send, .autonomy-chip { min-height: 44px; }
   .zoom-step { min-width: 44px; }
   button.pill-station { min-height: 44px; }
+  .intent-input { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) { .card-chevron { transition: none; } }
