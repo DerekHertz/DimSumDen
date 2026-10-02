@@ -12,6 +12,7 @@ import {
 import { DUR_SLOW_MS, lanternState, susanLayout, turnAngle } from "./handoffs.mjs";
 import { POST_BASE, POST_SIZE, eaveTrimTriangles, postHeight, postPositions, roofTriangles } from "./stall-roof.mjs";
 import { kiosks } from "./kiosk.mjs";
+import { railWorld } from "./bao-seats.mjs";
 import { useSystemTheme } from "./system-theme.js";
 
 const TOP_RADIUS = 1.8;
@@ -224,14 +225,24 @@ function Susan({ baskets, handoffs }) {
   );
 }
 
-function ServiceBell({ lit }) {
+// The rail rides Bao's head: once the seat store has its bake, each frame the rail sits at railWorld and the bell keeps its offset
+// from the rail. The static RAIL and BELL are the first-render values, and nothing moves when the glb has not baked.
+function ServiceBell({ lit, seats }) {
+  const rail = useRef();
+  const bell = useRef();
+  useFrame(() => {
+    if (!seats?.baked || !rail.current || !bell.current) return;
+    const at = railWorld(seats.baked);
+    rail.current.position.set(at.x, at.y, at.z);
+    bell.current.position.set(BELL.x + (at.x - RAIL.x), BELL.y + (at.y - RAIL.y), BELL.z + (at.z - RAIL.z));
+  });
   return (
     <group>
-      <mesh position={[RAIL.x, RAIL.y, RAIL.z]}>
+      <mesh ref={rail} position={[RAIL.x, RAIL.y, RAIL.z]}>
         <boxGeometry args={[RAIL.width, RAIL.height, 0.12]} />
         <meshStandardMaterial color={WOOD} />
       </mesh>
-      <group position={[BELL.x, BELL.y, BELL.z]}>
+      <group ref={bell} position={[BELL.x, BELL.y, BELL.z]}>
       <mesh>
         <sphereGeometry args={[0.16, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
         <meshStandardMaterial
@@ -250,7 +261,7 @@ function ServiceBell({ lit }) {
   );
 }
 
-export function Market({ baskets, handoffs, cells, counts }) {
+export function Market({ baskets, handoffs, cells, counts, seats }) {
   const theme = useSystemTheme();
   const lanterns = useMemo(() => lanternState(cells), [cells]);
   const kioskList = useMemo(() => kiosks({ cells, counts, theme }), [cells, counts, theme]);
@@ -271,7 +282,7 @@ export function Market({ baskets, handoffs, cells, counts }) {
         );
       })}
       <Susan baskets={baskets} handoffs={handoffs} />
-      <ServiceBell lit={lanterns.bell} />
+      <ServiceBell lit={lanterns.bell} seats={seats} />
       {kioskList.map((kiosk) => (
         <Stall
           key={kiosk.station}
