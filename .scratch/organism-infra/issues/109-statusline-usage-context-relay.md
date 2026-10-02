@@ -6,7 +6,7 @@
 
 **Blocked by:** 108
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## What to build
 
@@ -26,3 +26,5 @@ Files: `scripts/statusline.mjs` (+ test); gated: `.claude/settings.json`.
 
 ## Comments
 - **orchestrator, 2026-10-02:** Batch M (109, 110, 111), from the Claude Code usage audit (proposal 1). User: "yes love this".
+- **qa, 2026-10-02:** All criteria covered by passing tests
+- **security, 2026-10-02:** Security pass (nits): no crit/high; medium statusline.mjs:76 failed usage read not negatively cached. See handoffs/109-security.md.

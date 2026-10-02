@@ -6,7 +6,7 @@
 
 **Blocked by:** 108
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## What to build
 
@@ -24,3 +24,5 @@ Files: `scripts/session-start.mjs` (+ test); gated: `.claude/settings.json`.
 
 ## Comments
 - **orchestrator, 2026-10-02:** Batch M, audit proposal 2. User: "this is fine".
+- **qa, 2026-10-02:** All criteria covered by passing tests
+- **security, 2026-10-02:** Security pass (nits): no crit/high; low-medium session-start.mjs:56 PR title unsanitised into orchestrator context (prompt-injection surface). See 109-security.md.
