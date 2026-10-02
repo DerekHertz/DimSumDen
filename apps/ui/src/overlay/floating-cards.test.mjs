@@ -39,6 +39,7 @@ import assert from "node:assert/strict";
 import { createServer } from "vite";
 import { chromium } from "playwright";
 import { buildLaunchOptions } from "../../../ci-cd/launch-options.mjs";
+import { lightenScene } from "../../../ci-cd/light-scene.mjs";
 
 const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
@@ -88,6 +89,9 @@ const quietSnapshot = () => ({ schema: 1, seq: 1, tickets: [], frontier: [], usa
 
 async function openApp({ snapshot = fixture(), viewport = DESKTOP, hasTouch = false } = {}) {
   const context = await browser.newContext({ viewport, reducedMotion: "reduce", hasTouch });
+  // organism-infra/94: software GL rasterising the scene starves Playwright clicks (test 18 clicks 80 times); see
+  // ci-cd/light-scene.mjs. These tests read DOM only, never pixels.
+  await lightenScene(context);
   const page = await context.newPage();
   const errors = [];
   const posts = [];
@@ -522,7 +526,10 @@ test("every control is keyboard-reachable in the digest tab order with a 2px foc
         .filter((e) => e.getClientRects().length > 0 && (e.tabIndex < 0 || e.disabled))
         .map((e) => e.outerHTML.slice(0, 80)));
     assert.deepEqual(unreachable, [], "no visible control is removed from the tab order");
+    // Reset the Tab starting point: clicking the Stations header above leaves Chromium's sequential-focus
+    // start at that header, which would skip the Needs you stops. Focus the scene, then walk from there.
     await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
+    await page.locator('main[aria-label="Den scene"]').focus();
     const seen = [];
     for (let i = 0; i < 90; i++) {
       await page.keyboard.press("Tab");
