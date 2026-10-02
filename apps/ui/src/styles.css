@@ -300,12 +300,18 @@ button.pill-station:hover { background: var(--surface-300); }
 .timeline-dot-alarm { top: 0; width: 12px; height: 12px; margin-left: -6px; }
 .timeline-caption { margin: 0; font-size: 11px; line-height: 14px; color: var(--ink-muted); }
 
+/* 900 to 959: the centred bar is 396 to 456px wide, too narrow for the hint plus the full placeholder (designer N1). */
+@media (min-width: 900px) and (max-width: 959px) {
+  .intent-hint { display: none; }
+}
+/* Under 900 the timeline is hidden, so the bar anchors right of the zoom switcher (which ends near 141px) instead of
+   centring: at 600px that gives the input about 230px, enough for the placeholder with the hint showing (designer N1). */
 @media (max-width: 899px) {
   .timeline { display: none; }
-  .intent { width: min(580px, calc(100vw - 288px)); }
+  .intent { left: 160px; right: 16px; width: auto; max-width: 580px; transform: none; }
 }
 @media (max-width: 599px) {
-  .intent { width: calc(100vw - 32px); }
+  .intent { left: 16px; max-width: none; }
   .intent-hint { display: none; }
   /* A phone's bar is 343px: trim the gaps so the whole placeholder reads (designer F2). */
   .intent-bar { gap: var(--space-1); }

@@ -617,6 +617,26 @@ test("Ctrl K hint hides under 600px and shows from 600px (designer F2)", { timeo
   assert.equal(await hint.isVisible(), false, "hidden at 375");
 }));
 
+// Designer N1: the F1 fix left the placeholder truncated at 600 to 709 px ("Giv") and at 900 to 925 px.
+test("the full intent placeholder fits the input at every width from 600 to 1440, and stays clear of the zoom switcher and timeline (designer N1)", { timeout: 120000 }, withApp({}, async ({ page, zoom, intent, timeline }) => {
+  const input = intent.getByPlaceholder("Give the den an intent…");
+  const overlap = (a, b) => a.x < b.x + b.width - 0.5 && b.x < a.x + a.width - 0.5 && a.y < b.y + b.height - 0.5 && b.y < a.y + a.height - 0.5;
+  for (const width of [600, 650, 709, 710, 768, 899, 900, 925, 960, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const fit = await input.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      const ctx = document.createElement("canvas").getContext("2d");
+      ctx.font = cs.font;
+      return { text: ctx.measureText(el.placeholder).width, room: el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) };
+    });
+    assert.ok(fit.text <= fit.room, `${width}: the placeholder needs ${fit.text.toFixed(0)}px but the input has ${fit.room.toFixed(0)}px`);
+    const [z, i] = await Promise.all([zoom, intent].map((x) => x.boundingBox()));
+    assert.equal(overlap(z, i), false, `${width}: zoom does not overlap intent`);
+    assert.ok(i.x + i.width <= width - 16 + 0.5, `${width}: intent stays inside the right gutter`);
+    if (await timeline.isVisible()) assert.equal(overlap(i, await timeline.boundingBox()), false, `${width}: intent does not overlap the timeline`);
+  }
+}));
+
 test("phone 375 with a coarse pointer: the full placeholder fits the input and the input is at least 44px tall (designer F2)", { timeout: 90000 }, async () => {
   const app = await openApp({ viewport: { width: 375, height: 667 }, isMobile: true });
   try {
