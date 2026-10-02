@@ -20,6 +20,8 @@ import { TallyFace } from "./TallyFace.jsx";
 import { PAD_CHIP_PX, fitChipFont } from "./pad-chip.mjs";
 import { BAO, DORMANT_PADS, parsePerch, placeCell, stationOf } from "./banquet-layout.mjs";
 import { ROAMER_TYPES, stepRoamer } from "./roam.mjs";
+import { applyBaoPose, faceFor, softenPatches } from "./bao-pose.mjs";
+import { bakeBaoSeats, seatWorld } from "./bao-seats.mjs";
 
 // Each role's headgear, prop and the scarf are built once per theme and level of detail (key "kind|role|theme|lod"),
 // then cloned per plush. The parts come from headgear.mjs; sockets from ROLE_PLACEMENT.
@@ -92,12 +94,21 @@ function plushGeometryFor(geometry) {
 
 // `anchorId` names the figure for chips and selection (default: its id); null hides it from both, as for an idle roamer.
 // `fadeRef.current` is an opacity in 0..1, read every frame (the reduced-motion cross-fade).
-function Figure({ id, gltf, director, pose, cellType, position, scale, lod, selected, onSelect, stage, anchorId = id, fadeRef }) {
+// `seats` is the shared seat store { baked }: Bao's Figure fills it once he reaches sit_still (the pose table on, world matrices current),
+// and the Pass figures and the rail read it. A Figure with `seat` { type, slot, lift } stands on that seat each frame, once baked.
+function Figure({ id, gltf, director, pose, cellType, position, scale, lod, selected, onSelect, stage, anchorId = id, fadeRef, seats, seat }) {
   const root = useRef();
+  const isBao = id === "bao";
   const object = useMemo(() => {
     const o = cloneSkinned(gltf.scene);
+    if (isBao && seats) seats.baked = null;
     o.traverse((n) => {
       if (lod && n.isSkinnedMesh) n.geometry = plushGeometryFor(n.geometry);
+      // Bao only: a copy of the fur geometry with the eye patches one step lighter (the shared glb geometry is never written).
+      else if (isBao && n.isSkinnedMesh && n.name !== "face") {
+        n.geometry = softenPatches(n.geometry, n.skeleton.bones.map((b) => b.name));
+        n.userData.ownGeometry = true;
+      }
       if (n.material) {
         n.material = n.material.clone();
         if (n.material.map) n.material.map = n.material.map.clone();
@@ -105,8 +116,14 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
     });
     return o;
   }, [gltf, lod, id]);
+  useEffect(() => () => {
+    if (!isBao) return;
+    object.traverse((n) => { if (n.userData.ownGeometry) n.geometry.dispose(); });
+    if (seats) seats.baked = null;
+  }, [object, isBao, seats]);
   const mixer = useMemo(() => new THREE.AnimationMixer(object), [object]);
   const state = useRef({ clip: null, loop: null, action: null, pose: null });
+  const baking = useRef({ failed: false });
   const atlas = useMemo(() => gltf.parser.json.nodes.find((n) => n.name === "face")?.extras?.faceAtlas, [gltf]);
 
   useEffect(() => {
@@ -180,10 +197,27 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
     }
     if (s.action) s.action.paused = reducedMotion();
     mixer.update(dt);
+    if (isBao) {
+      // The clip has just written scale on every bone; the pose table goes on top before anything reads the bones.
+      applyBaoPose(object);
+      root.current?.updateMatrixWorld(true);
+      if (seats && !seats.baked && s.clip === "sit_still" && !baking.current.failed) {
+        try {
+          seats.baked = bakeBaoSeats(object);
+        } catch (err) {
+          baking.current.failed = true;
+          console.error(err);
+        }
+      }
+    }
     if (atlas) {
       const face = object.getObjectByName("face");
-      const i = atlas.frames[cmd.face] ?? atlas.frames[atlas.defaultFrame];
+      const i = atlas.frames[faceFor(id, cmd.face)] ?? atlas.frames[atlas.defaultFrame];
       if (face?.material?.map) face.material.map.offset.set((i % atlas.cols) / atlas.cols, Math.floor(i / atlas.cols) / atlas.rows);
+    }
+    if (seat && seats?.baked && root.current) {
+      const p = seatWorld(seats.baked, seat.type, seat.slot);
+      root.current.position.set(p.x, p.y + seat.lift, p.z);
     }
     if (stage && anchorId && root.current) {
       const top = new THREE.Vector3();
@@ -212,7 +246,12 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
 
 // The dormant pads' "coming online" chips (den-iso-v1/04): a dashed-outline pill drawn to a canvas texture and hung at each pad's
 // centre, so the words come from DORMANT_PADS and no DOM layer is needed. Pads are not click targets. Colours are page tokens.
+const PASS_SEAT_TYPES = ["orchestrator", "product", "architect"]; // the cells that stand on Bao (bao-seats.mjs)
 const PAD_CHIP_HEIGHT = 0.3; // world units tall; the width follows the canvas aspect
+// The pill sits on the floor plane (it was 0.1 above). At 375x667 that 0.1 put the Library pill's top 2 px into the product
+// shoulder chip's bottom; at -0.05 (designer review) it clears by about 1.5 px and still reads centred on the dashed ring (the
+// sprite is depth-test off, so the floor never clips it). Nothing else in the scene reads this y.
+const PAD_CHIP_Y = -0.05;
 
 function padChipTexture(text) {
   const style = getComputedStyle(document.documentElement);
@@ -252,7 +291,7 @@ function PadChips() {
     sprite.name = pad.ariaLabel;
     sprite.userData = { label: pad.label, ariaLabel: pad.ariaLabel };
     sprite.scale.set(PAD_CHIP_HEIGHT * (PAD_CHIP_PX.width / PAD_CHIP_PX.height), PAD_CHIP_HEIGHT, 1);
-    sprite.position.set(pad.x, 0.1, pad.z);
+    sprite.position.set(pad.x, PAD_CHIP_Y, pad.z);
     sprite.renderOrder = 10;
     return sprite;
   }), [theme]);
@@ -319,8 +358,10 @@ function DenFigures({ cells, baskets, handoffs, selected, onSelect, stage }) {
   const placed = (c) => {
     const { station, slot } = parsePerch(c.perch);
     const at = placeCell(c.cellType, slot, counts[station]);
-    return { at, station };
+    return { at, station, slot };
   };
+  // Bao's posed bones are the truth for the Pass seats (R1: his Figure renders before the roamers and Market so they read current bones).
+  const seats = useMemo(() => ({ baked: null }), [gltf]);
   const occupied = {};
   for (const c of cells) {
     const { station, slot } = parsePerch(c.perch);
@@ -334,16 +375,17 @@ function DenFigures({ cells, baskets, handoffs, selected, onSelect, stage }) {
     let slot = 0;
     while (taken.has(slot)) slot++;
     taken.add(slot);
-    idlePlaces[type] = { station, at: placeCell(type, slot, counts[station]) };
+    idlePlaces[type] = { station, at: placeCell(type, slot, counts[station]), slot };
   }
   return (
     <>
-      <Market baskets={baskets} handoffs={handoffs} cells={cells} counts={counts} />
-      <Figure id="bao" gltf={gltf} director={director} pose="idle" position={BAO.position} scale={BAO.scale} stage={null} />
+      <Figure id="bao" gltf={gltf} director={director} pose="idle" position={BAO.position} scale={BAO.scale} stage={null} seats={seats} />
+      <Market baskets={baskets} handoffs={handoffs} cells={cells} counts={counts} seats={seats} />
       {ROAMER_TYPES.map((type) => (
         <RoamFigure
           key={type}
           type={type}
+          seats={seats}
           cell={firstOf[type]}
           place={firstOf[type] ? placed(firstOf[type]) : idlePlaces[type]}
           handoffs={handoffs}
@@ -356,11 +398,13 @@ function DenFigures({ cells, baskets, handoffs, selected, onSelect, stage }) {
         />
       ))}
       {cells.filter((c) => firstOf[c.cellType] !== c).map((c) => {
-        const { at } = placed(c);
+        const { at, slot } = placed(c);
         const p = [at.x, at.y + footLift, at.z];
         return (
           <Figure
             key={c.ref}
+            seats={seats}
+            seat={PASS_SEAT_TYPES.includes(c.cellType) ? { type: c.cellType, slot, lift: footLift } : undefined}
             id={c.ref}
             gltf={gltf}
             director={director}
@@ -380,7 +424,7 @@ function DenFigures({ cells, baskets, handoffs, selected, onSelect, stage }) {
 }
 
 // Idle and working pandas stay at their slots. A source panda leaves only for a handoff and returns.
-function RoamFigure({ type, cell, place, handoffs, gltf, director, footLift, selected, onSelect, stage }) {
+function RoamFigure({ type, cell, place, handoffs, gltf, director, footLift, selected, onSelect, stage, seats }) {
   const outer = useRef();
   const cargo = useRef();
   const fade = useRef(1);
@@ -391,7 +435,9 @@ function RoamFigure({ type, cell, place, handoffs, gltf, director, footLift, sel
   useFrame((state, dt) => {
     const { cell: c, place: pl, handoffs: events } = inputs.current;
     const now = performance.now() / 1000;
-    const slot = pl ? { x: pl.at.x, y: pl.at.y, z: pl.at.z } : null;
+    // A Pass panda rests on Bao's live seat (the bones breathe), so the slot is read every frame once Bao has baked.
+    const live = pl && seats?.baked && PASS_SEAT_TYPES.includes(type) ? seatWorld(seats.baked, type, pl.slot) : null;
+    const slot = live ?? (pl ? { x: pl.at.x, y: pl.at.y, z: pl.at.z } : null);
     const next = stepRoamer(motion.current, {
       seed: type, slot, working: Boolean(c), handoffs: events,
       now, dt: Math.min(dt, 0.1), reduced: reducedMotion(),

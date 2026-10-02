@@ -1,6 +1,10 @@
 // Updated by den-scene-v1/01: approved centres and yaw supersede showcase coordinates.
 // den-iso-v1/04: Steamers and Front of House move 0.3 inward to x +-3.0 (digest section 2); their literals below are
 // the old ones shifted by 0.3.
+// den-scene-v1/11 (option B, Soft bun): Bao is [0, 2.1, -3.3] at scale 2.1, the back kiosks stand at x +-3.6 (0.6 farther
+// out; every literal below that moved was moved by exactly 0.6, not recomputed), Tea and Pantry stand at x +-5.2 (0.3
+// farther out; their literals moved by exactly 0.3), the dormant pads at (+-3.4, -7.65), the ring centre follows Bao
+// to z -3.3. Spec: handoffs/11-designer-spec.md and -2.md (the -2 file wins).
 // Ticket showcase-v1/01, ADR 0013: the pure placement module for the banquet market. Cell type and
 // slot index in, world position out. Expected values are hand-worked literals from the anchor model
 // in the ADR (stall centres, spacing 0.75, Bao at [0,1.4,-2.4] scale 1.4), not recomputed.
@@ -33,40 +37,60 @@ test("parsePerch splits station and slot", async () => {
   assert.deepEqual(parsePerch("front-of-house#2"), { station: "front-of-house", slot: 2 });
 });
 
-test("Pass perches: orchestrator on the crown, product left shoulder, architect right shoulder", async () => {
-  near(await at("orchestrator", 0), [0, 2.688, -2.4], "orchestrator");
-  near(await at("product", 0), [-1.54, 2.016, -2.155], "product");
-  near(await at("architect", 0), [1.54, 2.016, -2.155], "architect");
+// den-scene-v1/11 T9 (rest seats). The literals are the designer's measurements of the posed mesh (handoffs/11-designer-spec.md
+// section 3: world numbers at scale 2.1, feet at y -1 in model units), not derived from BAO. Tolerance 0.03 model units = 0.063 world.
+// Slots follow parsePerch: the orchestrator's extra cells step -0.4 world x along the rail (away from the bell), product and
+// architect step -0.4 world z along the arm top. Their y comes from the posed mesh (a ray at that column), so the pure layout is
+// checked only in x and z there; the mesh test in bao-seats.test.mjs pins the height.
+const SEAT_TOL = 0.063;
+const seatNear = (actual, expected, msg, axes = [0, 1, 2]) => {
+  for (const i of axes) assert.ok(Math.abs(actual[i] - expected[i]) <= SEAT_TOL, `${msg} [${i}] ${actual[i]} vs ${expected[i]} (+-${SEAT_TOL})`);
+};
+
+test("Pass perches at rest: orchestrator on the crown, product and architect on the shoulders (designer's measured seats)", async () => {
+  seatNear(await at("orchestrator", 0), [0, 4.2714, -3.6885], "orchestrator");
+  seatNear(await at("product", 0), [-1.722, 2.289, -3.384], "product (Bao's left on screen, world -x)");
+  seatNear(await at("architect", 0), [1.722, 2.289, -3.384], "architect (world +x)");
 });
 
-test("Pass perches: a second cell of the same type steps 0.4 outward", async () => {
-  near(await at("orchestrator", 1), [0.4, 2.688, -2.4]);
-  near(await at("product", 1), [-1.94, 2.016, -2.155]);
-  near(await at("architect", 1), [1.94, 2.016, -2.155]);
+test("Pass perches: extra orchestrators step -0.4 x along the rail, extra product and architect cells step -0.4 z along the arm", async () => {
+  seatNear(await at("orchestrator", 1), [-0.4, 4.2714, -3.6885], "orchestrator#1");
+  seatNear(await at("orchestrator", 2), [-0.8, 4.2714, -3.6885], "orchestrator#2");
+  seatNear(await at("product", 1), [-1.722, 0, -3.784], "product#1", [0, 2]);
+  seatNear(await at("product", 2), [-1.722, 0, -4.184], "product#2", [0, 2]);
+  seatNear(await at("architect", 1), [1.722, 0, -3.784], "architect#1", [0, 2]);
+  seatNear(await at("architect", 2), [1.722, 0, -4.184], "architect#2", [0, 2]);
+});
+
+test("Pass perches: an extra orchestrator keeps the rail top's height, the three of them fit the 2.0 rail", async () => {
+  const [, y0] = await at("orchestrator", 0);
+  for (const slot of [1, 2]) assert.ok(Math.abs((await at("orchestrator", slot))[1] - y0) < 1e-9, `slot ${slot} is at the rail top`);
+  const xs = await Promise.all([0, 1, 2].map(async (slot) => (await at("orchestrator", slot))[0]));
+  for (const x of xs) assert.ok(Math.abs(x) + 0.22 <= 1.0 + 1e-9, `a 0.44-wide panda at x ${x} stays on the 2.0 rail`);
 });
 
 test("stalls: Steamers back-left, Front of House back-right, Tea front-left, Pantry front-right", async () => {
-  near(await at("developer", 1), [-3.0, 1.1, -1.4], "steamers centre slot");
-  near(await at("designer", 1), [3.0, 1.1, -1.4], "front of house");
-  near(await at("qa", 1), [-4.9, 0.6, 2.0], "tea");
-  near(await at("security", 1), [4.9, 0.6, 2.0], "pantry");
+  near(await at("developer", 1), [-3.6, 1.1, -1.4], "steamers centre slot");
+  near(await at("designer", 1), [3.6, 1.1, -1.4], "front of house");
+  near(await at("qa", 1), [-5.2, 0.6, 2.0], "tea");
+  near(await at("security", 1), [5.2, 0.6, 2.0], "pantry");
 });
 
 test("developer and scout share the Steamers slots", async () => {
-  for (const c of ["developer", "scout"]) near(await at(c, 0), [-3.650864384758237, 1.1, -1.0273398966171974], c);
+  for (const c of ["developer", "scout"]) near(await at(c, 0), [-4.250864384758237, 1.1, -1.0273398966171974], c);
 });
 
 test("a stall's three slots are fixed anchors whatever the head count up to three", async () => {
   for (const count of [1, 2, 3, undefined]) {
-    near(await at("qa", 0, count), [-5.550864384758237, 0.6, 2.3726601033828026], `slot 0 of ${count}`);
-    near(await at("qa", 2, count), [-4.249135615241763, 0.6, 1.6273398966171974], `slot 2 of ${count}`);
+    near(await at("qa", 0, count), [-5.850864384758237, 0.6, 2.3726601033828026], `slot 0 of ${count}`);
+    near(await at("qa", 2, count), [-4.549135615241763, 0.6, 1.6273398966171974], `slot 2 of ${count}`);
   }
 });
 
 test("overflow: a stall with five cells widens outward along the front", async () => {
-  near(await at("security", 0, 5), [4.348271230483526, 0.6, 1.2546797932343948]);
-  near(await at("security", 2, 5), [5.65, 0.6, 2]);
-  near(await at("security", 4, 5), [6.951728769516474, 0.6, 2.745320206765605]);
+  near(await at("security", 0, 5), [4.648271230483526, 0.6, 1.2546797932343948]);
+  near(await at("security", 2, 5), [5.95, 0.6, 2]);
+  near(await at("security", 4, 5), [7.251728769516474, 0.6, 2.745320206765605]);
 });
 
 test("stallWidth is 2.25 up to three cells, then 0.75 per cell", async () => {
@@ -85,7 +109,7 @@ test("landmarks: table at the centre, cub basket front centre", async () => {
   const { TABLE, CUB_BASKET, BAO } = await load();
   assert.deepEqual(TABLE, { x: 0, z: 0, radius: 1.3, height: 0.7 });
   assert.deepEqual(CUB_BASKET, { x: -1.8, z: 3.0 });
-  assert.deepEqual(BAO, { position: [0, 1.4, -2.4], scale: 1.4 });
+  assert.deepEqual(BAO, { position: [0, 2.1, -3.3], scale: 2.1 }); // T1 (y is also read off the posed mesh by T2)
 });
 
 test("lazy susan: one basket per frontier ticket, first at the front of the table top", async () => {
@@ -125,8 +149,8 @@ test("overflow widens outward: every stall's inner edge stays fixed, on both sid
 });
 
 test("overflow, worked: Steamers with five cells grows left with rotated slots", async () => {
-  near([(await at("developer", 0, 5))[0]], [-5.051728769516475]);
-  near([(await at("developer", 4, 5))[0]], [-2.448271230483525]);
+  near([(await at("developer", 0, 5))[0]], [-5.651728769516475]);
+  near([(await at("developer", 4, 5))[0]], [-3.048271230483525]);
 });
 
 // showcase-v1/04 (user browser check): the front stalls must not hide the back row from the default
@@ -175,11 +199,11 @@ test("a front stall's cells still fit under its low roof eave", async () => {
 //   BAMBOO_CLUSTERS = [{ id, x, z, stalks, height }]  and  bambooStalks() -> [{ cluster, x, z, height, width }]
 const ELLIPSE = (x, z, c, a, b) => ((x - c.x) / a) ** 2 + ((z - c.z) / b) ** 2;
 
-test("Steamers and Front of House stand at x +-3.0 (den-iso-v1 digest, a 0.3 move); every other anchor keeps its place", async () => {
+test("Steamers and Front of House stand at x +-3.6 (den-scene-v1/11 T3, a 0.6 move out); every other anchor keeps its place", async () => {
   const { STALL_CENTERS, stallYaw, TALLY, CUB_BASKET } = await load();
   assert.deepEqual(STALL_CENTERS, {
-    steamers: { x: -3.0, z: -1.4 }, "front-of-house": { x: 3.0, z: -1.4 },
-    tea: { x: -4.9, z: 2.0 }, pantry: { x: 4.9, z: 2.0 },
+    steamers: { x: -3.6, z: -1.4 }, "front-of-house": { x: 3.6, z: -1.4 },
+    tea: { x: -5.2, z: 2.0 }, pantry: { x: 5.2, z: 2.0 },
   });
   assert.equal(stallYaw("steamers"), 0.52);
   assert.equal(stallYaw("front-of-house"), -0.52);
@@ -192,7 +216,7 @@ test("the stone ring: 48 stones of 0.34 x 0.04, centred on Bao's feet, semi-axes
   assert.equal(STONE_RING.semiX, 7.3);
   assert.equal(STONE_RING.semiZ, 6.3);
   assert.deepEqual(STONE_RING.center, { x: BAO.position[0], z: BAO.position[2] });
-  assert.deepEqual(STONE_RING.center, { x: 0, z: -2.4 });
+  assert.deepEqual(STONE_RING.center, { x: 0, z: -3.3 }); // T14
   assert.deepEqual(STONE_RING.stone, { diameter: 0.34, thickness: 0.04 });
 });
 
@@ -206,7 +230,7 @@ test("every placed stone lies on the ellipse at one of 48 even steps of 7.5 degr
     seen.add(s.index);
     const t = (2 * Math.PI * s.index) / 48; // parametric angle: x = cx + a cos t, z = cz + b sin t
     assert.ok(Math.abs(s.x - (0 + 7.3 * Math.cos(t))) < 1e-9, `stone ${s.index} x`);
-    assert.ok(Math.abs(s.z - (-2.4 + 6.3 * Math.sin(t))) < 1e-9, `stone ${s.index} z`);
+    assert.ok(Math.abs(s.z - (-3.3 + 6.3 * Math.sin(t))) < 1e-9, `stone ${s.index} z`);
     assert.ok(Math.abs(ELLIPSE(s.x, s.z, STONE_RING.center, 7.3, 6.3) - 1) < 1e-9);
   }
   assert.deepEqual(stones.map((s) => s.index), [...stones.map((s) => s.index)].sort((a, b) => a - b), "angle order");
@@ -248,7 +272,7 @@ test("a stone is omitted only when it is near a footprint: any step more than a 
   const placed = new Set(stepStones().map((s) => s.index));
   for (let i = 0; i < 48; i++) {
     const t = (2 * Math.PI * i) / 48;
-    const p = { x: 7.3 * Math.cos(t), z: -2.4 + 6.3 * Math.sin(t) };
+    const p = { x: 7.3 * Math.cos(t), z: -3.3 + 6.3 * Math.sin(t) };
     if (!nearFootprint(p)) assert.ok(placed.has(i), `step ${i} at ${p.x.toFixed(2)}, ${p.z.toFixed(2)} is clear of every footprint but was dropped`);
   }
 });
@@ -256,14 +280,14 @@ test("a stone is omitted only when it is near a footprint: any step more than a 
 test("the ring is left-right symmetric where the layout is: the back, front, left and right extremes are all present", async () => {
   const { stepStones } = await load();
   const placed = new Set(stepStones().map((s) => s.index));
-  for (const i of [0, 12, 24, 36]) assert.ok(placed.has(i), `compass stone ${i}`); // right, front, left (z = -2.4), back
+  for (const i of [0, 12, 24, 36]) assert.ok(placed.has(i), `compass stone ${i}`); // right, front, left (z = -3.3), back
 });
 
-test("Library and Drum are dashed dormant pads at (-2.9, -7.2) and (2.9, -7.2): flat discs of radius 0.65", async () => {
+test("Library and Drum are dashed dormant pads at (-3.4, -7.65) and (3.4, -7.65): flat discs of radius 0.65", async () => {
   const { DORMANT_PADS } = await load();
   assert.deepEqual(DORMANT_PADS.map((p) => p.id), ["library", "drum"]);
   assert.deepEqual(DORMANT_PADS.map((p) => p.name), ["Library", "Drum"]);
-  assert.deepEqual(DORMANT_PADS.map((p) => [p.x, p.z, p.radius]), [[-2.9, -7.2, 0.65], [2.9, -7.2, 0.65]]);
+  assert.deepEqual(DORMANT_PADS.map((p) => [p.x, p.z, p.radius]), [[-3.4, -7.65, 0.65], [3.4, -7.65, 0.65]]);
   for (const p of DORMANT_PADS) {
     assert.equal(p.dashed, true, `${p.id} is dashed`);
     assert.equal(p.dormant, true, `${p.id} is dormant`);
@@ -297,10 +321,20 @@ test("the pads sit inside the ring, about 1.0 unit in, clear of every stone and 
     let nearest = Infinity;
     for (let i = 0; i < 4800; i++) {
       const t = (2 * Math.PI * i) / 4800;
-      nearest = Math.min(nearest, Math.hypot(p.x - 7.3 * Math.cos(t), p.z - (-2.4 + 6.3 * Math.sin(t))));
+      nearest = Math.min(nearest, Math.hypot(p.x - 7.3 * Math.cos(t), p.z - (-3.3 + 6.3 * Math.sin(t))));
     }
     assert.ok(nearest > 0.85 && nearest < 1.15, `${p.id} is ${nearest.toFixed(2)} in from the ring (about 1.0)`);
     for (const s of stepStones()) assert.ok(Math.hypot(s.x - p.x, s.z - p.z) >= p.radius + 0.17, `${p.id} touches stone ${s.index}`);
+  }
+});
+
+test("every pad disc is at least 0.1 world clear of every bamboo stalk (A2: the back-left cluster stands 0.85 behind the Library pad)", async () => {
+  const { DORMANT_PADS, bambooStalks } = await load();
+  for (const p of DORMANT_PADS) {
+    for (const s of bambooStalks()) {
+      const clear = Math.hypot(s.x - p.x, s.z - p.z) - p.radius - s.width / 2;
+      assert.ok(clear >= 0.1, `${p.id} is ${clear.toFixed(3)} from the ${s.cluster} stalk at ${s.x.toFixed(2)}, ${s.z}`);
+    }
   }
 });
 

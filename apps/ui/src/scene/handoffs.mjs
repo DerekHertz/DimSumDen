@@ -60,8 +60,8 @@ export function handoffPath(fromStation, toStation) {
     return a < 0 || p.x > 0 ? a + 2 * Math.PI : a;
   };
   const start = rearAngle(from), end = rearAngle(to);
-  // Radius 4.4 keeps rear travel behind Bao as well as beyond the 2.1 tabletop clearance.
-  const radius = Math.max(4.4, Math.hypot(from.x, from.z), Math.hypot(to.x, to.z));
+  // Radius 6.1 keeps rear travel clear of Bao's padded roam rect (corner distance 6.08) as well as the tabletop.
+  const radius = Math.max(6.1, Math.hypot(from.x, from.z), Math.hypot(to.x, to.z));
   const steps = Math.ceil(Math.abs(end - start) / (Math.PI / 12));
   const arc = Array.from({ length: steps + 1 }, (_, i) => {
     const a = start + (end - start) * i / steps;

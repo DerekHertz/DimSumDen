@@ -1,13 +1,26 @@
 // ADR 0013: the banquet market anchor model. Pure; no three, React or DOM. Cell type and slot index
 // in, world position (where the plush's feet stand) out. Units are scene units, +z toward the camera.
 
-/** Bao, host of the table, sits at the back. His local box is about 2 x 2 x 1.75 centred on the origin. */
-export const BAO = { position: [0, 1.4, -2.4], scale: 1.4 };
-const BAO_BOX = { minY: -1, size: [2, 2, 1.75] };
+/**
+ * Bao, host of the table, sits at the back (den-scene-v1/11, option B, Soft bun: 2.1, a 1.5x). His local box is about
+ * 2 x 2 x 1.75 centred on the origin, so his footprint is 2.1 x 1.8375 half-sizes about his position.
+ */
+export const BAO = { position: [0, 2.1, -3.3], scale: 2.1 };
 
-/** The Pass rail on Bao's crown, with the service bell seated on it beside the orchestrator's perch. */
-export const RAIL = { x: 0, y: 2.66, z: BAO.position[2], width: 1.3, height: 0.05 };
-export const BELL = { x: 0.5, y: RAIL.y + RAIL.height / 2, z: BAO.position[2] };
+/**
+ * The Pass seats at rest, in Bao's local model units (the designer's measurements of the posed mesh, feet at y -1): the
+ * orchestrator on the crown, product on the arm with x < 0 and architect on the arm with x > 0.
+ */
+const SEAT_LOCAL = {
+  orchestrator: [0, 1.034, -0.185],
+  product: [-0.81, 0.09, -0.04],
+  architect: [0.81, 0.09, -0.04],
+};
+const seatAtRest = (type) => SEAT_LOCAL[type].map((v, k) => BAO.position[k] + BAO.scale * v);
+
+/** The Pass rail on Bao's crown (a fitting 0.05 thick, 2.0 long), with the service bell seated on it away from the orchestrators. */
+export const RAIL = { x: 0, y: seatAtRest("orchestrator")[1] - 0.025, z: seatAtRest("orchestrator")[2], width: 2.0, height: 0.05 };
+export const BELL = { x: 0.75, y: RAIL.y + RAIL.height / 2, z: RAIL.z };
 
 /**
  * Tally (den-scene-v1/05): a wooden suanpan abacus on two short legs, on the front floor beside the
@@ -47,19 +60,22 @@ export const BACK_PLATFORM = 0.5;
  */
 export const FRONT_ROOF = { eave: 1.77, rise: 0.4 };
 
-/** Pass perches as fractions of Bao's box, plus which way extra cells of the same type step. */
+/**
+ * Pass perches: extra orchestrators step -0.4 world x along the rail (away from the bell); extra product and architect
+ * cells step -0.4 world z along the arm top. A fourth cell and beyond clamp to the last seat so nothing floats.
+ */
 const PASS = {
-  orchestrator: { frac: [0, 0.96, 0], step: 1 },
-  product: { frac: [-0.55, 0.72, 0.1], step: -1 },
-  architect: { frac: [0.55, 0.72, 0.1], step: 1 },
+  orchestrator: { axis: 0, step: -0.39 }, // 0.39, not 0.4, so the third 0.44-wide panda (0.78 + 0.22 = 1.0) stays on the 2.0 rail
+  product: { axis: 2, step: -0.4 },
+  architect: { axis: 2, step: -0.4 },
 };
-const PASS_STEP = 0.4;
+const PASS_SEATS = 3;
 
 const STALLS = {
-  steamers: { x: -3.0, z: -1.4, y: COUNTER_Y + BACK_PLATFORM, row: "back" },
-  "front-of-house": { x: 3.0, z: -1.4, y: COUNTER_Y + BACK_PLATFORM, row: "back" },
-  tea: { x: -4.9, z: 2.0, y: COUNTER_Y, row: "front" },
-  pantry: { x: 4.9, z: 2.0, y: COUNTER_Y, row: "front" },
+  steamers: { x: -3.6, z: -1.4, y: COUNTER_Y + BACK_PLATFORM, row: "back" },
+  "front-of-house": { x: 3.6, z: -1.4, y: COUNTER_Y + BACK_PLATFORM, row: "back" },
+  tea: { x: -5.2, z: 2.0, y: COUNTER_Y, row: "front" },
+  pantry: { x: 5.2, z: 2.0, y: COUNTER_Y, row: "front" },
   cubs: { x: 0, z: 4.6, y: 0 },
 };
 
@@ -122,14 +138,9 @@ export const WIDEST_STALL_EDGE = Math.abs(stallCenterX("steamers", MAX_STALL_CEL
 export function placeCell(cellType, slot, count = STALL_BASE_SLOTS) {
   const pass = PASS[cellType];
   if (pass) {
-    const [fx, fy, fz] = pass.frac;
-    const [bx, by, bz] = BAO.position;
-    const s = BAO.scale;
-    return {
-      x: bx + s * fx * BAO_BOX.size[0] + pass.step * PASS_STEP * slot,
-      y: by + s * (BAO_BOX.minY + fy * BAO_BOX.size[1]),
-      z: bz + s * fz * BAO_BOX.size[2],
-    };
+    const at = seatAtRest(cellType);
+    at[pass.axis] += pass.step * Math.min(slot, PASS_SEATS - 1);
+    return { x: at[0], y: at[1], z: at[2] };
   }
   const stall = STALLS[stationOf(cellType)];
   const n = Math.max(STALL_BASE_SLOTS, count, slot + 1);
@@ -210,8 +221,8 @@ export function stepStones() {
 
 /** Dashed pads for roles not online yet. Dormant: no pandas, no click target beyond the label chip. */
 export const DORMANT_PADS = [
-  { id: "library", name: "Library", x: -2.9, z: -7.2 },
-  { id: "drum", name: "Drum", x: 2.9, z: -7.2 },
+  { id: "library", name: "Library", x: -3.4, z: -7.65 },
+  { id: "drum", name: "Drum", x: 3.4, z: -7.65 },
 ].map((pad) => ({
   ...pad,
   radius: 0.65,

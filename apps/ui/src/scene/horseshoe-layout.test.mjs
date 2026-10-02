@@ -9,8 +9,8 @@ import { stationLabels } from "./station-labels.mjs";
 import * as handoffs from "./handoffs.mjs";
 
 const targets = {
-  steamers: [-3, -1.4], "front-of-house": [3, -1.4],
-  tea: [-4.9, 2], pantry: [4.9, 2],
+  steamers: [-3.6, -1.4], "front-of-house": [3.6, -1.4],
+  tea: [-5.2, 2], pantry: [5.2, 2],
 };
 const close = (actual, expected, message) => assert.ok(Math.abs(actual - expected) <= 0.3 + 1e-9, `${message}: ${actual} vs ${expected} (±0.3)`);
 
