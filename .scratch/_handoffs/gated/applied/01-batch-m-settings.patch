@@ -1,0 +1,66 @@
+From bdb28194a49a84fdb4498bca0e5fda36787c37ed Mon Sep 17 00:00:00 2001
+From: Derek Hertzell <ithertzalot@gmail.com>
+Date: Fri, 2 Oct 2026 10:25:45 -0700
+Subject: [PATCH] Wire the batch M hooks: status line, orchestrator
+ SessionStart pickup, gate notifications
+
+organism-infra/109 statusLine -> scripts/statusline.mjs (usage, context, relay, gates).
+organism-infra/110 SessionStart -> scripts/session-start.mjs (orchestrator sessions only).
+organism-infra/111 Notification and Stop -> scripts/notify.mjs (toast, bell fallback).
+---
+ .claude/settings.json | 40 ++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 40 insertions(+)
+
+diff --git a/.claude/settings.json b/.claude/settings.json
+index c03200c..0035786 100644
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -47,5 +47,45 @@
+       "Bash(git worktree remove --force:*)",
+       "Bash(git worktree remove -f:*)"
+     ]
++  },
++  "statusLine": {
++    "type": "command",
++    "command": "node \"$CLAUDE_PROJECT_DIR/scripts/statusline.mjs\""
++  },
++  "hooks": {
++    "SessionStart": [
++      {
++        "matcher": "startup|resume|compact",
++        "hooks": [
++          {
++            "type": "command",
++            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/session-start.mjs\"",
++            "timeout": 20
++          }
++        ]
++      }
++    ],
++    "Notification": [
++      {
++        "hooks": [
++          {
++            "type": "command",
++            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/notify.mjs\"",
++            "timeout": 15
++          }
++        ]
++      }
++    ],
++    "Stop": [
++      {
++        "hooks": [
++          {
++            "type": "command",
++            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/notify.mjs\"",
++            "timeout": 15
++          }
++        ]
++      }
++    ]
+   }
+ }
+-- 
+2.43.0
+

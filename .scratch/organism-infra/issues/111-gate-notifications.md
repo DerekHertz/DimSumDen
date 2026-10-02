@@ -6,7 +6,7 @@
 
 **Blocked by:** 108
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## What to build
 
@@ -25,3 +25,5 @@ Files: `scripts/notify.mjs` (+ test); gated: `.claude/settings.json`.
 
 ## Comments
 - **orchestrator, 2026-10-02:** Batch M, audit proposal 3. User: "yes notifs are good".
+- **qa, 2026-10-02:** All criteria covered by passing tests
+- **security, 2026-10-02:** Security pass: toast message via env and CreateTextNode, no shell, bell fallback, exit 0; no findings above info. See 109-security.md.

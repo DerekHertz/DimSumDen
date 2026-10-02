@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 ## What to build
 
@@ -27,3 +27,4 @@ Make them deterministic (inject the clock or timeouts, or widen the bounds with 
 - **orchestrator, 2026-10-02:** Add: 07's Ctrl+Enter Note test flaked again in round 5 qa verify (about 1 full run in 3, three rounds running).
 
 - **orchestrator, 2026-10-01:** Raised to P1 for 10-02 (user): pipeline saver.
+- **developer, 2026-10-02:** Handoff 104-developer.md. Deferred: floating-cards before() hook fails when many vite servers cold-start at once (follow-up); Ctrl+Enter, dev-server-bind, Codex fixes are timeout widenings, not reproduced root causes.
