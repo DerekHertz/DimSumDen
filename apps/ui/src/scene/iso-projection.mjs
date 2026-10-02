@@ -12,8 +12,8 @@ export const YAW = 0;
 export const PITCH = Math.atan(1 / Math.SQRT2);
 const SIN_P = Math.sin(PITCH);
 const COS_P = Math.cos(PITCH);
-/** Bao's feet. */
-export const TARGET = [0, 0, -2.4];
+/** The den's centre (no longer Bao's feet, which stand at z -3.3: the target sits 0.4 nearer so his hat keeps headroom). */
+export const TARGET = [0, 0, -2.9];
 export const ZOOM_MIN = 0.55;
 export const ZOOM_MAX = 1.2;
 const ANCHOR_Y = 0.52;

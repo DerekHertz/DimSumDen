@@ -12,7 +12,7 @@ const rect = (x, z, hx, hz) => ({ kind: "rect", x0: x - hx - PAD, x1: x + hx + P
 export function roamObstacles(counts = {}) {
   const out = [
     { kind: "circle", x: TABLE.x, z: TABLE.z, r: 2.2 },
-    rect(BAO.position[0], BAO.position[2], 1.4, 1.23),
+    rect(BAO.position[0], BAO.position[2], BAO.scale * 1.0, BAO.scale * 0.875),
     { kind: "circle", x: CUB_BASKET.x, z: CUB_BASKET.z, r: CUB_BASKET_RADIUS + PAD },
     rect(0, 4.6, stallWidth(counts.cubs ?? 0) / 2, 0.35),
     rect(TALLY.x, TALLY.z, TALLY.frame.width / 2 + 0.1, TALLY.frame.depth / 2 + 0.1),
