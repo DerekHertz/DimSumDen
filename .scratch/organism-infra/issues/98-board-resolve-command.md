@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## What to build
 
@@ -24,5 +24,7 @@ Files: `apps/organism-infra/` (board CLI and its tests), `docs/agents/issue-trac
 ## Comments
 - **orchestrator, 2026-10-02:** Filed by pipeline-retro (board-claim/board-handoff incidents, 2 in the window). User yes 2026-10-02.
 - **orchestrator, 2026-10-02:** Hit again resolving 04 and 96 (State block not JSON, pending not {item,owner}, handoff filename must start with NN-); 04 sat at `claimed` unnoticed for ~1h. `board resolve` should also refuse silently partial runs.
-
 - **orchestrator, 2026-10-01:** Raised to P0 for 10-02 (user): lands before crew-dashboard/02.
+- **qa, 2026-10-02:** All 14 tests pass unmodified, full suite 1792 pass 0 fail, no files outside scope
+- **security, 2026-10-02:** Security pass. MEDIUM board-service.mjs:1315-1323: resolve's forced undo deletes another cell's lock if it claims a later ref mid-batch (reproduced); undo only when the holder is orchestrator. LOW: undo path untested; resolved-row failure miscounted in 'resolved:' list. gitleaks clean, no deps. See handoffs/98-security.md.
+- **orchestrator, 2026-10-02:** merged 96f6ccc; security medium filed as 114
