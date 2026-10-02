@@ -72,6 +72,15 @@ Handoffs go through `board` too. The `handoff` skill shows the State block that 
 
 Give every long-running command an explicit timeout: test runs, dev servers, browser automation, installs, and CI waits (`gh run watch`, `gh pr checks --watch`). Pick a bound that fits the work. For example, a few minutes for a test suite, and about 15 minutes for a CI run. When a timeout fires, stop. Don't retry, and don't keep waiting. Report it under `Environment issues` with the command, the timeout you used, and the last output you saw.
 
+## Context budget (organism-infra/119)
+
+Every call re-reads your whole context, so a smaller one costs less. Aim to finish under 80k tokens. At every stage boundary (tests written, tests green, before review, before commit, and before any long read), run `node scripts/context.mjs --self`. It prints `{"session","context_tokens","percent","scope":"self"}` for your own transcript; `context_tokens: null` means no reading, so carry on.
+
+- **70k or more:** finish the current stage. Start no new exploration and no new stage you can leave to a fresh cell.
+- **80k or more:** stop. Commit your work in progress on the branch (a WIP commit, never a stash). Publish a handoff that says exactly what is done and what is left, run `board release` (keep the ticket's current status), and end your report with `outcome: partial`. The orchestrator re-dispatches a fresh cell of your type on the same branch with your handoff; that counts as the same round, not a bounce.
+
+Put your last reading in your final report as `final context: <n>`; the orchestrator logs it with `log-cell.mjs --context <n>`.
+
 ## Apoptosis (ending well)
 
 A cell does one ticket or one task, then ends. When your genome's `done` criteria are met, or you are blocked, or your context is getting long:
