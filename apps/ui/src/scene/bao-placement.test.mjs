@@ -37,7 +37,7 @@ test("T3: the back kiosks' platforms (yawed, half sizes 1.275 x 0.65) clear Bao'
 // ---- T5: pills and shoulder pandas
 
 const SIZES = [{ width: 1440, height: 900 }, { width: 375, height: 667 }];
-const PILL = { width: 1.714, height: 0.3, y: 0.1 }; // Den.jsx PadChips: a camera-facing sprite on each dormant pad, 320 x 56 at 0.3 world tall
+const PILL = { width: 1.714, height: 0.3, y: -0.05 }; // Den.jsx PadChips (PAD_CHIP_Y, designer 9d4e79d): a camera-facing sprite on each dormant pad, 320 x 56 at 0.3 world tall
 const SHOULDERS = { product: [-1.722, 2.289, -3.384], architect: [1.722, 2.289, -3.384] }; // the designer's measured seats
 const rectGap = (a, b) => Math.hypot(Math.max(0, a.x0 - b.x1, b.x0 - a.x1), Math.max(0, a.y0 - b.y1, b.y0 - a.y1));
 
