@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## What to build
 
@@ -25,3 +25,5 @@ Files: `scripts/apply-gated.mjs` (+ test), `package.json` scripts, `docs/agents/
 
 ## Comments
 - **orchestrator, 2026-10-02:** Filed from the Claude Code usage audit (proposal 6), user yes 2026-10-02. Goes first: batch M, 112 and 113 ship their settings diffs through it.
+- **qa, 2026-10-02:** Light verify: 20/20 tests pass (18 qa + 2 dev), full suite 1830/1830, execFile without shell, all criteria met.
+- **security, 2026-10-02:** Security pass. Medium: apply-gated.mjs:163-205 re-reads the patch after the y prompt (swap between review and apply, probed). Low: :52 printable() misses C1 and bidi controls. Low: :205 hooks note. Details in 108-security.md.

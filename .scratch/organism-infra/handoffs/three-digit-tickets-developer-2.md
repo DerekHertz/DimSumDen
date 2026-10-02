@@ -1,0 +1,3 @@
+# Handoff: three-digit ticket numbers, developer fix round (direct fix, no ticket)
+
+Fix round on PR #138 (CI run 37032726331 failed `bridge-three-digit.test.mjs:26`, frontier `[100-b, 99-a]`). Cause: `orderFrontier` (`priority.mjs`) orders by priority, then `readySince` (file mtime fallback), then number; the test's mtimes differed on the runner. Test now pins mtimes; `orderFrontier`'s last tiebreak uses `compareRefs`; `compareRefs` compares digit runs as strings (strip zeros, length, lexicographic), covering >2^53 and Infinity. Commit ff08f79, `npm test` 1810/1810. Frontier stays FIFO by readiness (ADR 0011).

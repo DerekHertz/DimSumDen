@@ -1,0 +1,42 @@
+From deed1b7b408973664c6945cd8ea2e9a8b268ed25 Mon Sep 17 00:00:00 2001
+From: developer cell <developer@dimsumden.local>
+Date: Fri, 2 Oct 2026 09:42:20 -0700
+Subject: [PATCH] Point cells at gated patches for .claude and CLAUDE.md edits
+
+Cells that need a gated edit write a patch to
+.scratch/_handoffs/gated/<NN>-<slug>.patch instead of a handoff note or an
+apply script; the user applies it with `!npm run apply-gated`
+(organism-infra/108).
+---
+ .claude/agents/developer.md               | 1 +
+ .claude/skills/organism-protocol/SKILL.md | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/.claude/agents/developer.md b/.claude/agents/developer.md
+index 7e80428..60267ca 100644
+--- a/.claude/agents/developer.md
++++ b/.claude/agents/developer.md
+@@ -26,6 +26,7 @@ You are a **developer** cell of the Steamers station. You do exactly one ticket.
+ 2. If `qa` wrote acceptance tests (its handoff names a tests branch), start from that branch: `git merge --ff-only <branch>`. Make those tests pass without editing or deleting them. If one looks wrong, say so in `## Comments` and stop.
+ 3. Run /implement. It claims the ticket, works test-first, reviews, commits, and hands off. On a code ticket, end at `Status: in-review`, not `resolved`; the orchestrator resolves it after the merge.
+ 4. Stay in scope. If you find work outside the ticket, add it to `## Comments` for the orchestrator instead of doing it.
++   - A change under `.claude/` or to `CLAUDE.md` is gated: don't edit it. Write it as a patch to `.scratch/_handoffs/gated/<NN>-<slug>.patch`, name it in your handoff, and the user applies it with `!npm run apply-gated`.
+ 5. On an asset ticket (a glb or other visual asset), `designer` critiques your export; fix the findings it lists in `## Comments`. If a critique is waiting, stop at `in-review` rather than `ready-for-human`.
+ 6. When something fails, triage cheapest first:
+    - Have `scout` run the smoke check: `node --check` on the changed files, `npm test`, and for UI any browser smoke script the package provides (scout has no browser). It returns the first error of each kind.
+diff --git a/.claude/skills/organism-protocol/SKILL.md b/.claude/skills/organism-protocol/SKILL.md
+index 2fea75d..9678111 100644
+--- a/.claude/skills/organism-protocol/SKILL.md
++++ b/.claude/skills/organism-protocol/SKILL.md
+@@ -33,7 +33,7 @@ Always ask before:
+ - deleting files outside your ticket's scope
+ - adding a dependency
+ - changing an ADR, `CONTEXT.md` or `CLAUDE.md`
+-- changing anything under `.claude/` (genomes, skills, settings). Only the orchestrator edits it, and only with the user's permission. Other cells propose the change in their handoff.
++- changing anything under `.claude/` (genomes, skills, settings). Only the orchestrator edits it, and only with the user's permission. Other cells don't edit it: they write the change as a patch to `.scratch/_handoffs/gated/<NN>-<slug>.patch` in the main checkout and name it in their handoff. The user applies it with `!npm run apply-gated` (see `docs/agents/gated-patches.md`).
+ - anything your genome lists under `gates`
+ 
+ State the action, why, and what changes. Wait for an explicit yes.
+-- 
+2.43.0
+
