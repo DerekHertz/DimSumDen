@@ -72,9 +72,9 @@ const ctx = orchestratorContext();
 if (ctx !== null && ctx >= WARN_AT) {
   const k = Math.floor(ctx / 1000);
   if (ctx >= REFUSE_AT && !opts.force && !opts.continue) {
-    fail(`orchestrator context ${k}k ≥ 80k: write the session handoff and ask the user to /compact (--force overrides; --continue is for a ticket already in flight)`);
+    fail(`orchestrator context ${k}k ≥ ${REFUSE_AT / 1000}k: write the session handoff and ask the user to /compact (--force overrides; --continue is for a ticket already in flight)`);
   }
-  process.stdout.write(`cell-start: warning: orchestrator context ${k}k (≥ 70k): start no new tickets; finish the relay in flight, then hand off and /compact\n`);
+  process.stdout.write(`cell-start: warning: orchestrator context ${k}k (≥ ${WARN_AT / 1000}k): start no new tickets; finish the relay in flight, then hand off and /compact\n`);
 }
 
 const top = git(["rev-parse", "--show-toplevel"]);
