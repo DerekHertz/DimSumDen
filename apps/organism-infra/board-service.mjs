@@ -254,7 +254,14 @@ function isReclaimable(existing) {
   const sameHost = existing.host === os.hostname();
   const alive = isPidAlive(existing.pid);
   const ageMs = Date.now() - Date.parse(existing.createdAt);
-  return sameHost && !alive && ageMs > WRITE_LOCK_AGE_FLOOR_MS;
+  // Test-only override (gated like every BOARD_TEST_* seam) so a test about a
+  // lock younger than the floor does not depend on how long process startup
+  // took on a busy machine.
+  const floorMs =
+    TEST_HOOKS_ENABLED && process.env.BOARD_TEST_WRITE_LOCK_AGE_FLOOR_MS !== undefined
+      ? Number(process.env.BOARD_TEST_WRITE_LOCK_AGE_FLOOR_MS)
+      : WRITE_LOCK_AGE_FLOOR_MS;
+  return sameHost && !alive && ageMs > floorMs;
 }
 
 // Creates `filePath` exclusively with its full content in one step (temp file

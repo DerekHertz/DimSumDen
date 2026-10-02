@@ -204,12 +204,19 @@ test("a taken claim lock fails fast even while the write lock is held", async ()
   try {
     await writeFile(fx.claimLockPath, "developer 2026-09-27T00:00:00.000Z\n");
     await writeFile(fx.writeLockPath, liveLock());
-    const started = Date.now();
-    const result = await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], { cwd: fx.worktree, timeoutMs: 10000 });
-    const elapsed = Date.now() - started;
+    // Determinism under load (organism-infra/104): a wall-clock bound on
+    // process startup plus the claim flakes on a busy machine. Instead set the
+    // write-lock wait to 60 s and the runner timeout to 20 s: a claim that
+    // waited on the held write lock would be killed by the runner (timedOut),
+    // so finishing with "already claimed" proves it failed fast, at any speed.
+    const result = await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], {
+      cwd: fx.worktree,
+      timeoutMs: 20000,
+      env: { BOARD_TEST_WRITE_LOCK_WAIT_MS: "60000" },
+    });
+    assert.equal(result.timedOut, false, "claim-lock conflict must not wait on the held write lock");
     assert.equal(result.code, 1, result.stderr);
     assert.match(result.stderr, /already claimed/);
-    assert.ok(elapsed < 1500, `claim-lock conflict must not wait (took ${elapsed}ms)`);
   } finally {
     await unlink(fx.writeLockPath).catch(() => {});
     await fx.cleanup();

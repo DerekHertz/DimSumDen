@@ -60,7 +60,8 @@ function startDevServer(port) {
   });
 }
 
-async function waitForServer(url, child, timeoutMs = 10000) {
+// organism-infra/104: 30 s, not 10 s; npm + vite startup can take longer than 10 s on a busy machine.
+async function waitForServer(url, child, timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs;
   let exited = false;
   let exitInfo = null;

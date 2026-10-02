@@ -164,13 +164,27 @@ test("a fresh write lock with a dead pid is not reclaimed before the age floor",
     };
     await writeFile(fx.writeLockPath, JSON.stringify(freshLock));
 
+    // Determinism under load (organism-infra/104): the lock's age when the
+    // claim looks at it includes node startup, which can exceed the real 5 s
+    // floor on a busy machine and make the lock legitimately reclaimable. The
+    // test-only floor override pins the floor at 10 minutes and the wait at
+    // 500 ms, so "younger than the floor" holds however slow the process is.
     const result = await runBoard(["claim", fx.ticketRelPath, "qa", "--mode", "verify"], {
       cwd: fx.worktree,
-      timeoutMs: 5000,
+      timeoutMs: 20000,
+      env: {
+        BOARD_TEST_WRITE_LOCK_AGE_FLOOR_MS: "600000",
+        BOARD_TEST_WRITE_LOCK_WAIT_MS: "500",
+      },
     });
     if (!result.timedOut) {
       assert.notEqual(result.code, 0, "a lock younger than the age floor must not be reclaimed yet");
     }
+    assert.deepEqual(
+      JSON.parse(await readFile(fx.writeLockPath, "utf8")),
+      freshLock,
+      "the young dead-pid lock is left exactly as it was"
+    );
   } finally {
     await fx.cleanup();
   }
