@@ -17,7 +17,9 @@
 // file's mtime, or the end of that day (T23:59:59.999Z) when only the name is
 // known; a same-day handoff then counts as after a ticket ready earlier that day.
 
-const LEVELS = ["P0", "P1", "P2", "P3"];
+import { compareRefs } from "../../packages/board-refs/src/compare-refs.mjs";
+
+const LEVELS =["P0", "P1", "P2", "P3"];
 const PER_BUMP = 3;
 
 export function parsePriority(ticketMarkdown) {
@@ -53,7 +55,7 @@ export function orderFrontier(candidates, handoffTimestamps) {
       a._level - b._level ||
       a._ready - b._ready ||
       ticketNumber(a.ref) - ticketNumber(b.ref) ||
-      (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0),
+      compareRefs(a.ref, b.ref),
   );
   return rows.map(({ _level, _ready, ...out }) => out);
 }

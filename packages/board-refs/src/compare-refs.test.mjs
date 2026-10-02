@@ -30,3 +30,17 @@ test("equal refs compare as 0 and short refs work", () => {
   assert.equal(compareRefs("f/99", "f/100"), -1);
   assert.equal(compareRefs("f/100", "f/99"), 1);
 });
+
+test("digit runs beyond 2^53 or past Infinity still order numerically", () => {
+  assert.equal(compareRefs("f/9007199254740993-a", "f/9007199254740992-a"), 1);
+  assert.equal(compareRefs("f/9007199254740992-a", "f/9007199254740993-a"), -1);
+  const huge = "9".repeat(400);
+  const huger = "1" + "0".repeat(400);
+  assert.equal(compareRefs(`f/${huge}-a`, `f/${huger}-a`), -1);
+  assert.equal(compareRefs(`f/${huger}-a`, `f/${huge}-a`), 1);
+});
+
+test("leading zeros do not change the numeric order", () => {
+  assert.equal(compareRefs("f/0099-a", "f/100-a"), -1);
+  assert.equal(compareRefs("f/007-a", "f/7-a") === 0, false);
+});

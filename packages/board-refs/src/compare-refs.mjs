@@ -11,8 +11,13 @@ export function compareRefs(a, b) {
     const q = y[i];
     if (p === q) continue;
     if (/^\d/.test(p) && /^\d/.test(q)) {
-      const d = Number(p) - Number(q);
-      if (d !== 0) return d < 0 ? -1 : 1;
+      // Compare as digit strings, not Number: runs past 2^53 lose precision and
+      // past ~309 digits overflow to Infinity. Strip leading zeros, then the
+      // longer run is larger, then lexicographic.
+      const m = p.replace(/^0+/, "");
+      const n = q.replace(/^0+/, "");
+      if (m.length !== n.length) return m.length < n.length ? -1 : 1;
+      if (m !== n) return m < n ? -1 : 1;
       continue; // same value with different padding: let the rest decide
     }
     return p < q ? -1 : 1;
