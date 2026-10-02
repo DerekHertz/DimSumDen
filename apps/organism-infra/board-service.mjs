@@ -1312,15 +1312,27 @@ export async function resolve(root, refs, options = {}) {
         await release(root, ref, "resolved", note ? sanitizeCommentText(note) : undefined, { pr: String(pr) });
         done.push(ref);
       } catch (err) {
-        // Undo this ref's own claim when it never reached resolved.
+        // Undo this ref's own claim when it never reached resolved. Only an
+        // orchestrator lock is ours; another cell's lock is left untouched.
         let undone = "";
         const content = await readFile(paths.ticketPath, "utf8").catch(() => "");
-        if (readStatus(content) !== "resolved" && (await exists(paths.claimLockPath))) {
-          try {
-            await release(root, ref, item.status, "resolve failed; claim undone", { force: true });
-            undone = `; ${ref} was put back to ${item.status}`;
-          } catch (undoErr) {
-            undone = `; could not undo the claim on ${ref} (${undoErr.message}); free it with board reclaim/release`;
+        if (readStatus(content) === "resolved") {
+          // release wrote resolved but a later step (the usage append) threw.
+          if (!done.includes(ref)) done.push(ref);
+        } else {
+          const lockContent = await readFile(paths.claimLockPath, "utf8").catch(() => null);
+          if (lockContent !== null) {
+            const holder = claimingCell(lockContent);
+            if (holder === "orchestrator") {
+              try {
+                await release(root, ref, item.status, "resolve failed; claim undone", { force: true });
+                undone = `; ${ref} was put back to ${item.status}`;
+              } catch (undoErr) {
+                undone = `; could not undo the claim on ${ref} (${undoErr.message}); free it with board reclaim/release`;
+              }
+            } else {
+              undone = `; ${ref} is held by ${holder}, so its lock was left untouched`;
+            }
           }
         }
         const rest = planned.map((p) => p.ref).filter((r) => !done.includes(r) && r !== ref);
