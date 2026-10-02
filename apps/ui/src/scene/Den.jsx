@@ -17,7 +17,8 @@ import { useSystemTheme } from "./system-theme.js";
 import { headgearSpec, propSpec, scarfSpec } from "./headgear.mjs";
 import { buildGear } from "./gear-object.mjs";
 import { TallyFace } from "./TallyFace.jsx";
-import { BAO, parsePerch, placeCell, stationOf } from "./banquet-layout.mjs";
+import { PAD_CHIP_PX, fitChipFont } from "./pad-chip.mjs";
+import { BAO, DORMANT_PADS, parsePerch, placeCell, stationOf } from "./banquet-layout.mjs";
 import { ROAMER_TYPES, stepRoamer } from "./roam.mjs";
 
 // Each role's headgear, prop and the scarf are built once per theme and level of detail (key "kind|role|theme|lod"),
@@ -99,8 +100,6 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
       if (lod && n.isSkinnedMesh) n.geometry = plushGeometryFor(n.geometry);
       if (n.material) {
         n.material = n.material.clone();
-        // Bao sits far back; the backdrop fog would grey him out, so he ignores it.
-        if (id === "bao") n.material.fog = false;
         if (n.material.map) n.material.map = n.material.map.clone();
       }
     });
@@ -211,12 +210,63 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
   );
 }
 
+// The dormant pads' "coming online" chips (den-iso-v1/04): a dashed-outline pill drawn to a canvas texture and hung at each pad's
+// centre, so the words come from DORMANT_PADS and no DOM layer is needed. Pads are not click targets. Colours are page tokens.
+const PAD_CHIP_HEIGHT = 0.3; // world units tall; the width follows the canvas aspect
+
+function padChipTexture(text) {
+  const style = getComputedStyle(document.documentElement);
+  const token = (name, fallback) => style.getPropertyValue(`--${name}`).trim() || fallback;
+  const { width, height } = PAD_CHIP_PX;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const g = canvas.getContext("2d");
+  g.fillStyle = token("surface-200", "#fffdf7");
+  g.beginPath();
+  g.roundRect(2, 2, width - 4, height - 4, (height - 4) / 2);
+  g.fill();
+  g.setLineDash([8, 6]);
+  g.lineWidth = 2;
+  g.strokeStyle = token("ink-muted", "#5a605d");
+  g.stroke();
+  g.setLineDash([]);
+  g.fillStyle = token("ink-muted", "#5a605d");
+  const fontFamily = token("font-sans", "system-ui, sans-serif");
+  const fontAt = (px) => `800 ${px}px ${fontFamily}`;
+  // Shrink until the whole label fits inside the pill (it clipped at 26px).
+  g.font = fontAt(fitChipFont((px) => { g.font = fontAt(px); return g.measureText(text).width; }, PAD_CHIP_PX));
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(text, width / 2, height / 2 + 1);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function PadChips() {
+  const theme = useSystemTheme();
+  const sprites = useMemo(() => DORMANT_PADS.map((pad) => {
+    const material = new THREE.SpriteMaterial({ map: padChipTexture(pad.label), transparent: true, depthTest: false, fog: false });
+    const sprite = new THREE.Sprite(material);
+    sprite.name = pad.ariaLabel;
+    sprite.userData = { label: pad.label, ariaLabel: pad.ariaLabel };
+    sprite.scale.set(PAD_CHIP_HEIGHT * (PAD_CHIP_PX.width / PAD_CHIP_PX.height), PAD_CHIP_HEIGHT, 1);
+    sprite.position.set(pad.x, 0.1, pad.z);
+    sprite.renderOrder = 10;
+    return sprite;
+  }), [theme]);
+  useEffect(() => () => { for (const s of sprites) { s.material.map.dispose(); s.material.dispose(); } }, [sprites]);
+  return sprites.map((s) => <primitive key={s.name} object={s} />);
+}
+
 /** Lives inside <Canvas>. `stage` is a shared mutable {anchors, camera, size} the chip layer reads.
  *  The backdrop is procedural, so it sits outside the Suspense that waits for panda.glb. */
 export function Den(props) {
   return (
     <>
       <Backdrop />
+      <PadChips />
       <TallyFace tally={props.tally} onOpen={props.onOpenTally} stage={props.stage} />
       <FiguresBoundary>
         <Suspense fallback={null}>

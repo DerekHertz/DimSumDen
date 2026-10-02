@@ -33,7 +33,7 @@ const covered = (obstacles, x, z) => obstacles.some((o) => o.kind === "circle"
   : x > o.x0 && x < o.x1 && z > o.z0 && z < o.z1);
 test("clearance footprints follow the horseshoe props, including the moved Cubs and Tally", () => {
   const obstacles = roamObstacles();
-  for (const [x,z] of [[0,0], [1.5,0], [0,-2.4], [-3.3,-1.4], [3.3,-1.4], [-4.9,2], [4.9,2], [-1.8,3], [1.8,3]]) {
+  for (const [x,z] of [[0,0], [1.5,0], [0,-2.4], [-3.0,-1.4], [3.0,-1.4], [-4.9,2], [4.9,2], [-1.8,3], [1.8,3]]) {
     assert.ok(covered(obstacles, x, z), "prop at " + x + "," + z);
   }
   assert.equal(covered(obstacles, -7, 4.6), false);

@@ -32,11 +32,15 @@ function checkFlags(extraArgs) {
   if (extraArgs.length) throw new Refused("flag", "caller flags are not allowed: run as jg.mjs \"<question>\" [root]");
 }
 
-// `flags` come from in-process callers (dispatch-context.mjs), never from the CLI: they may add a cap but never widen the filter.
+// `flags` come from in-process callers (dispatch-context.mjs), never from the CLI: an allowlist, so the only thing they can do is cap the output.
+const TRUSTED_FLAGS = ["--max-source-bytes"];
 function checkTrustedFlags(flags) {
-  for (const a of flags) {
-    const flag = String(a).split("=")[0];
-    if (FORBIDDEN_FLAGS.includes(flag) || flag === "--exclude") throw new Refused("flag", `forbidden flag ${flag}: jg must not widen its default filter`);
+  for (let i = 0; i < flags.length; i++) {
+    const [flag, ...inline] = String(flags[i]).split("=");
+    if (!TRUSTED_FLAGS.includes(flag)) throw new Refused("flag", `forbidden flag ${flag}: in-process callers may only pass ${TRUSTED_FLAGS.join(", ")}`);
+    if (!inline.length) i++; // the value token, checked below
+    const value = inline.length ? inline.join("=") : String(flags[i]);
+    if (!/^\d+$/.test(value)) throw new Refused("flag", `bad value for ${flag}: a byte count is required`);
   }
 }
 

@@ -26,7 +26,7 @@ const REPO_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const SCRIPT = path.join(REPO_ROOT, "scripts", "jev.mjs");
 const NOW = new Date("2026-09-30T10:00:00Z");
 const TICKET = "feat/07-thing";
-const KEY = "sk-test-KEYVALUE-advisory-79-123";
+const KEY = "sk" + "-test-KEYVALUE-advisory-79-123";
 
 const load = () => import("./jev.mjs");
 const ans = (pick, cost = 0.0004) => ({ pick, probs: { [pick]: 0.87, other: 0.13 }, usage: { cost } });

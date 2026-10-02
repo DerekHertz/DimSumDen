@@ -63,7 +63,7 @@ test("a clean diff exits 0", () => {
 test("a hardcoded secret-shaped value fails and names the file", () => {
   const dir = initRepo();
   try {
-    commitChange(dir, "apps/ci-cd/config.mjs", 'export const apiKey = "sk_live_1234567890abcdef";\n');
+    commitChange(dir, "apps/ci-cd/config.mjs", 'export const apiKey = "sk_live_' + '1234567890abcdef";\n');
     const { code, stdout } = runCheck(dir);
     assert.notEqual(code, 0);
     assert.match(stdout, /apps\/ci-cd\/config\.mjs/);

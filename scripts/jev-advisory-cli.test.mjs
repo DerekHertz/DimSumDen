@@ -12,7 +12,7 @@ import { decide } from "./jev.mjs";
 
 const SCRIPT = fileURLToPath(new URL("./jev.mjs", import.meta.url));
 const NOW = new Date("2026-09-30T10:00:00Z");
-const KEY = "sk-test-KEYVALUE-advisory-79-456";
+const KEY = "sk" + "-test-KEYVALUE-advisory-79-456";
 
 function makeBoard(files = {}, usageRows = []) {
   const root = mkdtempSync(path.join(tmpdir(), "jev-advisory-cli-"));

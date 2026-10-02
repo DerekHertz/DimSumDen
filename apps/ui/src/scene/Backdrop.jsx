@@ -6,6 +6,8 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { GROVE_TOKENS, applyGroveTheme, buildGrove, groveFog } from "./grove.mjs";
 import { swayAngle } from "./grove-layout.mjs";
+import { buildDressing, readDressingTokens } from "./dressing.mjs";
+import { useSystemTheme } from "./system-theme.js";
 
 function readTokens() {
   const style = getComputedStyle(document.documentElement);
@@ -16,6 +18,12 @@ function readTokens() {
 // out of phase with the one in front of it. swayAngle (radians, max 0.03) times SWAY_REACH is world units.
 const SWAY_REACH = 6;
 const LAYER_PHASE = { "grove-far": 0, "grove-mid": 0.6, "grove-near": 1.2 };
+
+function Dressing() {
+  const theme = useSystemTheme();
+  const group = useMemo(() => buildDressing(readDressingTokens()), [theme]);
+  return <primitive object={group} />;
+}
 
 export function Backdrop() {
   const scene = useThree((s) => s.scene);
@@ -38,5 +46,10 @@ export function Backdrop() {
       if (layer) layer.position.x = SWAY_REACH * swayAngle(t + phase, reduced.matches);
     }
   });
-  return <primitive object={group} />;
+  return (
+    <>
+      <primitive object={group} />
+      <Dressing />
+    </>
+  );
 }

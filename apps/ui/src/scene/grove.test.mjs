@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { GROVE_COUNTS } from "./grove-layout.mjs";
 import { GROVE_TOKENS, applyGroveTheme, buildGrove, groveFog } from "./grove.mjs";
+import { farthestMarketDistance } from "./market-extent.fixture.mjs";
 
 const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 const rootBlock = css.slice(css.indexOf(":root"), css.indexOf("@media (prefers-color-scheme: dark)"));
@@ -74,10 +75,11 @@ test("applyGroveTheme recolours the same materials in place", () => {
   assert.equal(byName(g, "mid-stalks").material.color.getHexString(), "123456");
 });
 
-test("fog is grove-mist and starts beyond the market", () => {
+test("fog is grove-mist and starts beyond the market: the farthest market point from the rig's camera is inside fog.near", () => {
   const fog = groveFog(TOKENS);
   assert.equal(fog.color.getHexString(), "e3efd6");
-  assert.ok(fog.near >= 16);
+  assert.ok(fog.near > farthestMarketDistance(), `fog.near ${fog.near} is not past the market (${farthestMarketDistance().toFixed(2)})`);
+  assert.ok(Number.isFinite(fog.far) && fog.near < fog.far, "the far grove keeps a light mist");
 });
 
 test("Den renders <Backdrop> before Bao; Backdrop.jsx sways only through swayAngle and stops for reduced motion", () => {
