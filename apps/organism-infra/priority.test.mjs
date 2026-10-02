@@ -125,6 +125,13 @@ test("frontier order: numbers compare numerically across features", () => {
   assert.deepEqual(out.map((r) => r.ref), ["a/20-y", "b/100-x"]);
 });
 
+test("frontier order: equal age orders 99 before 100 whatever the input order", () => {
+  const a = { ref: "f/99-a", priority: "P2", readySince: ISO(1) };
+  const b = { ref: "f/100-b", priority: "P2", readySince: ISO(1) };
+  assert.deepEqual(orderFrontier([a, b], []).map((r) => r.ref), ["f/99-a", "f/100-b"]);
+  assert.deepEqual(orderFrontier([b, a], []).map((r) => r.ref), ["f/99-a", "f/100-b"]);
+});
+
 test("frontier order: sorts by effective priority, so a bumped P3 outranks a fresh P2", () => {
   const out = orderFrontier(
     [

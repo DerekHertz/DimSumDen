@@ -91,7 +91,7 @@ export function resolveRoot(cwd, env) {
 // --- Validation --------------------------------------------------------------
 
 const FEATURE_RE = /^[a-z0-9-]+$/;
-const TICKET_RE = /^\d{2}-[a-z0-9-]+$/;
+const TICKET_RE = /^\d{2,}-[a-z0-9-]+$/;
 
 export function checkArgLength(value, name) {
   if (typeof value === "string" && value.length > MAX_ARG_LEN) {
@@ -606,7 +606,7 @@ function claimingMode(lockContent) {
 // release can never silently pass the gate on an unrelated or stale handoff.
 async function validateHandoffState(root, feature, ticket, claim) {
   const handoffsDir = path.join(root, ".scratch", feature, "handoffs");
-  const nnMatch = /^(\d{2})-/.exec(ticket);
+  const nnMatch = /^(\d{2,})-/.exec(ticket);
   const prefix = nnMatch ? `${nnMatch[1]}-` : null;
   const entries = await readdir(handoffsDir, { withFileTypes: true }).catch(() => []);
   const files = entries
@@ -1148,8 +1148,8 @@ export async function publishHandoff(root, ref, fromFile, options = {}) {
     throw new BoardError(`invalid handoff name "${name}": must be a plain <name>.md filename`);
   }
   await refuseWorktreeDraft(root, fromFile, name);
-  const namePrefix = /^(\d{2})-/.exec(name);
-  const ticketPrefix = /^(\d{2})-/.exec(ticket);
+  const namePrefix = /^(\d{2,})-/.exec(name);
+  const ticketPrefix = /^(\d{2,})-/.exec(ticket);
   if (namePrefix && ticketPrefix && namePrefix[1] !== ticketPrefix[1]) {
     throw new BoardError(
       `handoff name "${name}" has prefix ${namePrefix[1]}- but ${ref} needs prefix ${ticketPrefix[1]}-`
@@ -1181,7 +1181,7 @@ export async function publishHandoff(root, ref, fromFile, options = {}) {
   } catch {
     parsed = null;
   }
-  const nn = /^(\d{2})-/.exec(ticket)[1];
+  const nn = /^(\d{2,})-/.exec(ticket)[1];
   if (!parsed || (parsed.ticket !== `${feature}/${ticket}` && parsed.ticket !== `${feature}/${nn}`)) {
     throw new BoardError(
       `handoff State block must name ticket ${feature}/${ticket}` + (await claimSkeleton(paths, feature, ticket))
@@ -1289,7 +1289,7 @@ export async function resolve(root, refs, options = {}) {
       const { ref, feature, ticket, paths } = item;
       try {
         await claim(root, ref, "orchestrator");
-        const nn = /^(\d{2})-/.exec(ticket)[1];
+        const nn = /^(\d{2,})-/.exec(ticket)[1];
         const state = {
           ticket: `${feature}/${ticket}`,
           cell: "orchestrator",

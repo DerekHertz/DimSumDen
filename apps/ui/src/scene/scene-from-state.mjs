@@ -1,4 +1,5 @@
 import { stationOf } from "./banquet-layout.mjs";
+import { compareRefs } from "../../../../packages/board-refs/src/compare-refs.mjs";
 
 // ADR 0011 decision 7: sceneFromState(snapshot) -> SceneCell[]. Pure; no three, React or DOM.
 export const MAX_PLUSH = 12;
@@ -32,7 +33,7 @@ export function sceneFromState(snapshot) {
   const tickets = snapshot?.tickets ?? [];
   const active = tickets
     .filter((t) => ACTIVE_STATUSES.has(t.status))
-    .sort((a, b) => (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0));
+    .sort((a, b) => compareRefs(a.ref, b.ref));
   const slots = {};
   return active.slice(0, MAX_PLUSH).map((t) => {
     const cellType = cellTypeOf(t);

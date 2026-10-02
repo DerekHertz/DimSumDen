@@ -4,6 +4,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { compareRefs } from "../packages/board-refs/src/compare-refs.mjs";
 
 const TIER_WEIGHT = { haiku: 0.5, sonnet: 1, opus: 2 };
 const VERIFY_WEIGHT = { light: 0.5, full: 1 };
@@ -238,7 +239,7 @@ export function buildReport(allRows, events = []) {
   }
 
   const tickets = [];
-  for (const [ticket, { cells, bounces, resolved }] of [...info].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+  for (const [ticket, { cells, bounces, resolved }] of [...info].sort((a, b) => compareRefs(a[0], b[0]))) {
     const tok = (c) => Number(c.tokens) || 0;
     const baseline = cells.reduce((s, c) => s + tok(c), 0);
     const tierRow = latest.get(`${ticket}|tier`);

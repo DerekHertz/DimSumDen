@@ -1,3 +1,5 @@
+import { compareRefs } from "../../../../packages/board-refs/src/compare-refs.mjs";
+
 // Client reducer for SSE `change` frames (ADR 0011 decision 5). Pure: never mutates its inputs.
 // Returns null when the caller must refetch GET /state (no baseline, or seq is not state.seq + 1).
 export function applyEvent(state, event) {
@@ -7,7 +9,7 @@ export function applyEvent(state, event) {
     case "ticket": {
       const rest = state.tickets.filter((t) => t.ref !== event.ref);
       if (event.ticket) rest.push(event.ticket);
-      rest.sort((a, b) => (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0));
+      rest.sort((a, b) => compareRefs(a.ref, b.ref));
       next.tickets = rest;
       break;
     }

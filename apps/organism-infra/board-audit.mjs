@@ -5,10 +5,11 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { readStatus } from "./board-service.mjs";
+import { compareRefs } from "../../packages/board-refs/src/compare-refs.mjs";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const REF_RE = /^([a-z0-9-]+)\/(\d{2})(?:-[a-z0-9-]+)?$/;
-const REF_IN_TEXT_RE = /\b([a-z0-9-]+)\/(\d{2})(?:-[a-z0-9-]+)?\b/g;
+const REF_RE = /^([a-z0-9-]+)\/(\d{2,})(?:-[a-z0-9-]+)?$/;
+const REF_IN_TEXT_RE = /\b([a-z0-9-]+)\/(\d{2,})(?:-[a-z0-9-]+)?\b/g;
 const BLOCKED_BY_RE = /^\**Blocked by:?\**:?[ \t]*(.*)$/im;
 const COMMENT_DATE_RE = /^- \*\*[a-z-]+, (\d{4}-\d{2}-\d{2}):\*\*/gm;
 const TRUNK_BRANCHES = new Set(["main", "master"]);
@@ -64,7 +65,7 @@ function blockers(content, feature) {
   if (!m || /^none\b/i.test(m[1].trim())) return [];
   const out = [];
   for (const item of splitItems(m[1])) {
-    const r = /^`?(?:([a-z0-9-]+)\/)?(\d{2})(?:-[a-z0-9-]+)?`?(?=$|[\s(.,;:])/.exec(item);
+    const r = /^`?(?:([a-z0-9-]+)\/)?(\d{2,})(?:-[a-z0-9-]+)?`?(?=$|[\s(.,;:])/.exec(item);
     if (!r) continue;
     out.push({ feature: r[1] ?? feature, nn: r[2], annotatedResolved: /\(\s*resolved\s*\)/i.test(item) });
   }
@@ -84,7 +85,7 @@ async function loadBoard(root) {
     const entries = await readdir(issuesDir).catch(() => null);
     if (!entries) continue;
     for (const name of entries) {
-      const nn = /^(\d{2})-/.exec(name)?.[1];
+      const nn = /^(\d{2,})-/.exec(name)?.[1];
       if (!nn) continue;
       if (name.endsWith(".md")) {
         const p = path.join(issuesDir, name);
@@ -242,5 +243,5 @@ export async function audit(root, { staleDays = 7, feature, now = Date.now() } =
 
   return findings
     .filter((f) => !feature || f.ref.startsWith(`${feature}/`))
-    .sort((a, b) => a.ref.localeCompare(b.ref) || a.kind.localeCompare(b.kind));
+    .sort((a, b) => compareRefs(a.ref, b.ref) || a.kind.localeCompare(b.kind));
 }
