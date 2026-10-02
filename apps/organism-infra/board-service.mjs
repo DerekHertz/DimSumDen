@@ -16,6 +16,8 @@ import {
   readdir,
   lstat,
   appendFile,
+  mkdtemp,
+  rm,
 } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -1243,6 +1245,95 @@ export async function publishHandoff(root, ref, fromFile, options = {}) {
   }
   await atomicWrite(dest, body);
   return { path: dest };
+}
+
+// organism-infra/98: `board resolve <ref>... --pr N [--note "<text>"]` runs the
+// orchestrator's claim, handoff and resolved-release in one step. Every ref is
+// checked before the first write, so a refusal on any of them changes none of
+// them. A failure after writes began is reported with the refs already resolved
+// and the ref it stopped on; the board never ends silently partial.
+export async function resolve(root, refs, options = {}) {
+  const { pr: prArg, note } = options;
+  if (!Array.isArray(refs) || refs.length === 0) {
+    throw new BoardError("resolve requires at least one ticket ref");
+  }
+  if (prArg === undefined) {
+    throw new BoardError("resolve requires --pr <number> (the merged pull request)");
+  }
+  const pr = validatePrFlag(prArg);
+  checkArgLength(note, "note");
+
+  // Phase 1: validate everything, write nothing.
+  const seen = new Set();
+  const planned = [];
+  for (const ref of refs) {
+    const { feature, ticket, paths } = await prepare(root, ref);
+    const full = `${feature}/${ticket}`;
+    if (seen.has(full)) throw new BoardError(`resolve: ${full} is listed twice`);
+    seen.add(full);
+    if (!(await exists(paths.ticketPath))) throw new BoardError(`ticket not found: ${ref}`);
+    if (await exists(paths.claimLockPath)) {
+      const holder = claimingCell(await readFile(paths.claimLockPath, "utf8"));
+      throw new BoardError(`resolve refused: ${full} is claimed by ${holder}; nothing was changed`);
+    }
+    const status = readStatus(await readFile(paths.ticketPath, "utf8"));
+    if (status === "resolved") throw new BoardError(`resolve refused: ${full} is already resolved; nothing was changed`);
+    planned.push({ ref, feature, ticket, paths, status });
+  }
+
+  // Phase 2: claim, handoff, release per ref.
+  const draftDir = await mkdtemp(path.join(os.tmpdir(), "board-resolve-"));
+  const done = [];
+  try {
+    for (const item of planned) {
+      const { ref, feature, ticket, paths } = item;
+      try {
+        await claim(root, ref, "orchestrator");
+        const nn = /^(\d{2})-/.exec(ticket)[1];
+        const state = {
+          ticket: `${feature}/${ticket}`,
+          cell: "orchestrator",
+          current_step: "resolved",
+          artifacts: [`PR #${pr}`],
+          decisions: [],
+          failures: [],
+          pending: [],
+        };
+        const body =
+          "```json\n" + JSON.stringify(state, null, 2) + "\n```\n\n## Summary\n\n" +
+          `Resolved by \`board resolve\` after PR #${pr} merged.\n` +
+          (note ? `\n${sanitizeCommentText(note)}\n` : "");
+        const dir = path.join(root, ".scratch", feature, "handoffs");
+        let name = `${nn}-orchestrator-resolve.md`;
+        for (let n = 2; await exists(path.join(dir, name)); n++) name = `${nn}-orchestrator-resolve-${n}.md`;
+        const draft = path.join(draftDir, name);
+        await writeFile(draft, body, "utf8");
+        await publishHandoff(root, ref, draft, { name });
+        await release(root, ref, "resolved", note ? sanitizeCommentText(note) : undefined, { pr: String(pr) });
+        done.push(ref);
+      } catch (err) {
+        // Undo this ref's own claim when it never reached resolved.
+        let undone = "";
+        const content = await readFile(paths.ticketPath, "utf8").catch(() => "");
+        if (readStatus(content) !== "resolved" && (await exists(paths.claimLockPath))) {
+          try {
+            await release(root, ref, item.status, "resolve failed; claim undone", { force: true });
+            undone = `; ${ref} was put back to ${item.status}`;
+          } catch (undoErr) {
+            undone = `; could not undo the claim on ${ref} (${undoErr.message}); free it with board reclaim/release`;
+          }
+        }
+        const rest = planned.map((p) => p.ref).filter((r) => !done.includes(r) && r !== ref);
+        throw new BoardError(
+          `resolve stopped at ${ref}: ${err.message}${undone}. ` +
+            `resolved: ${done.length ? done.join(", ") : "none"}; not attempted: ${rest.length ? rest.join(", ") : "none"}`
+        );
+      }
+    }
+  } finally {
+    await rm(draftDir, { recursive: true, force: true });
+  }
+  return { resolved: done };
 }
 
 export async function getStatus(root, ref) {
