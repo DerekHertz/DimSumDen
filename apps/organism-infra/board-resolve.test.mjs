@@ -15,8 +15,9 @@
 //   - --note text lands in the ticket's comments or in the handoff.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile, readdir, writeFile, mkdir } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { readFile, readdir, writeFile, mkdir, open } from "node:fs/promises";
+import { existsSync, constants as fsConstants } from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { makeBoardFixture, runBoard, writeValidHandoff, ticketPath, claimLockPath, REPO_ROOT } from "./board-fixture.mjs";
 import { validateState } from "./schemas.mjs";
@@ -262,4 +263,170 @@ test("docs/agents/issue-tracker.md documents `board resolve`", async () => {
   assert.match(doc, /board resolve/);
   const line = doc.split("\n").find((l) => /board resolve/.test(l)) ?? "";
   assert.match(line, /--pr/, "the command's documented line names --pr");
+});
+
+// --- organism-infra/114: failure paths in a batch (undo, foreign lock, resolved list) ---
+//
+// Pinned contract (QA's reading of ticket 114):
+//   - A failed resolve undoes a ref's claim only when that claim is the
+//     orchestrator's own. A lock held by any other cell is never released,
+//     re-statused or commented on.
+//   - The failure message ends with `resolved: <refs|none>; not attempted: <refs|none>`.
+//   - A ref whose release wrote `resolved` is listed under `resolved:` even when
+//     the usage.jsonl append that follows it failed.
+
+// Adds a ticket in another feature whose handoffs path is a plain file, so
+// publishing its handoff fails after resolve has claimed it (a failure that
+// strikes after the claim, mid-batch, and only on that ref).
+async function addUnpublishableTicket(fx, feature, ticket) {
+  const issues = path.join(fx.root, ".scratch", feature, "issues");
+  await mkdir(issues, { recursive: true });
+  await writeFile(path.join(issues, `${ticket}.md`), codeTicket(ticket), "utf8");
+  await writeFile(path.join(fx.root, ".scratch", feature, "handoffs"), "not a directory\n", "utf8");
+  return `${feature}/${ticket}`;
+}
+
+// Parses the trailing `resolved: a, b; not attempted: c` report from stderr.
+function failureReport(stderr) {
+  const m = /resolved: (.*?); not attempted: (.*?)\s*$/m.exec(stderr);
+  assert.ok(m, `stderr ends with a "resolved: ...; not attempted: ..." report, got: ${stderr}`);
+  const list = (s) => (s === "none" ? [] : s.split(", "));
+  return { resolved: list(m[1]), notAttempted: list(m[2]) };
+}
+
+const releaseEvents = async (root, feature, ticket) =>
+  (await eventsRaw(root))
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => JSON.parse(l))
+    .filter((e) => e.op === "release" && e.feature === feature && e.ticket === ticket);
+
+test("114 AC2: a mid-batch failure undoes only the failing ref's own orchestrator claim and reports resolved / not attempted refs", async () => {
+  const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
+  try {
+    const bad = await addUnpublishableTicket(fx, "other", "02-other-thing");
+    const third = await addTicket(fx, "03-third-thing");
+    const r = await resolveCmd(fx, [fx.ticketRelPath, bad, third], "--pr", "42");
+    assert.notEqual(r.code, 0);
+    assert.doesNotMatch(r.stderr, /unknown command/i);
+
+    // The ref that finished stays resolved, with its row.
+    assert.equal(statusOf(await fx.readTicket()), "resolved");
+    assert.equal(existsSync(fx.claimLockPath), false);
+    assert.deepEqual((await resolvedRows(fx.root)).map((x) => x.ticket), ["sample/01-do-thing"]);
+
+    // The failing ref is put back: its own orchestrator claim is gone and its status restored.
+    assert.equal(statusOf(await readFile(ticketPath(fx.root, "other", "02-other-thing"), "utf8")), "in-review");
+    assert.equal(existsSync(claimLockPath(fx.root, "other", "02-other-thing")), false, "the undone claim's lock is gone");
+
+    // The ref after the failure was never touched.
+    assert.equal(statusOf(await readFile(ticketPath(fx.root, fx.feature, "03-third-thing"), "utf8")), "in-review");
+    assert.equal(existsSync(claimLockPath(fx.root, fx.feature, "03-third-thing")), false);
+    assert.deepEqual(await releaseEvents(fx.root, fx.feature, "03-third-thing"), []);
+
+    assert.match(r.stderr, /other\/02-other-thing/, "names the ref it stopped at");
+    assert.deepEqual(failureReport(r.stderr), { resolved: [fx.ticketRelPath], notAttempted: [third] });
+  } finally {
+    await fx.cleanup();
+  }
+});
+
+test("114 AC2: a failure on the first ref undoes its claim and reports nothing resolved", async () => {
+  const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
+  try {
+    const bad = await addUnpublishableTicket(fx, "other", "02-other-thing");
+    const second = await addTicket(fx, "03-third-thing");
+    const r = await resolveCmd(fx, [bad, fx.ticketRelPath, second], "--pr", "42");
+    assert.notEqual(r.code, 0);
+    assert.equal(statusOf(await readFile(ticketPath(fx.root, "other", "02-other-thing"), "utf8")), "in-review");
+    assert.equal(existsSync(claimLockPath(fx.root, "other", "02-other-thing")), false);
+    assert.equal(statusOf(await fx.readTicket()), "in-review", "later refs stay untouched");
+    assert.deepEqual(await resolvedRows(fx.root), []);
+    assert.deepEqual(failureReport(r.stderr), { resolved: [], notAttempted: [fx.ticketRelPath, second] });
+  } finally {
+    await fx.cleanup();
+  }
+});
+
+test("114 AC1: a foreign lock claimed mid-batch survives a failed resolve, untouched", { skip: process.platform === "win32" }, async () => {
+  const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
+  const fifo = path.join(fx.root, ".scratch", "usage.jsonl");
+  let child;
+  try {
+    const other = await addTicket(fx, "02-other-thing");
+    // A named pipe at usage.jsonl freezes resolve at a known point: ref 01 is
+    // already written as resolved, and the resolved-row append blocks in open()
+    // until a reader appears. Nothing has touched ref 02 yet, so a developer can
+    // claim it exactly between resolve's validation and its claim.
+    execFileSync("mkfifo", [fifo]);
+    child = run(fx, ["resolve", fx.ticketRelPath, other, "--pr", "42"]);
+
+    const deadline = Date.now() + 10_000;
+    while (statusOf(await fx.readTicket()) !== "resolved") {
+      assert.ok(Date.now() < deadline, "resolve reached ref 01 within 10s");
+      await new Promise((r) => setTimeout(r, 20));
+    }
+
+    const c = await run(fx, ["claim", other, "developer"]);
+    assert.equal(c.code, 0, c.stderr);
+    const lockBefore = await readFile(claimLockPath(fx.root, fx.feature, "02-other-thing"), "utf8");
+    const ticketBefore = await readFile(ticketPath(fx.root, fx.feature, "02-other-thing"), "utf8");
+    assert.match(lockBefore, /^developer\b/);
+    const eventsBefore = (await releaseEvents(fx.root, fx.feature, "02-other-thing")).length;
+
+    // Unblock resolve: drain the pipe so ref 01's append completes.
+    const reader = await open(fifo, fsConstants.O_RDONLY);
+    await reader.readFile();
+    await reader.close();
+
+    const r = await child;
+    assert.notEqual(r.code, 0, "resolve fails: ref 02 is no longer free to claim");
+    assert.equal(r.timedOut, false);
+
+    // The developer's claim is exactly as they left it.
+    assert.equal(
+      await readFile(claimLockPath(fx.root, fx.feature, "02-other-thing"), "utf8").catch(() => null),
+      lockBefore,
+      "the developer's lock was not released or rewritten"
+    );
+    assert.equal(
+      await readFile(ticketPath(fx.root, fx.feature, "02-other-thing"), "utf8"),
+      ticketBefore,
+      "no status reset and no comment was written to the developer's ticket"
+    );
+    assert.equal((await releaseEvents(fx.root, fx.feature, "02-other-thing")).length, eventsBefore, "no release was logged for ref 02");
+    assert.doesNotMatch(r.stderr, /put back|claim undone/i);
+
+    // Ref 01 did finish, and the report says so.
+    assert.equal(statusOf(await fx.readTicket()), "resolved");
+    assert.deepEqual(failureReport(r.stderr), { resolved: [fx.ticketRelPath], notAttempted: [] });
+  } finally {
+    // If an assertion fired before the pipe was drained, the child is still
+    // blocked in open(); runBoard's timeout kills it. Nothing else to clean.
+    await fx.cleanup();
+  }
+});
+
+test("114 AC3: a ref whose release wrote resolved is listed under resolved: even when the usage append failed", async () => {
+  const fx = await makeBoardFixture({ content: codeTicket("01-do-thing") });
+  try {
+    const second = await addTicket(fx, "02-other-thing");
+    // A directory at usage.jsonl makes the resolved-row append fail (EISDIR)
+    // after release has already written the ticket as resolved.
+    await mkdir(path.join(fx.root, ".scratch", "usage.jsonl"), { recursive: true });
+
+    const r = await resolveCmd(fx, [fx.ticketRelPath, second], "--pr", "42");
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /resolved row was NOT written/, "the usage-append failure is surfaced");
+    assert.match(r.stderr, /log-resolved/, "the redo hint is kept");
+
+    assert.equal(statusOf(await fx.readTicket()), "resolved", "release did write resolved");
+    assert.equal(existsSync(fx.claimLockPath), false);
+    assert.equal(statusOf(await readFile(ticketPath(fx.root, fx.feature, "02-other-thing"), "utf8")), "in-review");
+    assert.equal(existsSync(claimLockPath(fx.root, fx.feature, "02-other-thing")), false);
+
+    assert.deepEqual(failureReport(r.stderr), { resolved: [fx.ticketRelPath], notAttempted: [second] });
+  } finally {
+    await fx.cleanup();
+  }
 });
