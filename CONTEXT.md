@@ -132,6 +132,36 @@ _Avoid_: Article
 An ordered set of related drafts, such as the first four.
 _Avoid_: Campaign
 
+## Crew and meetings
+
+**Crew**:
+The view listing every cell type as a role card. It is the same data as the den and the Board, never a copy.
+_Avoid_: Roster (the den's list of live pandas), team page
+
+**Role card**:
+One cell type in the Crew view: station, nickname, responsibility, triggers, last run, totals, and Details and Talk buttons. Details opens the recipe card.
+_Avoid_: Profile, agent card
+
+**Outcome**:
+How a cell's run ends: `done`, `noop` (nothing to do, with a reason), `clarify` (a question for the user, shown under Needs you), `blocked` or `failed`. It is recorded in the handoff State block.
+_Avoid_: Result, status (status is the ticket's)
+
+**Meeting**:
+A ticket-scoped, bounded gathering of up to six cells on one topic, run in sequence by default, ending in a decision brief. It is stored on the board and can be rejoined for 24 hours after it closes. See ADR 0017.
+_Avoid_: Swarm, standup, chat
+
+**Take**:
+One participant's short answer in a meeting: claim, evidence, confidence, what it would keep or change, and at most one question for the user. A role may return `noop` instead.
+_Avoid_: Opinion, vote
+
+**Decision brief**:
+The chair's artifact: the question, two or three options with one recommended, the benefit, cost and task count of each, and what only the user can answer. It is a pass gate, and the chosen option becomes tickets.
+_Avoid_: Report, summary (the summary is kept after 24 hours)
+
+**Chair**:
+The cell that runs a meeting and writes its decision brief: the orchestrator by default, the architect for design questions.
+_Avoid_: Host, moderator
+
 ## UI names
 
 What each term is called in anything a user sees (UI copy, labels, `aria-label`s, the design system). The terms above stay the names in code, genomes and skills. The full list is the design system's Glossary.
@@ -146,3 +176,7 @@ What each term is called in anything a user sees (UI copy, labels, `aria-label`s
 | Apoptosis | clocking out |
 | Endocrine limits | plan usage, kitchen limits |
 | Pass gate, gate request, permission request | Needs you |
+| Crew | the Crew |
+| Role card | role card |
+| Meeting | round table (candidate; the design session decides) |
+| Decision brief | decision brief |
