@@ -10,7 +10,7 @@ const css = read("./styles.css");
 
 test("page title and header read Dim Sum Den", () => {
   assert.match(html, /<title>Dim Sum Den<\/title>/);
-  assert.match(read("./App.jsx"), /<h1[^>]*>Dim Sum Den<\/h1>/);
+  assert.match(read("./overlay/Cards.jsx"), /<h1[^>]*>Dim Sum Den<\/h1>/);
 });
 
 test("Long Cang is self-hosted (showcase-v1/08): local woff2 @font-face, OFL beside it, no Google Fonts host anywhere", () => {
@@ -35,7 +35,7 @@ test("--font-display names Long Cang; --font-sans stays Nunito with no Long Cang
 test("the display font is used only by header title, station labels, the tally chip and the Tally card heading", () => {
   const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, sel, body]) => [sel.trim(), body]);
   const users = rules.filter(([, body]) => /font-family:\s*var\(--font-display\)/.test(body)).map(([sel]) => sel);
-  const allowed = [".panel-header h1", ".station-label", ".chip-tally", ".tally-card h2"]; // den-scene-v1/05 spec-2: the card heading is the "Tally" word
+  const allowed = [".logo-pill h1", ".station-label", ".chip-tally", ".tally-card h2"]; // den-scene-v1/05 spec-2: the card heading is the "Tally" word
   for (const sel of users) assert.ok(allowed.includes(sel), `unexpected display-font rule: ${sel}`);
   for (const a of allowed) assert.ok(users.includes(a), `${a} uses the display font`);
 });
