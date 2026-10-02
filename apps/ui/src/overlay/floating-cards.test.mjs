@@ -131,7 +131,10 @@ async function openApp({ snapshot = fixture(), viewport = DESKTOP, hasTouch = fa
   // the tests below fail on their own assertions rather than in setup.
   await page.locator("button.chip-tally").waitFor({ state: "visible", timeout: 30000 });
   await page.locator('[data-overlay="logo"]').waitFor({ state: "visible", timeout: 2000 }).catch(() => {});
-  page.setDefaultTimeout(5000);
+  // organism-infra/104: 5 s was a load flake ("Ctrl+Enter in the Note", fill after the first POST timed out while
+  // the machine was busy). Playwright actions return as soon as the element is ready, so a longer ceiling only
+  // delays the failure of a test that is really broken; no test here asserts on a timeout elapsing.
+  page.setDefaultTimeout(20000);
   return {
     page, context, errors, posts,
     logo: page.locator('[data-overlay="logo"]'),
@@ -762,7 +765,7 @@ test("accessibility basics: every button, link and field has a name, ids are uni
 }));
 
 async function expectPost(posts, want) {
-  const deadline = Date.now() + 5000;
+  const deadline = Date.now() + 20000; // organism-infra/104: same load ceiling as the page default timeout
   while (Date.now() < deadline && posts.length === 0) await new Promise((r) => setTimeout(r, 50));
   assert.equal(posts.length, 1, `exactly one POST /requests, got ${JSON.stringify(posts)}`);
   assert.equal(posts[0].kind, want.kind);

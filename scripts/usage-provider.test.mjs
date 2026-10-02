@@ -60,7 +60,10 @@ input.on('line',line=>{
 });
 `;
 
-function fixtureRun(args, { response = { rateLimits: codex() }, mode = "ok", claude = false, remote = false, selfCheck = false, timeout = "1000" } = {}) {
+function fixtureRun(args, { response = { rateLimits: codex() }, mode = "ok", claude = false, remote = false, selfCheck = false, timeout } = {}) {
+  // organism-infra/104: the adapter deadline starts when the app-server spawns, so 1 s made every success test flake
+  // when the machine was busy. Only the hang modes need a short deadline (they assert the deadline is honored).
+  timeout ??= mode.startsWith("hang") ? "1000" : "20000";
   const root = mkdtempSync(path.join(tmpdir(), "usage-provider-"));
   const bin = path.join(root, "bin");
   const runtime = path.join(root, "runtime");
@@ -93,7 +96,7 @@ return new Response(JSON.stringify({five_hour:{utilization:53.4,resets_at:'2026-
       { id: 2, method: "account/rateLimits/read" },
     ].map(JSON.stringify).join("\n") + "\n";
     const r = spawnSync(process.execPath, selfCheck ? [path.join(bin, "codex"), "app-server"] : ["--import", pathToFileURL(preload).href, USAGE, ...args], {
-      env, encoding: "utf8", timeout: 5000, ...(selfCheck ? { input: selfInput } : {}),
+      env, encoding: "utf8", timeout: 20000, ...(selfCheck ? { input: selfInput } : {}),
     });
     const elapsed = Date.now() - started;
     const exchanges = existsSync(trace) ? readFileSync(trace, "utf8").trim().split("\n").map(JSON.parse) : [];
@@ -202,7 +205,9 @@ for (const mode of ["rpc-error", "exit", "malformed-json", "hang-initialize", "h
     assert.ok(r.exchanges.length > 0, "fake app-server must actually launch");
     assertUnavailable(r);
     if (mode.startsWith("hang")) {
-      assert.ok(r.elapsed < 3500, `adapter deadline was not honored (${r.elapsed}ms)`);
+      // 8 s, not 3.5 s: process startup under load adds to the 1 s deadline, but still sits well under the 10 s
+      // adapter default, so a deadline that ignored USAGE_CODEX_TIMEOUT_MS would still fail here.
+      assert.ok(r.elapsed < 8000, `adapter deadline was not honored (${r.elapsed}ms)`);
       assert.match(r.stderr, /timeout|timed out|deadline/i);
     }
   });
