@@ -17,6 +17,7 @@ import { useSystemTheme } from "./system-theme.js";
 import { headgearSpec, propSpec, scarfSpec } from "./headgear.mjs";
 import { buildGear } from "./gear-object.mjs";
 import { TallyFace } from "./TallyFace.jsx";
+import { PAD_CHIP_PX, fitChipFont } from "./pad-chip.mjs";
 import { BAO, DORMANT_PADS, parsePerch, placeCell, stationOf } from "./banquet-layout.mjs";
 import { ROAMER_TYPES, stepRoamer } from "./roam.mjs";
 
@@ -211,13 +212,12 @@ function Figure({ id, gltf, director, pose, cellType, position, scale, lod, sele
 
 // The dormant pads' "coming online" chips (den-iso-v1/04): a dashed-outline pill drawn to a canvas texture and hung at each pad's
 // centre, so the words come from DORMANT_PADS and no DOM layer is needed. Pads are not click targets. Colours are page tokens.
-const PAD_CHIP_PX = { width: 320, height: 56, font: 26 };
 const PAD_CHIP_HEIGHT = 0.3; // world units tall; the width follows the canvas aspect
 
 function padChipTexture(text) {
   const style = getComputedStyle(document.documentElement);
   const token = (name, fallback) => style.getPropertyValue(`--${name}`).trim() || fallback;
-  const { width, height, font } = PAD_CHIP_PX;
+  const { width, height } = PAD_CHIP_PX;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -232,7 +232,10 @@ function padChipTexture(text) {
   g.stroke();
   g.setLineDash([]);
   g.fillStyle = token("ink-muted", "#5a605d");
-  g.font = `800 ${font}px ${token("font-sans", "system-ui, sans-serif")}`;
+  const fontFamily = token("font-sans", "system-ui, sans-serif");
+  const fontAt = (px) => `800 ${px}px ${fontFamily}`;
+  // Shrink until the whole label fits inside the pill (it clipped at 26px).
+  g.font = fontAt(fitChipFont((px) => { g.font = fontAt(px); return g.measureText(text).width; }, PAD_CHIP_PX));
   g.textAlign = "center";
   g.textBaseline = "middle";
   g.fillText(text, width / 2, height / 2 + 1);

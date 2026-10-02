@@ -8,7 +8,8 @@ import { readFileSync, readdirSync } from "node:fs";
 const dir = new URL("./", import.meta.url);
 const read = (f) => readFileSync(new URL(f, dir), "utf8");
 const sceneJsx = readdirSync(dir).filter((f) => f.endsWith(".jsx"));
-const scene = sceneJsx.map((f) => read(f)).join("\n");
+const sceneSources = [...sceneJsx, "dressing.mjs"]; // dressing.mjs holds the geometry Backdrop.jsx mounts (split out so node can build it)
+const scene = sceneSources.map((f) => read(f)).join("\n");
 
 test("the scene draws the stone ring, the pads and the bamboo from the layout module", () => {
   assert.ok(/\bstepStones\b/.test(scene), "stones come from stepStones()");
@@ -17,7 +18,7 @@ test("the scene draws the stone ring, the pads and the bamboo from the layout mo
 });
 
 test("the dressing's world numbers are not copied into the scene files: no 7.3 / 6.3 ring axes, no -7.2 pad depth", () => {
-  for (const f of [...sceneJsx, "App.jsx"].map((n) => (n === "App.jsx" ? "../App.jsx" : n))) {
+  for (const f of [...sceneSources, "App.jsx"].map((n) => (n === "App.jsx" ? "../App.jsx" : n))) {
     const src = read(f);
     assert.ok(!/\b7\.3\b[^.\d]*\b6\.3\b/.test(src), `${f}: ring axes`);
     assert.ok(!/-7\.2\b/.test(src), `${f}: pad depth`);
