@@ -29,3 +29,4 @@
 - **orchestrator, 2026-10-03:** User 2026-10-03: paused 04 (parked). Batch D1 is now 01 + 03 only. Fix round on #151 (codex/procedural-den-frontend @ 94221b2): 01 tests, 03 walk() core + tests + smoke walk check, exponential zoom contract (smoke zoom/pan, docs, tests). Goal: get the updated UI wired and merged.
 - **qa, 2026-10-03:** QA pass (batch D1 @0604c76): npm test 1984/0/0; AC1-3 covered in frontend.test.mjs and chip-model.test.mjs. Herald has no resident (scope call). See 01-qa-2.
 - **orchestrator, 2026-10-03:** User 2026-10-03: herald stays out of the den for v1 (no resident panda); a herald character design comes later. Not a gap for 01.
+- **designer, 2026-10-03:** Design pass (batch D1 @0604c76): five state chips plus Queued distinct by word, glyph and tone in both themes; Failed chip right (triangle, alarm, dotted). Low follow-ups F4 Needs you vs Blocked glyph near-identical, F5 dotted vs dashed 1px. See 01-designer-review.

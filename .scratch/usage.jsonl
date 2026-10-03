@@ -1326,3 +1326,7 @@
 {"kind":"cell","ts":"2026-10-03T03:36:57.966Z","ticket":"den-v1/01-resident-pandas-take-over","cell":"qa","mode":"verify","tokens":60578,"ms":152055,"outcome":"full verify pass batch D1 (01+03) @ 0604c76; risk-check 4 hits -> security","context":52000}
 {"kind":"usage","ts":"2026-10-03T03:37:07Z","five_hour":36,"weekly":82,"event":"dispatch","ticket":"den-v1/batch-D1","cell":"designer"}
 {"kind":"context","ts":"2026-10-03T03:37:07Z","session":"35ceba26-6da1-40fe-8aa9-b9bcd5998e8a","context_tokens":57088,"percent":5.71,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-03T03:43:40.142Z","ticket":"den-v1/03-walk-mode","cell":"designer","mode":"review","tokens":110552,"ms":364406,"outcome":"review pass batch D1 @ 0604c76; exponential zoom feel confirmed; F1 Firefox deltaMode follow-up","context":98000}
+{"kind":"incident","ts":"2026-10-03T03:43:40Z","ticket":"den-v1/03-walk-mode","cell":"designer","tool":"context-budget","what":"designer review finished at 98k context, over 80k; second cell this session to overrun instead of returning partial","cost":"late calls re-read ~100k","fix":"retro candidate: batch reviews of 2 tickets + browser runs exceed one cell budget","rule_change":null}
+{"kind":"usage","ts":"2026-10-03T03:43:40Z","five_hour":40,"weekly":83,"event":"dispatch","ticket":"den-v1/batch-D1","cell":"security"}
+{"kind":"context","ts":"2026-10-03T03:43:40Z","session":"35ceba26-6da1-40fe-8aa9-b9bcd5998e8a","context_tokens":62697,"percent":6.27,"event":"dispatch"}
