@@ -10,7 +10,13 @@ State, not rules; the genome wins. Written at ~74k orchestrator context. The use
   - CI green, **merged bc85922**. Both tickets resolved --pr 151. All cells logged; Jev advisory outcomes logged.
 - Incidents: developer (122k) and designer (98k) both overran the 80k cell budget instead of returning partial; `board handoff --name` needs `.md`.
 
-## Open (waiting on the user)
+## User decisions after merge (2026-10-03)
+- **Design system update approved**: dispatch designer to publish the Failed chip + six glyph shapes, walk-mode controls, exponential wheel rule, and fix stale `docs/design/den-map.md` (pandas roam now). Source: `.scratch/den-v1/handoffs/03-designer-review.md`. Not yet dispatched (orchestrator hit the 80k context gate).
+- **Firefox: don't care.** F1 dropped, no ticket. F2-F5 (low) still undecided.
+- **Worktrees removed**: all agent worktrees and the db6109 handoff branch are gone (WSL machine); only the main checkout remains.
+- **Run pipeline-retro** next (not yet run).
+
+## Open (earlier list; items 1 F1, 2 and 5 superseded above)
 1. Designer follow-ups from `.scratch/den-v1/handoffs/03-designer-review.md`: **F1 medium** Firefox wheel zoom dead (CameraRig.jsx:74 ignores deltaMode; clamp exponent camera.mjs:18). F2-F5 low (Esc focus return, touch hint copy, needs-you vs blocked glyphs, dotted vs dashed borders). Proposed: F1 as its own ticket, F2-F5 as one polish ticket. Not filed yet.
 2. Designer design-system upkeep needs approval: Failed chip + glyph shapes, walk controls, exponential wheel rule; `docs/design/den-map.md` stale (says pandas never roam).
 3. Security lows (01-security.md): explorer.mjs:44 `closest()` on non-Element target; CameraRig.jsx:24 walk-pad binding.
