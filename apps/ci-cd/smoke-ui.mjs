@@ -16,9 +16,9 @@ const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../", import.meta.url))
 
 // Expected values are literals worked out from the fixture (see bridge-fixture.mjs), not
 // recomputed from the snapshot.
-//  Scene: one plush and chip per active ticket (04 in-review, 05 blocked, 06 ready-for-human) = 3 chips.
-//  Queued tickets (02, 07, 08) show only as baskets on the lazy susan (showcase-v1/04); the tally chip is not a cell chip.
-const EXPECTED_CHIPS = 3;
+//  Scene: one chip per active ticket (04 in-review, 05 blocked, 06 ready-for-human) plus one "Queued" chip per
+//  frontier basket on the table (02, 07, 08; den-v1, kept by the user 2026-10-03) = 6; the tally chip is not a cell chip.
+const EXPECTED_CHIPS = 6;
 //  Queue: frontier by priority. 02 is P0; 07 is P1 bumped to P0 by three orchestrator handoffs
 //  newer than it; 08 has no priority (P2).
 const EXPECTED_QUEUE_HEAD = ["02: Ready P0", "07: Bumpable", "08: Plain"];
