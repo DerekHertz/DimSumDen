@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Den loop step 1 (the den is always populated; a running agent takes over its role's panda).
 
@@ -30,3 +30,4 @@
 - **qa, 2026-10-03:** QA pass (batch D1 @0604c76): npm test 1984/0/0; AC1-3 covered in frontend.test.mjs and chip-model.test.mjs. Herald has no resident (scope call). See 01-qa-2.
 - **orchestrator, 2026-10-03:** User 2026-10-03: herald stays out of the den for v1 (no resident panda); a herald character design comes later. Not a gap for 01.
 - **designer, 2026-10-03:** Design pass (batch D1 @0604c76): five state chips plus Queued distinct by word, glyph and tone in both themes; Failed chip right (triangle, alarm, dotted). Low follow-ups F4 Needs you vs Blocked glyph near-identical, F5 dotted vs dashed 1px. See 01-designer-review.
+- **security, 2026-10-03:** Security pass (batch D1 @ 0604c76). Front-end only; gitleaks clean; no deps/CI/bridge change. Low: explorer.mjs:44 e.target.closest on non-Element; CameraRig.jsx:24 pad bindings once per effect. See handoffs/01-security.md.

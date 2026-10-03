@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Den loop step 2 (enter the den).
 
@@ -32,3 +32,4 @@ An "Enter the den" control and key in the diorama switch to walk mode: a perspec
 - **orchestrator, 2026-10-03:** User 2026-10-03: paused 04 (parked). Batch D1 is now 01 + 03 only. Fix round on #151 (codex/procedural-den-frontend @ 94221b2): 01 tests, 03 walk() core + tests + smoke walk check, exponential zoom contract (smoke zoom/pan, docs, tests). Goal: get the updated UI wired and merged.
 - **qa, 2026-10-03:** QA pass (batch D1 @0604c76): npm test 1984/0/0; walk.test.mjs covers AC1-2, smoke walk check covers AC3-4. See 03-qa-2.
 - **designer, 2026-10-03:** Design pass (batch D1 @0604c76): walk mode and exponential zoom feel confirmed in Chromium. Follow-ups, non-blocking: F1 wheel ignores deltaMode (Firefox zoom dead), F2 focus not returned to Enter button on Esc, F3 touch hint shows keyboard copy. See 03-designer-review.
+- **security, 2026-10-03:** Security pass (batch D1 @ 0604c76). Walk mode client-side only; gitleaks clean. Lows only: explorer.mjs:44, CameraRig.jsx:24. See handoffs/03-security.md.

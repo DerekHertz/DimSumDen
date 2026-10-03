@@ -1330,3 +1330,11 @@
 {"kind":"incident","ts":"2026-10-03T03:43:40Z","ticket":"den-v1/03-walk-mode","cell":"designer","tool":"context-budget","what":"designer review finished at 98k context, over 80k; second cell this session to overrun instead of returning partial","cost":"late calls re-read ~100k","fix":"retro candidate: batch reviews of 2 tickets + browser runs exceed one cell budget","rule_change":null}
 {"kind":"usage","ts":"2026-10-03T03:43:40Z","five_hour":40,"weekly":83,"event":"dispatch","ticket":"den-v1/batch-D1","cell":"security"}
 {"kind":"context","ts":"2026-10-03T03:43:40Z","session":"35ceba26-6da1-40fe-8aa9-b9bcd5998e8a","context_tokens":62697,"percent":6.27,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-03T03:45:19.296Z","ticket":"den-v1/01-resident-pandas-take-over","cell":"security","tokens":60227,"ms":80741,"outcome":"security pass batch D1 @ 0604c76; risk-check hits false positives; 2 low","context":58561}
+{"kind":"usage","ts":"2026-10-03T03:45:25Z","five_hour":41,"weekly":83,"event":"merge","ticket":"den-v1/batch-D1","cell":"orchestrator"}
+{"kind":"context","ts":"2026-10-03T03:45:25Z","session":"35ceba26-6da1-40fe-8aa9-b9bcd5998e8a","context_tokens":69594,"percent":6.96,"event":"merge"}
+{"kind":"resolved","ts":"2026-10-03T03:45:57.984Z","ticket":"den-v1/01-resident-pandas-take-over","pr":151,"bounces":1}
+{"kind":"resolved","ts":"2026-10-03T03:45:58.269Z","ticket":"den-v1/03-walk-mode","pr":151,"bounces":1}
+{"kind":"jev-advisory-outcome","ts":"2026-10-03T03:46:07.362Z","ticket":"den-v1/01-resident-pandas-take-over","orchestratorPick":"developer","jevPick":"qa","userChoice":"developer","bounced":false}
+{"kind":"jev-advisory-outcome","ts":"2026-10-03T03:46:07.399Z","ticket":"den-v1/03-walk-mode","orchestratorPick":"developer","jevPick":"developer","userChoice":"developer","bounced":false}
+{"kind":"incident","ts":"2026-10-03T03:46:07Z","ticket":"den-v1/01-resident-pandas-take-over","cell":"orchestrator","tool":"board handoff","what":"passed --name without .md; refused, release then ran on an unpublished handoff and failed","cost":"one retry","fix":"pass --name <x>.md","rule_change":null}
