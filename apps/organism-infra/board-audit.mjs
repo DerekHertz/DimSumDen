@@ -4,7 +4,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { readStatus } from "./board-service.mjs";
+import { readStatus, OFF_RELAY_STATUSES } from "./board-service.mjs";
 import { compareRefs } from "../../packages/board-refs/src/compare-refs.mjs";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -178,7 +178,7 @@ export async function audit(root, { staleDays = 7, feature, now = Date.now() } =
     if ((t.status === "claimed" || t.status === "in-review") && !lockKeys.has(key)) {
       add(t.ref, "no-lock", `status is ${t.status} but there is no claim lock`);
     }
-    if (t.status === "resolved") continue;
+    if (t.status === "resolved" || OFF_RELAY_STATUSES.includes(t.status)) continue;
 
     const bs = blockers(t.content, t.feature);
     let allResolved = bs.length > 0;

@@ -6,6 +6,7 @@ import {
   claim,
   release,
   resolve,
+  setOffRelay,
   reclaim,
   getStatus,
   comment,
@@ -92,6 +93,16 @@ async function main() {
       const { positional, flags } = parseFlags(rest, { allowed: ["pr", "note"] });
       const result = await resolve(root, positional, { pr: flags.pr, note: flags.note });
       for (const ref of result.resolved) console.log(`resolved ${ref}`);
+      return;
+    }
+    case "park":
+    case "close":
+    case "unpark":
+    case "reopen": {
+      // Refocus 2026-10-02: take tickets off the relay (or bring one back) in one step.
+      const { positional, flags } = parseFlags(rest, { allowed: ["reason"] });
+      const result = await setOffRelay(root, positional, command, { reason: flags.reason });
+      for (const ref of result.done) console.log(`${result.status} ${ref}`);
       return;
     }
     case "handoff": {

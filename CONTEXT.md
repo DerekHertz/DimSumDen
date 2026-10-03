@@ -25,8 +25,20 @@ One running agent instance of a cell type, working one ticket, usually in its ow
 _Avoid_: Agent, worker, bot
 
 **Bao**:
-The organism's on-screen body: a large seated plush panda that cells perch on.
+The orchestrator's on-screen body: a large seated plush panda at the heart of the den. Walking up to Bao is talking to the orchestrator (ADR 0019).
 _Avoid_: Mascot, avatar
+
+**Resident panda**:
+The one panda per role that is always in the den at its station, whether or not an agent of that role is running.
+_Avoid_: Idle placeholder, NPC
+
+**Take over**:
+What an agent does to its role's resident panda when it starts: the panda now shows that agent's state, ticket and tool calls, and returns to resident when the agent ends. A second concurrent agent of the same role splits off a panda of its own that fades when it ends.
+_Avoid_: Possess, inhabit
+
+**Walk mode**:
+The first-person view of the den: you walk up to a panda and act on it from its card.
+_Avoid_: FPS mode, free cam
 
 **Perch**:
 The spot on Bao or the grass where a cell sits. Cells hop or waddle between perches.
@@ -56,6 +68,18 @@ _Avoid_: Issue, task, story
 
 **Frontier**:
 The tickets that are ready, unblocked, and unclaimed right now.
+
+**Parked**:
+A ticket taken off the relay because it serves no den-loop step or testbed friction yet. It comes back with `board unpark`.
+_Avoid_: Backlog, icebox
+
+**Closed**:
+A ticket that will not be done, with the reason in its comments.
+_Avoid_: Won't fix, cancelled
+
+**Testbed**:
+The small real repo the den is pointed at once the den loop works. Friction found there drives pipeline changes and new den elements.
+_Avoid_: Demo repo, sandbox
 
 **Claim**:
 The exclusive lock a cell takes on a ticket before working it.
@@ -101,7 +125,7 @@ How hard qa verify looks at a developer's branch: `light` (run the tests, check 
 _Avoid_: Review level
 
 **Shadow mode**:
-Jev's picks are logged next to what actually ran and never applied, until an exit review decides otherwise.
+Jev's picks are logged next to what actually ran and never applied. A point leaves shadow on outcomes (bounce rate and tokens per ticket), not on agreement with the orchestrator (ADR 0019).
 _Avoid_: Dry run, trial
 
 ## Observation
@@ -171,6 +195,7 @@ What each term is called in anything a user sees (UI copy, labels, `aria-label`s
 | Organism | the den |
 | Station | station (The Pass, Steamers, Tea, Pantry, Front of House, Cubs) |
 | Cell | panda |
+| Walk mode | enter the den |
 | Cell type | role |
 | Genome | recipe card |
 | Apoptosis | clocking out |

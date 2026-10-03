@@ -1355,6 +1355,69 @@ export async function resolve(root, refs, options = {}) {
   return { resolved: done };
 }
 
+// Refocus 2026-10-02: tickets off the relay. `parked` waits for a reason to
+// come back (unpark); `closed` will not be done. Neither is in STATUSES, so
+// no cell can release into them and the frontier never picks them.
+const OFF_RELAY = {
+  park: { to: "parked", label: "Parked", from: (s) => s !== "resolved" && s !== "parked" },
+  close: { to: "closed", label: "Closed", from: (s) => s !== "resolved" && s !== "closed" },
+  unpark: { to: "ready-for-agent", label: "Unparked", from: (s) => s === "parked" },
+  reopen: { to: "ready-for-agent", label: "Reopened", from: (s) => s === "closed" },
+};
+export const OFF_RELAY_STATUSES = ["parked", "closed"];
+
+export async function setOffRelay(root, refs, op, options = {}) {
+  const spec = OFF_RELAY[op];
+  if (!spec) throw new BoardError(`unknown op: ${op}`);
+  const { reason } = options;
+  if (!Array.isArray(refs) || refs.length === 0) throw new BoardError(`${op} requires at least one ticket ref`);
+  if (!reason) throw new BoardError(`${op} requires --reason "<text>"`);
+  checkArgLength(reason, "reason");
+
+  // Phase 1: validate everything, write nothing.
+  const seen = new Set();
+  const planned = [];
+  for (const ref of refs) {
+    const { feature, ticket, paths } = await prepare(root, ref);
+    const full = `${feature}/${ticket}`;
+    if (seen.has(full)) throw new BoardError(`${op}: ${full} is listed twice`);
+    seen.add(full);
+    if (!(await exists(paths.ticketPath))) throw new BoardError(`ticket not found: ${ref}`);
+    if (await exists(paths.claimLockPath)) {
+      const holder = claimingCell(await readFile(paths.claimLockPath, "utf8"));
+      throw new BoardError(`${op} refused: ${full} is claimed by ${holder}; nothing was changed`);
+    }
+    const status = readStatus(await readFile(paths.ticketPath, "utf8"));
+    if (!spec.from(status)) throw new BoardError(`${op} refused: ${full} is ${status}; nothing was changed`);
+    planned.push({ feature, ticket, paths, status });
+  }
+
+  // Phase 2: one status change, comment and event per ref.
+  const done = [];
+  for (const { feature, ticket, paths, status } of planned) {
+    await withWriteLock(paths.writeLockPath, async () => {
+      await assertWithinRoot(root, paths.issuesDir);
+      const content = await readFile(paths.ticketPath, "utf8");
+      const stamp = `- **orchestrator, ${todayUTC()}:** ${spec.label}: ${sanitizeCommentText(reason)}`;
+      const withStatus = replaceStatus(content, spec.to);
+      const updated = /## Comments/.test(withStatus)
+        ? `${withStatus.trimEnd()}\n${stamp}\n`
+        : `${withStatus.trimEnd()}\n\n## Comments\n${stamp}\n`;
+      await commitWithEvent(paths.eventsPath, () => atomicWrite(paths.ticketPath, updated), {
+        feature,
+        ticket,
+        cell: "orchestrator",
+        op,
+        from: status,
+        to: spec.to,
+        reason,
+      });
+    });
+    done.push(`${feature}/${ticket}`);
+  }
+  return { done, status: spec.to };
+}
+
 export async function getStatus(root, ref) {
   const { paths } = await prepare(root, ref);
   if (!(await exists(paths.ticketPath))) {
