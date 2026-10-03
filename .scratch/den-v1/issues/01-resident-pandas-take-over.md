@@ -25,3 +25,4 @@
 
 - **Created (orchestrator, 2026-10-03):** From `.scratch/den-v1/spec.md` (ADR 0019). Keep under ~120k tokens; split rather than stretch.
 - **orchestrator, 2026-10-03:** Re-scoped (user, 2026-10-03): land PR #151 (Codex's procedural den, branch codex/procedural-den-frontend), which covers den-v1 01, 03 and 04 in one change; review it against this ticket's criteria and fix the gaps on that branch. Batch D1 = den-v1/01, 03, 04, one PR.
+- **qa, 2026-10-03:** QA bounce (batch D1 @94221b2): frontend.test.mjs:34 AC1 asserts roamers only, herald has no resident; AC2 two-developer bind/end untested; frontend.test.mjs:91 AC3 compares one state pair only. See 01-qa handoff.

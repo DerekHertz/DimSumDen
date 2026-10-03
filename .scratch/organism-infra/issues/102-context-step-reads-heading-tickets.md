@@ -6,7 +6,7 @@
 
 **Blocked by:** organism-infra/97-jg-resource-limit-full-root (same file; sequence after batch K merges)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## What to build
 
@@ -23,3 +23,6 @@ Files: `scripts/dispatch-context.mjs`, `scripts/dispatch-context.test.mjs`.
 
 ## Comments
 - **orchestrator, 2026-10-02:** Found by the batch K developer during 97's live AC1 run (handoff 97-developer-2.md). Filed on the user's yes.
+- **qa, 2026-10-03:** All 1968 tests pass (0 skipped). 7 [102] tests cover all 4 ACs. Only scripts/dispatch-context.mjs changed (in scope). Tests untouched.
+- **security, 2026-10-03:** Security pass. No critical/high. Low: dispatch-context.mjs:55 section text now reaches jg query (capped 1,500 chars, argv spawn, no shell). gitleaks clean. See handoffs/102-security.md.
+- **orchestrator, 2026-10-03:** merged 046249a; security pass (2 low notes), CI green
