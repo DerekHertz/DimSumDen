@@ -24,3 +24,4 @@ Tag the current `main` as `pre-refocus` (the user pushes the tag), then remove: 
 ## Comments
 
 - **Created (orchestrator, 2026-10-03):** Refocus session (ADR 0019, docs/refocus/triage-2026-10-02.md).
+- **orchestrator, 2026-10-03:** The exported glbs no longer need to stay frozen: after PR #151 nothing live loads them, and den-v1/08 removes them with the market scene. This ticket keeps the Blender sources, the asset-critique skill and the Blender references.
