@@ -97,7 +97,8 @@ async function main() {
     }
     case "park":
     case "close":
-    case "unpark": {
+    case "unpark":
+    case "reopen": {
       // Refocus 2026-10-02: take tickets off the relay (or bring one back) in one step.
       const { positional, flags } = parseFlags(rest, { allowed: ["reason"] });
       const result = await setOffRelay(root, positional, command, { reason: flags.reason });

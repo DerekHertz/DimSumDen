@@ -1362,6 +1362,7 @@ const OFF_RELAY = {
   park: { to: "parked", label: "Parked", from: (s) => s !== "resolved" && s !== "parked" },
   close: { to: "closed", label: "Closed", from: (s) => s !== "resolved" && s !== "closed" },
   unpark: { to: "ready-for-agent", label: "Unparked", from: (s) => s === "parked" },
+  reopen: { to: "ready-for-agent", label: "Reopened", from: (s) => s === "closed" },
 };
 export const OFF_RELAY_STATUSES = ["parked", "closed"];
 

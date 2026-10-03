@@ -138,3 +138,18 @@ test("release still refuses parked and closed", async () => {
     await fx.cleanup();
   }
 });
+
+test("reopen returns a closed ticket to ready-for-agent and refuses one that is not closed", async () => {
+  const fx = await makeBoardFixture();
+  try {
+    assert.equal((await run(fx, ["close", fx.ticketRelPath, "--reason", "churn"])).code, 0);
+    const r = await run(fx, ["reopen", fx.ticketRelPath, "--reason", "user wants it after all"]);
+    assert.equal(r.code, 0, r.stderr);
+    const text = await read(fx, fx.ticket);
+    assert.equal(statusOf(text), "ready-for-agent");
+    assert.match(text, /Reopened: user wants it after all/);
+    assert.notEqual((await run(fx, ["reopen", fx.ticketRelPath, "--reason", "x"])).code, 0);
+  } finally {
+    await fx.cleanup();
+  }
+});
