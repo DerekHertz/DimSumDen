@@ -1,46 +1,46 @@
-# 90: Den words in genomes, skills, docs and command names
+# 90: Drop the biology vocabulary: SWE terms in code and docs, dim sum in the UI
 
 **Type:** task
 
-**Priority:** P2
+**Priority:** P1
 
-**What to build:** The user wants the Dim Sum Den words used across the whole project, not just in the UI (2026-10-01). This reverses the line in `CONTEXT.md`'s "UI names" that says the biology terms stay the names in code, genomes and skills. That table is now the source of truth for the project's words:
+**Status:** ready-for-agent
 
-| Old | New |
-|---|---|
-| cell | panda |
-| cell type | role |
-| genome | recipe card |
-| organism | den |
-| apoptosis | clocking out |
-| spawn, mitosis | call in |
-| endocrine, homeostasis | plan usage |
-| Agent Office (old project name) | Dim Sum Den |
+**Serves:** ADR 0019 decision 10 (refocus vocabulary); runs before organism-infra/105 so the steering code is written in the new terms.
 
-Scope (user decision: prose and names, but not data fields):
-- **Prose:** `.claude/agents/*.md`, `.claude/skills/**`, `CLAUDE.md`, `AGENTS.md`, `CONTEXT.md` (move the glossary into the main terms and drop the "stay the names in code" line), `README.md`, `design-brief.md`, `docs/agents/*`, `docs/design/*`, and code comments and user-facing CLI messages in `scripts/` and `apps/`.
-- **Names:** rename these and update every caller, test, `package.json` script and doc reference:
-  - `scripts/cell-start.mjs` → `panda-start.mjs`
-  - `scripts/log-cell.mjs` → `log-panda.mjs`
-  - `docs/agents/cell-start.md` → `panda-start.md`
-  - `.claude/skills/organism-protocol/` → `den-protocol/`
-  - `apps/organism-infra/` → `apps/den-infra/`
-  - the matching test files
-  - `design/3d/cell_types*.py` and its renders
-  - Use `git mv` so history follows. Check `npm run board` and the bridge still find the board (`ORGANISM_ROOT` becomes `DEN_ROOT`; keep reading the old variable as a fallback).
-- **Out of scope (keep as is):** data fields and on-disk formats, so the board history still parses: the handoff State block's `cell` key, usage rows' `kind:"cell"`, `cellType`/`cell_type` identifiers, `.scratch/` feature folder names (`organism-infra` stays as a board feature name), and event names. `.claude/agents/` keeps its name (Claude Code needs it). Don't rewrite ADRs or past handoffs; they are history. Add a short ADR recording the rename, as 53 did.
-- UI copy is den-scene-v1/08 and stays there.
-- `.claude/` and `CLAUDE.md` edits are gated. As in 53, the developer writes a rename script that does those edits (including the `git mv` of the skill folder) into its handoff, and the user runs and commits it in the developer's worktree before qa verify.
+**What to build:** The user wants the genome/bio/cell vocabulary gone (2026-10-02, refocus session; supersedes the 2026-10-01 all-dim-sum plan). Code, prompts and docs use standard SWE terms; the UI keeps its dim sum names (CONTEXT.md "UI names"). Mapping:
 
-**Blocked by:** den-scene-v1/05, den-scene-v1/09 (both touch files this renames; run after they merge)
+| Old | Code, prompts, docs | UI |
+|---|---|---|
+| organism | project | the den |
+| cell | agent | panda |
+| cell type | role | role |
+| genome | role file (`.claude/agents/<role>.md`) | recipe card |
+| `organism-protocol` skill | `agent-protocol` | |
+| apoptosis | the agent ends its run | clocking out |
+| spawn, mitosis | dispatch, split-off | call in |
+| endocrine limits, homeostasis | usage limits | kitchen limits |
+| inflammation | alarm | alarm |
+| Agent Office (old project name) | Dim Sum Den | Dim Sum Den |
 
-**Status:** closed
+Unchanged (already kitchen or SWE words): station, the Pass, Steamers, Tea & Pantry, Front of House, pass gate, Bao, resident panda, take over, handoff, relay, board, ticket.
 
-- [ ] `grep -rniwE "cells?|genomes?|organisms?|apoptosis|mitosis|endocrine|homeostasis|agent office"` over `.claude/agents`, `.claude/skills`, `docs/agents`, `docs/design`, `CLAUDE.md`, `AGENTS.md`, `CONTEXT.md` and `README.md` returns only intentional "was: cell" notes (list them in the handoff)
-- [ ] No tracked file or directory outside `.scratch/` and `docs/adr/` has `cell`, `genome` or `organism` in its path (test)
-- [ ] `panda-start`, `log-panda`, `npm run board` and the bridge work, and the old `ORGANISM_ROOT` still works as a fallback (tests)
-- [ ] Data fields are unchanged: an existing handoff and an existing `usage.jsonl` still parse (fixture test)
-- [ ] The full suite passes, and the rename ADR is added
+Split with organism-infra/116: **116** rewrites the role files (`.claude/agents/*.md`) and the protocol skill in the new terms as part of its trim (one gated patch). **This ticket** does everything else:
+- **Prose:** `.claude/skills/**` other than the protocol, `CLAUDE.md`, `AGENTS.md`, `CONTEXT.md` (the main terms become the SWE words; add an "Old terms" table mapping old to new; keep "UI names"), `README.md`, `design-brief.md`, `docs/agents/*`, `docs/design/*`, `.codex/agents/*`, code comments and user-facing CLI messages in `scripts/`, `apps/` and `packages/`.
+- **Names** (`git mv`, update every caller, test, `package.json` script and doc reference):
+  - `scripts/cell-start.mjs` → `agent-start.mjs`, `scripts/log-cell.mjs` → `log-agent.mjs`, `docs/agents/cell-start.md` → `agent-start.md`, and their tests
+  - `.claude/skills/organism-protocol/` → `agent-protocol/` (every `skills:` preload too)
+  - `apps/organism-infra/` → `apps/board/`
+  - `ORGANISM_ROOT` → `BOARD_ROOT`, still reading the old variable as a fallback
+- **Identifiers:** rename code identifiers where cheap (`cellType` → `role`, `cell` params and locals → `agent`), and CLI flags with the old flag still accepted as an alias.
+- **Out of scope (persisted data, so history still parses):** the handoff State block's `cell` key, `usage.jsonl` row fields (`kind:"cell"`, `cell`), lock-file and `events.jsonl` fields, and `.scratch/` feature folder names (`organism-infra` stays). ADRs 0001-0018 and past handoffs stay as written.
+- `.claude/` and `CLAUDE.md` edits are gated: the developer writes the edit script into its handoff and the user applies it (`npm run apply-gated`) before qa verify.
+
+- [ ] `grep -rniwE "cells?|cell types?|genomes?|organisms?|apoptosis|mitosis|endocrine|homeostasis|agent office"` over `.claude/skills`, `docs/agents`, `docs/design`, `CLAUDE.md`, `AGENTS.md`, `CONTEXT.md` (outside "Old terms") and `README.md` returns nothing, or only intentional notes listed in the handoff
+- [ ] No tracked path outside `.scratch/` and `docs/adr/` contains `cell`, `genome` or `organism` (test)
+- [ ] `agent-start`, `log-agent`, `npm run board` and the bridge work; `ORGANISM_ROOT` and old CLI flags still work as fallbacks (tests)
+- [ ] Persisted data unchanged: an existing handoff, `usage.jsonl` and `events.jsonl` still parse (fixture test)
+- [ ] The full suite passes
 
 ## Comments
 
@@ -48,3 +48,4 @@ Scope (user decision: prose and names, but not data fields):
 
 - **orchestrator, 2026-10-01:** Priority set for the 10-02 infra day (user): P2 so it runs after the pipeline savers (57, 98, 52, 86, 104); it is a wide rename and must run alone. crew-dashboard/01 is blocked by it.
 - **orchestrator, 2026-10-03:** Closed: renaming churn, serves no v1 step (refocus, docs/refocus/triage-2026-10-02.md)
+- **orchestrator, 2026-10-03:** Reopened: user wants the bio vocabulary gone after all; re-scoped to ADR 0019 decision 10 (SWE terms in code/prompts/docs, dim sum in the UI)
