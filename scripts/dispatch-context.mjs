@@ -51,8 +51,10 @@ function isBinary(root, rel) {
 
 function parseTicket(text) {
   const type = (/^\*\*Type:\*\*[ \t]*([A-Za-z-]+)/m.exec(text)?.[1] ?? "").toLowerCase();
-  const what = /^\*\*What to build:\*\*[ \t]*([\s\S]*?)(?=^\*\*[A-Za-z][^*\n]*:\*\*|^## |(?![\s\S]))/m.exec(text)?.[1].trim() ?? "";
-  return { type, what };
+  // organism-infra/102: board tickets use a `## What to build` section, which runs to the next `## ` heading (a `###` stays inside it).
+  const section = /^## What to build[ \t]*\r?\n([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(text)?.[1].trim();
+  const bold = /^\*\*What to build:\*\*[ \t]*([\s\S]*?)(?=^\*\*[A-Za-z][^*\n]*:\*\*|^## |(?![\s\S]))/m.exec(text)?.[1].trim();
+  return { type, what: section || bold || "" };
 }
 
 // Distinct file paths (a slash and an extension) in the text that exist under root.
