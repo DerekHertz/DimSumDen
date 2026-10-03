@@ -6,7 +6,7 @@
 
 **Blocked by:** 01, 03
 
-**Status:** in-review
+**Status:** parked
 
 **Serves:** Den loop step 3 (walk up to a panda and get its card).
 
@@ -27,3 +27,4 @@ A new pure module `cardFor(scenePandas, approvals, viewer) -> Card | null` in `a
 - **orchestrator, 2026-10-03:** Re-scoped (user, 2026-10-03): land PR #151 (Codex's procedural den, branch codex/procedural-den-frontend), which covers den-v1 01, 03 and 04 in one change; review it against this ticket's criteria and fix the gaps on that branch. Batch D1 = den-v1/01, 03, 04, one PR.
 - **qa, 2026-10-03:** QA bounce (batch D1 @94221b2): cardFor does not exist; no proximity card, reach/facing logic, no-agent card or capability flags; PandaCard.jsx is a click detail dialog. See 04-qa handoff.
 - **orchestrator, 2026-10-03:** User decision 2026-10-03: fix 04 on PR #151 (no split). Fix round builds the proximity card (cardFor, reach/facing, idle card, capability flags) per the spec; PandaCard click dialog is not the card.
+- **orchestrator, 2026-10-03:** Parked: User 2026-10-03: paused; D1 fix round covers 01, 03 and zoom only. Get the updated UI wired first. PandaCard.jsx click dialog stays as-is on #151 for now.

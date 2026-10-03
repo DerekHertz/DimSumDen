@@ -1,0 +1,33 @@
+diff --git a/.claude/agents/orchestrator.md b/.claude/agents/orchestrator.md
+index e570624..2b125f0 100644
+--- a/.claude/agents/orchestrator.md
++++ b/.claude/agents/orchestrator.md
+@@ -53,6 +53,8 @@ Every code ticket runs through these stages, one cell at a time per ticket:
+ 4. Risk-size stage 4: have `scout` run `npm run risk-check` on the branch. Clean exit skips full `security`. Any hit (or the ticket touching dependencies, CI workflows, or branch protection) dispatches full `security`.
+ 5. Once qa verify and security (or a clean risk-check) pass, push the branch and open the PR yourself, and wait for `gh pr checks` to go green. Then merge on green under "Relay autonomy" in `organism-protocol`, posting the PR link; if CI is red, the merge conflicts, or autonomy does not apply, propose the merge (a gate) with the PR link instead. After it merges, claim, publish your handoff, and run `board release <ref> --status resolved --pr <n>`, which writes the `resolved` row. Then run `node scripts/worktree-gc.mjs`, show the user the dry run, and run it with `--apply` only on their yes. It removes merged worktrees whose only dirt is byte-identical copies of main's files or `.claude/` config, deletes their branches, and lists every other dirty worktree for the user to decide.
+ 
++**Partial returns (organism-infra/119).** A cell that reaches 80k of its own context commits work in progress, publishes a handoff of what is done and left, releases, and returns `outcome: partial` (see "Context budget" in `organism-protocol`). Dispatch a fresh cell of the same type and mode on the same branch, with that handoff named in the prompt. It is the same round: it is not a bounce and does not count toward fails-twice. Log the partial return with `--outcome "partial: <what is left>"` so the retro counts it. Pass `--context <n>` to `log-cell.mjs` from the cell's `final context` line. The `cell-start` line of every dispatch that is a fix round, a later hop of a ticket already in flight, or a re-dispatch after a partial gets `--continue`: it gets the 70k warning but never the 80k refusal, so the relay in flight can finish. Only the first hop of a new ticket omits it. Never pass `--force` without the user's yes. When `cell-start` refuses with `orchestrator context <n>k ≥ 80k`, write your session handoff and ask the user to `/compact`.
++
+ A bounce from `qa` or `security` sends the branch back to a new `developer` with the findings; it counts toward the fails-twice rule. A ticket that needs a user verdict (`ready-for-human`) gets it before stage 3.
+ 
+ A ticket whose change touches `.claude/` or `CLAUDE.md`: the auto-mode classifier blocks cells from editing those files. Dispatch the relay for everything else. For the gated files, have the developer write the exact edit (a script or a diff) into its handoff and stop there. Then give the user the one command that applies and commits it in the developer's worktree, before qa verify.
+diff --git a/.claude/skills/organism-protocol/SKILL.md b/.claude/skills/organism-protocol/SKILL.md
+index 9678111..1e10d26 100644
+--- a/.claude/skills/organism-protocol/SKILL.md
++++ b/.claude/skills/organism-protocol/SKILL.md
+@@ -72,6 +72,15 @@ Handoffs go through `board` too. The `handoff` skill shows the State block that
+ 
+ Give every long-running command an explicit timeout: test runs, dev servers, browser automation, installs, and CI waits (`gh run watch`, `gh pr checks --watch`). Pick a bound that fits the work. For example, a few minutes for a test suite, and about 15 minutes for a CI run. When a timeout fires, stop. Don't retry, and don't keep waiting. Report it under `Environment issues` with the command, the timeout you used, and the last output you saw.
+ 
++## Context budget (organism-infra/119)
++
++Every call re-reads your whole context, so a smaller one costs less. Aim to finish under 80k tokens. At every stage boundary (tests written, tests green, before review, before commit, and before any long read), run `node scripts/context.mjs --self`. It prints `{"session","context_tokens","percent","scope":"self"}` for your own transcript; `context_tokens: null` means no reading, so carry on.
++
++- **70k or more:** finish the current stage. Start no new exploration and no new stage you can leave to a fresh cell.
++- **80k or more:** stop. Commit your work in progress on the branch (a WIP commit, never a stash). Publish a handoff that says exactly what is done and what is left, run `board release` (keep the ticket's current status), and end your report with `outcome: partial`. The orchestrator re-dispatches a fresh cell of your type on the same branch with your handoff; that counts as the same round, not a bounce.
++
++Put your last reading in your final report as `final context: <n>`; the orchestrator logs it with `log-cell.mjs --context <n>`.
++
+ ## Apoptosis (ending well)
+ 
+ A cell does one ticket or one task, then ends. When your genome's `done` criteria are met, or you are blocked, or your context is getting long:

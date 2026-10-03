@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** in-review
+**Status:** claimed
 
 **Serves:** Den loop step 2 (enter the den).
 
@@ -29,3 +29,4 @@ An "Enter the den" control and key in the diorama switch to walk mode: a perspec
 - **qa, 2026-10-03:** QA bounce (batch D1 @94221b2): no tests for edge/box stop, pitch clamp, 30/120 fps, camera restore (explorer.mjs; frontend.test.mjs:136 covers keys only); smoke-ui.mjs has no walk check; smoke zoom fails on camera.mjs:18 exponential wheelZoom (regression), pan on stale sign assumptions. See 03-qa handoff.
 - **orchestrator, 2026-10-03:** User decision 2026-10-03: keep exponential wheel zoom (procedural/camera.mjs:18). Fix round updates the smoke zoom check, docs and tests to the exponential contract; designer to confirm feel. createDenExplorer vs pure walk(): pending user decision.
 - **orchestrator, 2026-10-03:** User decision 2026-10-03: extract a pure walk(state, input, dt) core; createDenExplorer stays as a thin THREE/DOM adapter over it. Edge/stall stop, pitch clamp, fps independence and Esc restore get node --test unit tests on walk(); smoke keeps one walk check.
+- **orchestrator, 2026-10-03:** User 2026-10-03: paused 04 (parked). Batch D1 is now 01 + 03 only. Fix round on #151 (codex/procedural-den-frontend @ 94221b2): 01 tests, 03 walk() core + tests + smoke walk check, exponential zoom contract (smoke zoom/pan, docs, tests). Goal: get the updated UI wired and merged.

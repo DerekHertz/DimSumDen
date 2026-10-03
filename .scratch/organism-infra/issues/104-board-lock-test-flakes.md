@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** in-review
+**Status:** resolved
 
 ## What to build
 
@@ -28,3 +28,4 @@ Make them deterministic (inject the clock or timeouts, or widen the bounds with 
 
 - **orchestrator, 2026-10-01:** Raised to P1 for 10-02 (user): pipeline saver.
 - **developer, 2026-10-02:** Handoff 104-developer.md. Deferred: floating-cards before() hook fails when many vite servers cold-start at once (follow-up); Ctrl+Enter, dev-server-bind, Codex fixes are timeout widenings, not reproduced root causes.
+- **qa, 2026-10-02:** QA pass at d66527d: npm test 1834/1834, 12-copy stress under load 0 failures, both lock tests keep their behaviour checks. See 104-qa-verify.md.

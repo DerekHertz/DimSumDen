@@ -1,0 +1,36 @@
+{
+ "d-light": {
+  "frames": 23,
+  "counts": {
+   "bao,fig:roam:product,roam:product,fig:roam:architect,roam:architect,fig:roam:developer,roam:developer,fig:roam:scout,roam:scout,fig:roam:qa,roam:qa,fig:roam:security,roam:security,fig:roam:designer,roam:designer,fig:__pass,seat:__pass": 23
+  },
+  "leadBeforeFirstBao": [
+   "fig:roam:security",
+   "roam:security",
+   "fig:roam:designer",
+   "roam:designer",
+   "fig:__pass",
+   "seat:__pass"
+  ],
+  "first": [
+   "bao",
+   "fig:roam:product",
+   "roam:product",
+   "fig:roam:architect",
+   "roam:architect",
+   "fig:roam:developer",
+   "roam:developer",
+   "fig:roam:scout",
+   "roam:scout",
+   "fig:roam:qa",
+   "roam:qa",
+   "fig:roam:security"
+  ]
+ },
+ "d-light:errors": [],
+ "d-dark:errors": [],
+ "m-light:errors": [],
+ "m-dark:errors": [],
+ "d-rm:errors": [],
+ "m-light-ui:errors": []
+}

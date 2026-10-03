@@ -8,7 +8,7 @@
 
 **Blocked by:** none
 
-**Status:** in-review
+**Status:** resolved
 
 - [ ] ADR recorded (architect)
 - [ ] Trial on 3+ tickets, token comparison in the handoff
@@ -22,3 +22,4 @@
 - **orchestrator, 2026-09-30:** User yes (2026-09-30) on build + trial. Build filed as 87; trial phases run after 87 merges.
 - **orchestrator, 2026-10-02:** Retro audit: in-review without lock is expected; the trial waits on 97 (jg resource_limit) before it can run.
 - **orchestrator, 2026-10-02:** Retro: 97 merged (PR 131), so the trial is unblocked. 57 stays in-review with no lock until the trial phases run.
+- **orchestrator, 2026-10-02:** Closed by user 2026-10-02 without the 3-ticket trial; build shipped as 87 (ADR 0014).

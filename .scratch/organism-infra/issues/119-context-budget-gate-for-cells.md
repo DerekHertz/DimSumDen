@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## What to build
 
@@ -32,3 +32,7 @@ Files: `scripts/cell-start.mjs`, `scripts/context.mjs`, `scripts/log-cell.mjs` (
 
 ## Comments
 - **orchestrator, 2026-10-02:** User yes 2026-10-02: "yes add it to cell-start … developers from yesterday spent up to 200-300k tokens … they should also follow the context window rule". Orchestrator side overlaps 99 (auto-compaction design); 99 still owns hooks, `/compact` triggers and the auto-written handoff, this ticket owns the hard stop. Before relying on the shared session id, the developer confirms it in a real subagent (print `CLAUDE_CODE_SESSION_ID` from a cell and compare) and records the result.
+- **qa, 2026-10-02:** qa specify: 30 tests in 3 files on tests/119-context-budget-gate (9984524). Human-verified: gated patch criterion (read the patch) and npm test green (verify runs it). Map in handoff 119-qa-specify.md.
+- **developer, 2026-10-02:** developer: shared session id confirmed in a real subagent: CLAUDE_CODE_SESSION_ID in the cell equals the orchestrator session id; context.mjs without --self returned the orchestrator reading (70k) and --self returned the cell's own transcript (73k), matched by cwd. Caveat: existing cell-start tests inherit the live session env, so with the orchestrator at 80k+ they would be refused; CI has no session id.
+- **qa, 2026-10-02:** QA pass (light verify): npm test 1910 pass, 0 fail, 0 skipped; specify tests unchanged since 9984524; AC4 patch read, human-verified. See 119-qa-verify.md.
+- **security, 2026-10-02:** Security pass @ c1c33dd. gitleaks clean, no dep/CI changes, no shell injection or path traversal reachable. 3 low findings (context.mjs:107 session id unchecked in path, context.mjs:72 full-file read, cell-start.mjs:37 advisory flags). See 119-security.md.
