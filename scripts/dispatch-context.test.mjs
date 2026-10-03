@@ -478,3 +478,68 @@ test("[92] AC3: --refresh replaces the context file by rename, so a reader of th
   assert.equal(readFileSync(held, "utf8"), "OLD CONTENT\n", "the old inode was left whole, not rewritten in place");
   assert.deepEqual(readdirSync(path.dirname(outFile)), ["01-thing.md"], "no temp file is left behind");
 });
+
+// ── organism-infra/102: a '## What to build' heading is read like the bold line ───────────────────────────────
+
+// The shape real board tickets use (see .scratch/organism-infra/issues/*.md): metadata as bold lines, then ## sections.
+const headingTicket = ({ type = 'bug', what = 'Make the retry read the claim.', tail = '' } = {}) =>
+  `# 99: sample\n\n**Type:** ${type}\n\n**Priority:** P2\n\n**Blocked by:** none\n\n**Status:** ready-for-agent\n\n## What to build\n\n${what}\n\n## Acceptance criteria\n\n- [ ] ACCEPTANCE-CRITERION-TEXT scripts/jg.mjs scripts/board.mjs\n\n## Comments\n- **orchestrator:** COMMENT-BODY scripts/jg.mjs scripts/board.mjs\n${tail}`;
+
+test('[102] AC1: a ## What to build section is in the jg query; Acceptance criteria and Comments are not', async () => {
+  const f = fake();
+  await build({ root: makeRepo(), run: f.run, ticketText: headingTicket({ what: 'Retry failed claims in the relay.\n\nSecond paragraph about HEADING-SECOND-PARA.' }) });
+  const [{ args }] = f.searches();
+  const question = args.find((a) => a.startsWith('Where would this change be made, and which tests cover it?'));
+  assert.ok(question, 'an argument starts with the fixed question');
+  assert.match(question, /Retry failed claims in the relay\./);
+  assert.match(question, /HEADING-SECOND-PARA/, 'the whole section is read, not one line');
+  assert.doesNotMatch(question, /ACCEPTANCE-CRITERION-TEXT|COMMENT-BODY|Acceptance criteria|Blocked by|Status:/);
+});
+
+test('[102] AC1: a section at the end of the file (no later heading) is read to the end', async () => {
+  const f = fake();
+  const text = '# 99: sample\n\n**Type:** bug\n\n## Comments\n- note COMMENT-BODY\n\n## What to build\n\nLAST-SECTION-TEXT here.\n';
+  await build({ root: makeRepo(), run: f.run, ticketText: text });
+  const question = f.searches()[0].args.find((a) => a.startsWith('Where would this change be made'));
+  assert.match(question, /LAST-SECTION-TEXT here\./);
+  assert.doesNotMatch(question, /COMMENT-BODY/);
+});
+
+test('[102] AC1: a ### subheading inside the section does not end it; only the next ## heading does', async () => {
+  const f = fake();
+  await build({ root: makeRepo(), run: f.run, ticketText: headingTicket({ what: 'Before.\n\n### Detail\n\nSUBSECTION-TEXT.' }) });
+  const question = f.searches()[0].args.find((a) => a.startsWith('Where would this change be made'));
+  assert.match(question, /SUBSECTION-TEXT/);
+});
+
+test('[102] AC1: heading-form text is cut to 1,500 characters too', async () => {
+  const f = fake();
+  await build({ root: makeRepo(), run: f.run, ticketText: headingTicket({ what: 'h'.repeat(1500) + 'OVERFLOW' }) });
+  const question = f.searches()[0].args.find((a) => a.startsWith('Where would this change be made'));
+  assert.ok(question.includes('h'.repeat(1500)));
+  assert.doesNotMatch(question, /OVERFLOW/);
+});
+
+test('[102] AC2: the bold **What to build:** line still feeds the query (a ticket with no heading)', async () => {
+  const f = fake();
+  await build({ root: makeRepo(), run: f.run, ticketText: ticket({ what: 'BOLD-FORM-TEXT stays read.' }) });
+  const question = f.searches()[0].args.find((a) => a.startsWith('Where would this change be made'));
+  assert.match(question, /BOLD-FORM-TEXT stays read\./);
+});
+
+test('[102] AC3: a heading-form ticket naming two existing paths is skipped without a jg search', async () => {
+  const root = makeRepo({ 'scripts/jg.mjs': 'x', 'scripts/board.mjs': 'y' });
+  const f = fake();
+  const { file, row } = await build({ root, run: f.run, ticketText: headingTicket({ what: 'Change scripts/jg.mjs and scripts/board.mjs together.\n\nFiles: scripts/jg.mjs, scripts/board.mjs' }) });
+  assert.equal(file, undefined);
+  assert.match(row.skipped, /path/);
+  assert.equal(f.searches().length, 0);
+});
+
+test('[102] AC3: paths named only in Acceptance criteria or Comments do not trigger the skip', async () => {
+  const root = makeRepo({ 'scripts/jg.mjs': 'x', 'scripts/board.mjs': 'y' });
+  const f = fake();
+  const { file } = await build({ root, run: f.run, ticketText: headingTicket({ what: 'Change scripts/jg.mjs only.' }) });
+  assert.ok(contentOf(file), 'one path in the section means the search runs');
+  assert.equal(f.searches().length, 1);
+});
