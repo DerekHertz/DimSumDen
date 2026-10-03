@@ -6,7 +6,7 @@
 
 **Blocked by:** 02, den-scene-v1/07
 
-**Status:** ready-for-agent
+**Status:** closed
 
 **Design refs:** `docs/design/2026-10-01-iso-den.md` (card fields, ring and badge numbers; written by 01), `.scratch/den-iso-v1/spec.md`.
 
@@ -30,3 +30,4 @@ A card model takes the selected panda from the scene state and returns the card'
 
 ## Comments
 - **orchestrator, 2026-10-01:** Scope added (user, 2026-10-01): a kiosk click selects that kiosk's most urgent panda (digest D3). Heading 0 and mirrored kiosk yaw confirmed.
+- **orchestrator, 2026-10-03:** Closed: folded into the den-v1 spec (refocus, docs/refocus/triage-2026-10-02.md)

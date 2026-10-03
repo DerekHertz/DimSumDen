@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** parked
 
 ## What to build
 
@@ -23,3 +23,4 @@ Files: `apps/ci-cd/` (capture script and test), `package.json` (script entry), `
 
 ## Comments
 - **orchestrator, 2026-10-02:** From the 07 designer review environment issue; user chose "ticket a capture helper" (2026-10-02).
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

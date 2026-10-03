@@ -8,7 +8,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] Switch cycles system, light, dark; choice persists across reloads
 - [ ] CSS tokens and scene materials follow the choice
@@ -19,3 +19,4 @@
 - **Created (orchestrator, 2026-09-29):** User asked why the page is dark; it follows the OS setting. User approved a switch ticket.
 - **Designer follow-up (orchestrator, 2026-09-29):** The backdrop only follows prefers-color-scheme; when this switch lands, Backdrop.jsx must also watch data-theme (handoffs/14-designer-review.md).
 - **orchestrator, 2026-09-30:** Design sweep (designer, user-approved 2026-09-30): KEEP: no den-scene ticket covers it. Backdrop.jsx must watch data-theme.
+- **orchestrator, 2026-10-03:** Parked: not a v1 den-loop step; revisit when growing the den (refocus, docs/refocus/triage-2026-10-02.md)

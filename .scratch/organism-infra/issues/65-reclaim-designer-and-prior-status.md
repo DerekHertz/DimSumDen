@@ -8,7 +8,7 @@
 
 **Blocked by:** 55
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] `board reclaim <ref> designer --mode review` takes over a dead designer lock (test)
 - [ ] Reclaiming a qa specify lock keeps the prior status; `--keep-status` then restores it (test)
@@ -16,3 +16,4 @@
 ## Comments
 - **Follow-up (orchestrator, 2026-09-30):** raised by the 55 developer as out of scope.
 - **orchestrator, 2026-09-30:** Scope note (security, 55): a designer review claim on an in-review ticket sets it to claimed (only qa/security keep in-review); decide whether designer review should keep in-review too.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

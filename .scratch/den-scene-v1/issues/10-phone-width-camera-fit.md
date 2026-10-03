@@ -6,7 +6,7 @@
 
 **Blocked by:** 03, den-iso-v1/02
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Design refs:** `docs/design/den-map.md` (coordinates, constants, checks). Found by designer review on 03 (PR 110), out of scope there.
 
@@ -27,3 +27,4 @@ At 375px viewport width the default camera crops the side stalls of the horsesho
 
 - **orchestrator, 2026-10-01:** Filed on the user's yes (2026-10-01) from the designer's out-of-scope finding on 03.
 - **orchestrator, 2026-10-01:** Retired (user, 2026-10-01): the den moves to an orthographic isometric camera (den-iso-v1/02), which includes the phone-width fit. Do not dispatch; resolve as superseded once 02 merges.
+- **orchestrator, 2026-10-03:** Parked: not a v1 den-loop step; revisit when growing the den (refocus, docs/refocus/triage-2026-10-02.md)

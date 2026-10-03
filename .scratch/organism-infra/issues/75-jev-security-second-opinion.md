@@ -10,7 +10,7 @@ Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 
 **Blocked by:** at least 15 risk-check-clean tickets with shadow rows, and a security review of the label set
 
-**Status:** blocked
+**Status:** parked
 
 - [ ] Unblock criteria met: at least 15 risk-check-clean tickets have shadow rows; security has reviewed the label set.
 - [ ] Acceptance criteria written and approved before dispatch; escalate only, never skip; ships shadow-first.
@@ -18,3 +18,4 @@ Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 ## Comments
 
 - orchestrator, 2026-09-30: blocked at filing; unblock when: at least 15 risk-check-clean tickets with shadow rows, and a security review of the label set.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

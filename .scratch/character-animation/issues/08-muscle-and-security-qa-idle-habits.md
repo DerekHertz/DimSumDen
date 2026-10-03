@@ -8,7 +8,7 @@
 
 **Blocked by:** 07
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [ ] The four habit clips are in the glb and pass the asset contract check
 - [ ] Director tests map `working` to each type's habit
@@ -19,3 +19,4 @@
 - **Correction (main session, 2026-09-26):** The "no Blender MCP tools" note above is stale. A developer subagent dispatched from the main session has all six `mcp__blender__*` tools and read the open PandaAsset scene. Dispatch normally; the developer probes Blender before claiming.
 - **unknown, 2026-09-28:** Clarified (user, 2026-09-28): developer cells stay modern (a laptop, a modern look, no dynastic props). The traditional Chinese elements (scroll, hats, dynastic touches) go to the other cells. Kitchen actions like pleating can still apply, but with a modern style.
 - **orchestrator, 2026-09-30:** Design sweep (designer, user-approved 2026-09-30): REWRITE: habits follow den 09 props (scout magnifier, security seal, qa teacup) and add debugger and designer habits. Needs Blender bake; after den-scene-v1.
+- **orchestrator, 2026-10-03:** Closed: asset art; Blender removed, glbs frozen (refocus, docs/refocus/triage-2026-10-02.md)

@@ -11,7 +11,7 @@
 
 **Blocked by:** 05
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] With the env var set in cloud, `npm test` has no browser-launch failures and `npm run smoke:ui` passes
 - [ ] Without it, behaviour is unchanged (CI and WSL)
@@ -22,3 +22,4 @@
 - **Decision (user, 2026-09-29):** separate ticket; finish showcase-v1/07 first. Touches CI tooling, so security reviews.
 - **Retro (user-approved, 2026-09-29):** also install gitleaks in the cloud environment setup (missing twice; security fell back to grep).
 - **Rescoped (orchestrator, 2026-09-29):** the screenshot part duplicates organism-infra/56 (headless visual shots) from the local board, so it moves there. This ticket keeps only installing gitleaks in the cloud environment.
+- **orchestrator, 2026-10-03:** Parked: not a v1 step; one active feature at a time (refocus, docs/refocus/triage-2026-10-02.md)

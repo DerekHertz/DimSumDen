@@ -8,7 +8,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] Retention and training policy cited from primary docs
 - [ ] Pricing confirmed or ADR corrected
@@ -16,3 +16,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-09-28):** Follow-up of 04 (ADR 0010), published with the user's yes.
+- **orchestrator, 2026-10-03:** Parked: shadow already sends Jev the same data live will (refocus, docs/refocus/triage-2026-10-02.md)

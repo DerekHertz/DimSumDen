@@ -8,7 +8,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] `node -e` with the word git inside a string literal is allowed (test)
 - [ ] `git -C <main checkout> ...` is still refused (test)
@@ -16,3 +16,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-09-28):** Friction reported by qa, developer and security cells during ticket 26's relay in WSL.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

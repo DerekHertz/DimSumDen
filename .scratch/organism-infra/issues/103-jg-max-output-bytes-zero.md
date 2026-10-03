@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** parked
 
 ## What to build
 
@@ -22,3 +22,4 @@ Files: `scripts/jg.mjs`, its tests.
 
 ## Comments
 - **orchestrator, 2026-10-02:** Low finding from batch K's security review (97-security.md). Filed on the user's yes.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

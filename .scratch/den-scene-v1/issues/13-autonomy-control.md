@@ -6,7 +6,7 @@
 
 **Blocked by:** den-scene-v1/07-sidebar-overlays
 
-**Status:** needs-triage
+**Status:** parked
 
 ## What to build
 
@@ -23,3 +23,4 @@ Files: `apps/bridge/`, `apps/ui/` (intent bar chip), orchestrator genome (user-g
 ## Comments
 - **orchestrator, 2026-10-02:** Split out of 07 by the user ("New ticket, 07 waits"). Until this lands, 07's chip is disabled with a "coming soon" tooltip.
 - **orchestrator, 2026-10-02:** From the 07 designer re-review (N2, low): the 0.55 dim puts the "Gated" chip text at about 3.4:1. When building the real control, dim only the dot and border and keep the text at full ink.
+- **orchestrator, 2026-10-03:** Parked: not a v1 den-loop step; revisit when growing the den (refocus, docs/refocus/triage-2026-10-02.md)

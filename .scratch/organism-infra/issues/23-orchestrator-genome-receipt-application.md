@@ -10,7 +10,7 @@ This ticket changes `.claude/agents/orchestrator.md`. Only the orchestrator appl
 
 **Blocked by:** 17, 18, 21 (the schema and the two checks it wires into must exist first)
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [ ] The orchestrator genome's handback-processing section appends a Receipt object (not a free-text summary) to `usage.jsonl` per cell return
 - [ ] It reads `tool_refusals` from the handoff's `## Tool refusals` section and files it into the Receipt
@@ -20,3 +20,4 @@ This ticket changes `.claude/agents/orchestrator.md`. Only the orchestrator appl
 ## Comments
 
 - **Created (architect, 2026-09-28):** Split from `organism-infra/15` per its own acceptance criterion 3. Deliberately last in the dependency chain: it's the one ticket in this batch that edits `.claude/agents/` directly.
+- **orchestrator, 2026-10-03:** Closed: superseded by organism-infra/116 trim (refocus, docs/refocus/triage-2026-10-02.md)

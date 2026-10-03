@@ -8,7 +8,7 @@
 
 **Blocked by:** 04, 14
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] point and look-up clips are in the glb and pass the asset contract check
 - [ ] Director tests cover the handoff sequence and that no perch changes
@@ -20,3 +20,4 @@
 - **Correction (main session, 2026-09-26):** The "no Blender MCP tools" note above is stale. A developer subagent dispatched from the main session has all six `mcp__blender__*` tools and read the open PandaAsset scene. Dispatch normally; the developer probes Blender before claiming.
 - **Scope change (user, 2026-09-29):** banquet market layout. The handoff is now the lazy susan turning the dish to the next stall; the sender still points and the receiver still looks up with a heart bubble. The qi bead and dumpling tray are dropped. Now also blocked by 14. Canvas: https://claude.ai/artifact/LQjpimx1jfX5bjZEoTo3za
 - **orchestrator, 2026-09-30:** Design sweep (designer, user-approved 2026-09-30): REWRITE: sender walks the arc carrying a dumpling (den-map), over the two-tier susan (den 04); keep point, look-up and heart-bubble beats; add the reduced-motion cross-fade from ca/05; settle how a Pass panda (on Bao) sends and receives; den vocabulary. Needs Blender bake; after den-scene-v1.
+- **orchestrator, 2026-10-03:** Parked: not a v1 den-loop step; revisit when growing the den (refocus, docs/refocus/triage-2026-10-02.md)

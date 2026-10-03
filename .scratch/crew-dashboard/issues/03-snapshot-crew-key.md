@@ -6,7 +6,7 @@
 
 **Blocked by:** 01, 02
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Design refs:** `.scratch/crew-dashboard/spec.md`
 
@@ -27,3 +27,4 @@ Touches `apps/bridge/snapshot.mjs` and the fixture.
 ## Comments
 
 - **orchestrator, 2026-10-01:** Published from the crew-dashboard spec and ADR 0017 after the user approved the breakdown (user, 2026-10-01). Infra tickets first; frontend (P3) waits until the pipeline is where the user wants it.
+- **orchestrator, 2026-10-03:** Parked: not a v1 den-loop step; revisit when growing the den (refocus, docs/refocus/triage-2026-10-02.md)

@@ -10,7 +10,7 @@ The `.claude/settings.json` change is user-gated. The PR merge is that gate.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] Each pattern is blocked in a worktree cwd, with a reason naming the rule (tests on the script's stdin/stdout contract)
 - [ ] Plain single commands in a worktree, and any command outside worktrees, are allowed (tests)
@@ -22,3 +22,4 @@ The `.claude/settings.json` change is user-gated. The PR merge is that gate.
 - **Created (orchestrator, 2026-09-29):** pipeline-retro fix #1, approved by the user (wording failed twice).
 
 - **orchestrator, 2026-10-01:** Raised to P1 for 10-02 (user): pipeline saver.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

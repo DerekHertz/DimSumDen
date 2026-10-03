@@ -34,7 +34,7 @@ Scope (user decision: prose and names, but not data fields):
 
 **Blocked by:** den-scene-v1/05, den-scene-v1/09 (both touch files this renames; run after they merge)
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [ ] `grep -rniwE "cells?|genomes?|organisms?|apoptosis|mitosis|endocrine|homeostasis|agent office"` over `.claude/agents`, `.claude/skills`, `docs/agents`, `docs/design`, `CLAUDE.md`, `AGENTS.md`, `CONTEXT.md` and `README.md` returns only intentional "was: cell" notes (list them in the handoff)
 - [ ] No tracked file or directory outside `.scratch/` and `docs/adr/` has `cell`, `genome` or `organism` in its path (test)
@@ -47,3 +47,4 @@ Scope (user decision: prose and names, but not data fields):
 - **Created (orchestrator, 2026-10-01):** The user asked for "genome" and "cell" and other leftover terms to fit the dim sum theme; chose prose plus names, not data fields, and to run it after 05 and 09 merge, ahead of 04, 06, 07, 08 and 10. 88 and 89 also touch `log-cell.mjs`; run them after this, or rebase.
 
 - **orchestrator, 2026-10-01:** Priority set for the 10-02 infra day (user): P2 so it runs after the pipeline savers (57, 98, 52, 86, 104); it is a wide rename and must run alone. crew-dashboard/01 is blocked by it.
+- **orchestrator, 2026-10-03:** Closed: renaming churn, serves no v1 step (refocus, docs/refocus/triage-2026-10-02.md)

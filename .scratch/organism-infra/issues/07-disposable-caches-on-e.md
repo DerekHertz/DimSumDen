@@ -14,7 +14,7 @@ Nothing irreplaceable goes on `E:`: no repo, no worktrees, no board.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] Each cache's location is set and documented in `docs/agents/` (one short section)
 - [ ] Deleting `E:\agent-office-cache\` entirely is harmless: everything re-downloads or rebuilds
@@ -23,3 +23,4 @@ Nothing irreplaceable goes on `E:`: no repo, no worktrees, no board.
 ## Comments
 
 - **Created (orchestrator, 2026-09-27):** At the user's request, from a hardware review (see `06`).
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

@@ -8,6 +8,9 @@
 
 **Blocked by:** herald/02
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] One failing fixture per new pattern, then passing
+
+## Comments
+- **orchestrator, 2026-10-03:** Parked: not a v1 step; one active feature at a time (refocus, docs/refocus/triage-2026-10-02.md)

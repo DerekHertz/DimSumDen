@@ -10,7 +10,7 @@ Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 
 **Blocked by:** jg trial verdict (ADR 0014 decision 8), then the ADR 0015 decision 9 evidence
 
-**Status:** blocked
+**Status:** closed
 
 - [ ] `jev.mjs find --file <path> --ask "<need>"` returns exact line ranges chosen by code from Jev-selected chunk IDs; at most 255 options and about 64K tokens per call.
 - [ ] Denied paths and secret-pattern chunks are never sent (dropped, tested); capped at $0.15 per day. Reuses the jg wrapper's denied-path list and secret rule (ADR 0015 decision 8).
@@ -22,3 +22,4 @@ Note: Criteria are the spec's; re-check them against the re-scope decision befor
 ## Comments
 
 - orchestrator, 2026-09-30: blocked at filing; unblock when: jg trial verdict (ADR 0014 decision 8), then the ADR 0015 decision 9 evidence.
+- **orchestrator, 2026-10-03:** Closed: Jev find/compaction points dropped (refocus, docs/refocus/triage-2026-10-02.md)

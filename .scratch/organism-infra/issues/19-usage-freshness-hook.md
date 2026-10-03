@@ -12,7 +12,7 @@ This ticket edits `.claude/settings.json` (hook config) — a brain gate. Only t
 
 **Blocked by:** None (can start immediately; the gate above applies to landing it, not to designing/building it)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] Dispatching via `Agent` with no `usage` line in the last 30 minutes is blocked, naming the missing sample (test)
 - [ ] Dispatching via `Agent` within 30 minutes of a `usage` line succeeds (test)
@@ -23,3 +23,4 @@ This ticket edits `.claude/settings.json` (hook config) — a brain gate. Only t
 ## Comments
 
 - **Created (architect, 2026-09-28):** Split from `organism-infra/15` per ADR 0009 decision 2. Brain gate: this ticket changes `.claude/settings.json`; get the user's explicit yes before applying, per organism-protocol.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

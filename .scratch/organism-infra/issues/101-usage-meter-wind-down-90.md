@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** parked
 
 ## What to build
 
@@ -22,3 +22,4 @@ Files: `apps/ui/src/panel/usage-meter-model.mjs`, `apps/ui/src/panel/usage-meter
 
 ## Comments
 - **orchestrator, 2026-10-02:** Found by qa specify for batch K (91 covers `scripts/` only). Filed on the user's yes. Small; good batch partner for the next UI or infra relay.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

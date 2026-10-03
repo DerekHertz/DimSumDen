@@ -8,7 +8,7 @@
 
 **Blocked by:** 81
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] An `in-review` ticket with no lock and activity under 24h ago is not flagged (test)
 - [ ] The same ticket with no activity for 24h or more is flagged (test)
@@ -17,3 +17,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-09-30):** User chose a follow-up over a batch A fix round.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

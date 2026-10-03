@@ -6,7 +6,7 @@
 
 **Blocked by:** 07
 
-**Status:** ready-for-agent
+**Status:** closed
 
 **Design refs:** `docs/design/den-map.md` (coordinates, constants, checks) and `docs/design/2026-09-29-scene-decisions.md` (the why), on branch `design/scene-decisions-0929` until it merges. Target frame: "Level 1 · Den (target)" on the Zoom levels page of the zoom frames canvas (https://claude.ai/artifact/JsxZ5Vj7DxJQbekA2Ehoot). Design system: https://claude.ai/artifact/HBXgYhAzu6YmekpW71WM7j (Scene, Glossary, Panda roles).
 
@@ -46,3 +46,4 @@ The full list is in the design system's Glossary and in `CONTEXT.md` under "UI n
 - **Created (designer, 2026-09-30):** Filed from the 09-29/30 design session; the user approved every decision in this ticket.
 - **orchestrator, 2026-09-30:** Design sweep (designer, user-approved 2026-09-30): Scope added: absorbs ca/19 page <title>.
 - **orchestrator, 2026-10-01:** Related: organism-infra/90 carries the den words into genomes, skills, docs and command names (user, 2026-10-01). The line above, 'Code identifiers, file names, event names and genomes stay as they are', is narrowed: genomes and command names now change in 90. Data fields and code identifiers still stay. This ticket keeps UI copy only.
+- **orchestrator, 2026-10-03:** Closed: renaming churn, serves no v1 step (refocus, docs/refocus/triage-2026-10-02.md)

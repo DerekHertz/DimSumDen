@@ -10,7 +10,7 @@ Override: the human applies the label after reviewing the diff — this is not a
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] A PR touching a file under `.claude/` without the approval label fails the check, naming the changed `.claude/` paths (test)
 - [ ] The same PR passes once the label is applied (test)
@@ -20,3 +20,4 @@ Override: the human applies the label after reviewing the diff — this is not a
 ## Comments
 
 - **Created (architect, 2026-09-28):** Split from `organism-infra/15` per ADR 0009 decision 2. Included on cost/hard-to-reverse grounds (ADR criteria), not incident count — 0 logged incidents in `usage.jsonl` so far.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

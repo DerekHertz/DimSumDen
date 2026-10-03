@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** parked
 
 ## What to build
 
@@ -29,3 +29,4 @@ Files: `scripts/statusline.mjs`, `scripts/session-start.mjs`, `scripts/notify.mj
 
 ## Comments
 - **orchestrator, 2026-10-02:** Filed from batch M's security review (pass with nits), #142 merged.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

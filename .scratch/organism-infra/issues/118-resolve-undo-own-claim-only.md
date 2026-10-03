@@ -6,7 +6,7 @@
 
 **Blocked by:** 114
 
-**Status:** ready-for-agent
+**Status:** parked
 
 ## What to build
 
@@ -27,3 +27,4 @@ Files: `apps/organism-infra/board-service.mjs`, `apps/organism-infra/board-resol
 
 ## Comments
 - **orchestrator, 2026-10-02:** Filed from 114's security review; not blocking 114's merge.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

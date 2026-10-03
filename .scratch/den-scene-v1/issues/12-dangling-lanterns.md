@@ -16,7 +16,7 @@
 
 **Blocked by:** none for the spec; the build follows 09, since both touch `kiosk.mjs`
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [ ] Designer spec, with the lit-state question settled with the user
 - [ ] Each kiosk has the specified number of lanterns hanging from its eave by a cord, and none uses a near-black material (test)
@@ -28,3 +28,4 @@
 
 - **Created (orchestrator, 2026-10-01):** From the user's notes and inspiration image after looking at 09 at 030c706.
 - **orchestrator, 2026-10-01:** User decision on the lit state (2026-10-01): all lanterns glow softly as ambient decoration. The lantern no longer carries the waiting_on_user signal; that replaces 03's lit-lantern rule and its state test (update both, and den-map.md's Lantern row). The designer proposes another in-scene cue that a panda needs the user, in the spec, for the user to pick; the 07 'Needs you' card and the '· waiting' pills stay.
+- **orchestrator, 2026-10-03:** Closed: iso layout frozen (refocus, docs/refocus/triage-2026-10-02.md)

@@ -6,7 +6,7 @@
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Design refs:** `.scratch/crew-dashboard/spec.md`, the video write-up in the spec's Source
 
@@ -24,3 +24,4 @@ The designer writes a UI spec and mockups for the Crew view (role card, Next-up 
 ## Comments
 
 - **orchestrator, 2026-10-01:** Published from the crew-dashboard spec and ADR 0017 after the user approved the breakdown (user, 2026-10-01). Infra tickets first; frontend (P3) waits until the pipeline is where the user wants it.
+- **orchestrator, 2026-10-03:** Parked: not a v1 den-loop step; revisit when growing the den (refocus, docs/refocus/triage-2026-10-02.md)

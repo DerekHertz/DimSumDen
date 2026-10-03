@@ -8,7 +8,10 @@
 
 **Blocked by:** 01, 02
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] Draft passes the draft-shape check
 - [ ] User approves the draft (ready-for-human)
+
+## Comments
+- **orchestrator, 2026-10-03:** Parked: not a v1 step; one active feature at a time (refocus, docs/refocus/triage-2026-10-02.md)

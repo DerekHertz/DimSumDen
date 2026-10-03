@@ -14,7 +14,7 @@
 
 **Blocked by:** none (PR 115 should merge first so the genome edit applies to the new wording)
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [ ] `compact` returns `continue` under 100k and `handoff-now` at 150k or more without a model call (tests)
 - [ ] In the 100k–150k band the label is one of the three, and a transport failure falls back to `finish-in-flight` (tests with a stub transport)
@@ -26,3 +26,4 @@
 
 - **Created (orchestrator, 2026-10-01):** Filed on the user's yes (2026-10-01): "when we approach the session token limit we set, 100-150k, we should write handoff then compact. this is something jev can help with." The fixed-threshold genome rule is PR 115.
 - **orchestrator, 2026-10-01:** Thresholds changed (user, 2026-10-01): the genome now says no new tickets from 70k and handoff + /compact at 80k. Use 70k/80k for the guard rails instead of 100k/150k; the model decides the band between them.
+- **orchestrator, 2026-10-03:** Closed: Jev find/compaction points dropped (refocus, docs/refocus/triage-2026-10-02.md)

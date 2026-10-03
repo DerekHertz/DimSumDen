@@ -6,7 +6,7 @@
 
 **Blocked by:** 109, 110, 111
 
-**Status:** ready-for-agent
+**Status:** parked
 
 ## What to build
 
@@ -24,3 +24,4 @@ Files: `scripts/subagent-stop.mjs` (+ test), `scripts/log-cell.mjs` (export its 
 
 ## Comments
 - **orchestrator, 2026-10-02:** Audit proposal 4, user yes. After batch M (all touch `.claude/settings.json`).
+- **orchestrator, 2026-10-03:** Parked: desktop subagents retire after organism-infra/106; the bridge logs cells (refocus, docs/refocus/triage-2026-10-02.md)

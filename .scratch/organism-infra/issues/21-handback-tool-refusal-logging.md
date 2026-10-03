@@ -10,7 +10,7 @@ This closes two incidents: a refused compound `cd`+heredoc command that went unr
 
 **Blocked by:** 17 (Receipt schema and `validateReceipt`)
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [ ] The `handoff` skill template includes a `## Tool refusals` heading; an empty section is invalid, `none` (or a listed refusal) is required (test)
 - [ ] The orchestrator's handback-processing step extracts `## Tool refusals` content into the Receipt's `tool_refusals` field (test)
@@ -20,3 +20,4 @@ This closes two incidents: a refused compound `cd`+heredoc command that went unr
 ## Comments
 
 - **Created (architect, 2026-09-28):** Split from `organism-infra/15` per ADR 0009 decision 2. Evidence: `usage.jsonl` incidents on `ci-cd/04`, 2026-09-28T12:00:00Z and 12:30:00Z.
+- **orchestrator, 2026-10-03:** Closed: hand-written logging rituals dropped (refocus, docs/refocus/triage-2026-10-02.md)

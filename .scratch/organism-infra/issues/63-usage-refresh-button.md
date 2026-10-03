@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] Button triggers a bridge route that runs usage.mjs and appends a `usage` row (test)
 - [ ] Plan-usage bar updates from the new row
@@ -16,3 +16,4 @@
 
 ## Comments
 - **Idea (user, 2026-09-30):** logged as a low-priority idea.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

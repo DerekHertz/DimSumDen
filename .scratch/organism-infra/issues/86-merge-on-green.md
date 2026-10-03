@@ -8,7 +8,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] A PR with any failing check is refused and nothing is merged (test)
 - [ ] A PR with a pending check is refused (test)
@@ -21,3 +21,4 @@
 - **Created (orchestrator, 2026-09-30):** pipeline-retro session 15, tool ci, count 2 (PR 96 red merge, batch A hidden release error).
 
 - **orchestrator, 2026-10-01:** Raised to P1 for 10-02 (user): pipeline saver.
+- **orchestrator, 2026-10-03:** Parked: folds into the bridge relay runner (refocus, docs/refocus/triage-2026-10-02.md)

@@ -6,7 +6,7 @@
 
 **Blocked by:** 108
 
-**Status:** ready-for-agent
+**Status:** parked
 
 ## What to build
 
@@ -25,3 +25,4 @@ Files: `scripts/apply-gated.mjs`, `scripts/apply-gated.extra.test.mjs`.
 
 ## Comments
 - **orchestrator, 2026-10-02:** Filed from 108's security review. Finding 3 (commit runs repo hooks; only matters if `core.hooksPath` points at a tracked dir) noted, not in scope.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

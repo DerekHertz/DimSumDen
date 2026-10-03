@@ -6,7 +6,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** closed
 
 **Design refs:** `docs/design/den-map.md` (coordinates, constants, checks) and `docs/design/2026-09-29-scene-decisions.md` (the why), on branch `design/scene-decisions-0929` until it merges. Target frame: "Level 1 · Den (target)" on the Zoom levels page of the zoom frames canvas (https://claude.ai/artifact/JsxZ5Vj7DxJQbekA2Ehoot). Design system: https://claude.ai/artifact/HBXgYhAzu6YmekpW71WM7j (Scene, Glossary, Panda roles).
 
@@ -30,3 +30,4 @@ Replace the open cub basket with a lidded bamboo hamper.
 
 - **Created (designer, 2026-09-30):** Filed from the 09-29/30 design session; the user approved every decision in this ticket.
 - **orchestrator, 2026-09-30:** Design sweep (designer, user-approved 2026-09-30): Scope added: low-poly first (box with a hinged lid). Cubs wear a nightcap.
+- **orchestrator, 2026-10-03:** Closed: iso layout frozen (refocus, docs/refocus/triage-2026-10-02.md)

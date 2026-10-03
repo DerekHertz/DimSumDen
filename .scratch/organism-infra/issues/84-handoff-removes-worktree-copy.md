@@ -8,7 +8,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] Publishing from a worktree's `.scratch/` removes the source file after a successful publish (test)
 - [ ] A failed publish (e.g. State block invalid) leaves the source file in place (test)
@@ -17,3 +17,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-09-30):** pipeline-retro session 15, cause "reviewer leaves handoff copy", tool board-handoff, count 2.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)

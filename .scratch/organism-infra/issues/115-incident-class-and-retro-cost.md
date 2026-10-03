@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** parked
 
 ## What to build
 
@@ -27,3 +27,4 @@ Files: the incident logging script under `scripts/` (+ test), the retro data scr
 
 ## Comments
 - **orchestrator, 2026-10-02:** Filed from the batch/throughput review, user yes 2026-10-02 ("ticket B"). Rules 1–2 (batch only same-kind infra, at most three; split tickets expected over ~300k) went into the orchestrator genome the same day; this ticket measures whether they work.
+- **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)
