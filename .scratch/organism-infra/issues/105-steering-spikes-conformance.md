@@ -4,7 +4,7 @@
 
 **Priority:** P1
 
-**Blocked by:** None (can start immediately)
+**Blocked by:** 90 (the steering code is written in the new vocabulary)
 
 **Status:** ready-for-agent
 

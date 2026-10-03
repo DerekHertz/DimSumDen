@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Blocked by:** 116 (it rewrites the role files and the protocol skill this ticket renames)
+
 **Status:** ready-for-agent
 
 **Serves:** ADR 0019 decision 10 (refocus vocabulary); runs before organism-infra/105 so the steering code is written in the new terms.

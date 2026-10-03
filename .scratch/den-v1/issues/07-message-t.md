@@ -1,0 +1,26 @@
+# 07: T: send an agent a message from the card
+
+**Type:** feature
+
+**Priority:** P1
+
+**Blocked by:** 04, organism-infra/107
+
+**Status:** ready-for-agent
+
+**Serves:** Den loop steps 3-4 (T sends a message; the agent receives it).
+
+## What to build
+
+**T** on the card opens a text box; Enter sends the text (at most 2 KB) with `POST /agents/:id/message` (ADR 0016's message route, named `/agents` under ADR 0019 decision 10) through the bridge client. The card shows the message as sent, then received once the agent's event stream acknowledges it. Disabled with the reason when the runtime cannot send.
+
+## Acceptance criteria
+
+- [ ] Enter sends exactly one request with the text and the token; Esc cancels without sending.
+- [ ] Text over 2 KB is refused in the UI before sending.
+- [ ] The card shows sent, then received when the acknowledgement event arrives.
+- [ ] `npm test` is green.
+
+## Comments
+
+- **Created (orchestrator, 2026-10-03):** From `.scratch/den-v1/spec.md` (ADR 0019). Keep under ~120k tokens; split rather than stretch.
