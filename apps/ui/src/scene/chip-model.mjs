@@ -4,6 +4,7 @@ const CHIPS = {
   working: { label: "Working", tone: "working" },
   waiting_on_user: { label: "Needs you", tone: "lantern" },
   blocked: { label: "Blocked", tone: "blocked" },
+  failed: { label: "Failed", tone: "failed" },
   done: { label: "Done", tone: "done" },
   idle: { label: "Queued", tone: "idle" },
 };
