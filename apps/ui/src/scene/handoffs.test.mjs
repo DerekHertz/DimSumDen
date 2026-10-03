@@ -178,20 +178,16 @@ test("the service bell stands on Bao's crown", async () => {
   assert.equal(TABLE.x, 0);
 });
 
-test("wiring: App derives handoffs and passes baskets, handoffs and hearts down; the susan no longer spins", async () => {
+test("wiring: App renders the procedural den with the frontier, and hearts still reach the chips", async () => {
+  // den-v1 (#151): the procedural den replaced the market scene; the handoff delivery
+  // choreography was not ported, but handoffs still drive the heart bubbles.
   const { readFileSync } = await import("node:fs");
-  const read = (f) => readFileSync(new URL(f, import.meta.url), "utf8");
-  const app = read("../App.jsx");
+  const app = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
+  assert.match(app, /import \{ Den \} from "\.\/scene\/procedural\/Den\.jsx"/);
   assert.match(app, /useHandoffs\(snapshot\)/);
-  assert.match(app, /<Den [^>]*baskets=\{baskets\}[^>]*handoffs=\{handoffs\}/);
+  assert.match(app, /<Den [^>]*frontier=\{frontier\}/);
   assert.match(app, /<ChipLayer [^>]*hearts=\{hearts\}/);
-  const market = read("./Market.jsx");
-  assert.match(market, /turnAngle/);
-  assert.match(market, /lanternState/);
-  assert.doesNotMatch(market, /rotation\.y \+=/);
-  assert.match(read("./Den.jsx"), /<Market baskets=\{baskets\} handoffs=\{handoffs\} cells=\{cells\}/);
-  assert.match(read("./ChipLayer.jsx"), /chip-heart/);
-  assert.match(read("../styles.css"), /reduce\)[^\n]*\.chip-heart \{ animation: none/);
+  assert.match(readFileSync(new URL("./ChipLayer.jsx", import.meta.url), "utf8"), /chip-heart/);
 });
 
 // den-scene-v1/11 T7: Bao's roam footprint comes from his scale, and the rear handoff arc stays outside it.

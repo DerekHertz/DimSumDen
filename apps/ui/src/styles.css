@@ -128,11 +128,14 @@ body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-w
 .chip:focus-visible, .chip[aria-pressed="true"], .chip-tally[aria-expanded="true"] { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .chip-glyph { width: 8px; height: 8px; background: currentColor; border-radius: var(--radius-full); }
 .chip-working { color: var(--qi); }
+.chip-working .chip-glyph { border-radius: var(--radius-full); } /* den-v1/01: every state has its own glyph shape, so colour is never the only cue */
 .chip-lantern { background: var(--lantern-fill); color: var(--on-lantern); border-color: var(--lantern); }
 .chip-lantern .chip-glyph { border-radius: 2px; }
 .chip-blocked { color: var(--alarm); border-style: dashed; }
 .chip-blocked .chip-glyph { border-radius: 0; }
-.chip-done .chip-glyph { border-radius: 2px; }
+.chip-failed { color: var(--alarm); border-style: dotted; }
+.chip-failed .chip-glyph { border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.chip-done .chip-glyph { border-radius: 0; transform: rotate(45deg) scale(0.85); }
 .chip-idle .chip-glyph { opacity: var(--opacity-dim); }
 .scene-caption { position: absolute; margin: 0; color: var(--ink-muted); pointer-events: none; } /* never covers the Tally pill */
 .scene-empty { left: 0; right: 0; top: 50%; text-align: center; }

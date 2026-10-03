@@ -11,11 +11,12 @@ import { ROAMER_TYPES } from "./roam.mjs";
 export const TALLY_CHIP_ID = "__tally";
 
 // `hearts` is a Set of cell refs that just received a handoff (showcase-v1/04): a heart bubble shows.
-export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, onToggleTally, tallyOpen = false, tally }) {
+export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, onToggleTally, tallyOpen = false, tally, labelsOverride }) {
   const nodes = useRef(new Map());
   // Station labels (showcase-v1/05): plain text on a rice-paper pill, placed over each stall roof.
   const labelNodes = useRef(new Map());
   const labels = useMemo(() => {
+    if(labelsOverride)return labelsOverride;
     const counts = {};
     for (const c of cells) counts[stationOf(c.cellType)] = (counts[stationOf(c.cellType)] ?? 0) + 1;
     for (const type of ROAMER_TYPES) {
@@ -24,7 +25,7 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, o
       counts[station] = (counts[station] ?? 0) + 1;
     }
     return stationLabels(counts);
-  }, [cells]);
+  }, [cells,labelsOverride]);
   const labelsRef = useRef(labels);
   labelsRef.current = labels;
   useEffect(() => {
@@ -38,11 +39,13 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, o
         // The camera moves in useFrame, before render; refresh its matrices so chips never lag it.
         camera.updateMatrixWorld();
         const pts = [];
+        for(const el of nodes.current.values())el.style.visibility='hidden';
         for (const [ref] of nodes.current) {
           // Tally hangs from a pure world point, not a registry entry that could go stale.
-          const a = ref === TALLY_CHIP_ID ? tallyAnchor() : stage.anchors.get(ref);
+          const a = ref === TALLY_CHIP_ID ? (stage.tallyAnchor ?? tallyAnchor()) : stage.anchors.get(ref);
           if (!a) continue;
           const v = (a.isVector3 ? a.clone() : new THREE.Vector3(a.x, a.y, a.z)).project(camera);
+          if(v.z<-1||v.z>1||Math.abs(v.x)>1||Math.abs(v.y)>1)continue;
           pts.push({ ref, x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height });
         }
         for (const l of labelsRef.current) {
@@ -51,7 +54,7 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, o
           const v = new THREE.Vector3(l.x, l.y, l.z).project(camera);
           el.style.left = `${((v.x + 1) / 2) * size.width}px`;
           el.style.top = `${((1 - v.y) / 2) * size.height}px`;
-          el.style.visibility = "visible";
+          el.style.visibility = v.z>=-1&&v.z<=1&&Math.abs(v.x)<=1&&Math.abs(v.y)<=1 ? "visible" : "hidden";
         }
         const placed = stackChips(pts);
         for (const [ref, p] of placed) {

@@ -1,7 +1,12 @@
-import { Suspense, useCallback, useMemo, useState } from "react";
-import { Canvas } from "@react-three/fiber";
-import { CameraRig } from "./scene/CameraRig.jsx";
-import { Den } from "./scene/Den.jsx";
+import { Component, Suspense, useCallback, useMemo, useState } from "react";
+import { Canvas, events as defaultEvents } from "@react-three/fiber";
+import { CameraRig } from "./scene/procedural/CameraRig.jsx";
+import { Den } from "./scene/procedural/Den.jsx";
+import { PandaCard } from "./scene/procedural/PandaCard.jsx";
+import { createDenCameraStore } from "./scene/procedural/camera.mjs";
+import { STATION_LABELS, TALLY_ANCHOR } from "./scene/procedural/bindings.mjs";
+import { denEvents } from "./scene/procedural/events.mjs";
+import "./scene/procedural/den.css";
 import { ChipLayer } from "./scene/ChipLayer.jsx";
 import { MAX_PLUSH, sceneFromState, withPassCell } from "./scene/scene-from-state.mjs";
 import { useLiveState } from "./live.js";
@@ -10,12 +15,17 @@ import { useMetrics } from "./metrics-state.js";
 import { dashboardModel } from "./panel/dashboard-model.mjs";
 import { tallyRods } from "./scene/tally-face.mjs";
 import { TallyCard } from "./scene/TallyCard.jsx";
-import { trackedTickets } from "./scene/handoffs.mjs";
 import { useNow } from "./panel/Panel.jsx";
 import { panelPlaceholder } from "./state/connection.mjs";
 import { createCameraStore } from "./scene/camera-store.mjs";
 import { LogoPill, Cards } from "./overlay/Cards.jsx";
 import { ZoomSwitcher, IntentBar, Timeline } from "./overlay/Bottom.jsx";
+
+class SceneBoundary extends Component {
+  state={error:null};
+  static getDerivedStateFromError(error){return {error};}
+  render(){return this.state.error?<p className="den-error" role="alert">The 3D den could not load. Your board controls are still available. Reload to try again.</p>:this.props.children;}
+}
 
 function activeCount(snapshot) {
   const active = new Set(["claimed", "in-review", "blocked", "ready-for-human"]);
@@ -32,11 +42,21 @@ export function App() {
   const snapshot = demoSnapshot ?? live.snapshot;
   const placeholder = demo ? null : panelPlaceholder(connection);
   const [selected, setSelected] = useState(null);
-  const camera = useMemo(() => createCameraStore(), []);
-  const stage = useMemo(() => ({ anchors: new Map(), camera: null, size: null }), []);
+  const stage = useMemo(() => ({ anchors: new Map(), camera: null, size: null, explorer: null, tallyAnchor: TALLY_ANCHOR }), []);
+  const camera = useMemo(() => createDenCameraStore(createCameraStore(),()=>stage.explorer?.exit()), [stage]);
+  const [den,setDen]=useState(null);
+  const [exploring,setExploring]=useState(false);
+  const [exploreHint,setExploreHint]=useState('WASD / arrows to walk · drag to look · Esc to leave');
+  const onDenReady=useCallback(value=>setDen(value),[]);
+  const sceneEvents=useMemo(()=>state=>denEvents(defaultEvents(state),stage),[stage]);
+  const selectTicket=useCallback(ref=>{stage.explorer?.exit();setSelected(ref);},[stage]);
+  const closeTicket=useCallback(()=>{setSelected(null);document.querySelector('main[aria-label="Den scene"]')?.focus({preventScroll:true});},[]);
+  const onExploreChange=useCallback(active=>{setExploring(active);if(active){setSelected(null);setTallyOpen(false);}},[]);
+  const frontier=snapshot?.frontier ?? [];
   const cells = useMemo(() => (snapshot ? sceneFromState(snapshot) : []), [snapshot]);
   // Bao's crown always holds the Pass: an idle stand-in when no orchestrator work is active.
   const sceneCells = useMemo(() => withPassCell(cells), [cells]);
+  const sceneChips=useMemo(()=>[...cells,...frontier.map(ref=>({ref,cellType:'queued',pose:'idle'}))],[cells,frontier]);
   const handoffs = useHandoffs(snapshot);
   const { metrics, failed: metricsFailed, retry: retryMetrics } = useMetrics(metricsRevision);
   const dashboard = useMemo(() => dashboardModel(metrics, { error: metricsFailed }), [metrics, metricsFailed]);
@@ -45,7 +65,7 @@ export function App() {
   // Tally expands into an in-place card over the scene (nothing scrolls). Esc, Close and the pill return
   // focus to the pill; an outside pointerdown closes without moving focus.
   const [tallyOpen, setTallyOpen] = useState(false);
-  const openTally = useCallback(() => setTallyOpen(true), []);
+  const openTally = useCallback(() => {stage.explorer?.exit();setTallyOpen(true);}, [stage]);
   const closeTally = useCallback((restoreFocus = false) => {
     setTallyOpen(false);
     if (restoreFocus) document.querySelector(".chip-tally")?.focus({ preventScroll: true });
@@ -55,29 +75,43 @@ export function App() {
     else openTally();
   }, [tallyOpen, openTally, closeTally]);
   const hearts = useMemo(() => new Set(handoffs.map((h) => h.ref)), [handoffs]);
-  const baskets = useMemo(
-    () => [...trackedTickets(snapshot)].map(([ref, t]) => ({ ref, station: t.station })),
-    [snapshot],
-  );
   const overflow = snapshot ? Math.max(0, activeCount(snapshot) - MAX_PLUSH) : 0;
   return (
-    <div className="shell">
+    <div className={`shell procedural-den${exploring ? " den-visiting" : ""}`}>
       <main aria-label="Den scene" aria-keyshortcuts="ArrowLeft ArrowRight + -" tabIndex={0} className="scene">
-        <Canvas aria-hidden="true" orthographic camera={{ manual: true, zoom: 1, near: 0.1, far: 120 }} onPointerMissed={() => setSelected(null)}>
-          <CameraRig store={camera} />
-          <ambientLight intensity={0.8} />
-          <directionalLight position={[2, 4, 3]} intensity={1.2} />
-          <Suspense fallback={null}>
-            <Den cells={sceneCells} baskets={baskets} handoffs={handoffs} tally={tally} onOpenTally={openTally} selected={selected} onSelect={setSelected} stage={stage} />
-          </Suspense>
-        </Canvas>
-        <ChipLayer cells={cells} hearts={hearts} onToggleTally={toggleTally} tallyOpen={tallyOpen} tally={tally} tickets={snapshot?.tickets} selected={selected} onSelect={setSelected} stage={stage} />
+        <SceneBoundary>
+          <Canvas aria-hidden="true" orthographic shadows dpr={[1,1.5]}
+            camera={{ manual: true, zoom: 1, near: 0.1, far: 160 }}
+            gl={{antialias:true}} events={sceneEvents} onPointerMissed={() => setSelected(null)}>
+            <CameraRig store={camera} stage={stage} den={den} onModeChange={onExploreChange} onHint={setExploreHint} />
+            <Suspense fallback={null}>
+              <Den cells={sceneCells} frontier={frontier} tally={tally} onOpenTally={openTally}
+                selected={selected} onSelect={selectTicket} stage={stage} onReady={onDenReady} />
+            </Suspense>
+          </Canvas>
+        </SceneBoundary>
+        <ChipLayer cells={sceneChips} labelsOverride={STATION_LABELS} hearts={hearts} onToggleTally={toggleTally} tallyOpen={tallyOpen} tally={tally} tickets={snapshot?.tickets} selected={selected} onSelect={selectTicket} stage={stage} />
         {tallyOpen ? <TallyCard tally={tally} metrics={metrics} failed={metricsFailed} onRetry={retryMetrics} onClose={closeTally} stage={stage} /> : null}
+        {selected?<PandaCard snapshot={snapshot} selected={selected} onClose={closeTicket} />:null}
+        <div className="den-crosshair" aria-hidden="true" hidden={!exploring}>+</div>
         {snapshot && cells.length === 0 ? <p className="scene-caption scene-empty">The den is quiet. No active tickets.</p> : null}
         {overflow > 0 ? <p className="scene-caption scene-more">+{overflow} more in queue</p> : null}
       </main>
       <LogoPill connection={connection} />
       <Cards snapshot={snapshot} now={now} connection={connection} placeholder={placeholder} camera={camera} />
+      <div className="den-entry">
+        <button type="button" className="btn btn-solid" aria-pressed={exploring} aria-disabled={!den || undefined}
+          onClick={()=>{if(stage.explorer?.active)stage.explorer.exit();else stage.explorer?.enter();}}>
+          {exploring?'Leave the den':'Enter the den'}
+        </button>
+        <p className="den-walk-hint" hidden={!exploring}>{exploreHint}</p>
+      </div>
+      <nav className="den-walk-pad" aria-label="Walk around the den" hidden={!exploring}>
+        <button type="button" data-den-walk="KeyW" aria-label="Walk forward">↑</button>
+        <button type="button" data-den-walk="KeyA" aria-label="Walk left">←</button>
+        <button type="button" data-den-walk="KeyS" aria-label="Walk backward">↓</button>
+        <button type="button" data-den-walk="KeyD" aria-label="Walk right">→</button>
+      </nav>
       <ZoomSwitcher camera={camera} />
       <IntentBar />
       <Timeline snapshot={snapshot} now={now} />

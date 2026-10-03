@@ -16,9 +16,9 @@ const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../", import.meta.url))
 
 // Expected values are literals worked out from the fixture (see bridge-fixture.mjs), not
 // recomputed from the snapshot.
-//  Scene: one plush and chip per active ticket (04 in-review, 05 blocked, 06 ready-for-human) = 3 chips.
-//  Queued tickets (02, 07, 08) show only as baskets on the lazy susan (showcase-v1/04); the tally chip is not a cell chip.
-const EXPECTED_CHIPS = 3;
+//  Scene: one chip per active ticket (04 in-review, 05 blocked, 06 ready-for-human) plus one "Queued" chip per
+//  frontier basket on the table (02, 07, 08; den-v1, kept by the user 2026-10-03) = 6; the tally chip is not a cell chip.
+const EXPECTED_CHIPS = 6;
 //  Queue: frontier by priority. 02 is P0; 07 is P1 bumped to P0 by three orchestrator handoffs
 //  newer than it; 08 has no priority (P2).
 const EXPECTED_QUEUE_HEAD = ["02: Ready P0", "07: Bumpable", "08: Plain"];
@@ -154,7 +154,7 @@ async function main() {
     // den-iso-v1/02: the orthographic camera. Observables are the four station signs (`.station-label`, placed by
     // projecting each kiosk's roof apex) and the Tally chip, measured against the scene box (`main.scene`).
     // Expected values are literals from docs/design/2026-10-01-iso-den.md: at the default zoom every kiosk is in
-    // view at 1440x900 and at 375x667; wheel zoom scales the sign spacing by 1/d; a drag of dx px shifts every
+    // view at 1440x900 and at 375x667; wheel zoom is exponential (zoom *= exp(deltaY / 1000), procedural/camera.mjs) so signs spread by 1/d; a drag of dx px shifts every
     // sign by dx px (an orthographic camera moves the whole scene rigidly).
     const sceneProbe = () =>
       page.evaluate(() => {
@@ -200,7 +200,7 @@ async function main() {
       return `${Object.keys(p.signs).length} signs inside ${Math.round(p.width)}x${Math.round(p.height)}`;
     });
 
-    await check("camera zoom: wheel zoom scales the sign spacing by 1/d and stays within the range", async () => {
+    await check("camera zoom: wheel zoom scales the sign spacing by 1/d (exponential) and stays within the range", async () => {
       await page.setViewportSize({ width: 1440, height: 900 });
       // The signs follow a resize a few frames late (longer under load): the first probe can still show the
       // phone-sized layout from the previous check, which also "fits". Take the baseline only once the signs are
@@ -211,8 +211,8 @@ async function main() {
       const gap = (p) => p.signs["Front of House"].x - p.signs["Steamers"].x;
       const box = await page.locator("main.scene").boundingBox();
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-      await page.mouse.wheel(0, -300); // zoom factor 1 -> 0.7: 1/0.7 = 1.4286 times wider
-      const zoomed = await settle((p) => Math.abs(gap(p) / gap(base) - 1 / 0.7) < 0.03, "zoom in by 0.3");
+      await page.mouse.wheel(0, -300); // exponential: zoom factor 1 -> exp(-0.3) = 0.7408, so 1/0.7408 = 1.3499 times wider
+      const zoomed = await settle((p) => Math.abs(gap(p) / gap(base) - 1.3499) < 0.03, "zoom in by exp(-0.3)");
       await page.mouse.wheel(0, -5000); // clamps at 0.55: 1/0.55 = 1.818
       const nearest = await settle((p) => Math.abs(gap(p) / gap(base) - 1 / 0.55) < 0.04, "zoom clamps at 0.55");
       await page.mouse.wheel(0, 20000); // clamps at 1.2: 1/1.2 = 0.833
@@ -223,9 +223,13 @@ async function main() {
     await check("camera pan: dragging 100 px right moves every sign 100 px right", async () => {
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.mouse.wheel(0, -3000); // back to the nearest zoom, where there is room to pan sideways
-      const before = await settle((p) => p.signs["Tea"] && p.signs["Pantry"] && p.signs["Pantry"].x - p.signs["Tea"].x > 0, "zoomed in");
+      // At the nearest zoom (0.55) the outer signs (Tea, Pantry) sit past the viewport edge and ChipLayer hides them,
+      // so measure the signs that are still on screen with room to move 100 px: Steamers and Front of House at least.
+      await settle((p) => p.signs["Steamers"] && p.signs["Front of House"] && p.signs["Front of House"].x - p.signs["Steamers"].x > 1000, "zoomed in");
       await page.waitForTimeout(800); // let the rig's easing finish before measuring
       const start = await sceneProbe();
+      const names = Object.keys(start.signs).filter((n) => start.signs[n].left >= 4 && start.signs[n].right + 110 <= start.width);
+      if (!names.includes("Steamers") || !names.includes("Front of House")) throw new Error("expected Steamers and Front of House on screen with room to pan, got " + JSON.stringify(names));
       const box = await page.locator("main.scene").boundingBox();
       const cx = box.x + box.width / 2;
       const cy = box.y + box.height / 2;
@@ -234,11 +238,44 @@ async function main() {
       await page.mouse.move(cx + 50, cy, { steps: 5 });
       await page.mouse.move(cx + 100, cy, { steps: 5 });
       await page.mouse.up();
-      const after = await settle((p) => ["Steamers", "Front of House", "Tea", "Pantry"].every((n) => p.signs[n] && Math.abs(p.signs[n].x - start.signs[n].x - 100) < 4), "drag by 100 px");
-      for (const n of ["Steamers", "Front of House", "Tea", "Pantry"]) {
+      const after = await settle((p) => names.every((n) => p.signs[n] && Math.abs(p.signs[n].x - start.signs[n].x - 100) < 4), "drag by 100 px");
+      for (const n of names) {
         if (Math.abs(after.signs[n].y - start.signs[n].y) > 4) throw new Error(`${n} sign moved vertically by ${after.signs[n].y - start.signs[n].y}`);
       }
-      return `signs shifted ${Math.round(after.signs["Tea"].x - start.signs["Tea"].x)} px (was ${Math.round(before.signs["Tea"].x)})`;
+      return `${names.length} signs shifted ${Math.round(after.signs["Steamers"].x - start.signs["Steamers"].x)} px`;
+    });
+
+    // den-v1/03: Enter the den switches to a first-person camera, WASD moves it, Esc returns the diorama camera to the
+    // frame it left. Observables: the button's aria-pressed, the crosshair, and the station signs, which ChipLayer
+    // projects through whichever camera is live (the walker's perspective camera moves them; the diorama's does not).
+    await check("walk: Enter the den, move with W, Esc returns the diorama to the same frame", async () => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.waitForTimeout(800); // the diorama's easing has finished
+      const enter = page.getByRole("button", { name: "Enter the den" });
+      await page.waitForFunction(() => !document.querySelector(".den-entry button")?.hasAttribute("aria-disabled"), null, { timeout: 15000 });
+      const round = (p) => Object.fromEntries(Object.entries(p.signs).map(([n, r]) => [n, [Math.round(r.x), Math.round(r.y)]]));
+      const before = await sceneProbe();
+      await enter.click();
+      await page.waitForSelector(".den-crosshair:not([hidden])", { timeout: 5000 });
+      expectEqual(await page.locator(".den-entry button").getAttribute("aria-pressed"), "true", "button pressed in walk mode");
+      await page.waitForTimeout(500);
+      const standing = round(await sceneProbe());
+      // Hold W until the view has moved (the software-rendered scene runs at a few frames a second, so poll, don't sleep).
+      await page.keyboard.down("KeyW");
+      let walked = standing;
+      const deadline = Date.now() + 8000;
+      while (Date.now() < deadline && JSON.stringify(walked) === JSON.stringify(standing)) {
+        await page.waitForTimeout(250);
+        walked = round(await sceneProbe());
+      }
+      await page.keyboard.up("KeyW");
+      if (JSON.stringify(walked) === JSON.stringify(standing)) throw new Error("W did not move the view in 8 s: " + JSON.stringify(standing));
+      await page.keyboard.press("Escape");
+      await page.waitForSelector(".den-crosshair[hidden]", { state: "attached", timeout: 5000 });
+      expectEqual(await page.locator(".den-entry button").getAttribute("aria-pressed"), "false", "button after Esc");
+      const names = Object.keys(before.signs);
+      const back = await settle((p) => names.every((n) => p.signs[n] && Math.abs(p.signs[n].x - before.signs[n].x) < 2 && Math.abs(p.signs[n].y - before.signs[n].y) < 2), "diorama frame restored after Esc");
+      return `view moved while walking, ${names.length} signs back within 2 px after Esc (${Math.round(back.width)}x${Math.round(back.height)})`;
     });
   } finally {
     await browser?.close();

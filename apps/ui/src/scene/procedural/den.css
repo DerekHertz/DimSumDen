@@ -1,0 +1,28 @@
+/* Controls for the procedural den; existing board and approval cards retain their styles. */
+.den-entry { position:absolute; left:16px; top:88px; z-index:4; max-width:310px; }
+.den-entry .btn { min-height:44px; box-shadow:var(--shadow-panel); }
+.den-walk-hint { margin:8px 0; padding:8px 12px; border-radius:10px; background:var(--surface-glass); color:var(--ink); font-size:12px; }
+.den-crosshair { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:#fffdf7; text-shadow:0 1px 3px #1d2124; pointer-events:none; }
+.den-visiting .zoom-switcher, .den-visiting .timeline { display:none; }
+.den-visiting .chip-layer { pointer-events:none; }
+.den-visiting .chip-layer .chip { pointer-events:auto; }
+.den-walk-pad { position:absolute; bottom:116px; left:16px; z-index:4; display:grid; grid-template-columns:repeat(3,48px); gap:6px; }
+.den-walk-pad[hidden], .den-crosshair[hidden], .den-walk-hint[hidden] { display:none; }
+.den-walk-pad button { width:48px; height:48px; border:1px solid var(--line-strong); border-radius:10px; background:var(--surface-glass); color:var(--ink); font-size:23px; touch-action:none; }
+.den-walk-pad button:first-child { grid-column:2; }
+.den-walk-pad button:nth-child(2) { grid-column:1; grid-row:2; }
+.den-walk-pad button:nth-child(3) { grid-column:2; grid-row:2; }
+.den-walk-pad button:nth-child(4) { grid-column:3; grid-row:2; }
+.panda-detail { position:absolute; z-index:5; top:155px; left:16px; width:min(390px,calc(100vw - 32px)); max-height:calc(100dvh - 280px); overflow:auto; background:var(--surface-glass); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow-panel); touch-action:auto; }
+.panda-detail-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line); }
+.panda-detail-head h2 { margin:0; font-size:17px; }
+.panda-detail-body { padding:16px; }
+.panda-detail-body pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+.den-error { position:absolute; left:16px; bottom:150px; padding:16px; background:var(--surface-glass); color:var(--ink); border-radius:12px; max-width:360px; }
+@media (max-width:599px) {
+  .den-entry { top:auto; bottom:180px; max-width:calc(100vw - 32px); }
+  .den-visiting .den-entry { bottom:278px; }
+  .den-walk-pad { bottom:154px; }
+  .panda-detail { top:auto; bottom:115px; max-height:55dvh; width:calc(100vw - 32px); }
+}
+@media (pointer:fine) { .den-walk-pad { display:none; } }
