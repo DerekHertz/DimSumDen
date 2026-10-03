@@ -1323,3 +1323,6 @@
 {"kind":"cell","ts":"2026-10-03T03:33:58.427Z","ticket":"den-v1/01-resident-pandas-take-over","cell":"developer","tokens":124864,"ms":711576,"outcome":"fix round batch D1 (01+03): 0604c76, npm test 1984/0, smoke 4x green; Failed chip gap fixed","context":122361}
 {"kind":"usage","ts":"2026-10-03T03:34:06Z","five_hour":34,"weekly":82,"event":"dispatch","ticket":"den-v1/batch-D1","cell":"qa"}
 {"kind":"context","ts":"2026-10-03T03:34:06Z","session":"35ceba26-6da1-40fe-8aa9-b9bcd5998e8a","context_tokens":49532,"percent":4.95,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-03T03:36:57.966Z","ticket":"den-v1/01-resident-pandas-take-over","cell":"qa","mode":"verify","tokens":60578,"ms":152055,"outcome":"full verify pass batch D1 (01+03) @ 0604c76; risk-check 4 hits -> security","context":52000}
+{"kind":"usage","ts":"2026-10-03T03:37:07Z","five_hour":36,"weekly":82,"event":"dispatch","ticket":"den-v1/batch-D1","cell":"designer"}
+{"kind":"context","ts":"2026-10-03T03:37:07Z","session":"35ceba26-6da1-40fe-8aa9-b9bcd5998e8a","context_tokens":57088,"percent":5.71,"event":"dispatch"}
