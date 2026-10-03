@@ -22,7 +22,7 @@ export function createLiveDenController(den,{onCreate=()=>{},onRemove=()=>{}}={}
       f.cell=cell;den.placeTicketPanda(f.panda,cell.placement);
     }
     const busy=new Set(planned.map(c=>c.cellType));
-    for(const [role,p] of den.crew)p.model.visible=['orchestrator','product','architect'].includes(role)&&!busy.has(role);
+    for(const [role,p] of den.crew)p.model.visible=['product','architect'].includes(role)&&!busy.has(role);
     for(const r of den.roamers)r.panda.model.visible=!busy.has(r.cellType);
     den.obstacles.splice(0,den.obstacles.length,...baseObstacles,...planned.filter(c=>c.placement.parent==='world').map(c=>({
       type:'circle',x:c.placement.position[0],z:c.placement.position[2],radius:0.32,

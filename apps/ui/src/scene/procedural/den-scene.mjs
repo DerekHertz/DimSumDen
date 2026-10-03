@@ -2,6 +2,7 @@
  * Dim Sum Den: an orthographic bamboo-grove diorama.
  * Supply the same THREE instance and createBao function used by your app.
  */
+import { PADS } from './bindings.mjs';
 export function createDenScene(THREE, createBao, createWalkingBao = null, options = {}) {
   const world = new THREE.Group(); world.name='DimSumDen';
   const pandas=[],mixers=[],labels=[],steam=[],lanterns=[],obstacles=[],tallyRows=[];
@@ -138,17 +139,6 @@ export function createDenScene(THREE, createBao, createWalkingBao = null, option
     const tail=box(group,[0.18,0.45,0.055],[0.40,2.21,1.20],mat);
     tail.rotation.z=-0.08;
   }
-  function chefHat(panda) {
-    const hat=new THREE.Group();panda.bones.Head.add(hat);
-    // The head bone is 2.72 high in the default rest pose.
-    hat.position.set(0,1.55,0);hat.name='Chef toque';
-    cylinder(hat,0.42,0.28,[0,0.10,0],palette.paper,24);
-    for(let i=0;i<5;i++) {
-      const a=i/5*Math.PI*2;
-      sphere(hat,[0.30,0.29,0.30],[Math.cos(a)*0.23,0.37,Math.sin(a)*0.23],palette.paper);
-    }
-    sphere(hat,[0.35,0.27,0.35],[0,0.44,0],palette.paper);
-  }
   function strawHat(panda) {
     const hat=new THREE.Group();panda.bones.Head.add(hat);hat.position.set(0,1.53,0);hat.name='Bamboo garden hat';
     cylinder(hat,0.75,0.035,[0,0.015,0],palette.basketRim,24);
@@ -173,7 +163,6 @@ export function createDenScene(THREE, createBao, createWalkingBao = null, option
     const panda=createBao(THREE,{detail:'low'});panda.model.position.set(...position);panda.model.scale.setScalar(scale);
     parent.add(panda.model);pandas.push(panda);
     if(role!=='hero') scarf(panda,color);
-    if(role==='chef') chefHat(panda);
     if(role==='gardener') strawHat(panda);
     if(role==='librarian') book(panda);
     if(role==='drummer') drum(panda);
@@ -193,11 +182,9 @@ export function createDenScene(THREE, createBao, createWalkingBao = null, option
   const heroMixer=new THREE.AnimationMixer(hero.model);
   heroMixer.clipAction(hero.animations.find(a=>a.name==='Breathe')).play();
   heroMixer.clipAction(hero.animations.find(a=>a.name==='Blink')).play();mixers.push(heroMixer);
-  const librarian=addPanda(hero.bones.Shoulder_L,[0.50,0.23,0.28],0.145,'librarian','#594681');
-  const drummer=addPanda(hero.bones.Shoulder_R,[-0.50,0.23,0.28],0.145,'drummer','#594681');
-  const perch=new THREE.Group();perch.position.set(0,1.57,-0.02);hero.bones.Head.add(perch);perch.name='Chef perch';
-  box(perch,[2.15,0.07,0.35],[0,0,0],palette.wood);
-  const chef=addPanda(perch,[0,0.06,0],0.18,'chef','#594681');
+  // Bao is the orchestrator; the other Pass roles stand on their pads, never on him.
+  const librarian=addPanda(world,[PADS.product.x,0.03,PADS.product.z],0.25,'librarian','#594681');
+  const drummer=addPanda(world,[PADS.architect.x,0.03,PADS.architect.z],0.25,'drummer','#594681');
 
   function dumpling(parent,position,scale=1) {
     const g=new THREE.Group();g.position.set(...position);g.scale.setScalar(scale);parent.add(g);g.name='Bao bun';
@@ -209,7 +196,6 @@ export function createDenScene(THREE, createBao, createWalkingBao = null, option
     }
     return g;
   }
-  dumpling(perch,[0.77,0.065,0],1.05);
 
   function steamer(parent,x,z,radius=0.29,withBuns=true) {
     const g=new THREE.Group();g.position.set(x,0,z);parent.add(g);g.name='Bamboo steamer';
@@ -329,11 +315,12 @@ export function createDenScene(THREE, createBao, createWalkingBao = null, option
     tallyRows.push(beads);
   }
 
-  for(const [x,title] of [[-5.1,'Library · coming online'],[5.1,'Drum · coming online']]) {
+  for(const {x,label:title} of [PADS.product,PADS.architect]) {
     const pad=cylinder(world,1.08,0.03,[x,0.028,-6.8],matte('#c7cbb0'),32);
     const rim=mesh(world,new THREE.TorusGeometry(1.075,0.020,6,48),palette.basketRim,[x,0.055,-6.8]);
     rim.rotation.x=Math.PI/2;pad.castShadow=false;
     label(title,[x,0.25,-6.8]);
+    obstacles.push({type:'circle',x,z:-6.8,radius:0.36});
   }
   obstacles.push({type:'ellipse',x:0,z:-1.25,rx:2.9,rz:2.7});
   obstacles.push({type:'circle',x:0,z:3.25,radius:2.55});
@@ -365,15 +352,15 @@ export function createDenScene(THREE, createBao, createWalkingBao = null, option
     }
   }
   // Residents have no ticket identity. Live figures are keyed by the board's refs.
-  const residentRoles=['product','architect','orchestrator','developer','scout','designer','qa','security'];
-  pandas.slice(1,9).forEach((p,i)=>{p.model.userData.cellType=residentRoles[i];crew.set(residentRoles[i],p);});
+  const residentRoles=['product','architect','developer','scout','designer','qa','security'];
+  pandas.slice(1,8).forEach((p,i)=>{p.model.userData.cellType=residentRoles[i];crew.set(residentRoles[i],p);});
   if(options.live) for(const type of ['developer','scout','designer','qa','security'])crew.get(type).model.visible=false;
   const colors={orchestrator:'#594681',product:'#594681',architect:'#594681',developer:'#1b6685',scout:'#1b6685',designer:'#1b6685',qa:'#205c40',security:'#205c40'};
   function parentFor(placement){
-    return placement.parent==='crown'?perch:placement.parent==='left-shoulder'?hero.bones.Shoulder_L:placement.parent==='right-shoulder'?hero.bones.Shoulder_R:placement.parent.startsWith('stall:')?stalls[Number(placement.parent.slice(6))]:world;
+    return placement.parent.startsWith('stall:')?stalls[Number(placement.parent.slice(6))]:world;
   }
   function createTicketPanda(cellType,placement){
-    const look={orchestrator:'chef',product:'librarian',qa:'gardener'}[cellType]||'vendor';
+    const look={product:'librarian',architect:'drummer',qa:'gardener'}[cellType]||'vendor';
     const p=addPanda(parentFor(placement),placement.position,placement.scale,look,colors[cellType]||'#594681');
     p.model.userData.cellType=cellType;
     return p;

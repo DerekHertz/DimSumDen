@@ -167,3 +167,21 @@ test('pointer-lock picking uses the crosshair and normal picking delegates to th
     stage.explorer.active=false;manager.compute({},state);assert.equal(delegated,1);
   }finally{globalThis.document=previous;}
 });
+
+test('no panda perches on Bao: Pass roles stand on the Library and Drum pads, and Bao is the orchestrator',()=>{
+  withDen((den,controller)=>{
+    const onBao=p=>{for(let o=p.model.parent;o;o=o.parent)if(o===den.hero.model)return true;return false;};
+    assert.deepEqual(den.pandas.slice(1).filter(onBao).map(p=>p.model.name),[]);
+    assert.equal(den.crew.has('orchestrator'),false);
+    const planned=planCells([cell('t/01','product'),cell('t/02','architect'),cell('t/03','orchestrator')]);
+    for(const c of planned)assert.ok(!['crown','left-shoulder','right-shoulder'].includes(c.placement.parent),c.cellType);
+    const at=role=>planned.find(c=>c.cellType===role).placement;
+    assert.ok(Math.abs(at('product').position[0]-(-5.1))<1.1&&Math.abs(at('product').position[2]-(-6.8))<1.1,'product on the Library pad');
+    assert.ok(Math.abs(at('architect').position[0]-5.1)<1.1&&Math.abs(at('architect').position[2]-(-6.8))<1.1,'architect on the Drum pad');
+    controller.sync([cell('t/03','orchestrator')],[],[]);
+    assert.equal(controller.figures.size,0,'live orchestrator work shows on Bao, not as another panda');
+    controller.sync([cell('t/01','product')],[],[]);
+    assert.equal(onBao(controller.figures.get('t/01').panda),false);
+    assert.equal(den.crew.get('product').model.visible,false,'the resident is taken over');
+  });
+});

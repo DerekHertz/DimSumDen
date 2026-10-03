@@ -9,27 +9,33 @@ export const ROLE_STATION = {
   orchestrator:'pass', product:'pass', architect:'pass',
   developer:'steamers', scout:'steamers', qa:'tea', security:'pantry', designer:'front-of-house',
 };
+// The Pass roles stand on their own pads on the ground; Bao is the orchestrator, so nothing perches on him.
+export const PADS = {
+  product: { x: -5.1, z: -6.8, label: 'Library' },
+  architect: { x: 5.1, z: -6.8, label: 'Drum' },
+};
 export const TALLY_ANCHOR = { x: 2.62, y: 2.0, z: 6.05 };
 export const DEN_TARGET = [0, 2.0, 0];
 export const STATION_LABELS = [
   {id:'pass',text:'The Pass',x:0,y:9.25,z:-1.25},
   ...Object.entries(STATIONS).map(([id,s])=>({id,text:s.label,x:s.x,y:3.55,z:s.z})),
-  {id:'library',text:'Library · coming online',x:-5.1,y:0.3,z:-6.8},
-  {id:'drum',text:'Drum · coming online',x:5.1,y:0.3,z:-6.8},
+  {id:'library',text:'Library',x:PADS.product.x,y:0.3,z:PADS.product.z},
+  {id:'drum',text:'Drum',x:PADS.architect.x,y:0.3,z:PADS.architect.z},
 ];
 
 export function planCells(cells) {
-  const live=cells.filter(c=>!c.synthetic), counts={}, slots={};
+  // Live orchestrator work shows on Bao himself, not as another panda.
+  const live=cells.filter(c=>!c.synthetic&&c.cellType!=='orchestrator'), counts={}, slots={};
   for(const c of live){const s=ROLE_STATION[c.cellType]||'cubs';counts[s]=(counts[s]||0)+1;}
   let overflow=0;
   return live.map(c=>{
     const role=c.cellType,station=ROLE_STATION[role]||'cubs';
     const key=station==='pass'?role:station,slot=slots[key]||0;slots[key]=slot+1;
     let placement;
-    if(station==='pass' && ((role==='orchestrator'&&slot<3)||(role!=='orchestrator'&&slot===0))){
-      placement=role==='orchestrator'
-        ? {parent:'crown',position:[slot===0?0:slot===1?-0.68:0.68,0.06,0],scale:0.18}
-        : {parent:role==='product'?'left-shoulder':'right-shoulder',position:[role==='product'?0.5:-0.5,0.23,0.28],scale:0.145};
+    if(PADS[role]) {
+      // Slot 0 takes over the resident's spot; later ones split off to alternating sides.
+      const side=slot===0?0:(slot%2?1:-1)*Math.ceil(slot/2);
+      placement={parent:'world',position:[PADS[role].x+side*0.7,0.03,PADS[role].z],scale:0.25};
     } else if(STATIONS[station]) {
       const n=counts[station],cols=Math.min(4,n),row=Math.floor(slot/cols),col=slot%cols;
       placement={parent:'stall:'+STATIONS[station].index,position:[(col-(cols-1)/2)*0.77,0.595,0.48-row*0.45],scale:n>4?0.17:0.23};
