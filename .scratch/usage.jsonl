@@ -1318,3 +1318,8 @@
 {"kind":"context","ts":"2026-10-03T03:15:05Z","session":"35ceba26-6da1-40fe-8aa9-b9bcd5998e8a","context_tokens":24885,"percent":2.49,"event":"dispatch"}
 {"kind":"jg","ts":"2026-10-03T03:18:58.816Z","ticket":"den-v1/01-resident-pandas-take-over","bytes":11217,"files":9,"ms":29968,"skipped":null,"fallback":null}
 {"kind":"jg","ts":"2026-10-03T03:19:28.834Z","ticket":"den-v1/03-walk-mode","bytes":3610,"files":12,"ms":29728,"skipped":null,"fallback":null}
+{"kind":"incident","ts":"2026-10-03T03:33:52Z","ticket":"den-v1/01-resident-pandas-take-over","cell":"developer","tool":"context-budget","what":"fix-round developer finished at 122k context, over the 80k cell budget, instead of returning partial","cost":"~40k extra tokens re-read per call late in the run","fix":"none yet; batch fix round of 2 tickets + smoke work too big for one cell","rule_change":null}
+{"kind":"jev","ts":"2026-10-03T03:33:52.147Z","ticket":"den-v1/01-resident-pandas-take-over","point":"verify","pick":"light","actual":"full","cost":0.00023293200000000004,"conf":0.64,"mode":"shadow","fallback":null,"floor":"full","ms":430,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-10-03T03:33:58.427Z","ticket":"den-v1/01-resident-pandas-take-over","cell":"developer","tokens":124864,"ms":711576,"outcome":"fix round batch D1 (01+03): 0604c76, npm test 1984/0, smoke 4x green; Failed chip gap fixed","context":122361}
+{"kind":"usage","ts":"2026-10-03T03:34:06Z","five_hour":34,"weekly":82,"event":"dispatch","ticket":"den-v1/batch-D1","cell":"qa"}
+{"kind":"context","ts":"2026-10-03T03:34:06Z","session":"35ceba26-6da1-40fe-8aa9-b9bcd5998e8a","context_tokens":49532,"percent":4.95,"event":"dispatch"}

@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** claimed
+**Status:** in-review
 
 **Serves:** Den loop step 2 (enter the den).
 

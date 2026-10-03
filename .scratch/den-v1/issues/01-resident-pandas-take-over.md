@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** claimed
+**Status:** in-review
 
 **Serves:** Den loop step 1 (the den is always populated; a running agent takes over its role's panda).
 
