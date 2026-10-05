@@ -13,6 +13,7 @@ State, not rules; the genome wins. Same session as handoff 33, after a `/compact
 - Board changes committed and pushed (user yes).
 
 ## Open
+0. **Items 1 and 3 below are closed (later in the session, user yes):** the two jevgrep files were copied to the main checkout and committed, the feature worktree and its local branch were removed by `worktree-gc`, and the remote branch was deleted. The project-level link `.claude/skills/jevgrep` was not recreated (user-gated; the skill loads from the user-level install).
 1. **Feature worktree not removed:** `.claude/worktrees/agent-a5e65fb4b5d57c11c` (`feat/134-os-agnostic-usage-reading`, merged) now holds two new untracked files, `.agents/skills/jevgrep/SKILL.md` and `skills-lock.json`, so `worktree-gc` refused it. They appeared between the dry run and the apply, probably from the user's `jg` install. The user decides: keep (move to the main checkout) or discard.
 2. **Comment on 99 not written:** `board comment` refused without a lock or `--as`. The scope addition (enforce the cell context budget in code; den-v1/01 developer hit 122k, den-v1/03 designer 98k) must be put in the architect dispatch prompt for 99, or commented with `--as orchestrator`.
 3. Remote branch `feat/134-os-agnostic-usage-reading` still exists on origin.
