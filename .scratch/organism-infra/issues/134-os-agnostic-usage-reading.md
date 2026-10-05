@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Serves:** testbed friction (user, 2026-10-04): the user now runs the orchestrator from a MacBook, where `node scripts/usage.mjs --provider claude` exits 1 with "could not read Claude Code credentials". Every dispatch and merge question must state the 5-hour usage, so each one needs a manual reading today.
 
@@ -41,3 +41,7 @@ The output contract stays the same: the canonical `{"5-hour":{"percent","resets_
 ## Comments
 
 - **orchestrator, 2026-10-04:** Filed at the user's request ("lets get an OS agnostic usage watch mod"). Not dispatched: the orchestrator session was past its 80k context gate.
+- **qa, 2026-10-05:** qa specify done: failing tests committed, ready for developer
+- **developer, 2026-10-05:** Windows decision: native Windows is not supported; it fails like Linux with a usage: diagnostic naming win32. Gated wording edit (AC8) is in handoff 134-developer.md for the user to apply.
+- **qa, 2026-10-05:** All tests pass; AC1-7 verified; AC8 human-verified (gated edits pending user)
+- **security, 2026-10-05:** Security pass. No critical/high. Low: usage-token.mjs:38,42 bare 'security' via PATH + USAGE_SECURITY_BIN override (env control already implies code exec; optional /usr/bin/security). Low: full Keychain item held in memory briefly, only accessToken kept, nothing printed. gitleaks clean, no deps/CI changes. See handoffs/134-security.md.
