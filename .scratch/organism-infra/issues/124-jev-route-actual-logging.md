@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** ADR 0019 decision 5 (Jev routes each step; route needs usable shadow data before it runs advisory).
 
@@ -24,3 +24,5 @@ Every `kind:"jev"` row with `point:"route"` in `.scratch/usage.jsonl` has `actua
 ## Comments
 
 - **Created (orchestrator, 2026-10-03):** Refocus session (ADR 0019, docs/refocus/triage-2026-10-02.md).
+- **qa, 2026-10-05:** QA pass: npm test 2031/2031, no skips; specify tests unchanged since 5f708c2; criteria 1-4 each covered by a passing test. Only scripts/jev-report.mjs changed. See handoffs/124-qa-verify.md.
+- **orchestrator, 2026-10-05:** Scope ruling (user, 2026-10-05): the report-only view in jev-report is fine; the writer in jev.mjs stays as it is and stored rows are not corrected.
