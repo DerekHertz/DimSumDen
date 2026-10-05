@@ -4,7 +4,7 @@
 
 **Priority:** P1
 
-**Blocked by:** 04, organism-infra/106
+**Blocked by:** organism-infra/106
 
 **Status:** ready-for-agent
 
@@ -24,3 +24,4 @@ When the card's agent has a pending approval, **A** and **D** first show the ful
 ## Comments
 
 - **Created (orchestrator, 2026-10-03):** From `.scratch/den-v1/spec.md` (ADR 0019). Keep under ~120k tokens; split rather than stretch.
+- **orchestrator, 2026-10-04:** Dropped the `Blocked by` edge to den-v1/04 (user, 2026-10-04); 04 stays parked.

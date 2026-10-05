@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** parked
+**Status:** ready-for-agent
 
 ## What to build
 
@@ -29,3 +29,4 @@ Files: `scripts/` (new helper and test), `.claude/settings*.json` or hooks (user
 - **orchestrator, 2026-10-02:** User asked "can we set up an autocompaction skill or script?" and said yes to filing it (2026-10-02). A skill can't run `/compact` itself; architect checks hooks and settings first.
 - **orchestrator, 2026-10-02:** Add from the Claude Code usage audit (proposal 8, user yes): a `PreCompact` hook that writes a state snapshot (in-flight tickets, branches, pending gates) before compaction, and a "compact button": check whether the auto-compact threshold can be set near 80k (a), else whether a key binding can send `/compact` (b); the status line from 109 turning red with `→ /compact` at 80k is the fallback (c). Ship settings as a gated patch (108).
 - **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)
+- **orchestrator, 2026-10-05:** Unparked: User asked again for auto-compaction at the 80k threshold (user, 2026-10-04); testbed friction: this session ran to 94k before a manual /compact request

@@ -4,7 +4,7 @@
 
 **Priority:** P2
 
-**Blocked by:** 01, 03, 04 (batch D1: PR #151 must merge first)
+**Blocked by:** 01, 03 (batch D1: PR #151 must merge first)
 
 **Status:** ready-for-agent
 
@@ -23,3 +23,4 @@ Delete the market scene that #151 left as dead code, with its tests: `apps/ui/sr
 ## Comments
 
 - **Created (orchestrator, 2026-10-03):** Found while reviewing #151 (it switches App to the procedural den). Also shrinks organism-infra/125 to the Blender sources and skill only.
+- **orchestrator, 2026-10-04:** Dropped the `Blocked by` edge to den-v1/04 (user, 2026-10-04); 04 stays parked.
