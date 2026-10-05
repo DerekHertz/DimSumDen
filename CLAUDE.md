@@ -20,7 +20,7 @@ Run a cell as the main session with `claude --agent <cell-type>`. If a session i
 
 ## Cloud sessions
 
-Environment setup for cloud containers (browser path, proxy, usage readings) lives in `docs/agents/cloud-sessions.md`; read it when `CLAUDE_CODE_REMOTE` is set. Locally (WSL) none of it applies.
+Environment setup for cloud containers (browser path, proxy, usage readings) lives in `docs/agents/cloud-sessions.md`; read it when `CLAUDE_CODE_REMOTE` is set. Locally (WSL or macOS) none of it applies.
 
 ## Agent skills
 
