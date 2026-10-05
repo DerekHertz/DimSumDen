@@ -5,7 +5,7 @@ description: Check plan usage and wind work down before the limit hits. Use at e
 
 Select the provider from the active session, never from installed CLIs, credential files, or the chosen model. Use `node scripts/usage.mjs --provider codex` in Codex and `node scripts/usage.mjs --provider claude` in Claude. A legacy invocation without `--provider` still selects Claude; it must not be used to read Codex usage.
 
-For Claude, `mcp__ccd_session_mgmt__get_usage` (main session only; the `5-hour limit` window's `percentUsed`) is also supported when available. The Claude CLI adapter preserves the existing credential-backed behavior and cloud estimate behavior. A weighted-token estimate is a trend estimate, never a live account quota reading.
+For Claude, `mcp__ccd_session_mgmt__get_usage` (main session only; the `5-hour limit` window's `percentUsed`) is also supported when available. The Claude CLI adapter reads the OAuth token from `~/.claude/.credentials.json` (WSL, Linux) or, on macOS, from the Keychain item `Claude Code-credentials`; native Windows is not supported and exits 1. It keeps the cloud estimate behavior. A weighted-token estimate is a trend estimate, never a live account quota reading.
 
 The Codex adapter uses the supported app-server `account/rateLimits/read` exchange. It selects Codex account limits, maps 300-minute and 10080-minute windows to `5-hour` and `weekly`, and converts reset times to ISO. It does not read Claude credentials or substitute Claude estimates. Both providers retain the canonical `{"5-hour":{"percent","resets_at"},"weekly":{...}}` window fields. Missing or invalid Codex limits and CLI, auth, network, or timeout failures exit nonzero with a sanitized diagnostic.
 

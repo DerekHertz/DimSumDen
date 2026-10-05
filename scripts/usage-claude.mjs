@@ -1,31 +1,28 @@
 // Prints plan usage (5-hour and weekly) for usage-watch in sessions where the
-// desktop app's get_usage tool is missing (WSL). Ticket organism-infra/33.
-// Reads the Claude Code OAuth token and sends it only to api.anthropic.com.
+// desktop app's get_usage tool is missing (WSL, macOS). Ticket organism-infra/33.
+// Reads the Claude Code OAuth token (credentials file, or the Keychain on macOS;
+// see usage-token.mjs) and sends it only to api.anthropic.com.
 // Never prints the token. The endpoint is undocumented; on any failure it
 // exits 1 so usage-watch falls back to asking the user.
-import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { findToken, describeFailure } from "./usage-token.mjs";
 
 function fail(msg) {
   console.error(`usage: ${msg}`);
   process.exit(1);
 }
 
-let token;
-try {
-  const creds = JSON.parse(readFileSync(join(homedir(), ".claude", ".credentials.json"), "utf8"));
-  token = creds.claudeAiOauth?.accessToken;
-} catch {
+const found = findToken();
+const token = found.token;
+if (!token) {
   if (process.env.CLAUDE_CODE_REMOTE) {
     // Cloud sessions have no credentials: estimate from transcripts (ticket 32).
     const { estimate } = await import("./usage-estimate.mjs");
     console.log(JSON.stringify(estimate()));
     process.exit(0);
   }
-  fail("could not read Claude Code credentials");
+  fail(describeFailure(found));
 }
-if (!token) fail("no OAuth access token found");
+if (process.env.USAGE_VERBOSE) console.error(`usage: token from ${found.source}`);
 
 let res;
 try {
