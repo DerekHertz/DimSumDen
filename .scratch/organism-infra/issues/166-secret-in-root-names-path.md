@@ -26,3 +26,4 @@ Files: `scripts/dispatch-context.mjs`, its tests, whichever files currently trip
 - [ ] Existing dispatch-context and exposure tests still pass
 
 ## Comments
+- **orchestrator, 2026-10-06:** qa light verify bounced on full-suite failures only (46, then 74, mostly Playwright and smoke timeouts) while other full suites ran in parallel. The ticket's own tests pass. User decision 2026-10-06: an environment issue, not a bounce, so it does not count toward fails-twice. Once batch C's suite run ends, a scout reruns the full suite on feat/166 with nothing else running. Green: continue to risk-check. Red: back to a developer. Suite-lock ticket filed.
