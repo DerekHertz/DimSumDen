@@ -223,7 +223,9 @@ export async function decide({
     const live = mode === "live" && !fb && pick && pick !== "other";
     // organism-infra/58: verify floors to full when qa never ran specify.
     const floor = point === "verify" && qaSpecified === false ? "full" : null;
-    const actual = floor ? floor : live ? pick : p.fallback;
+    // organism-infra/160: today's verify rule is light after a qa specify, so shadow compares against that.
+    const baseline = point === "verify" && qaSpecified !== false ? "light" : p.fallback;
+    const actual = floor ? floor : live ? pick : baseline;
     const conf = fb ? null : fields.conf;
     const cost = fb ? 0 : fields.cost;
     const row = {
