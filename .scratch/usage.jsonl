@@ -1757,3 +1757,17 @@
 {"kind":"jev","ts":"2026-10-06T22:26:50.447Z","ticket":"organism-infra/147-dispatch-prompt-script","point":"tier","pick":"sonnet","actual":"sonnet","cost":0.000041664000000000006,"conf":0.59,"mode":"shadow","fallback":null,"floor":null,"ms":522,"model":"jev-1.13.0"}
 {"kind":"usage","ts":"2026-10-06T22:27:02.000Z","five_hour":16,"weekly":30,"event":"dispatch","ticket":"organism-infra/147","cell":"developer"}
 {"kind":"context","ts":"2026-10-06T22:27:02.000Z","session":"d904efea-9c24-4049-a8aa-2a0b836e2d3d","context_tokens":52445,"percent":5.24,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-06T22:35:53.580Z","ticket":"organism-infra/147-dispatch-prompt-script","cell":"developer","tokens":79007,"ms":515626,"outcome":"pass: 55/55 ticket tests at 742898b; 6 browser UI failures to confirm on main","context":78000}
+{"kind":"jev","ts":"2026-10-06T22:38:37.211Z","ticket":"organism-infra/147-dispatch-prompt-script","point":"verify","pick":"light","actual":"light","cost":0.00023310000000000003,"conf":0.72,"mode":"shadow","fallback":null,"floor":null,"ms":399,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-10-06T22:40:17.000Z","five_hour":21,"weekly":30,"event":"dispatch","ticket":"organism-infra/147","cell":"qa"}
+{"kind":"context","ts":"2026-10-06T22:40:17.000Z","session":"d904efea-9c24-4049-a8aa-2a0b836e2d3d","context_tokens":62822,"percent":6.28,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-06T22:45:51.949Z","ticket":"organism-infra/147-dispatch-prompt-script","cell":"qa","mode":"verify","tokens":44678,"ms":311355,"outcome":"pass: light verify, Haiku, all criteria","context":40422}
+{"kind":"usage","ts":"2026-10-06T22:46:15.000Z","five_hour":22,"weekly":30,"event":"dispatch","ticket":"organism-infra/147","cell":"security"}
+{"kind":"context","ts":"2026-10-06T22:46:15.000Z","session":"d904efea-9c24-4049-a8aa-2a0b836e2d3d","context_tokens":69687,"percent":6.97,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-06T22:46:38.222Z","ticket":"organism-infra/147-dispatch-prompt-script","cell":"scout","tokens":11396,"ms":11383,"outcome":"risk-check hit: shell-out + board code in dispatch-prompt(.test).mjs; no deps/CI","allow_no_handoff":"scout is read-only and does not hand off"}
+{"kind":"cell","ts":"2026-10-06T22:47:36.046Z","ticket":"organism-infra/147-dispatch-prompt-script","cell":"security","tokens":34530,"ms":65249,"outcome":"pass: one low (unvalidated --base/--branch/--batch echo)","context":30798}
+{"kind":"usage","ts":"2026-10-06T22:51:40.000Z","five_hour":null,"weekly":null,"event":"merge","ticket":"organism-infra/147","cell":"orchestrator","note":"usage.mjs HTTP 429; last reading 22%"}
+{"kind":"resolved","ts":"2026-10-06T22:51:49.039Z","ticket":"organism-infra/147-dispatch-prompt-script","pr":173,"bounces":0}
+{"kind":"jev-advisory-outcome","ts":"2026-10-06T22:51:49.096Z","ticket":"organism-infra/147-dispatch-prompt-script","orchestratorPick":"qa-specify","jevPick":"other","userChoice":"qa-specify","bounced":false}
+{"kind":"jev-advisory-outcome","ts":"2026-10-06T22:51:49.134Z","ticket":"organism-infra/145-cell-context-hook","orchestratorPick":"user","jevPick":"user","userChoice":"architect","bounced":false}
+{"kind":"context","ts":"2026-10-06T22:52:19.000Z","session":"d904efea-9c24-4049-a8aa-2a0b836e2d3d","context_tokens":80121,"percent":8.01,"event":"merge"}

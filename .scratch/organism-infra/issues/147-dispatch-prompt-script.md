@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Serves:** Testbed friction: hand-written dispatch prompts carry wrong paths and flags (missing `issues/` in a ticket path; cell-start said to run from the main checkout), which costs cells retries.
 
@@ -32,3 +32,4 @@ It writes nothing. Bad arguments exit 2. The orchestrator genome is changed to u
 
 - **orchestrator, 2026-10-05:** Filed from pipeline-retro (user yes 2026-10-05). Incidents: 08 (path missing `issues/`), 106 (cell-start from the main checkout, two cells).
 - **orchestrator, 2026-10-05:** Add to scope: on a re-dispatch after a partial, the printed handoff path must be a new name (`<NN>-<cell>[-<mode>]-<k>.md`), because `board handoff` refuses to overwrite a handoff published under an earlier claim. Two cells hit this (138 developer 2, 139 qa specify 2).
+- **security, 2026-10-06:** Security pass at 5b01168. No critical/high. Low: scripts/dispatch-prompt.mjs:42-71 --base/--branch/--batch unvalidated (orchestrator-supplied, echoed only). gitleaks clean; no deps/CI. Note: .claude/agents/orchestrator.md edited on branch (gated path). Details in 147-security.md.
