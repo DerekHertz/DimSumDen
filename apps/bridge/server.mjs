@@ -8,6 +8,8 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { REQUEST_KINDS, appendRequestLine } from "./requests-log.mjs";
 import { createHub } from "./watch.mjs";
+import { createAuth } from "./auth.mjs";
+import { matchRoute } from "./routes.mjs";
 import { computeMetrics, parseJsonl } from "../../scripts/metrics.mjs";
 import { contentTypeFor } from "../ci-cd/dev-server.mjs";
 
@@ -18,8 +20,9 @@ const MAX_BODY = 4096;
 // 07 security forward: the panel renders agent text; forbid inline and foreign script.
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'";
 
-export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR } = {}) {
+export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, auth: authOptions } = {}) {
   let actualPort = port;
+  const auth = createAuth(authOptions);
   const hub = createHub(root);
   let postChain = Promise.resolve();
   await hub.ready;
@@ -47,64 +50,89 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR } 
       res.end("bad request target");
       return;
     }
-    if (req.method === "GET" && pathname === "/state") {
-      const snap = await hub.snapshot();
-      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-      res.end(JSON.stringify(snap));
-      return;
+    // Default deny (ADR 0016 decision 6.1): a request no registry row matches is a 404. Reads of the UI build
+    // (GET, HEAD) fall through to the static files.
+    const route = matchRoute(req.method, pathname);
+    if (!route) {
+      if (req.method === "GET" || req.method === "HEAD") return serveStatic(pathname, req, res);
+      return reply(res, 404, { error: "not found" });
     }
-    if (req.method === "GET" && pathname === "/metrics") {
+    if (route.auth !== "none" && !passesGate(req, res, route)) return;
+    const handler = HANDLERS[`${route.method} ${route.path}`];
+    if (!handler) return reply(res, 404, { error: "not found" });
+    await handler(req, res);
+  }
+  // Gate order: Origin and Content-Type (403), then the session token (401). All before the body is read, so an
+  // unauthenticated caller learns nothing about ids or validation.
+  function passesGate(req, res, route) {
+    const origin = req.headers.origin;
+    if (origin !== `http://127.0.0.1:${actualPort}` && origin !== `http://localhost:${actualPort}`) {
+      reply(res, 403, { error: "foreign or missing origin" });
+      return false;
+    }
+    if (!/^application\/json\s*(;|$)/i.test(req.headers["content-type"] ?? "")) {
+      reply(res, 403, { error: "content-type must be application/json" });
+      return false;
+    }
+    if (route.auth === "token" && !auth.verify(req.headers.authorization)) {
+      reply(res, 401, { error: "unauthorized" });
+      return false;
+    }
+    return true;
+  }
+  const HANDLERS = {
+    "GET /state": async (req, res) => reply(res, 200, await hub.snapshot()),
+    "GET /metrics": async (req, res) => {
       const [usageLines, eventLines] = await Promise.all(["usage.jsonl", "events.jsonl"].map((f) => readRows(path.join(root, ".scratch", f))));
-      return reply(res, 200, computeMetrics({ usageLines, eventLines }));
-    }
-    if (req.method === "GET" && pathname === "/events") {
-      await hub.connect(req, res);
-      return;
-    }
-    if (req.method === "POST" && pathname === "/requests") {
+      reply(res, 200, computeMetrics({ usageLines, eventLines }));
+    },
+    "GET /events": (req, res) => hub.connect(req, res),
+    "POST /session": (req, res) => postSession(req, res),
+    "POST /requests": async (req, res) => {
       // Serialised so two racing POSTs cannot both pass the pending-request check.
       const run = postChain.then(() => postRequest(req, res));
       postChain = run.catch(() => {});
       await run;
-      return;
-    }
-    if (req.method === "GET" || req.method === "HEAD") {
-      await serveStatic(pathname, req, res);
-      return;
-    }
-    res.writeHead(404, { "Content-Type": "text/plain" });
-    res.end("not found");
-  }
+    },
+  };
   const readRows = (file) => readFile(file, "utf8").then(parseJsonl, () => []);
   const reply = (res, status, obj, extra = {}) => {
     res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store", ...extra });
     res.end(JSON.stringify(obj));
   };
-  // POST /requests (ADR 0011 decision 6): validate, then append one Gate request. Nothing executes.
-  async function postRequest(req, res) {
-    if (!/^application\/json\s*(;|$)/i.test(req.headers["content-type"] ?? "")) {
-      return reply(res, 403, { error: "content-type must be application/json" });
-    }
-    const origin = req.headers.origin;
-    if (origin !== undefined && origin !== `http://127.0.0.1:${actualPort}` && origin !== `http://localhost:${actualPort}`) {
-      return reply(res, 403, { error: "foreign origin" });
-    }
+  // Read a JSON object body of at most MAX_BODY bytes. Replies 413 or 400 itself and returns undefined on failure.
+  async function readJsonObject(req, res) {
     const declared = Number(req.headers["content-length"] ?? 0);
-    if (declared > MAX_BODY) return reply(res, 413, { error: "body too large" }, { Connection: "close" });
+    if (declared > MAX_BODY) return void reply(res, 413, { error: "body too large" }, { Connection: "close" });
     const chunks = [];
     let size = 0;
     for await (const chunk of req) {
       size += chunk.length;
-      if (size > MAX_BODY) return reply(res, 413, { error: "body too large" }, { Connection: "close" });
+      if (size > MAX_BODY) return void reply(res, 413, { error: "body too large" }, { Connection: "close" });
       chunks.push(chunk);
     }
     let body;
     try {
       body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     } catch {
-      return reply(res, 400, { error: "malformed JSON" });
+      return void reply(res, 400, { error: "malformed JSON" });
     }
-    if (!body || typeof body !== "object" || Array.isArray(body)) return reply(res, 400, { error: "body must be an object" });
+    if (!body || typeof body !== "object" || Array.isArray(body)) return void reply(res, 400, { error: "body must be an object" });
+    return body;
+  }
+  // POST /session (ADR 0016 decision 6.2): exchange the one-time launch code for a session token.
+  async function postSession(req, res) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    if (typeof body.code !== "string") return reply(res, 400, { error: "code must be a string" });
+    const { status, token } = auth.redeem(body.code);
+    if (status === 200) return reply(res, 200, { token });
+    reply(res, status, { error: status === 429 ? "too many sessions" : "invalid launch code" });
+  }
+  // POST /requests (ADR 0011 decision 6): validate, then append one Gate request. Nothing executes.
+  async function postRequest(req, res) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
     const { kind, ref, note } = body;
     if (!REQUEST_KINDS.includes(kind)) return reply(res, 400, { error: "unknown kind" });
     if (typeof ref !== "string" || !ref) return reply(res, 400, { error: "ref must be a string" });
@@ -174,6 +202,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR } 
   return {
     url: `http://${HOST}:${actualPort}`,
     port: actualPort,
+    newLaunchCode: auth.newLaunchCode,
     close: () =>
       new Promise((resolve) => {
         hub.close();
@@ -188,4 +217,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const root = resolveRoot(process.cwd(), process.env);
   const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317 });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
+  // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
+  console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);
 }

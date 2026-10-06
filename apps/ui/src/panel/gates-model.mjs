@@ -39,6 +39,10 @@ export async function submitGate({ fetch, ref, kind, note }) {
     });
     if (res.ok) return { ok: true };
     if (res.status === 409) return { ok: false, status: 409, message: "Couldn't send: already pending (409)", retryable: false };
+    // organism-infra/139: a lost session (401) or a refused Origin (403) will not heal by pressing again.
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, status: res.status, message: `Couldn't send: not signed in to steer (${res.status})`, retryable: false };
+    }
     return { ok: false, status: res.status, message: `Couldn't send: request failed (${res.status})`, retryable: true };
   } catch (e) {
     return { ok: false, status: 0, message: `Couldn't send: ${e?.message ?? "network error"}`, retryable: true };
