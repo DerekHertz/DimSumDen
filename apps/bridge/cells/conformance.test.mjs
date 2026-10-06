@@ -27,6 +27,15 @@ import {
   SPIKES,
 } from "./conformance.mjs";
 
+// The round-2 exports are reached through the namespace so a missing one fails its own tests
+// with "not a function" instead of breaking the import of the whole file.
+import * as conf from "./conformance.mjs";
+const evaluateS8 = (...a) => conf.evaluateS8(...a);
+const evaluateS4b = (...a) => conf.evaluateS4b(...a);
+const evaluateS6b = (...a) => conf.evaluateS6b(...a);
+const evaluateS3b = (...a) => conf.evaluateS3b(...a);
+const scrubText = (...a) => conf.scrubText(...a);
+
 const SID = "11111111-2222-4333-8444-555555555555";
 
 // Capture helpers: a capture is { lines: [{ t, obj }], exit: { code, signal, t }|null, stderr }.
@@ -365,7 +374,7 @@ test("parseCli: defaults run every spike; --spike selects; bad input is an error
 });
 
 test("SPIKES describe every spike with a turn estimate", () => {
-  assert.deepEqual(Object.keys(SPIKES), ["S1", "S2", "S3", "S4", "S5", "S6", "S7"]);
+  assert.deepEqual(Object.keys(SPIKES), ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S4b", "S6b", "S3b"]);
   for (const s of Object.values(SPIKES)) {
     assert.equal(typeof s.title, "string");
     assert.ok(Number.isInteger(s.turns) && s.turns > 0);
@@ -514,4 +523,758 @@ test("runSpikes S2, S4, S6, S7 run to a verdict against a generic fake without c
     assert.ok(["go", "no-go", "unconfirmed"].includes(r.verdict));
     assert.ok(!r.evidence.some((e) => /could not run the spike/.test(e)), r.evidence.join("\n"));
   }
+});
+
+// =============================================================================================
+// Spike round 2 (ticket organism-infra/138; ADR 0016 decision 7): S8, S4b, S6b, S3b, the S3 fixes,
+// the fixture scrub and the new CLI flags. Every runner test drives a scripted fake `claude`; none
+// starts the real one.
+// =============================================================================================
+
+import { existsSync, mkdirSync, realpathSync, readdirSync } from "node:fs";
+import { homedir, userInfo } from "node:os";
+
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === "EPERM";
+  }
+};
+const readPids = (file) => (existsSync(file) ? readFileSync(file, "utf8").split("\n").filter(Boolean).map(Number) : []);
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+// Pids still alive after up to `ms`; always SIGKILLs them so a failing test leaks nothing.
+async function stillAlive(pids, ms = 4000) {
+  const end = Date.now() + ms;
+  let left = pids.filter(alive);
+  while (left.length && Date.now() < end) {
+    await pause(100);
+    left = pids.filter(alive);
+  }
+  for (const p of left) {
+    try {
+      process.kill(p, "SIGKILL");
+    } catch {}
+  }
+  return left;
+}
+
+// ---- CLI ---------------------------------------------------------------------------------
+
+test("parseCli: spike ids are case-insensitive and the round-2 ids are accepted", () => {
+  assert.deepEqual(parseCli(["--spike", "s8,s4b,S6B,s3b"]).spikes, ["S8", "S4b", "S6b", "S3b"]);
+  assert.equal(parseCli(["--spike", "s8"]).error, null);
+  assert.deepEqual(parseCli(["--spike", "s1,S3"]).spikes, ["S1", "S3"]);
+  assert.match(parseCli(["--spike", "s9"]).error, /S9/);
+  assert.ok(parseCli(["--spike", "S4c"]).error);
+});
+
+test("parseCli: the default run stays S1 to S7 (round-2 spikes only run when named)", () => {
+  assert.deepEqual(parseCli([]).spikes, ["S1", "S2", "S3", "S4", "S5", "S6", "S7"]);
+});
+
+test("parseCli: --repo, --s8-disable-flag, --s8-disable-env and --s3b-wait", () => {
+  const o = parseCli([
+    "--repo", "/some/repo",
+    "--s8-disable-flag", "--no-socket",
+    "--s8-disable-flag", "--no-messaging",
+    "--s8-disable-env", "CLAUDE_NO_SOCK=1",
+    "--s8-disable-env", "OTHER=a=b",
+    "--s3b-wait", "5",
+  ]);
+  assert.equal(o.error, null);
+  assert.equal(o.repo, "/some/repo");
+  assert.deepEqual(o.s8DisableFlags, ["--no-socket", "--no-messaging"]);
+  assert.deepEqual(o.s8DisableEnv, { CLAUDE_NO_SOCK: "1", OTHER: "a=b" });
+  assert.equal(o.s3bWaitMs, 5000);
+});
+
+test("parseCli: defaults for the new options; a malformed value is an error", () => {
+  const d = parseCli([]);
+  assert.equal(d.s3bWaitMs, 90_000);
+  assert.deepEqual(d.s8DisableFlags, []);
+  assert.deepEqual(d.s8DisableEnv, {});
+  assert.ok(parseCli(["--s8-disable-env", "NOEQUALS"]).error);
+  assert.ok(parseCli(["--s3b-wait", "0"]).error);
+  assert.ok(parseCli(["--s3b-wait", "abc"]).error);
+});
+
+test("SPIKES: the four round-2 spikes spend about 8 to 12 turns in total", () => {
+  const turns = ["S8", "S4b", "S6b", "S3b"].reduce((n, id) => n + SPIKES[id].turns, 0);
+  assert.ok(turns >= 8 && turns <= 12, `turns ${turns}`);
+});
+
+test("--dry-run with the round-2 spikes prints the plan, spawns nothing and creates no worktree", () => {
+  const repo = makeRepo();
+  const out = execFileSync(
+    process.execPath,
+    [new URL("./conformance.mjs", import.meta.url).pathname, "--dry-run", "--spike", "s8,s4b,s6b,s3b", "--repo", repo],
+    { encoding: "utf8", env: { ...process.env, DEN_CLAUDE_BIN: "/nonexistent/claude" } },
+  );
+  for (const id of ["S8", "S4b", "S6b", "S3b"]) assert.match(out, new RegExp(id));
+  assert.equal(worktreeCount(repo), 1);
+  assert.ok(!existsSync(path.join(repo, ".claude", "worktrees")) || readdirSync(path.join(repo, ".claude", "worktrees")).length === 0);
+});
+
+function makeRepo() {
+  const dir = mkdtempSync(path.join(tmpdir(), "conf-repo-"));
+  const git = (...a) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...a], { cwd: dir, stdio: "pipe" });
+  git("init", "-q");
+  writeFileSync(path.join(dir, "README.md"), "x\n");
+  git("add", "README.md");
+  git("commit", "-q", "-m", "init");
+  return dir;
+}
+const worktreeCount = (repo) =>
+  execFileSync("git", ["worktree", "list", "--porcelain"], { cwd: repo, encoding: "utf8" }).split("\n").filter((l) => l.startsWith("worktree ")).length;
+
+// ---- S3 fixes ----------------------------------------------------------------------------
+
+test("S3 evaluator reports the nested request.subtype shape", () => {
+  const r = evaluateS3(
+    { allow: s3Allow(), deny: s3Deny() },
+    { allowBody: "ALLOW-BODY", denyBody: "DENY-BODY", allowFileExists: true, denyFileExists: false },
+  );
+  assert.equal(r.verdict, "go");
+  assert.equal(r.shapes.requestSubtype, "can_use_tool");
+  assert.match(r.evidence.join("\n"), /request\.subtype\W+can_use_tool/);
+});
+
+test("S3 evaluator does not mistake a top-level subtype for the nested one", () => {
+  const flat = L(800, { type: "control_request", request_id: "req_a", subtype: "can_use_tool", request: { tool_name: "Write", input: { file_path: "/w/s3-allow.txt", content: "ALLOW-BODY" } } });
+  const r = evaluateS3(
+    { allow: cap([init(100), flat, result(2000, "ok")]), deny: s3Deny() },
+    { allowBody: "ALLOW-BODY", denyBody: "DENY-BODY", allowFileExists: true, denyFileExists: false },
+  );
+  assert.notEqual(r.shapes.requestSubtype, "can_use_tool");
+  assert.match(r.evidence.join("\n"), /request\.subtype/);
+});
+
+test("S3 evaluator, allow run with an earlier non-Write request: judges the Write request's input", () => {
+  const bash = controlRequest(500, "req_b", "Bash", { command: "ls" });
+  const write = controlRequest(800, "req_a", "Write", { file_path: "/w/s3-allow.txt", content: "ALLOW-BODY" });
+  const allow = cap([init(100), bash, toolResult(600, "t0", "Permission denied", true), write, toolResult(1500, "tu1", "File created"), result(2000, "ok")]);
+  const r = evaluateS3(
+    { allow, deny: s3Deny() },
+    { allowBody: "ALLOW-BODY", denyBody: "DENY-BODY", allowFileExists: true, denyFileExists: false },
+  );
+  assert.equal(r.verdict, "go", r.evidence.join("\n"));
+  assert.equal(r.shapes.controlRequest.request.tool_name, "Write");
+});
+
+// A fake that asks permission for Bash and then Write in each turn, and records every answer it
+// receives in $HOME/s3-answers.jsonl as { phase, tool, behavior }. A Write is created only if allowed.
+const FAKE_S3_MIXED = `
+import readline from "node:readline";
+import fs from "node:fs";
+import path from "node:path";
+const args = process.argv.slice(2);
+const sid = args[args.indexOf("--session-id") + 1];
+const out = (o) => process.stdout.write(JSON.stringify(o) + "\\n");
+const rl = readline.createInterface({ input: process.stdin });
+let phase = 0;
+let queue = [];
+let current = null;
+const ask = () => {
+  current = queue.shift();
+  out({ type: "control_request", request_id: "req_" + phase + "_" + current.tool, request: { subtype: "can_use_tool", tool_name: current.tool, input: current.input } });
+};
+rl.on("line", (line) => {
+  const msg = JSON.parse(line);
+  if (msg.type === "user") {
+    phase += 1;
+    const text = String(msg.message.content);
+    const body = text.match(/BODY-[A-Z0-9]+/)?.[0] ?? "x";
+    const file = text.match(/\\S*s3-(allow|deny)\\.txt/)?.[0] ?? "s3.txt";
+    out({ type: "system", subtype: "init", session_id: sid });
+    queue = [
+      { tool: "Bash", input: { command: "ls" } },
+      { tool: "Write", input: { file_path: file, content: body } },
+    ];
+    ask();
+  } else if (msg.type === "control_response") {
+    const behavior = msg.response.response.behavior;
+    fs.appendFileSync(path.join(process.env.HOME, "s3-answers.jsonl"), JSON.stringify({ phase, tool: current.tool, behavior }) + "\\n");
+    if (behavior === "allow" && current.tool === "Write") fs.writeFileSync(current.input.file_path, current.input.content);
+    out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "t", content: behavior, is_error: behavior !== "allow" }] } });
+    if (queue.length) ask();
+    else out({ type: "result", subtype: "success", is_error: false, result: "ok", session_id: sid });
+  }
+});
+rl.on("close", () => process.exit(0));
+`;
+
+test("runSpikes S3: the allow phase answers only Write with allow; Bash and the deny phase are denied", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "conf-test-"));
+  const fake = writeFake(dir, FAKE_S3_MIXED);
+  const results = await runSpikes({ spikes: ["S3"], out: path.join(dir, "out"), claudeBin: fake, env: { PATH: process.env.PATH, HOME: dir }, timeoutMs: 10_000, log: () => {} });
+  const answers = readFileSync(path.join(dir, "s3-answers.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  assert.deepEqual(answers.filter((a) => a.phase === 1).map((a) => [a.tool, a.behavior]), [["Bash", "deny"], ["Write", "allow"]]);
+  assert.ok(answers.filter((a) => a.phase === 2).length >= 1);
+  assert.ok(answers.filter((a) => a.phase === 2).every((a) => a.behavior === "deny"));
+  assert.equal(results[0].verdict, "go", results[0].evidence.join("\n"));
+});
+
+// ---- Fixture scrub -----------------------------------------------------------------------
+
+test("scrubText removes home paths and the username from every line and keeps the JSON valid", () => {
+  const home = "/home/dhertzell";
+  const lines = [
+    JSON.stringify({ type: "system", subtype: "init", cwd: "/tmp/den-conformance-abc", memory_paths: { auto: `${home}/.claude/projects/-tmp-x/memory/` }, plugins: [{ name: "p", path: `${home}/.claude/plugins/cache/p` }] }),
+    JSON.stringify({ type: "user", message: { content: `ran as dhertzell in /Users/dhertzell/work and /tmp/dhertzell-scratch` } }),
+    JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "t1", name: "Write", input: { file_path: "/tmp/den-conformance-abc/a.txt" } }] } }),
+  ].join("\n") + "\n";
+  const out = scrubText(lines, { homes: [home, "/Users/dhertzell/"], username: "dhertzell" });
+  assert.ok(!out.includes(home), out);
+  assert.ok(!out.includes("/Users/dhertzell"), out);
+  assert.ok(!/dhertzell/.test(out), out);
+  const parsed = out.split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  assert.equal(parsed.length, 3);
+  assert.equal(parsed[0].subtype, "init");
+  assert.equal(parsed[0].cwd, "/tmp/den-conformance-abc");
+  assert.equal(parsed[2].message.content[0].name, "Write");
+  assert.equal(parsed[2].message.content[0].input.file_path, "/tmp/den-conformance-abc/a.txt");
+});
+
+const FAKE_S1_HOMEPATHS = `
+import readline from "node:readline";
+import os from "node:os";
+const args = process.argv.slice(2);
+const sid = args[args.indexOf("--session-id") + 1];
+const out = (o) => process.stdout.write(JSON.stringify(o) + "\\n");
+const rl = readline.createInterface({ input: process.stdin });
+rl.on("line", () => {
+  out({
+    type: "system", subtype: "init", session_id: sid, cwd: process.cwd(),
+    memory_paths: { auto: process.env.HOME + "/.claude/projects/p/memory/" },
+    plugins: [{ name: "p", path: os.homedir() + "/.claude/plugins/cache/p", source: "p@m" }],
+    note: "owner " + os.userInfo().username,
+  });
+  out({ type: "assistant", message: { content: [{ type: "tool_use", id: "t1", name: "Bash", input: { command: "printenv DEN_CONFORMANCE_CANARY" } }] } });
+  out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "t1", content: "", is_error: false }] } });
+  out({ type: "result", subtype: "success", is_error: false, result: "PROBE-ROLE-OK", session_id: sid });
+});
+rl.on("close", () => process.exit(0));
+`;
+
+test("runSpikes saves scrubbed fixtures: no home path, no username", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "conf-test-"));
+  const fake = writeFake(dir, FAKE_S1_HOMEPATHS);
+  const outDir = path.join(dir, "out");
+  await runSpikes({ spikes: ["S1"], out: outDir, claudeBin: fake, env: { PATH: process.env.PATH, HOME: dir }, timeoutMs: 10_000, log: () => {} });
+  const saved = readFileSync(path.join(outDir, "S1.jsonl"), "utf8");
+  assert.match(saved, /"subtype":"init"/);
+  assert.ok(!saved.includes(dir), "the HOME given to the runner leaked into the fixture");
+  if (homedir().length > 1) assert.ok(!saved.includes(homedir()), "the real home path leaked into the fixture");
+  assert.ok(!saved.includes(userInfo().username), "the username leaked into the fixture");
+  for (const l of saved.split("\n").filter(Boolean)) JSON.parse(l);
+});
+
+// ---- S8 evaluator (the child's messaging socket) -----------------------------------------
+// Input: init { socketPath, capabilities }, stat { type, mode, uid, ownUid, dirMode } | null,
+// connect { connected, error?, unsolicited, greeting }, probes [{ name, shape, reply, effect }],
+// disable [{ via, socketGone, loggedIn }].
+
+const s8Probes = (effects = {}, reply = '{"error":"unsupported"}') =>
+  [
+    ["user-message", '{"type":"user","message":{"role":"user","content":"<nonce>"}}'],
+    ["interrupt-control-request", '{"type":"control_request","request":{"subtype":"interrupt"}}'],
+    ["interrupt-bare", '{"type":"interrupt"}'],
+    ["control-response", '{"type":"control_response","response":{"subtype":"success","request_id":"<id>","response":{"behavior":"allow"}}}'],
+  ].map(([name, shape]) => ({ name, shape, reply, effect: Boolean(effects[name]) }));
+const s8Base = () => ({
+  init: { socketPath: "/tmp/cc-socks/123.sock", capabilities: ["interrupt_send_now_v1", "msg_lifecycle_v1"] },
+  stat: { type: "socket", mode: 0o600, uid: 501, ownUid: 501, dirMode: 0o700 },
+  connect: { connected: true, unsolicited: "", greeting: null },
+  probes: s8Probes(),
+  disable: [],
+});
+
+test("S8 outcome a: no messaging_socket_path in init is a go", () => {
+  const d = s8Base();
+  d.init = { socketPath: null, capabilities: [] };
+  d.stat = null;
+  d.connect = null;
+  d.probes = [];
+  const r = evaluateS8(d);
+  assert.equal(r.spike, "S8");
+  assert.equal(r.verdict, "go");
+  assert.equal(r.outcome, "a");
+});
+
+test("S8 outcome b: the socket exists but refuses the connection", () => {
+  const d = s8Base();
+  d.connect = { connected: false, error: "EACCES", unsolicited: "", greeting: null };
+  d.probes = [];
+  const r = evaluateS8(d);
+  assert.equal(r.verdict, "go");
+  assert.equal(r.outcome, "b");
+});
+
+test("S8 outcome b: it accepts a connection, answers every probe with an error and none has an effect", () => {
+  const r = evaluateS8(s8Base());
+  assert.equal(r.verdict, "go");
+  assert.equal(r.outcome, "b");
+});
+
+test("S8 unconfirmed: it accepts a connection but stays silent and no probe shows an effect", () => {
+  const d = s8Base();
+  d.probes = s8Probes({}, null);
+  const r = evaluateS8(d);
+  assert.equal(r.verdict, "unconfirmed");
+});
+
+test("S8 outcome c (residual): messages or interrupts take effect but a control_response does not", () => {
+  for (const name of ["user-message", "interrupt-control-request", "interrupt-bare"]) {
+    const d = s8Base();
+    d.probes = s8Probes({ [name]: true });
+    const r = evaluateS8(d);
+    assert.equal(r.verdict, "residual", name);
+    assert.equal(r.outcome, "c", name);
+    assert.match(r.evidence.join("\n"), new RegExp(name));
+  }
+});
+
+test("S8 outcome d (no-go): a control_response over the socket answers the pending request", () => {
+  const d = s8Base();
+  d.probes = s8Probes({ "control-response": true, "user-message": true });
+  const r = evaluateS8(d);
+  assert.equal(r.verdict, "no-go");
+  assert.equal(r.outcome, "d");
+});
+
+test("S8 an unsolicited event stream on the socket is a finding on its own, never a plain go", () => {
+  const d = s8Base();
+  d.connect = { connected: true, unsolicited: '{"type":"assistant","message":"leak"}\n', greeting: null };
+  const r = evaluateS8(d);
+  assert.notEqual(r.verdict, "go");
+  assert.match(r.evidence.join("\n"), /leak|unsolicited/i);
+});
+
+test("S8 evidence lists every shape tried, the socket's mode and capabilities, and flags open permissions", () => {
+  const d = s8Base();
+  d.stat = { type: "socket", mode: 0o666, uid: 501, ownUid: 501, dirMode: 0o777 };
+  const r = evaluateS8(d);
+  const ev = r.evidence.join("\n");
+  for (const p of d.probes) assert.ok(ev.includes(p.shape), `missing shape for ${p.name}`);
+  assert.match(ev, /interrupt_send_now_v1/);
+  assert.match(ev, /others/i);
+});
+
+test("S8 a disable candidate counts only if the socket is gone and the child still logs in and answers", () => {
+  const withSocket = s8Base();
+  withSocket.probes = s8Probes({ "control-response": true });
+  withSocket.disable = [{ via: "--no-socket", socketGone: true, loggedIn: false }, { via: "FOO=1", socketGone: false, loggedIn: true }];
+  const none = evaluateS8(withSocket);
+  assert.equal(none.verdict, "no-go");
+  assert.ok(!none.disabledBy);
+
+  withSocket.disable.push({ via: "--no-messaging", socketGone: true, loggedIn: true });
+  const ok = evaluateS8(withSocket);
+  assert.equal(ok.verdict, "go");
+  assert.equal(ok.disabledBy, "--no-messaging");
+});
+
+// ---- S8 runner against a fake --------------------------------------------------------------
+// The fake optionally listens on a Unix socket named in init. With honourControlResponse a
+// control_response arriving there for the pending can_use_tool request is obeyed (outcome d).
+// A user message naming "sleep" starts a short fake tool call; one naming "write" and a .txt path
+// raises a can_use_tool request. Child pids are recorded in $HOME/children.txt.
+const s8Fake = (o) => `
+import readline from "node:readline";
+import net from "node:net";
+import fs from "node:fs";
+import path from "node:path";
+const o = ${JSON.stringify(o)};
+const args = process.argv.slice(2);
+if (args.includes("--help")) { console.log("usage: fake-claude [options]"); process.exit(0); }
+const sid = args[args.indexOf("--session-id") + 1];
+const home = process.env.HOME;
+fs.appendFileSync(path.join(home, "children.txt"), process.pid + "\\n");
+const sock = path.join(home, "m.sock");
+const out = (x) => process.stdout.write(JSON.stringify(x) + "\\n");
+let pending = null;
+let inited = false;
+const init = () => {
+  if (inited) return;
+  inited = true;
+  const i = { type: "system", subtype: "init", session_id: sid, capabilities: ["interrupt_send_now_v1"] };
+  if (o.socket) i.messaging_socket_path = sock;
+  out(i);
+};
+if (o.socket) {
+  fs.rmSync(sock, { force: true });
+  net.createServer((c) => {
+    c.on("data", (d) => {
+      const s = d.toString();
+      if (o.honourControlResponse && pending && s.includes(pending.id) && /allow/.test(s)) {
+        fs.writeFileSync(pending.file, "x");
+        const p = pending;
+        pending = null;
+        out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: p.id, content: "created", is_error: false }] } });
+        out({ type: "result", subtype: "success", is_error: false, result: "ok", session_id: sid });
+      }
+      c.write(JSON.stringify({ error: "unsupported" }) + "\\n");
+    });
+  }).listen(sock);
+}
+const rl = readline.createInterface({ input: process.stdin });
+rl.on("line", (line) => {
+  const msg = JSON.parse(line);
+  if (msg.type === "user") {
+    init();
+    const text = String(msg.message.content);
+    let handled = false;
+    if (/sleep/i.test(text)) {
+      handled = true;
+      out({ type: "assistant", message: { content: [{ type: "tool_use", id: "tsl", name: "Bash", input: { command: "sleep 15" } }] } });
+      setTimeout(() => {
+        out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "tsl", content: "", is_error: false }] } });
+        out({ type: "result", subtype: "success", is_error: false, result: "PROBE-ROLE-OK", session_id: sid });
+      }, 1200);
+    }
+    if (/write/i.test(text)) {
+      handled = true;
+      const file = text.match(/\\S+\\.txt/)?.[0] ?? path.join(process.cwd(), "s8.txt");
+      pending = { id: "req_s8", file };
+      out({ type: "control_request", request_id: "req_s8", request: { subtype: "can_use_tool", tool_name: "Write", input: { file_path: file, content: "x" } } });
+    }
+    if (!handled) out({ type: "result", subtype: "success", is_error: false, result: "PROBE-ROLE-OK", session_id: sid });
+  } else if (msg.type === "control_response" && pending) {
+    pending = null;
+    out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "req_s8", content: "denied", is_error: true }] } });
+    out({ type: "result", subtype: "success", is_error: false, result: "PROBE-ROLE-OK", session_id: sid });
+  }
+});
+rl.on("close", () => process.exit(0));
+setInterval(() => {}, 1000);
+`;
+
+const runS8 = async (o) => {
+  const dir = mkdtempSync(path.join(tmpdir(), "c8-"));
+  const fake = writeFake(dir, s8Fake(o));
+  const results = await runSpikes({ spikes: ["S8"], out: path.join(dir, "out"), claudeBin: fake, env: { PATH: process.env.PATH, HOME: dir }, timeoutMs: 10_000, log: () => {} });
+  const left = await stillAlive(readPids(path.join(dir, "children.txt")));
+  return { r: results[0], left, dir };
+};
+
+test("runSpikes S8 against a fake with no messaging socket: go, outcome a, no child left running", async () => {
+  const { r, left } = await runS8({ socket: false });
+  assert.equal(r.spike, "S8");
+  assert.equal(r.verdict, "go", r.evidence.join("\n"));
+  assert.equal(r.outcome, "a");
+  assert.deepEqual(left, []);
+});
+
+test("runSpikes S8 against a fake whose socket obeys a control_response: no-go, outcome d, no child left running", async () => {
+  const { r, left } = await runS8({ socket: true, honourControlResponse: true });
+  assert.equal(r.verdict, "no-go", r.evidence.join("\n"));
+  assert.equal(r.outcome, "d");
+  assert.deepEqual(left, []);
+});
+
+// ---- S4b evaluator (kill and exit during a tool call) -------------------------------------
+// Input: eof { exited, survivors }, term { exited, exitMs, survivorsAt2s, survivorsAt10s },
+// kill { survivors }, group null | { term: { survivors }, kill: { survivors } }. Survivors are counts.
+
+const s4bClean = () => ({
+  eof: { exited: true, survivors: 0 },
+  term: { exited: true, exitMs: 120, survivorsAt2s: 0, survivorsAt10s: 0 },
+  kill: { survivors: 0 },
+  group: null,
+});
+
+test("S4b go with decision plain: exits on EOF mid-call and no sleep survives any run", () => {
+  const r = evaluateS4b(s4bClean());
+  assert.equal(r.spike, "S4b");
+  assert.equal(r.verdict, "go");
+  assert.equal(r.decision, "plain");
+});
+
+test("S4b go with decision group-kill: sleeps survive the child-only signals and the group signal clears them", () => {
+  const d = s4bClean();
+  d.term.survivorsAt2s = 1;
+  d.term.survivorsAt10s = 1;
+  d.kill.survivors = 1;
+  d.group = { term: { survivors: 0 }, kill: { survivors: 0 } };
+  const r = evaluateS4b(d);
+  assert.equal(r.verdict, "go");
+  assert.equal(r.decision, "group-kill");
+  assert.match(r.evidence.join("\n"), /group/i);
+});
+
+test("S4b a sleep that survives only the EOF run, cleared by the group signal, still decides group-kill", () => {
+  const d = s4bClean();
+  d.eof.survivors = 1;
+  d.group = { term: { survivors: 0 }, kill: { survivors: 0 } };
+  const r = evaluateS4b(d);
+  assert.equal(r.verdict, "go");
+  assert.equal(r.decision, "group-kill");
+});
+
+test("S4b no-go when a sleep outlives the group signal", () => {
+  const d = s4bClean();
+  d.kill.survivors = 1;
+  d.group = { term: { survivors: 1 }, kill: { survivors: 1 } };
+  const r = evaluateS4b(d);
+  assert.equal(r.verdict, "no-go");
+  assert.notEqual(r.decision, "plain");
+});
+
+test("S4b no-go when the child does not exit on stdin EOF in the middle of a tool call", () => {
+  const d = s4bClean();
+  d.eof = { exited: false, survivors: 0 };
+  const r = evaluateS4b(d);
+  assert.equal(r.verdict, "no-go");
+  assert.match(r.evidence.join("\n"), /EOF/);
+});
+
+// ---- S4b runner against a fake: leftover cleanup -----------------------------------------
+// The fake starts a real `sleep 61` as a tool call's grandchild and records every child pid and
+// sleep pid under $HOME. Options: eofExits, termExits, sleepDetached (own process group).
+
+const s4bFake = (o) => `
+import readline from "node:readline";
+import fs from "node:fs";
+import path from "node:path";
+import { spawn } from "node:child_process";
+const o = ${JSON.stringify(o)};
+const args = process.argv.slice(2);
+const sid = args[args.indexOf("--session-id") + 1] ?? args[args.indexOf("--resume") + 1];
+const home = process.env.HOME;
+fs.appendFileSync(path.join(home, "children.txt"), process.pid + "\\n");
+const out = (x) => process.stdout.write(JSON.stringify(x) + "\\n");
+let sleeper = null;
+const rl = readline.createInterface({ input: process.stdin });
+rl.on("line", () => {
+  out({ type: "system", subtype: "init", session_id: sid });
+  sleeper = spawn("sleep", ["61"], { stdio: "ignore", detached: o.sleepDetached });
+  sleeper.unref();
+  fs.appendFileSync(path.join(home, "sleeps.txt"), sleeper.pid + "\\n");
+  out({ type: "assistant", message: { content: [{ type: "tool_use", id: "tsl", name: "Bash", input: { command: "sleep 61" } }] } });
+});
+rl.on("close", () => { if (o.eofExits) process.exit(0); });
+process.on("SIGTERM", () => { if (o.termExits) process.exit(0); });
+setInterval(() => {}, 1000);
+`;
+
+const FAST = { settleMs: 100, eofPollMs: 1500, termCheckMs: [300, 800] };
+const runS4b = async (o) => {
+  const dir = mkdtempSync(path.join(tmpdir(), "c4-"));
+  const fake = writeFake(dir, s4bFake(o));
+  const results = await runSpikes({ spikes: ["S4b"], out: path.join(dir, "out"), claudeBin: fake, env: { PATH: process.env.PATH, HOME: dir }, timeoutMs: 10_000, timing: FAST, log: () => {} });
+  const sleeps = readPids(path.join(dir, "sleeps.txt"));
+  const children = readPids(path.join(dir, "children.txt"));
+  const leftSleeps = await stillAlive(sleeps);
+  const leftChildren = await stillAlive(children);
+  return { r: results[0], sleeps, children, leftSleeps, leftChildren };
+};
+
+test("runSpikes S4b: sleeps that survive child-only signals are cleared by the group signal (group-kill) and every recorded pid is gone", async () => {
+  const { r, sleeps, leftSleeps, leftChildren } = await runS4b({ eofExits: true, termExits: true, sleepDetached: false });
+  assert.ok(sleeps.length >= 2, "the runner should start several children, each with a sleep 61");
+  assert.equal(r.verdict, "go", r.evidence.join("\n"));
+  assert.equal(r.decision, "group-kill");
+  assert.deepEqual(leftSleeps, [], "leftover sleep 61 pids were not killed");
+  assert.deepEqual(leftChildren, [], "leftover child pids were not killed");
+});
+
+test("runSpikes S4b: a sleep in its own process group outlives the group signal (no-go) and is still killed at the end", async () => {
+  const { r, sleeps, leftSleeps, leftChildren } = await runS4b({ eofExits: true, termExits: true, sleepDetached: true });
+  assert.ok(sleeps.length >= 2);
+  assert.equal(r.verdict, "no-go", r.evidence.join("\n"));
+  assert.deepEqual(leftSleeps, [], "leftover sleep 61 pids were not killed");
+  assert.deepEqual(leftChildren, [], "leftover child pids were not killed");
+});
+
+test("runSpikes S4b: a child that ignores stdin EOF mid-call is a no-go and the runner still ends it", async () => {
+  const { r, leftSleeps, leftChildren } = await runS4b({ eofExits: false, termExits: true, sleepDetached: false });
+  assert.equal(r.verdict, "no-go", r.evidence.join("\n"));
+  assert.match(r.evidence.join("\n"), /EOF/);
+  assert.deepEqual(leftSleeps, []);
+  assert.deepEqual(leftChildren, []);
+});
+
+// ---- S6b evaluator (--settings precedence and setting sources in a real worktree) ---------
+
+const s6bInit = (extra = {}) => init(100, { mcp_servers: [], plugins: [{ name: "cc-builtin", path: "builtin", source: "cc@builtin" }], ...extra });
+const s6bCap = (initLine = s6bInit(), stderr = "") =>
+  cap(
+    [
+      initLine,
+      toolUse(500, "Write", { file_path: "/repo/.claude/worktrees/s6b-x/allowed.txt", content: "ok" }, "w1"),
+      toolUse(700, "Write", { file_path: "/repo/.claude/worktrees/s6b-x/.claude/probe.txt", content: "ok" }, "w2"),
+      result(900, "PROBE-ROLE-OK"),
+    ],
+    { code: 0, signal: null, t: 1000 },
+    stderr,
+  );
+const s6bOk = { allowedExists: true, deniedExists: false };
+
+test("S6b go: the project allow applied, the inline deny won, and no user-scope MCP server or plugin loaded", () => {
+  const r = evaluateS6b(s6bCap(), s6bOk);
+  assert.equal(r.spike, "S6b");
+  assert.equal(r.verdict, "go", r.evidence.join("\n"));
+});
+
+test("S6b no-go when the denied write landed (deny did not outrank allow, or --settings was ignored)", () => {
+  assert.equal(evaluateS6b(s6bCap(), { allowedExists: true, deniedExists: true }).verdict, "no-go");
+});
+
+test("S6b no-go when the project allow did not apply and the CLI did not blame trust (--settings replaced it)", () => {
+  assert.equal(evaluateS6b(s6bCap(), { allowedExists: false, deniedExists: false }).verdict, "no-go");
+});
+
+test("S6b unconfirmed, with the trust finding, when stderr says the worktree workspace is untrusted", () => {
+  const stderr = "Warning: this workspace is not trusted; ignoring permissions.allow from project settings";
+  const r = evaluateS6b(s6bCap(s6bInit(), stderr), { allowedExists: false, deniedExists: false });
+  assert.equal(r.verdict, "unconfirmed");
+  assert.match(r.evidence.join("\n"), /trust/i);
+  assert.match(r.evidence.join("\n"), /worktree/i);
+});
+
+test("S6b no-go when init carries a user or claudeai MCP server; the evidence names it", () => {
+  for (const [name, source] of [["blender", "user"], ["claude.ai Claude Docs", "claudeai"]]) {
+    const r = evaluateS6b(s6bCap(s6bInit({ mcp_servers: [{ name, status: "connected", source }] })), s6bOk);
+    assert.equal(r.verdict, "no-go", name);
+    assert.ok(r.evidence.join("\n").includes(name), name);
+  }
+});
+
+test("S6b no-go when init carries a user-scope plugin (a path under the owner's plugin cache); builtin plugins are fine", () => {
+  const plugins = [
+    { name: "cc-builtin", path: "builtin", source: "cc@builtin" },
+    { name: "mattpocock-skills", path: "/home/someone/.claude/plugins/cache/claude-plugins-official/mattpocock-skills/1.2.3", source: "mattpocock-skills@claude-plugins-official" },
+  ];
+  const r = evaluateS6b(s6bCap(s6bInit({ plugins })), s6bOk);
+  assert.equal(r.verdict, "no-go");
+  assert.ok(r.evidence.join("\n").includes("mattpocock-skills"));
+});
+
+// ---- S6b runner against a fake, in a real temporary git repo ------------------------------
+
+const s6bFake = (o) => `
+import readline from "node:readline";
+import fs from "node:fs";
+import path from "node:path";
+const o = ${JSON.stringify(o)};
+const args = process.argv.slice(2);
+const sid = args[args.indexOf("--session-id") + 1];
+const home = process.env.HOME;
+const out = (x) => process.stdout.write(JSON.stringify(x) + "\\n");
+const local = path.join(".claude", "settings.local.json");
+fs.writeFileSync(path.join(home, "s6b-seen.json"), JSON.stringify({
+  args, cwd: process.cwd(),
+  local: fs.existsSync(local) ? JSON.parse(fs.readFileSync(local, "utf8")) : null,
+  role: fs.existsSync(path.join(".claude", "agents", "probe.md")),
+}));
+if (o.crash) process.exit(1);
+const rl = readline.createInterface({ input: process.stdin });
+rl.on("line", () => {
+  out({ type: "system", subtype: "init", session_id: sid, mcp_servers: [], plugins: [{ name: "cc", path: "builtin", source: "cc@builtin" }] });
+  out({ type: "assistant", message: { content: [{ type: "tool_use", id: "w1", name: "Write", input: { file_path: path.resolve("allowed.txt"), content: "ok" } }] } });
+  fs.writeFileSync("allowed.txt", "ok");
+  out({ type: "assistant", message: { content: [{ type: "tool_use", id: "w2", name: "Write", input: { file_path: path.resolve(".claude/probe.txt"), content: "ok" } }] } });
+  out({ type: "result", subtype: "success", is_error: false, result: "PROBE-ROLE-OK", session_id: sid });
+});
+rl.on("close", () => process.exit(0));
+`;
+
+const runS6b = async (o, repoOpt) => {
+  const dir = mkdtempSync(path.join(tmpdir(), "c6-"));
+  const repo = repoOpt ?? makeRepo();
+  const fake = writeFake(dir, s6bFake(o));
+  const results = await runSpikes({ spikes: ["S6b"], out: path.join(dir, "out"), claudeBin: fake, env: { PATH: process.env.PATH, HOME: dir }, repo, timeoutMs: 10_000, log: () => {} });
+  const seenFile = path.join(dir, "s6b-seen.json");
+  return { r: results[0], repo, seen: existsSync(seenFile) ? JSON.parse(readFileSync(seenFile, "utf8")) : null };
+};
+const leftoverWorktrees = (repo) => {
+  const root = path.join(repo, ".claude", "worktrees");
+  return existsSync(root) ? readdirSync(root).filter((n) => n.startsWith("s6b-")) : [];
+};
+
+test("runSpikes S6b: runs in a detached worktree under <repo>/.claude/worktrees with production-shaped arguments, then removes it", async () => {
+  const { r, repo, seen } = await runS6b({});
+  assert.equal(r.verdict, "go", r.evidence.join("\n"));
+  const root = realpathSync(path.join(repo, ".claude", "worktrees"));
+  assert.ok(realpathSync(seen.cwd).startsWith(`${root}${path.sep}s6b-`), seen.cwd);
+  const a = seen.args;
+  const flag = (n) => a[a.indexOf(n) + 1];
+  assert.equal(flag("--setting-sources"), "project,local");
+  assert.ok(a.includes("--strict-mcp-config"));
+  assert.ok(!a.includes("--mcp-config"));
+  assert.ok(!a.includes("--permission-mode"));
+  assert.equal(flag("--agent"), "probe");
+  const inline = JSON.parse(flag("--settings"));
+  assert.ok(inline.permissions.deny.includes("Write(.claude/**)"));
+  assert.ok(seen.local.permissions.allow.includes("Write(allowed.txt)"));
+  assert.ok(seen.local.permissions.allow.includes("Write(.claude/**)"));
+  assert.equal(seen.role, true);
+  assert.equal(worktreeCount(repo), 1, "the s6b worktree was not removed");
+  assert.deepEqual(leftoverWorktrees(repo), []);
+});
+
+test("runSpikes S6b: the worktree is removed even when the child crashes", async () => {
+  const { r, repo } = await runS6b({ crash: true });
+  assert.notEqual(r.verdict, "go");
+  assert.equal(worktreeCount(repo), 1);
+  assert.deepEqual(leftoverWorktrees(repo), []);
+});
+
+test("runSpikes S6b: a --repo that is not a git repository is a not-go result, not a crash", async () => {
+  const plain = mkdtempSync(path.join(tmpdir(), "conf-plain-"));
+  const { r } = await runS6b({}, plain);
+  assert.notEqual(r.verdict, "go");
+  assert.ok(r.evidence.length > 0);
+});
+
+// ---- S3b evaluator (optional, never gating) ------------------------------------------------
+// Input: { subagent, wait, omitted } captures and { waitMs, omittedFileExists }.
+// Result: verdict go or unconfirmed (never no-go) and behavior { subagentRequest, wait, updatedInputOmitted }.
+
+const withParent = (line, parent) => L(line.t, { ...line.obj, parent_tool_use_id: parent });
+const s3bSub = (identified) =>
+  cap([init(100), toolUse(300, "Task", { prompt: "x" }, "task1"), identified ? withParent(controlRequest(900, "req_sub", "Write", { file_path: "/w/x.txt", content: "c" }), "task1") : controlRequest(900, "req_sub", "Write", { file_path: "/w/x.txt", content: "c" }), result(1500, "ok")]);
+const s3bWaitDenied = (afterMs) =>
+  cap([init(100), controlRequest(500, "req_w", "Write", { file_path: "/w/w.txt", content: "c" }), toolResult(500 + afterMs, "tu1", "timed out waiting for permission", true), result(600 + afterMs, "ok")]);
+const s3bOmitted = () => cap([init(100), controlRequest(500, "req_o", "Write", { file_path: "/w/o.txt", content: "c" }), toolResult(900, "tu1", "created"), result(1000, "ok")]);
+
+test("S3b go when all three questions are answered; behavior is recorded per question", () => {
+  const r = evaluateS3b({ subagent: s3bSub(true), wait: s3bWaitDenied(30_000), omitted: s3bOmitted() }, { waitMs: 90_000, omittedFileExists: true });
+  assert.equal(r.spike, "S3b");
+  assert.equal(r.verdict, "go", r.evidence.join("\n"));
+  assert.equal(r.behavior.subagentRequest, "reaches-parent-identified");
+  assert.equal(r.behavior.wait, "denied");
+  assert.equal(r.behavior.updatedInputOmitted, "honoured");
+});
+
+test("S3b records a subagent request that does not identify the subagent, and an allow that omitted updatedInput being rejected", () => {
+  const r = evaluateS3b({ subagent: s3bSub(false), wait: s3bWaitDenied(30_000), omitted: s3bOmitted() }, { waitMs: 90_000, omittedFileExists: false });
+  assert.equal(r.behavior.subagentRequest, "reaches-parent-unidentified");
+  assert.equal(r.behavior.updatedInputOmitted, "rejected");
+});
+
+test("S3b records a subagent whose tool never prompts the parent", () => {
+  const quiet = cap([init(100), toolUse(300, "Task", { prompt: "x" }, "task1"), toolResult(900, "tu9", "ran without a prompt"), result(1500, "ok")]);
+  const r = evaluateS3b({ subagent: quiet, wait: s3bWaitDenied(30_000), omitted: s3bOmitted() }, { waitMs: 90_000, omittedFileExists: true });
+  assert.equal(r.behavior.subagentRequest, "absent");
+});
+
+test("S3b distinguishes an unanswered request that hangs from one that exits or is denied", () => {
+  const hung = cap([init(100), controlRequest(500, "req_w", "Write", { file_path: "/w/w.txt", content: "c" })], null);
+  const exited = cap([init(100), controlRequest(500, "req_w", "Write", { file_path: "/w/w.txt", content: "c" })], { code: 1, signal: null, t: 20_000 });
+  const run = (wait) => evaluateS3b({ subagent: s3bSub(true), wait, omitted: s3bOmitted() }, { waitMs: 90_000, omittedFileExists: true });
+  assert.equal(run(hung).behavior.wait, "hung");
+  assert.equal(run(exited).behavior.wait, "exited");
+  assert.equal(run(s3bWaitDenied(30_000)).behavior.wait, "denied");
+});
+
+test("S3b is unconfirmed, never no-go, when a question stays open", () => {
+  const nothing = cap([init(100), result(900, "no request was raised")]);
+  const open = evaluateS3b({ subagent: s3bSub(true), wait: nothing, omitted: s3bOmitted() }, { waitMs: 90_000, omittedFileExists: true });
+  assert.equal(open.verdict, "unconfirmed");
+  const allOpen = evaluateS3b({ subagent: nothing, wait: nothing, omitted: nothing }, { waitMs: 90_000, omittedFileExists: false });
+  assert.equal(allOpen.verdict, "unconfirmed");
+  assert.notEqual(allOpen.verdict, "no-go");
 });
