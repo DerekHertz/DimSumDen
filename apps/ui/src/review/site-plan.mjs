@@ -5,6 +5,7 @@ export const REVIEW_STATIONS=[
   {x:-12.5,z:2.5,yaw:0.18},
   {x:12.5,z:2.5,yaw:-0.18},
 ];
+export const LANTERN_POSTS=[[-9,0,-5],[9,0,-5]];
 export const CONSTRUCTION_PADS=[
   {id:'west',name:'West construction pad',position:[-7.5,0,-14.5],radius:2.4,number:'01'},
   {id:'north',name:'North construction pad',position:[0,0,-17.5],radius:2.4,number:'02'},
@@ -24,6 +25,7 @@ export const REVIEW_CLEARINGS=[
 ];
 export const isReviewPlantingClear=(x,z,margin=0)=>REVIEW_CLEARINGS.every(c=>Math.hypot(x-c.x,z-c.z)>=c.radius+margin);
 export const REVIEW_OBSTACLES=[
+  ...LANTERN_POSTS.map(([x,,z])=>({type:'circle',x,z,radius:0.32})),
   {type:'circle',x:ZONE_POSITIONS.dining[0],z:ZONE_POSITIONS.dining[2],radius:1.5},
   {type:'box',x:ZONE_POSITIONS.games[0],z:ZONE_POSITIONS.games[2],halfX:0.95,halfZ:0.95},
   {type:'circle',x:ZONE_POSITIONS.festival[0],z:ZONE_POSITIONS.festival[2],radius:3.25},

@@ -88,6 +88,8 @@ Wide horseshoe revision 6 spreads the four restaurant stations and six leisure a
 
 The restaurant sits in a finite garden clearing with a denser bamboo boundary, rocks, jasmine beds and three layers of distant mountain peaks. The entrance stays open for viewing; planting stays outside the leisure areas and future plots.
 
+Lantern canopy revision 7 attaches the lanterns behind Bao to a sagging string between two timber posts. Each lantern hangs from its own short cord, and the pandas route around the post bases.
+
 For development, `npm run review:dev` serves the same review at `http://localhost:5174/`. Run `npm run review:test` for the focused rig, prop, leisure and export checks. The HTML build is required for exporting a self-contained annotated artifact.
 
 ## Read more

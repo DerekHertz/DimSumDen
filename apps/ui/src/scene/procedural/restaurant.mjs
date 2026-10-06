@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ROLES, headgearSpec, propSpec, scarfSpec } from '../headgear.mjs';
 import { buildGear } from '../gear-object.mjs';
+import { LANTERN_POSTS } from '../../review/site-plan.mjs';
 
 export const CHARACTERS = [
   ['orchestrator','Bao','The Pass','Checks every dish before service.','Ladling soup'],
@@ -103,11 +104,24 @@ export function createRestaurantDetails(den,sample='morning') {
   for(let i=0;i<4;i++)box(menu,[0.5,0.025,0.01],[0,1.22-i*0.19,0.09],cream);
   // Hanging lantern canopy, kept behind Bao so the silhouette stays readable.
   const glow=mat(sample==='garden'?'#e8dfb0':'#e9a063',{emissive:'#fbae53',emissiveIntensity:sample==='lantern'?1.3:0.18});
+  const canopy=new THREE.Group();canopy.name='Supported lantern canopy';root.add(canopy);
+  canopy.userData.reviewPart=canopy.name;
+  const cableHeight=x=>7.3-0.7*Math.sin((x+9)/18*Math.PI);
+  for(const [x,,z]of LANTERN_POSTS){
+    cyl(canopy,0.32,0.18,[x,0.09,z],jade);
+    const post=cyl(canopy,0.14,7.3,[x,3.65,z],wood);post.name='Lantern support post';
+    for(const y of [0.3,6.95])cyl(canopy,0.18,0.08,[x,y,z],red);
+    cyl(canopy,0.2,0.08,[x,7.3,z],gold);
+    add(canopy,new THREE.SphereGeometry(0.12,12,8),gold,[x,7.45,z]);
+  }
+  const cablePoints=Array.from({length:65},(_,i)=>{const x=-9+i*18/64;return new THREE.Vector3(x,cableHeight(x),-5);});
+  const cable=add(canopy,new THREE.TubeGeometry(new THREE.CatmullRomCurve3(cablePoints),128,0.035,6,false),wood,[0,0,0]);
+  cable.name='Sagging lantern string';
   for(let i=0;i<9;i++){
-    const x=-8+i*2,y=6.4-0.7*Math.sin(i/8*Math.PI);
-    cyl(root,0.014,0.5,[x,y+0.35,-5],wood);
-    const l=add(root,new THREE.SphereGeometry(0.27,16,12),glow,[x,y,-5]);l.scale.y=1.28;
-    cyl(root,0.17,0.04,[x,y+0.34,-5],red);cyl(root,0.03,0.25,[x,y-0.47,-5],gold);
+    const x=-8+i*2,y=cableHeight(x)-0.75;
+    cyl(canopy,0.014,0.39,[x,y+0.555,-5],wood);
+    const l=add(canopy,new THREE.SphereGeometry(0.27,16,12),glow,[x,y,-5]);l.scale.y=1.28;
+    cyl(canopy,0.17,0.04,[x,y+0.34,-5],red);cyl(canopy,0.03,0.25,[x,y-0.47,-5],gold);
   }
   // Tiny plates and chopsticks on the existing lazy susan, outside the frontier baskets.
   for(let i=0;i<4;i++){
