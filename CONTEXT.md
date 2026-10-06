@@ -44,6 +44,18 @@ _Avoid_: FPS mode, free cam
 The spot on Bao or the grass where a cell sits. Cells hop or waddle between perches.
 _Avoid_: Slot, seat, position
 
+**Leisure area**:
+A place in the den where pandas rest between tasks (tea, mahjong, training, a festival stage, dim sum dining). It belongs to no station. Part of the den-layout direction (ADR 0019, Amendment 1).
+_Avoid_: Break room, lounge
+
+**Build pad**:
+A reserved plot at the rear of the den for a station that does not exist yet. It is marked out and numbered, and holds nothing until a station is built on it.
+_Avoid_: Empty slot, placeholder station
+
+**Scenery panda**:
+A panda with no role file: it fills a planned future role (release-manager, knowledge-keeper, docs-writer, stem-cub) so the den reads as populated, but nothing can dispatch it. It is not a resident panda and is not a cell type. The four roles above stay scenery until one gets a role file (genome) and its own CONTEXT.md entry.
+_Avoid_: NPC, extra, placeholder cell
+
 **Runtime**:
 The agent program that runs a cell (Claude Code, Codex CLI, Gemini CLI, OpenCode, local model).
 _Avoid_: Provider, engine
