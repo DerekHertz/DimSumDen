@@ -6,7 +6,7 @@
 
 **Blocked by:** 01, 03 (batch D1: PR #151 must merge first)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** ADR 0019 decision 7 (Blender out, procedural three.js only) and test-time cost: after #151, `App.jsx` renders `apps/ui/src/scene/procedural/` only, and nothing in it loads a glb.
 
@@ -24,3 +24,5 @@ Delete the market scene that #151 left as dead code, with its tests: `apps/ui/sr
 
 - **Created (orchestrator, 2026-10-03):** Found while reviewing #151 (it switches App to the procedural den). Also shrinks organism-infra/125 to the Blender sources and skill only.
 - **orchestrator, 2026-10-04:** Dropped the `Blocked by` edge to den-v1/04 (user, 2026-10-04); 04 stays parked.
+- **qa, 2026-10-06:** qa specify done
+- **qa, 2026-10-06:** QA bounce: apps/ui/src/overlay/floating-cards.test.mjs deleted but it passes (33/33) against HEAD and tests the live App overlay (Cards.jsx, Bottom.jsx). Restore it; qa will widen the walker's keep rule. Rest green: npm test 1763/1763, ui:build, smoke:ui 11 PASS, no glb. See 08-qa-verify.md.

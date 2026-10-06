@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** parked
 
 ## What to build
 
@@ -23,3 +23,4 @@ Make the hook robust without hiding real failures: wait on a readiness signal fr
 ## Comments
 
 - **orchestrator, 2026-10-02:** Filed from 104's handoff (deferred flake). Not in the 104 PR (#145).
+- **orchestrator, 2026-10-06:** Parked: User 2026-10-05: no Serves line naming a den-v1 step (refocus guardrail, ADR 0019 decision 8); park until v1 works.

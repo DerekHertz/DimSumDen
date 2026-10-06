@@ -8,6 +8,8 @@
 
 **Status:** ready-for-agent
 
+**Serves:** Den loop steps 3-4 (T: the agent receives a message from the card).
+
 **Design refs:** `docs/adr/0016-ui-steering-channel.md` decision 7, slice 2
 
 ## What to build

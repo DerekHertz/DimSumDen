@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** claimed
+**Status:** parked
 
 **Serves:** ADR 0019 decision 5 (Jev routes each step and is judged by outcomes). The user settled the go-live terms in a grilling on 2026-10-04 and confirmed the list ("yes to the jev list"). Nothing is live yet; this amendment comes first.
 
@@ -48,3 +48,5 @@ Files: `docs/adr/0010-*.md`, `docs/adr/0015-*.md`, `docs/jev-usecases.md` (new).
 ## Comments
 
 - **Created (orchestrator, 2026-10-05):** Filed and dispatched on the user's yes ("yes start dispatching"). The list was confirmed by the user on 2026-10-04.
+- **architect, 2026-10-06:** architect died with no handoff (handoff 36); user parks 136 until den-v1 works
+- **orchestrator, 2026-10-06:** Parked: User 2026-10-05: park until den-v1 works. The stalled architect's uncommitted partial work (ADR 0010/0015 edits, docs/jev-usecases.md) lives only in the Mac worktree agent-aa4acad29a81bddf3; the gated patch is at .scratch/_handoffs/gated/136-jev-go-live-genome.patch.

@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** parked
 
 ## What to build
 
@@ -30,3 +30,4 @@ Every cell logs a `kind:"cell"` row in `.scratch/usage.jsonl` through `scripts/l
 - **orchestrator, 2026-10-01:** Filed on the user's yes (2026-10-01). Found by the frontend orchestrator: log-cell refused two designer rows from the worktree until rerun from the main checkout (incident logged).
 - **orchestrator, 2026-10-01:** Sequencing: organism-infra/90 renames log-cell.mjs to log-panda.mjs; run 88 after 90, or rebase.
 - **orchestrator, 2026-10-01:** How to read tokens (tested 2026-10-01): sum message.usage (input, cache_creation, cache_read, output) per message id, keeping the row with the highest output_tokens, from ~/.claude/projects/<cwd-slug>/<session>.jsonl for the main session and <session>/subagents/*.jsonl for cells, grouped by message.model. Weighting by API price gave main Opus about 37%, Sonnet cells 57%, Haiku and Opus cells the rest; cache reads dominate (11.8M main, 30M cells over about 40 minutes). Include a cost-weighted share in the row.
+- **orchestrator, 2026-10-06:** Parked: User 2026-10-05: no Serves line naming a den-v1 step (refocus guardrail, ADR 0019 decision 8); park until v1 works.

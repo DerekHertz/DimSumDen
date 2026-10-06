@@ -8,6 +8,8 @@
 
 **Status:** ready-for-agent
 
+**Serves:** Den loop steps 3-4 (the bridge runs agents and holds permission requests; F and A/D read it).
+
 **Design refs:** `docs/adr/0016-ui-steering-channel.md` decision 7, slice 1
 
 ## What to build
