@@ -45,6 +45,19 @@ export function createWalkingBao(THREE,createBao,options={}) {
     g.translate(...center);return attach(name,g,mat,joint);
   }
   ellipsoid('WalkingBody',[0,1.25,-0.10],[0.94*settings.bodyWidth,0.90,1.43],materials.cream,'Spine');
+  // A fur marking on the body's surface, stopping behind the head; no neck piece.
+  const shoulderPositions=[],shoulderUV=[],shoulderIndices=[],sectors=48,rows=8;
+  for(let row=0;row<=rows;row++){
+    const z=0.3+row/rows*0.58,rho=Math.sqrt(1-((z+0.1)/1.43)**2);
+    for(let i=0;i<=sectors;i++){
+      const angle=i/sectors*Math.PI*2;
+      shoulderPositions.push(Math.cos(angle)*(0.94*settings.bodyWidth*rho+0.008),1.25+Math.sin(angle)*(0.9*rho+0.008),z);
+      shoulderUV.push(i/sectors,row/rows);
+      if(row<rows&&i<sectors){const a=row*(sectors+1)+i;shoulderIndices.push(a,a+1,a+sectors+1,a+1,a+sectors+2,a+sectors+1);}
+    }
+  }
+  const marking=new THREE.BufferGeometry();marking.setAttribute('position',new THREE.Float32BufferAttribute(shoulderPositions,3));marking.setAttribute('uv',new THREE.Float32BufferAttribute(shoulderUV,2));marking.setIndex(shoulderIndices);marking.computeVertexNormals();
+  attach('ShoulderMarking',marking,materials.charcoal,'Spine');
   ellipsoid('WalkingTail',[0,1.28,-1.58],[0.20,0.18,0.19],materials.cream,'Tail');
   const headPattern=/^(HeadShape|Muzzle|Nose|Philtrum|Smile_|EyePatch_|EyeWhite_|Pupil_|EyeGlint_|Lid_|Ear_|InnerEar_|CrownTuft_|CheekTuft_)/;
   for(const original of donor.model.children){

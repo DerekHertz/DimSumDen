@@ -44,7 +44,7 @@ export function createTraditionalGear(panda,role,direction='traveler'){
   const emblem=(p,v)=>{const g=group('Jade medallion',p,v);const disk=cyl(g,0.17,0.04,[0,0,0],jade);disk.rotation.x=Math.PI/2;ring(g,0.17,0.018,[0,0,0.025],gold);box(g,[0.04,0.2,0.018],[0,0,0.04],gold);return g;};
   const hat=group('Headwear',panda.bones.Head,[0,1.6,-0.02]);
   const cap=(scale=[0.92,0.35,0.69])=>orb(hat,scale,[0,-0.18,-0.08],cloth);
-  const wrap=()=>{const band=add(hat,new THREE.CylinderGeometry(1.16,1.16,0.18,40,1,true),cloth,[0,-0.5,0.04]);band.scale.z=0.8;band.material.side=THREE.DoubleSide;};
+  const wrap=()=>{const band=add(hat,new THREE.CylinderGeometry(1.16,1.16,0.18,40,1,true),cloth,[0,-0.5,0.04]);band.name='Cloth headband';band.scale.z=0.8;band.material.side=THREE.DoubleSide;};
   const douli=()=>{
     const brim=add(hat,new THREE.ConeGeometry(1.58,0.58,48,1,true),wood,[0,-0.06,0]);brim.material.side=THREE.DoubleSide;
     ring(hat,1.58,0.028,[0,-0.35,0],gold,Math.PI/2);
@@ -65,7 +65,7 @@ export function createTraditionalGear(panda,role,direction='traveler'){
     cap([0.96,0.47,0.73]);box(hat,[0.22,0.51,0.48],[0,0.18,0],gold);emblem(hat,[0,-0.36,0.75]);
     for(const s of [-1,1])box(hat,[0.23,0.6,0.16],[s*1.02,-0.6,0.1],cloth).rotation.z=s*0.18;
   }else if(role==='orchestrator'){
-    wrap();orb(hat,[0.3,0.29,0.29],[0,0.1,-0.12],dark);cyl(hat,0.34,0.12,[0,-0.04,-0.12],gold);emblem(hat,[0,-0.42,0.9]);
+    wrap();orb(hat,[0.3,0.29,0.29],[0,0.1,-0.12],dark);cyl(hat,0.34,0.12,[0,-0.04,-0.12],gold);emblem(hat,[0,-0.47,1.04]);
     for(const x of [-0.1,0.1])box(hat,[0.1,0.67,0.045],[x,-0.6,-0.88],cloth).rotation.x=-0.2;
   }else if(role==='architect'){
     cap([0.9,0.25,0.69]);box(hat,[1.48,0.12,0.25],[0,0.03,-0.16],wood);
@@ -84,7 +84,11 @@ export function createTraditionalGear(panda,role,direction='traveler'){
   }else if(role==='herald'){
     cap([0.86,0.33,0.65]);const crest=box(hat,[0.38,0.6,0.12],[0,0.23,0],cloth);crest.rotation.z=-0.16;emblem(hat,[0,-0.38,0.83]);tassel(hat,[0.82,-0.36,0.05]);
   }else if(role==='release-manager'){
-    wrap();for(const s of [-1,1]){const plume=orb(hat,[0.13,0.6,0.08],[s*0.4,0.2,-0.1],red);plume.rotation.z=s*-0.45;tassel(hat,[s*0.88,-0.46,0.47],gold);}emblem(hat,[0,-0.42,0.9]);
+    const festivalCap=cap([0.94,0.28,0.73]);festivalCap.name='Folded festival cap';
+    line(hat,[[-0.75,-0.2,0.4],[0,0.03,0.5],[0.75,-0.2,0.4]],0.025,gold);
+    orb(hat,[0.16,0.12,0.12],[-0.85,-0.25,0.3],red);
+    for(const s of [-1,1])box(hat,[0.11,0.43,0.035],[-0.86+s*0.05,-0.46,0.26],red).rotation.z=s*0.25;
+    emblem(hat,[0,-0.3,0.7]);
   }else if(role==='docs-writer'){
     wrap();box(hat,[0.16,0.78,0.025],[-0.9,-0.8,-0.6],cloth).rotation.z=-0.3;line(hat,[[0.8,-0.55,0.55],[0.99,-0.12,0.32],[1.03,0.18,0.1]],0.045,wood);orb(hat,[0.05,0.12,0.04],[1.04,0.27,0.02],dark);
   }else if(role==='debugger'){

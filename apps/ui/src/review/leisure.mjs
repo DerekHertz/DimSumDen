@@ -1,11 +1,16 @@
 import * as THREE from 'three';
 import {createTraditionalGear} from './traditional-props.mjs';
+import {compactPanda} from '../scene/procedural/compact.mjs';
+import {createDiningTable} from './dining-table.mjs';
+import {createDragonDance} from './dragon-dance.mjs';
 
 export const LEISURE_ZONES=[
   {id:'tea',name:'Lotus tea pavilion',hint:'Pour tea and watch the lotus pond.',activity:'Tea break',position:[-14,0,4]},
   {id:'games',name:'Bamboo game table',hint:'Shuffle the mahjong tiles for a new hand.',activity:'Mahjong with friends',position:[-10,0,-7]},
   {id:'training',name:'Traveler’s courtyard',hint:'Ring the training gong and start practice.',activity:'Staff practice',position:[14,0,4]},
   {id:'festival',name:'Festival stage',hint:'Start the drum circle and spin the ribbons.',activity:'A little festival',position:[10,0,-7]},
+  {id:'dining',name:'Dim sum dining table',hint:'Share bao, siu mai, har gow and custard buns. Turn the lazy Susan while the pandas reach with their chopsticks.',activity:'Dim sum with friends',position:[-9,0,12]},
+  {id:'dragon',name:'Dragon dance courtyard',hint:'A panda troupe carries the festival dragon on poles, chasing a pearl with a rippling silk body.',activity:'Start the dragon dance',position:[9,0,12]},
 ];
 export function createLeisure(den,createBao){
   const root=new THREE.Group();root.name='Bamboo leisure gardens';den.world.add(root);
@@ -18,7 +23,7 @@ export function createLeisure(den,createBao){
   const ring=(p,r,t,v,m)=>{const o=add(p,new THREE.TorusGeometry(r,t,8,48),m,v);o.rotation.x=Math.PI/2;return o;};
   const allZones=new Map();
   const zone=(info,radius)=>{const g=new THREE.Group();g.position.set(...info.position);g.name=info.name;g.userData.zone=info.id;root.add(g);allZones.set(info.id,g);cyl(g,radius,0.06,[0,0.03,0],stone);ring(g,radius,0.04,[0,0.08,0],gold);return g;};
-  const panda=(parent,x,z,role,style,yaw=0)=>{const p=createBao(THREE,{detail:'low'});p.model.position.set(x,0.1,z);p.model.scale.setScalar(0.34);p.model.rotation.y=yaw;parent.add(p.model);const gear=createTraditionalGear(p,role,style);gears.push(gear);residents.push(p);return p;};
+  const panda=(parent,x,z,role,style,yaw=0)=>{const p=createBao(THREE,{detail:'low'});p.model.position.set(x,0.1,z);p.model.scale.setScalar(0.34);parent.add(p.model);p.model.rotation.y=yaw;compactPanda(THREE,p);const gear=createTraditionalGear(p,role,style);gears.push(gear);residents.push(p);return p;};
   const tea=zone(LEISURE_ZONES[0],2.7);
   for(const x of [-1.7,1.7])for(const z of [-1.5,1.5])cyl(tea,0.085,3.4,[x,1.7,z],wood);
   const roof=add(tea,new THREE.ConeGeometry(3.0,0.85,4),jade,[0,3.55,0]);roof.rotation.y=Math.PI/4;
@@ -50,17 +55,29 @@ export function createLeisure(den,createBao){
   const ribbons=[];
   for(const x of [-1.8,1.8]){cyl(festival,0.035,3,[x,1.5,-0.6],wood);const ribbon=box(festival,[0.17,1.2,0.025],[x,2.1,-0.6],red);ribbons.push(ribbon);}
   const drummer=panda(festival,-0.9,0.4,'release-manager','teahouse',0.6);panda(festival,1,0.4,'docs-writer','traveler',-0.6);animated.festival={drum,ribbons,panda:drummer};
+  const diningZone=zone(LEISURE_ZONES[4],3.2),dining=createDiningTable(createBao);diningZone.add(dining.root);
+  for(const x of [-2.5,2.5]){
+    cyl(diningZone,0.045,3.0,[x,1.5,-1.8],wood);
+    const lantern=add(diningZone,new THREE.SphereGeometry(0.22,16,10),red,[x,2.6,-1.8]);lantern.scale.y=1.25;
+    ring(diningZone,0.18,0.02,[x,2.75,-1.8],gold);
+  }
+  const dragonZone=zone(LEISURE_ZONES[5],5.3),dragon=createDragonDance(createBao);dragonZone.add(dragon.root);
+  for(const x of [-4.4,4.4]){
+    cyl(dragonZone,0.055,3.2,[x,1.6,-2.4],wood);box(dragonZone,[0.4,1.3,0.035],[x,2.3,-2.4],red);
+    for(const y of [2.1,2.4,2.7])box(dragonZone,[0.17,0.025,0.014],[x,y,-2.37],gold);
+  }
   // Broader bamboo boundary and an ornamental entrance arch.
   for(let i=0;i<42;i++){
-    const angle=i/42*Math.PI*2,x=Math.sin(angle)*20,z=Math.cos(angle)*14-1;
-    if(z>10&&Math.abs(x)<7)continue;
+    const angle=i/42*Math.PI*2,x=Math.sin(angle)*22,z=Math.cos(angle)*22-1;
+    if(z>14&&Math.abs(x)<18)continue;
     const h=4.5+(i%5)*0.8;cyl(root,0.12,h,[x,h/2,z],jade);
     for(let j=1;j<5;j++){cyl(root,0.14,0.04,[x,j*h/5,z],gold);if(j>2){const foliage=add(root,new THREE.SphereGeometry(1,8,6),leaf,[x+(j%2?0.5:-0.5),j*h/5,z]);foliage.scale.set(0.85,0.16,0.4);foliage.rotation.z=j%2?0.3:-0.3;}}
   }
-  for(const x of [-3,3])cyl(root,0.15,3.8,[x,1.9,12],wood);
-  box(root,[7.2,0.18,0.4],[0,3.4,12],red);const archRoof=add(root,new THREE.ConeGeometry(4.5,0.7,4),jade,[0,3.9,12]);archRoof.scale.z=0.3;archRoof.rotation.y=Math.PI/4;
-  const active={tea:false,games:false,training:false,festival:false};let turns=0;
-  function activate(id){if(!(id in active))return;active[id]=!active[id];if(id==='games'){turns++;for(let i=0;i<animated.games.tiles.length;i++){const tile=animated.games.tiles[i],a=i/16*Math.PI*2+turns*0.3;tile.position.set(Math.sin(a)*0.45,0.71,Math.cos(a)*0.45);tile.rotation.y+=0.7;}}}
+  for(const x of [-3,3])cyl(root,0.15,3.8,[x,1.9,19],wood);
+  box(root,[7.2,0.18,0.4],[0,3.4,19],red);const archRoof=add(root,new THREE.ConeGeometry(4.5,0.7,4),jade,[0,3.9,19]);archRoof.scale.z=0.3;archRoof.rotation.y=Math.PI/4;
+  for(const s of [-1,1])for(let i=0;i<5;i++)cyl(root,0.3,0.03,[s*(2+i*1.4),0.025,17.3-i*0.95],stone);
+  const active=Object.fromEntries(LEISURE_ZONES.map(z=>[z.id,false]));let turns=0;
+  function activate(id){if(!(id in active))return;active[id]=!active[id];if(id==='dining'&&!active[id])dining.update(0,false);if(id==='dragon'&&!active[id])dragon.update(0,false);if(id==='games'){turns++;for(let i=0;i<animated.games.tiles.length;i++){const tile=animated.games.tiles[i],a=i/16*Math.PI*2+turns*0.3;tile.position.set(Math.sin(a)*0.45,0.71,Math.cos(a)*0.45);tile.rotation.y+=0.7;}}}
   function update(time,reduced=false){
     if(reduced)return;
     for(const p of residents){p.bones.Head.rotation.y=0.04*Math.sin(time*0.7);}
@@ -68,6 +85,8 @@ export function createLeisure(den,createBao){
     if(active.training){animated.training.gong.rotation.y=0.12*Math.sin(time*4);animated.training.panda.bones.Shoulder_R.rotation.x=0.2*Math.sin(time*2);}
     if(active.games)animated.games.panda.bones.Wrist_R.rotation.y=0.17*Math.sin(time*2);
     if(active.festival){animated.festival.panda.bones.Shoulder_R.rotation.x=0.25*Math.sin(time*4);for(const [i,r]of animated.festival.ribbons.entries())r.rotation.z=0.2*Math.sin(time*2+i);}
+    if(active.dining)dining.update(time);
+    if(active.dragon)dragon.update(time);
   }
-  return {root,residents,active,activate,update,dispose(){root.removeFromParent();for(const gear of gears)gear.dispose();for(const p of residents)p.dispose();for(const g of geometry)g.dispose();for(const m of materials)m.dispose();}};
+  return {root,residents:[...residents,...dining.diners,...dragon.performers],zones:allZones,dining,dragon,active,activate,update,dispose(){root.removeFromParent();dining.dispose();dragon.dispose();for(const gear of gears)gear.dispose();for(const p of residents){p.model.traverse(o=>{if(o.isMesh)o.geometry.dispose();});p.dispose();}for(const g of geometry)g.dispose();for(const m of materials)m.dispose();}};
 }

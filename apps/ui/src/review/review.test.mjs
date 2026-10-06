@@ -6,7 +6,7 @@ import {createWalkingBao} from './walking-panda.mjs';
 import {CHARACTERS} from '../scene/procedural/restaurant.mjs';
 import {createTraditionalGear,DIRECTIONS,TRADITIONAL_PROPS,bellySurface} from './traditional-props.mjs';
 import {normalizeReview,reviewHtml} from './review-data.mjs';
-import {createLeisure} from './leisure.mjs';
+import {createLeisure,LEISURE_ZONES} from './leisure.mjs';
 import {withDen} from '../scene/procedural/den-test-helpers.mjs';
 
 test('body, head and leg sliders alter real mesh extents; gait changes alter planted-paw motion',()=>{
@@ -48,8 +48,8 @@ test('review round-trip preserves notes, settings, camera and fits without HTML 
 
 test('leisure activation changes visible props and animated pandas, and detaches on disposal',()=>{
   withDen(den=>{
-    const leisure=createLeisure(den,createBao);assert.equal(leisure.residents.length,8);
-    for(const id of ['tea','games','training','festival']){leisure.activate(id);assert.equal(leisure.active[id],true);}
+    const leisure=createLeisure(den,createBao);assert.equal(leisure.residents.length,17);
+    for(const {id}of LEISURE_ZONES){leisure.activate(id);assert.equal(leisure.active[id],true);}
     leisure.update(1);const arm=leisure.residents[4].bones.Shoulder_R.rotation.x;leisure.update(2);assert.notEqual(leisure.residents[4].bones.Shoulder_R.rotation.x,arm);
     leisure.activate('training');assert.equal(leisure.active.training,false);leisure.dispose();assert.equal(leisure.root.parent,null);
   });
@@ -74,6 +74,8 @@ test('roaming panda has shoulder/hip pivots, no neck segment or elbow/knee bulge
   const p=createWalkingBao(THREE,createBao,{bodyWidth:1.24,headScale:1.35,legWidth:1.5});
   assert.equal(p.model.getObjectByName('Neck'),undefined);
   assert.equal(p.model.getObjectByName('ShoulderBand'),undefined);
+  const marking=p.model.getObjectByName('ShoulderMarking');assert.ok(marking);
+  marking.geometry.computeBoundingBox();assert.ok(marking.geometry.boundingBox.max.z<1,'shoulder fur ends behind the neck');
   assert.ok(!p.skeleton.bones.some(b=>/Elbow|Knee/.test(b.name)));
   assert.ok(!p.model.children.some(o=>/Joint_|Lower_/.test(o.name)));
   for(let i=0;i<64;i++){
@@ -84,4 +86,34 @@ test('roaming panda has shoulder/hip pivots, no neck segment or elbow/knee bulge
     }
   }
   p.dispose();
+});
+
+test('dining and dragon activities start, pause and stop; carrying poles stay attached in world space',()=>{
+  withDen(den=>{
+    const leisure=createLeisure(den,createBao),{dining,dragon}=leisure;
+    assert.equal(dining.diners.length,4);assert.equal(dining.baskets.length,4);assert.equal(dragon.carriers.length,4);assert.equal(dragon.performers.length,5);
+    const initial=dragon.segments[0].position.clone();leisure.update(3);assert.ok(dragon.segments[0].position.equals(initial));assert.equal(dining.lazySusan.rotation.y,0);
+    leisure.activate('dining');leisure.activate('dragon');leisure.update(1);
+    const first=dragon.segments[0].position.clone(),wrist=dining.diners[0].bones.Wrist_R.rotation.z;
+    leisure.update(2);assert.ok(dragon.segments[0].position.distanceTo(first)>0.1);assert.notEqual(dining.diners[0].bones.Wrist_R.rotation.z,wrist);assert.ok(dining.lazySusan.rotation.y>0);
+    const paused=dragon.segments[0].position.clone(),rotation=dining.lazySusan.rotation.y;leisure.update(9,true);assert.ok(dragon.segments[0].position.equals(paused));assert.equal(dining.lazySusan.rotation.y,rotation);
+    dragon.root.rotation.y=0.4;dragon.root.scale.setScalar(1.2);leisure.update(3);den.world.updateMatrixWorld(true);
+    for(const {panda,pole}of dragon.carriers){
+      const bottom=pole.localToWorld(new THREE.Vector3(0,-0.5,0)),hand=panda.bones.Wrist_L.getWorldPosition(new THREE.Vector3());
+      assert.ok(bottom.distanceTo(hand)<1e-6,'pole follows the panda hand after courtyard translation/rotation');
+    }
+    for(let i=0;i<40;i++){leisure.update(i/10);den.world.updateMatrixWorld(true);for(const pole of dragon.poles)assert.ok(pole.matrixWorld.elements.every(Number.isFinite));}
+    leisure.activate('dining');leisure.activate('dragon');assert.equal(dining.lazySusan.rotation.y,0);assert.ok(dragon.segments[0].position.equals(initial));
+    leisure.dispose();assert.equal(dining.root.parent,null);assert.equal(dragon.root.parent,null);
+  });
+});
+
+test('Bao’s medallion clears the headband and the Drummer has a folded cloth cap',()=>{
+  for(const [direction]of DIRECTIONS){
+    const panda=createBao(THREE,{detail:'low'}),gear=createTraditionalGear(panda,'orchestrator',direction);panda.model.updateMatrixWorld(true);
+    const band=new THREE.Box3().setFromObject(gear.hat.getObjectByName('Cloth headband'));
+    const medallion=new THREE.Box3().setFromObject(gear.hat.getObjectByName('Jade medallion'));
+    assert.ok(medallion.min.z>band.max.z,'headband cannot cover the jade medallion');gear.dispose();panda.dispose();
+  }
+  const panda=createBao(THREE,{detail:'low'}),gear=createTraditionalGear(panda,'release-manager','teahouse');assert.ok(gear.hat.getObjectByName('Folded festival cap'));gear.dispose();panda.dispose();
 });
