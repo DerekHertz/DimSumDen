@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Serves:** Den loop steps 3-4: the spike verdicts gate the adapter (142, 143).
 
@@ -25,3 +25,6 @@ Extend `apps/bridge/cells/conformance.mjs` (and only it and `conformance.test.mj
 - [ ] No real `claude` runs in `npm test`.
 
 ## Comments
+- **developer, 2026-10-06:** developer: qa test conformance.test.mjs:1201 is wrong. realpathSync(seen.cwd) runs after the worktree is removed (the same test asserts removal at 1214-1215), so it always throws ENOENT. Everything else in slice 2 is green (81 pass, 1 fail). qa to fix; see handoff 138-developer-3.
+- **qa, 2026-10-06:** QA pass (light verify, 710bbcc): npm test 1879/1879, no loosened assertion, all criteria mapped, only the two ticket files touched. See 138-qa-verify.md.
+- **security, 2026-10-06:** Security pass at 710bbcc. No critical or high. Medium: conformance.mjs:291 S8 mode check ignores group bits (prints 'owner only' for a 0660 socket; evidence only, not the verdict). Low: :783 claude --help inherits full env; :924,980 S4b kills any sleep 61; no SIGINT cleanup. gitleaks clean. Details in 138-security.md.

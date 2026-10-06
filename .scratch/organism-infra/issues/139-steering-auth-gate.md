@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Serves:** Den loop steps 3-4: every steering route sits behind this gate.
 
@@ -31,3 +31,7 @@ Route registry with default deny; Host check, required Origin, Content-Type, 4 K
 ## Comments
 
 - orchestrator (2026-10-05): Largest of the split (100-120k). Full qa specify and full security.
+- orchestrator (2026-10-05): User yes on 139: the reload mechanism (sessionStorage token, launch code never stored, `#code` fragment stripped, 401 clears the token) and the developer recording it in ADR 0016 decision 7. The no-session copy line is still shown to the user verbatim when the developer returns.
+- **qa, 2026-10-06:** QA pass (full verify, 1b28176). 1949/1950; the one failure (floating-cards Meta+Enter step) is a pre-existing test race, 7/12 fail on main too. Dev mode (ui:dev) and the test race go to follow-ups. See 139-qa-verify.md.
+- **orchestrator, 2026-10-06:** Security pass (139-security.md). User verdicts: the no-session copy is OK as is. M1 (the sessionStorage token can persist to the browser profile on session restore, and tokens never expire) is accepted as a residual, to be stated in ADR 0016 decision 7, with token expiry filed as 152. One developer fix round, ADR text only: (1) delete the "needs the user's yes" parenthetical (the user said yes on 2026-10-05); (2) the "How the bridge is started" bullet: a fresh launch code is needed after a bridge restart or a closed tab, not after a page reload; (3) state the M1 residual and point to 152. Follow-ups filed: 150 (floating-cards test race), 151 (steering from ui:dev).
+- **security, 2026-10-06:** Security pass at 1b28176. No critical/high. M1 sessionStorage may persist to browser profile (same-account readable, no token expiry; accepted, follow-up expiry suggested). M2 ADR wording pass. L1 global failure counter (denial only). L2 smoke-ui launch code handled safely. gitleaks clean, npm audit 0, no dependency or CI change. Detail: handoffs/139-security.md
