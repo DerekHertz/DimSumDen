@@ -11,17 +11,18 @@
 // organism-infra/60: with --ticket, it then runs `board claim` and exits
 // non-zero, with the board's message, if the claim is refused.
 // organism-infra/119: before anything else it reads the orchestrator's context (context.mjs, which
-// a cell sees through the shared CLAUDE_CODE_SESSION_ID). At 70k+ it warns that the orchestrator
-// should start no new tickets; at 80k+ it refuses (exit 1) unless --force. --continue (a fix round
+// a cell sees through the shared CLAUDE_CODE_SESSION_ID). At the orchestrator's warn
+// number (70k) it warns that the orchestrator should start no new tickets; at its stop number (80k) it refuses (exit 1) unless --force. --continue (a fix round
 // or later hop of a ticket already in flight) gets the warning, never the refusal. A null reading
 // never blocks.
 import { spawnSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { budgetFor } from "./context-budget.mjs";
 
 const CONTEXT = fileURLToPath(new URL("./context.mjs", import.meta.url));
-const WARN_AT = 70_000;
-const REFUSE_AT = 80_000;
+// organism-infra/145: the orchestrator's warn and refuse numbers come from scripts/context-budget.json.
+const { warn: WARN_AT, stop: REFUSE_AT } = budgetFor("orchestrator");
 const BOARD = fileURLToPath(new URL("../apps/organism-infra/board.mjs", import.meta.url));
 
 function fail(msg) {
