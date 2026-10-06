@@ -20,7 +20,10 @@
     "bridge": "node apps/bridge/server.mjs",
     "ui": "npm run ui:build && npm run bridge",
     "ui:build": "vite build --config apps/ui/vite.config.mjs",
-    "ui:dev": "vite --config apps/ui/vite.config.mjs"
+    "ui:dev": "vite --config apps/ui/vite.config.mjs",
+    "review:dev": "vite --config apps/ui/review.vite.config.mjs",
+    "review:build": "node scripts/build-den-review.mjs",
+    "review:test": "node --test \"apps/ui/src/review/*.test.mjs\" apps/ui/src/scene/procedural/restaurant.test.mjs"
   },
   "devDependencies": {
     "playwright": "1.63.0",

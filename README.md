@@ -62,9 +62,23 @@ npm run smoke:ui      # browser smoke check (Playwright + Chromium)
 npm run board -- status <feature>/<NN-slug>
 ```
 
-Open **Scene lab** in the den (or add `?lab=1` to its URL) for three restaurant scene samples, orbitable models of all fourteen defined characters, and the walking panda studio. Planned characters are marked as concepts. **Edit walking pandas** in the live den uses the same shape and gait controls; Apply saves the settings on this device. Click the trolley, tea table, lucky bao, or specials board to discover restaurant easter eggs. The samples are independent of the live board.
-
 Agents are run as Claude Code sessions, for example `claude --agent developer`. They use your own Claude subscription through the CLI ([ADR 0001](docs/adr/0001-subscription-cli-cells.md)).
+
+## Local visual review artifact
+
+The restaurant experiments are isolated from the production UI and bridge. In the scene-review checkout:
+
+```sh
+npm ci
+npm run review:build
+open apps/ui/review-dist/DimSumDen-review.html  # macOS; double-click the file elsewhere
+```
+
+The generated HTML contains its own JavaScript and styles and loads no remote assets. It offers fourteen characters in three traditional directions (teahouse cooks, scholars, and martial arts travelers), live walking-panda sliders, paw-relative prop fitting, and a larger sample restaurant with a lotus tea pavilion, mahjong table, training courtyard, festival stage and bamboo boundary. Use **Play activity** or activate a leisure zone to animate it. These are decorative sample interactions, independent of live agents and tickets.
+
+Choose **Pin a comment**, click the character, prop or scene, then add a label and comment. Notes and review preferences save on this device where browser storage is available. **Export review JSON** includes the complete comments, camera positions, walking settings and prop adjustments; **Annotated screenshot** captures the current scene with its pins and notes. Send both in chat for feedback. From the generated HTML, **Save annotated artifact** creates another portable HTML file with your review embedded. **Import review** restores an exported JSON packet. This workflow proposes no changes to production.
+
+For development, `npm run review:dev` serves the same review at `http://localhost:5174/`. Run `npm run review:test` for the focused rig, prop, leisure and export checks. The HTML build is required for exporting a self-contained annotated artifact.
 
 ## Read more
 

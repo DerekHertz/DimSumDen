@@ -343,8 +343,7 @@ export function createDenScene(THREE, createBao, createWalkingBao = null, option
       {x:0.15,z:7.80,rx:1.10,rz:0.46,angle:Math.PI,scale:0.30,speed:0.28},
     ];
     for(let i=0;i<routes.length;i++){
-      const route=routes[i],panda=createWalkingBao(THREE,createBao,options.pandaSettings);
-      route.speed*=options.pandaSettings?.speed ?? 0.85;
+      const route=routes[i],panda=createWalkingBao(THREE,createBao);
       panda.model.name='Roaming Bao '+(i+1);panda.model.scale.setScalar(route.scale);
       panda.model.position.set(route.x+Math.cos(route.angle)*route.rx,0,route.z+Math.sin(route.angle)*route.rz);
       panda.model.rotation.y=Math.atan2(-route.rx*Math.sin(route.angle),route.rz*Math.cos(route.angle));
@@ -374,7 +373,7 @@ export function createDenScene(THREE, createBao, createWalkingBao = null, option
   function removeTicketPanda(p){
     p.mixer.stopAllAction();p.mixer.uncacheRoot(p.model);
     const geometries=new Set(),ownMaterials=new Set(Object.values(p.materials));
-    p.model.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m)ownMaterials.add(m);});
+    p.model.traverse(o=>{if(o.geometry)geometries.add(o.geometry);});
     p.model.removeFromParent();
     for(const g of geometries)g.dispose();
     const textures=new Set();

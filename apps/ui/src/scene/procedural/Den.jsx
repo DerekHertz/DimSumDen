@@ -6,21 +6,17 @@ import { createWalkingBao } from './walking-bao.mjs';
 import { createDenScene } from './den-scene.mjs';
 import { compactPanda, compactEnvironment } from './compact.mjs';
 import { createLiveDenController } from './controller.mjs';
-import { dressCharacter, animateActivity, createRestaurantDetails } from './restaurant.mjs';
 
-export function Den({cells,frontier,tally,selected,onSelect,onOpenTally,stage,onReady,pandaSettings,onEasterEgg}) {
+export function Den({cells,frontier,tally,selected,onSelect,onOpenTally,stage,onReady}) {
   const [den,setDen]=useState(null),live=useRef(null);
-  const inputs=useRef({});inputs.current={cells,frontier,tally,selected,onSelect,onOpenTally,onEasterEgg};
+  const inputs=useRef({});inputs.current={cells,frontier,tally,selected,onSelect,onOpenTally};
   const {scene}=useThree();
   useEffect(()=>{
-    const d=createDenScene(THREE,createBao,createWalkingBao,{live:true,pandaSettings});
-    dressCharacter(d.hero,'orchestrator');
-    for(const [role,p] of d.crew)dressCharacter(p,role);
-    for(const r of d.roamers)dressCharacter(r.panda,r.cellType);
+    const d=createDenScene(THREE,createBao,createWalkingBao,{live:true});
     for(const panda of d.pandas)compactPanda(THREE,panda);
     compactEnvironment(THREE,d);d.setLabels(false);
     const controller=createLiveDenController(d,{
-      onCreate:p=>{dressCharacter(p,p.model.userData.cellType);compactPanda(THREE,p);},
+      onCreate:p=>compactPanda(THREE,p),
       onRemove:ref=>stage.anchors.delete(ref),
     });
     const media=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -32,14 +28,13 @@ export function Den({cells,frontier,tally,selected,onSelect,onOpenTally,stage,on
     };
     const previous={background:scene.background,fog:scene.fog};
     applyTheme();theme.addEventListener('change',applyTheme);
-    const restaurant=createRestaurantDetails(d);
-    live.current={den:d,controller,media,restaurant};setDen(d);onReady(d);
+    live.current={den:d,controller,media};setDen(d);onReady(d);
     return ()=>{
-      onReady(null);live.current=null;controller.dispose();restaurant.dispose();d.dispose();
+      onReady(null);live.current=null;controller.dispose();d.dispose();
       theme.removeEventListener('change',applyTheme);scene.background=previous.background;scene.fog=previous.fog;
       stage.anchors.clear();
     };
-  },[scene,stage,onReady,pandaSettings]);
+  },[scene,stage,onReady]);
   useEffect(()=>{
     const c=live.current?.controller;
     if(c)c.sync(cells,frontier,tally?.rods);
@@ -51,14 +46,7 @@ export function Den({cells,frontier,tally,selected,onSelect,onOpenTally,stage,on
       player:stage.explorer?.active?stage.explorer.camera.position:null,
     });
     l.den.world.updateMatrixWorld(true);
-    l.restaurant.update(_.clock.elapsedTime,l.media.matches);
-    for(const [role,p] of l.den.crew)if(p.model.visible)animateActivity(p,role,_.clock.elapsedTime,l.media.matches);
     for(const [ref,{panda,cell}] of l.controller.figures){
-      if(cell.pose==='working'){
-        const head=panda.bones.Head.rotation.x;
-        animateActivity(panda,cell.cellType,_.clock.elapsedTime,l.media.matches);
-        panda.bones.Head.rotation.x=head;
-      }
       const point=panda.model.localToWorld(new THREE.Vector3(0,4.45,0));
       stage.anchors.set(ref,point);
     }
@@ -67,7 +55,6 @@ export function Den({cells,frontier,tally,selected,onSelect,onOpenTally,stage,on
   const hit=e=>{
     let object=e.object;
     while(object){
-      if(object.userData.easterEgg){e.stopPropagation();inputs.current.onEasterEgg?.(object.userData.easterEgg);return;}
       const ref=object.userData.ticketRef;
       if(ref){e.stopPropagation();inputs.current.onSelect(ref);return;}
       if(object.name==='Tally abacus'){e.stopPropagation();stage.tallyHit=true;inputs.current.onOpenTally();return;}

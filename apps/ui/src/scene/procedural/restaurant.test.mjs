@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { createBao } from './bao.mjs';
-import { createWalkingBao } from './walking-bao.mjs';
+import { createWalkingBao } from '../../review/walking-panda.mjs';
 import { PANDA_CONTROLS, pandaSettings } from './panda-settings.mjs';
 import { CHARACTERS, dressCharacter, animateActivity, createRestaurantDetails } from './restaurant.mjs';
 import { withDen } from './den-test-helpers.mjs';

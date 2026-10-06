@@ -1,5 +1,6 @@
 node_modules/
 dist/
+apps/ui/review-dist/
 .env*
 vendor/
 .claude/worktrees/
