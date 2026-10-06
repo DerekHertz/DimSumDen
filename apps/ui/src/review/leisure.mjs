@@ -3,14 +3,15 @@ import {createTraditionalGear} from './traditional-props.mjs';
 import {compactPanda} from '../scene/procedural/compact.mjs';
 import {createDiningTable} from './dining-table.mjs';
 import {createDragonDance} from './dragon-dance.mjs';
+import {ZONE_POSITIONS,isReviewPlantingClear} from './site-plan.mjs';
 
 export const LEISURE_ZONES=[
-  {id:'tea',name:'Lotus tea pavilion',hint:'Pour tea and watch the lotus pond.',activity:'Tea break',position:[-14,0,4]},
-  {id:'games',name:'Bamboo game table',hint:'Shuffle the mahjong tiles for a new hand.',activity:'Mahjong with friends',position:[-10,0,-7]},
-  {id:'training',name:'Traveler’s courtyard',hint:'Ring the training gong and start practice.',activity:'Staff practice',position:[14,0,4]},
-  {id:'festival',name:'Festival stage',hint:'Start the drum circle and spin the ribbons.',activity:'A little festival',position:[10,0,-7]},
-  {id:'dining',name:'Dim sum dining table',hint:'Share bao, siu mai, har gow and custard buns. Turn the lazy Susan while the pandas reach with their chopsticks.',activity:'Dim sum with friends',position:[-9,0,12]},
-  {id:'dragon',name:'Dragon dance courtyard',hint:'A panda troupe carries the festival dragon on poles, chasing a pearl with a rippling silk body.',activity:'Start the dragon dance',position:[9,0,12]},
+  {id:'tea',name:'Lotus tea pavilion',hint:'Pour tea and watch the lotus pond.',activity:'Tea break',position:ZONE_POSITIONS.tea},
+  {id:'games',name:'Bamboo game table',hint:'Shuffle the mahjong tiles for a new hand.',activity:'Mahjong with friends',position:ZONE_POSITIONS.games},
+  {id:'training',name:'Traveler’s courtyard',hint:'Ring the training gong and start practice.',activity:'Staff practice',position:ZONE_POSITIONS.training},
+  {id:'festival',name:'Festival stage',hint:'Start the drum circle and spin the ribbons.',activity:'A little festival',position:ZONE_POSITIONS.festival},
+  {id:'dining',name:'Dim sum dining table',hint:'Share bao, siu mai, har gow and custard buns. Turn the lazy Susan while the pandas reach with their chopsticks.',activity:'Dim sum with friends',position:ZONE_POSITIONS.dining},
+  {id:'dragon',name:'Dragon dance courtyard',hint:'A panda troupe carries the festival dragon on poles, chasing a pearl with a rippling silk body.',activity:'Start the dragon dance',position:ZONE_POSITIONS.dragon},
 ];
 export function createLeisure(den,createBao){
   const root=new THREE.Group();root.name='Bamboo leisure gardens';den.world.add(root);
@@ -84,7 +85,7 @@ export function createLeisure(den,createBao){
   // Broader bamboo boundary and an ornamental entrance arch.
   for(let i=0;i<42;i++){
     const angle=i/42*Math.PI*2,x=Math.sin(angle)*22,z=Math.cos(angle)*22-1;
-    if(z>14&&Math.abs(x)<18)continue;
+    if(z>14&&Math.abs(x)<18||!isReviewPlantingClear(x,z,0.25))continue;
     const h=4.5+(i%5)*0.8;cyl(root,0.12,h,[x,h/2,z],jade);
     for(let j=1;j<5;j++){cyl(root,0.14,0.04,[x,j*h/5,z],gold);if(j>2){const foliage=add(root,new THREE.SphereGeometry(1,8,6),leaf,[x+(j%2?0.5:-0.5),j*h/5,z]);foliage.scale.set(0.85,0.16,0.4);foliage.rotation.z=j%2?0.3:-0.3;}}
   }

@@ -4,9 +4,10 @@ import {isDenPositionBlocked} from '../scene/procedural/walk.mjs';
 import {compactPanda} from '../scene/procedural/compact.mjs';
 import {createTraditionalGear} from './traditional-props.mjs';
 import {compactReviewGear} from './compact-gear.mjs';
+import {ROLE_HOMES,REVIEW_PLACES,REVIEW_OBSTACLES} from './site-plan.mjs';
 
-const RADIUS=0.65,STEP=0.5,BOUNDS=[-18,18,-14,18];
-const inside=([x,z])=>x>=BOUNDS[0]&&x<=BOUNDS[1]&&z>=BOUNDS[2]&&z<=BOUNDS[3];
+const RADIUS=0.65,STEP=0.5,BOUNDS=[-20.5,20.5,-20,19];
+const inside=([x,z])=>x>=BOUNDS[0]&&x<=BOUNDS[1]&&z>=BOUNDS[2]&&z<=BOUNDS[3]&&Math.hypot(x,z)<=23.5;
 const clear=(p,obstacles)=>inside(p)&&!isDenPositionBlocked(...p,obstacles,RADIUS+0.02);
 const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
 function lineClear(a,b,obstacles){
@@ -63,27 +64,13 @@ export function findReviewPath(start,end,obstacles){
   return smooth;
 }
 
-const HOMES=[[0,-1.25],[-2.5,-4.5],[2.5,-4.5],[-4,2.5],[-6.5,2.5],[-8.5,2.5],[-6,7.5],[6,7.5],[4,2.5],[9.5,-2.5],[11,-2],[-3.5,-6.5],[8.5,2.5],[0,8]];
 const FAVORITES=['dining','tea','games','training','training','training','tea','training','games','festival','festival','games','festival','tea'];
-const PLACES={
-  tea:{name:'Tea break',center:[-14,4],spots:[[-13,5.7],[-15,5.7],[-13,2.3],[-15,2.3]]},
-  games:{name:'Playing mahjong',center:[-10,-7],spots:[[-10,-4.5],[-12,-6],[-8,-6],[-10,-9.5]]},
-  training:{name:'Staff practice',center:[14,4],spots:[[13,5.8],[15.5,5.8],[12.5,3.7],[15.5,2.5]]},
-  festival:{name:'Enjoying the festival',center:[10,-7],spots:[[8,-3.2],[10,-3.2],[12,-3.2],[13.8,-6]]},
-  dining:{name:'Sharing dim sum',center:[-9,12],spots:[[-9,14.5],[-11.5,12],[-9,9.5],[-6.5,12]]},
-};
+const PLACES=REVIEW_PLACES;
 const RUNNING=new Set(['received','working','needs-you','complete']);
 export function createReviewAgents(den,createBao,{direction='traveler',onChange=()=>{}}={}){
   const root=new THREE.Group();root.name='Interactive role pandas';den.world.add(root);
   const actors=new Map(),owned=[],gears=[],events=[];let time=0,eventId=0,lastSnapshot=-1;
-  const obstacles=[...den.obstacles,
-    {type:'circle',x:-9,z:12,radius:1.5},
-    {type:'box',x:-10,z:-7,halfX:0.95,halfZ:0.95},
-    {type:'circle',x:10,z:-7,radius:2.9},
-    {type:'circle',x:-14,z:4,radius:0.75},
-    {type:'box',x:9,z:12,halfX:5,halfZ:1.2},
-    {type:'circle',x:15.3,z:4.9,radius:0.35},
-  ];
+  const obstacles=[...den.obstacles,...REVIEW_OBSTACLES];
   function emit(){onChange(snapshot());lastSnapshot=time;}
   function log(a,text){events.push({id:++eventId,role:a.role,name:a.name,text,time});if(events.length>30)events.shift();emit();}
   function snapshot(){return {simulated:true,actors:[...actors.values()].map(a=>({role:a.role,name:a.name,station:a.station,state:a.state,activity:a.activity,bubble:a.bubble,task:a.task,reply:a.reply,concept:a.concept,stationary:a.stationary})),events:events.slice(-8)};}
@@ -106,7 +93,7 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
     if(panda!==den.hero&&!den.crew.has(role)){owned.push(panda);compactPanda(THREE,panda);}
     root.attach(panda.model);panda.model.visible=true;panda.model.scale.setScalar(role==='orchestrator'?1.75:role==='stem-cub'?0.36:0.43);
     const occupied=[...actors.values()].map(a=>({type:'circle',x:a.home[0],z:a.home[1],radius:0.65}));
-    const home=role==='orchestrator'?[0,-1.25]:nearestClear(HOMES[i],[...obstacles,...occupied]);panda.model.position.set(home[0],role==='orchestrator'?0:0.04,home[1]);panda.model.rotation.set(0,0,0);
+    const home=role==='orchestrator'?[0,-1.25]:nearestClear(ROLE_HOMES[role],[...obstacles,...occupied]);panda.model.position.set(home[0],role==='orchestrator'?0:0.04,home[1]);panda.model.rotation.set(0,0,0);
     panda.model.userData.reviewAgent=role;panda.model.userData.reviewPart=`${name} · body`;
     gears.push(compactReviewGear(createTraditionalGear(panda,role,direction)));
     const a={role,name,station,stationary:role==='orchestrator',concept:!!concept,index:i,panda,home,favorite:FAVORITES[i],state:'leisure',activity:role==='orchestrator'?'Hosting the den':'Getting ready for a break',bubble:'',reply:'',task:'',age:0,wave:0,path:[],destination:null};actors.set(role,a);

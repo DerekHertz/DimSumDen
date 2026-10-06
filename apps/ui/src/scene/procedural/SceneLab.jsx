@@ -15,6 +15,8 @@ import {loadReview,saveReview,normalizeReview,download,reviewHtml} from '../../r
 import {prepareReviewLayout} from '../../review/layout.mjs';
 import {createReviewAgents} from '../../review/agents.mjs';
 import {createReviewLandscape,REVIEW_SKIES} from '../../review/landscape.mjs';
+import {createConstructionPads} from '../../review/construction-pads.mjs';
+import {CONSTRUCTION_PADS} from '../../review/site-plan.mjs';
 import './scene-lab.css';
 import '../../review/review.css';
 
@@ -41,7 +43,7 @@ function LabWorld({view,sample,role,direction,settings,fit,playing,annotating,no
   useEffect(()=>{
     const controls=new OrbitControls(camera,gl.domElement);controls.enableDamping=true;
     const onCameraChange=()=>invalidate();controls.addEventListener('change',onCameraChange);
-    controls.minDistance=3;controls.maxDistance=view==='scene'?70:14;controls.maxPolarAngle=Math.PI/2-0.03;
+    controls.minDistance=3;controls.maxDistance=view==='scene'?90:14;controls.maxPolarAngle=Math.PI/2-0.03;
     camera.position.set(...(view==='scene'?[30,26,40]:view==='walking'?[5,3,7]:[6,4,8]));
     controls.target.set(0,view==='walking'?1:2.1,view==='scene'?1:0);controls.update();
     stage.current={...stage.current,camera,gl,scene,controls,restoreCamera(value){if(value){camera.position.fromArray(value.position);controls.target.fromArray(value.target);controls.update();}}};
@@ -51,7 +53,7 @@ function LabWorld({view,sample,role,direction,settings,fit,playing,annotating,no
     const previous={background:scene.background,fog:scene.fog};
     scene.background=new THREE.Color(view==='scene'?REVIEW_SKIES[sample.id]:'#d5dfcb');
     const root=new THREE.Group(),gears=[];
-    let den,panda,mixer,details,leisure,pedestal,agents,landscape;
+    let den,panda,mixer,details,leisure,pedestal,agents,landscape,construction;
     if(view==='scene'){
       den=createDenScene(THREE,createBao,(T,B)=>createWalkingBao(T,B,inputs.current.settings));
       den.setLabels(false);den.setLanterns(sample.id==='lantern');
@@ -60,6 +62,7 @@ function LabWorld({view,sample,role,direction,settings,fit,playing,annotating,no
       prepareReviewLayout(den);
       compactEnvironment(THREE,den);details=createRestaurantDetails(den,sample.id);
       leisure=createLeisure(den,createBao);landscape=createReviewLandscape(den,sample.id);
+      construction=createConstructionPads(den);
       for(const resident of leisure.residents)if(!leisure.dragon.performers.includes(resident))resident.model.visible=false;
       agents=createReviewAgents(den,createBao,{direction,onChange:onActors});root.add(den.world);
       scene.fog=new THREE.Fog(REVIEW_SKIES[sample.id],70,115);
@@ -78,7 +81,7 @@ function LabWorld({view,sample,role,direction,settings,fit,playing,annotating,no
     stage.current.root=root;stage.current.leisure=leisure;stage.current.agents=agents;stage.current.followId=null;
     return ()=>{
       runtime.current=null;
-      stage.current.agents=null;agents?.dispose();for(const g of gears)g.dispose();details?.dispose();leisure?.dispose();landscape?.dispose();
+      stage.current.agents=null;agents?.dispose();for(const g of gears)g.dispose();details?.dispose();leisure?.dispose();landscape?.dispose();construction?.dispose();
       if(den)den.dispose();else{mixer?.stopAllAction();mixer?.uncacheRoot(panda.model);disposeModel(panda);pedestal.geometry.dispose();pedestal.material.dispose();}
       scene.background=previous.background;scene.fog=previous.fog;
     };
@@ -135,6 +138,8 @@ export function SceneLab(){
   const stopFollowing=()=>{stage.current.followId=null;setFollowing(false);};
   const focusZone=id=>{const zone=LEISURE_ZONES.find(z=>z.id===id);if(!zone)return;stopFollowing();const [x,,z]=zone.position,offset=id==='dragon'?[7,8,15]:id==='dining'?[5,6,7]:id==='festival'?[8,9,12]:[6,5,8];stage.current.restoreCamera?.({position:[x+offset[0],offset[1],z+offset[2]],target:[x+(id==='dragon'?0.5:0),1.4,z]});setFocusedZone(zone);setDetail(null);};
   const overview=()=>{stopFollowing();stage.current.restoreCamera?.({position:[30,26,40],target:[0,2.1,1]});setFocusedZone(null);setDetail(null);};
+  const floorPlan=()=>{stopFollowing();stage.current.restoreCamera?.({position:[0,77,0],target:[0,0,-0.8]});setFocusedZone(null);setDetail(null);};
+  const focusPad=pad=>{stopFollowing();const [x,,z]=pad.position;stage.current.restoreCamera?.({position:[x+5,7,z+8],target:[x,0.6,z]});setFocusedZone(null);setDetail({title:pad.name,text:`Plot ${pad.number} is reserved for a future station. No station has been assigned yet.`});};
   const selectAgent=id=>{setSelectedAgent(id);setDetail(null);setFocusedZone(null);stopFollowing();const actor=stage.current.agents?.actors.get(id);if(!actor)return;const p=actor.panda.model.position;stage.current.restoreCamera?.(actor.stationary?{position:[p.x+12,10,p.z+18],target:[p.x,3.2,p.z]}:{position:[p.x+5,4.5,p.z+7],target:[p.x,0.9,p.z]});};
   const agentAction=(name,...args)=>{stage.current.agents?.[name]?.(...args);setCrew(stage.current.agents?.snapshot()||{actors:[],events:[]});setPlaying(true);};
   const followAgent=()=>{if(following){stopFollowing();return;}stage.current.followId=selectedAgent;setFollowing(true);setPlaying(true);};
@@ -153,7 +158,7 @@ export function SceneLab(){
   const exportArtifact=()=>{if(!globalThis.__REVIEW_IS_STANDALONE__){setStatus('Run npm run review:build, open the generated HTML file, then use Save annotated artifact.');return;}download(reviewHtml(globalThis.__REVIEW_DOCUMENT__,review),'DimSumDen-annotated-review.html','text/html');setStatus('Portable artifact saved with your comments and settings.');};
   const propName=TRADITIONAL_PROPS[role]?.[DIRECTIONS.findIndex(d=>d[0]===direction)];
   return <div className="scene-lab review-lab">
-    <header className="lab-header"><div className="lab-brand"><span>点心</span><div>Dim Sum Den<small>LOCAL ARTIFACT · LIVING PANDAS REVISION 5</small></div></div><div className="review-export"><button onClick={()=>{download(JSON.stringify(review,null,2),'DimSumDen-review.json','application/json');setStatus('Review JSON exported. Attach it in this chat.');}}>Export review JSON</button><button onClick={exportScreenshot}>Annotated screenshot</button><button onClick={exportArtifact}>Save annotated artifact</button><button onClick={()=>importRef.current.click()}>Import review</button><input ref={importRef} type="file" accept="application/json,.json" hidden onChange={importReview}/></div></header>
+    <header className="lab-header"><div className="lab-brand"><span>点心</span><div>Dim Sum Den<small>LOCAL ARTIFACT · WIDE HORSESHOE REVISION 6</small></div></div><div className="review-export"><button onClick={()=>{download(JSON.stringify(review,null,2),'DimSumDen-review.json','application/json');setStatus('Review JSON exported. Attach it in this chat.');}}>Export review JSON</button><button onClick={exportScreenshot}>Annotated screenshot</button><button onClick={exportArtifact}>Save annotated artifact</button><button onClick={()=>importRef.current.click()}>Import review</button><input ref={importRef} type="file" accept="application/json,.json" hidden onChange={importReview}/></div></header>
     <div className="lab-layout">
       <aside className="lab-sidebar"><p className="lab-eyebrow">CHOOSE · ADJUST · ANNOTATE</p><h1>Give the den<br/>a little soul.</h1><p className="lab-intro">Cooks, scholars and travelers. A restaurant where the pandas can work, play and rest.</p>
         <div className="lab-tabs" role="tablist" aria-label="Review views">{[['scene','Restaurant'],['characters','Characters'],['walking','Panda studio']].map(([id,title])=><button role="tab" aria-selected={view===id} key={id} onClick={()=>changeView(id)}>{title}</button>)}</div>
@@ -161,7 +166,7 @@ export function SceneLab(){
         {view==='characters'?<><div className="character-list">{CHARACTERS.map(([id,name,station,,,planned])=><button key={id} aria-pressed={role===id} className={role===id?'selected':''} onClick={()=>{setRole(id);setDraft(null);}}><strong>{name}</strong><small>{station}{planned?' · concept':''}</small></button>)}</div><details className="review-fit" open><summary>Fit the prop · {propName}</summary><p>Adjust the grip relative to the paw. These are review overrides.</p>{FIT_CONTROLS.map(([key,name,min,max,step])=><label className="panda-slider" key={key}><span>{name}<output>{fit[key].toFixed(key==='tilt'?0:2)}</output></span><input type="range" aria-label={name} min={min} max={max} step={step} value={fit[key]} onChange={e=>setPlacements({...placements,[fitKey]:{...fit,[key]:Number(e.target.value)}})}/></label>)}<button onClick={()=>setPlacements({...placements,[fitKey]:{...DEFAULT_FIT}})}>Reset prop fit</button></details></>:null}
         {view==='walking'?<><PandaEditor settings={settings} onApply={setSettings}/><button className="review-primary" onClick={()=>setPlaying(true)}>Preview the walk</button><p className="lab-editor-note">Shape changes appear immediately and keep your camera angle. This editor is isolated from the production den.</p></>:null}
         {view==='scene'?<section className="review-crew"><h3>The pandas</h3><p>Simulated preview · click a panda to meet it.</p><button className="review-primary" onClick={()=>agentAction('gather')}>Gather for dim sum</button><details open><summary>Who’s doing what · {crew.actors.length} roles</summary><div className="review-roster">{crew.actors.map(a=><button key={a.role} aria-pressed={selectedAgent===a.role} aria-label={`Meet ${a.name}`} onClick={()=>selectAgent(a.role)}><strong>{a.name}{a.concept?' · concept':''}</strong><small>{a.activity}</small></button>)}</div></details></section>:null}
-        {view==='scene'?<><div className="lab-samples">{SAMPLE_SCENES.map((s,i)=><button key={s.id} className={s.id===sample.id?'selected':''} aria-pressed={s.id===sample.id} onClick={()=>{setSample(s);setZones({});}}><span className={`sample-dot ${s.id}`}>{i+1}</span><span><strong>{s.title}</strong><small>{s.description}</small></span></button>)}</div><section className="review-zones"><h3>After service</h3><p>Activate a place to start its activity. View brings it closer for review.</p><button className="review-overview" onClick={overview}>View whole restaurant</button>{LEISURE_ZONES.map(z=><div className="review-zone-card" key={z.id}><button aria-pressed={!!zones[z.id]} onClick={()=>activate(z.id)}><strong>{z.name}</strong><small>{zones[z.id]?'Active · click to stop':z.activity}</small></button><button className="review-zone-focus" aria-label={`View ${z.name}`} onClick={()=>focusZone(z.id)}>View</button></div>)}</section></>:null}
+        {view==='scene'?<><div className="lab-samples">{SAMPLE_SCENES.map((s,i)=><button key={s.id} className={s.id===sample.id?'selected':''} aria-pressed={s.id===sample.id} onClick={()=>{setSample(s);setZones({});}}><span className={`sample-dot ${s.id}`}>{i+1}</span><span><strong>{s.title}</strong><small>{s.description}</small></span></button>)}</div><section className="review-zones"><h3>After service</h3><p>Activate a place to start its activity. View brings it closer for review.</p><button className="review-overview" onClick={overview}>View whole restaurant</button><button className="review-overview" onClick={floorPlan}>View floor plan</button>{LEISURE_ZONES.map(z=><div className="review-zone-card" key={z.id}><button aria-pressed={!!zones[z.id]} onClick={()=>activate(z.id)}><strong>{z.name}</strong><small>{zones[z.id]?'Active · click to stop':z.activity}</small></button><button className="review-zone-focus" aria-label={`View ${z.name}`} onClick={()=>focusZone(z.id)}>View</button></div>)}</section><section className="review-zones"><h3>Future stations</h3><p>Three construction pads reserve space along the rear of the horseshoe.</p>{CONSTRUCTION_PADS.map(pad=><button className="review-overview" key={pad.id} onClick={()=>focusPad(pad)}>View {pad.name.toLowerCase()}</button>)}</section></>:null}
       </aside>
       <main className={`lab-stage${annotating?' is-annotating':''}`} aria-label="Interactive review scene"><div className="lab-stage-title"><span className="lab-eyebrow">{view==='scene'?'A BIGGER BAMBOO RESTAURANT':view==='characters'?'TRADITIONAL PROP STUDY':'LIVE SHAPE & GAIT STUDY'}</span><h2>{view==='scene'?(focusedZone?.name||sample.title):view==='characters'?character[1]:'The wandering panda'}</h2><p>{view==='characters'?propName:view==='walking'?'Drag a slider. Watch the model change.':(focusedZone?.hint||'Tea · games · training · festival · dim sum · dragon dance')}</p></div>
         <LabBoundary><Canvas shadows frameloop={playing?'always':'demand'} dpr={[1,1.5]} camera={{fov:42,near:0.1,far:160}} gl={{antialias:true}}><LabWorld view={view} sample={sample} role={role} direction={direction} settings={settings} fit={fit} playing={playing} annotating={annotating} notes={filteredNotes} stage={stage} onPin={pin} onDetail={setDetail} onZone={activate} onAgent={selectAgent} onActors={setCrew}/></Canvas></LabBoundary>

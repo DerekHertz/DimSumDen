@@ -84,7 +84,9 @@ Living pandas revision 5 opens in the restaurant with big Bao seated at the cent
 
 Choose **Pin a comment**, click the character, prop or scene, then add a label and comment. Notes and review preferences save on this device where browser storage is available. **Export review JSON** includes the complete comments, camera positions, walking settings and prop adjustments; **Annotated screenshot** captures the current scene with its pins and notes. Send both in chat for feedback. From the generated HTML, **Save annotated artifact** creates another portable HTML file with your review embedded. **Import review** restores an exported JSON packet. This workflow proposes no changes to production.
 
-The restaurant sits in a finite garden clearing with a denser bamboo boundary, rocks, jasmine beds and three layers of distant mountain peaks. The entrance stays open for viewing; planting stays outside the game table and festival clearings.
+Wide horseshoe revision 6 spreads the four restaurant stations and six leisure areas across more of the circular garden. Broad paths curve around big Bao, with an open entrance and three construction pads across the rear for future stations. The pads have jade planning grids, bamboo markers, timber stacks and numbered signs; click one or use **Future stations** to inspect it. **View floor plan** shows the spacing from above. Visible structures, panda destinations and obstacle clearance share the same layout, so pandas route around the reserved plots. Old review pins retain their original coordinates when scenery moves.
+
+The restaurant sits in a finite garden clearing with a denser bamboo boundary, rocks, jasmine beds and three layers of distant mountain peaks. The entrance stays open for viewing; planting stays outside the leisure areas and future plots.
 
 For development, `npm run review:dev` serves the same review at `http://localhost:5174/`. Run `npm run review:test` for the focused rig, prop, leisure and export checks. The HTML build is required for exporting a self-contained annotated artifact.
 

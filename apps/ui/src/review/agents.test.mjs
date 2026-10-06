@@ -10,6 +10,9 @@ import {createReviewAgents,findReviewPath} from './agents.mjs';
 import {createTraditionalGear} from './traditional-props.mjs';
 import {compactReviewGear} from './compact-gear.mjs';
 import {createReviewLandscape} from './landscape.mjs';
+import {createConstructionPads} from './construction-pads.mjs';
+import {CONSTRUCTION_PADS,REVIEW_STATIONS,ZONE_POSITIONS} from './site-plan.mjs';
+import {createLeisure} from './leisure.mjs';
 
 function withAgents(run){
   const previous=globalThis.document;globalThis.document=canvasDocument();
@@ -73,7 +76,10 @@ test('every role can circulate and reach its station without crossing a static o
   withAgents(agents=>{
     for(let i=0;i<600;i++){
       agents.update(0.1);
-      for(const a of agents.actors.values())if(!a.stationary)assert.ok(!isDenPositionBlocked(a.panda.model.position.x,a.panda.model.position.z,agents.obstacles,0.65),`${a.role} crossed furniture at ${a.panda.model.position.toArray()}; next ${a.path[0]}`);
+      for(const a of agents.actors.values())if(!a.stationary){
+        assert.ok(!isDenPositionBlocked(a.panda.model.position.x,a.panda.model.position.z,agents.obstacles,0.65),`${a.role} crossed furniture at ${a.panda.model.position.toArray()}; next ${a.path[0]}`);
+        assert.ok(Math.hypot(a.panda.model.position.x,a.panda.model.position.z)<=23.5,'panda stays inside the garden');
+      }
       const actors=[...agents.actors.values()];for(let a=0;a<actors.length;a++)for(let b=a+1;b<actors.length;b++){
         const p=actors[a].panda.model.position,q=actors[b].panda.model.position;
         assert.ok(Math.hypot(p.x-q.x,p.z-q.z)>1.2,`${actors[a].role} overlapped ${actors[b].role}`);
@@ -83,6 +89,34 @@ test('every role can circulate and reach its station without crossing a static o
     for(let i=0;i<1000;i++)agents.update(0.1);
     for(const a of agents.actors.values())assert.equal(a.state,'needs-you',`${a.role} did not reach its station: ${JSON.stringify([...agents.actors.values()].map(a=>({role:a.role,state:a.state,p:[a.panda.model.position.x,a.panda.model.position.z],home:a.home,next:a.path[0]})))}`);
     assert.ok(!agents.snapshot().events.some(e=>e.text.includes('could not find')));
+  });
+});
+
+test('the horseshoe uses both sides and the rear, with consistent station and future plot clearance',()=>{
+  withAgents((agents,den)=>{
+    den.stalls.forEach((stall,i)=>{
+      const p=REVIEW_STATIONS[i];assert.deepEqual(stall.position.toArray(),[p.x,0,p.z]);
+      assert.equal(stall.rotation.y,p.yaw);
+      assert.ok(den.obstacles.some(o=>o.type==='box'&&o.x===p.x&&o.z===p.z&&o.rotation===p.yaw));
+    });
+    const leisure=createLeisure(den,createBao),construction=createConstructionPads(den);
+    try{
+      for(const [id,position]of Object.entries(ZONE_POSITIONS)){
+        const zone=leisure.root.children.find(o=>o.userData.zone===id);assert.deepEqual(zone.position.toArray(),position);
+      }
+      assert.ok(ZONE_POSITIONS.games[0]<-15&&ZONE_POSITIONS.festival[0]>14);
+      assert.equal(construction.pads.size,3);
+      for(const pad of CONSTRUCTION_PADS){
+        const model=construction.pads.get(pad.id);assert.deepEqual(model.position.toArray(),pad.position);
+        assert.ok(pad.position[2]<-14&&Math.hypot(pad.position[0],pad.position[2])+pad.radius<24.5);
+        assert.match(model.userData.easterEgg.text,/No station has been assigned/);
+        assert.ok(isDenPositionBlocked(pad.position[0],pad.position[2],agents.obstacles,0.65));
+        for(const other of CONSTRUCTION_PADS)if(other!==pad)assert.ok(Math.hypot(pad.position[0]-other.position[0],pad.position[2]-other.position[2])>pad.radius+other.radius+2.5);
+      }
+      const route=findReviewPath([-4,-12],[4,-12],agents.obstacles);assert.ok(route,'rear route stays open below future plots');
+      const center=CONSTRUCTION_PADS[1].position;assert.equal(findReviewPath([-4,-12],[center[0],center[2]],agents.obstacles),null,'future plots are not walking destinations');
+    }finally{construction.dispose();leisure.dispose();}
+    assert.equal(construction.root.parent,null);assert.equal(leisure.root.parent,null);
   });
 });
 
