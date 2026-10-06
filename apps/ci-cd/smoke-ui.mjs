@@ -248,8 +248,39 @@ async function main() {
       return `${names.length} signs shifted ${Math.round(after.signs["Library"].x - start.signs["Library"].x)} px`;
     });
 
-    // The 'walk: Enter the den' check is dropped for den-layout/02 (user, 2026-10-06): the walker's spawn and obstacles
-    // still describe the old den. den-layout/04 re-adds it against the new scene.
+    // den-v1/03, back for den-layout/04: Enter the den switches to a first-person camera in the restaurant scene, WASD
+    // moves it, Esc returns the diorama camera to the frame it left. Observables: the button's aria-pressed, the
+    // crosshair, and the station signs, which ChipLayer projects through whichever camera is live (the walker's
+    // perspective camera moves them; the diorama's does not).
+    await check("walk: Enter the den, move with W, Esc returns the diorama to the same frame", async () => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.waitForTimeout(800); // the diorama's easing has finished
+      const enter = page.getByRole("button", { name: "Enter the den" });
+      await page.waitForFunction(() => !document.querySelector(".den-entry button")?.hasAttribute("aria-disabled"), null, { timeout: 15000 });
+      const round = (p) => Object.fromEntries(Object.entries(p.signs).map(([n, r]) => [n, [Math.round(r.x), Math.round(r.y)]]));
+      const before = await sceneProbe();
+      await enter.click();
+      await page.waitForSelector(".den-crosshair:not([hidden])", { timeout: 5000 });
+      expectEqual(await page.locator(".den-entry button").getAttribute("aria-pressed"), "true", "button pressed in walk mode");
+      await page.waitForTimeout(500);
+      const standing = round(await sceneProbe());
+      // Hold W until the view has moved (the software-rendered scene runs at a few frames a second, so poll, don't sleep).
+      await page.keyboard.down("KeyW");
+      let walked = standing;
+      const deadline = Date.now() + 8000;
+      while (Date.now() < deadline && JSON.stringify(walked) === JSON.stringify(standing)) {
+        await page.waitForTimeout(250);
+        walked = round(await sceneProbe());
+      }
+      await page.keyboard.up("KeyW");
+      if (JSON.stringify(walked) === JSON.stringify(standing)) throw new Error("W did not move the view in 8 s: " + JSON.stringify(standing));
+      await page.keyboard.press("Escape");
+      await page.waitForSelector(".den-crosshair[hidden]", { state: "attached", timeout: 5000 });
+      expectEqual(await page.locator(".den-entry button").getAttribute("aria-pressed"), "false", "button after Esc");
+      const names = Object.keys(before.signs);
+      const back = await settle((p) => names.every((n) => p.signs[n] && Math.abs(p.signs[n].x - before.signs[n].x) < 2 && Math.abs(p.signs[n].y - before.signs[n].y) < 2), "diorama frame restored after Esc");
+      return `view moved while walking, ${names.length} signs back within 2 px after Esc (${Math.round(back.width)}x${Math.round(back.height)})`;
+    });
   } finally {
     await browser?.close();
     await bridge.close();
