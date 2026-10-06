@@ -60,10 +60,10 @@ function fixture(tokens, { other = null } = {}) {
   return { home, wt };
 }
 
-const CELL = { agent_id: "agent-a", agent_type: "qa" };
+const CELL = { agent_id: "agent-a", agent_type: "security" }; // organism-infra/145: 70k/80k tier (qa moved to 100k/120k)
 
 function runHook(f, toolName, toolInput, who = CELL, { rawStdin = null } = {}) {
-  const env = { ...process.env, HOME: f.home };
+  const env = { ...process.env, HOME: f.home, ORGANISM_ROOT: path.join(f.home, "main") };
   delete env.CLAUDE_CODE_SESSION_ID;
   const input = { session_id: SESSION, cwd: f.wt, hook_event_name: "PreToolUse", tool_name: toolName, tool_input: toolInput, ...who };
   return spawnSync("node", [SCRIPT], {
@@ -199,7 +199,7 @@ for (const [name, command] of WRAP_UP) {
 
 test("wrap-up at 95k: a Write or Edit under .scratch/ is allowed", () => {
   const f = fixture(95_000);
-  const handoff = path.join(f.wt, ".scratch", "organism-infra", "handoffs", "162-qa-specify.md");
+  const handoff = path.join(f.home, "main", ".scratch", "organism-infra", "handoffs", "162-qa-specify.md") /* organism-infra/165: the main checkout (ORGANISM_ROOT) */;
   for (const tool of ["Write", "Edit"]) {
     const r = runHook(f, tool, { file_path: handoff, content: "x", old_string: "a", new_string: "b" });
     assert.equal(r.status, 0, `${tool} under .scratch/ must be allowed at 95k, got exit ${r.status}\n${r.stderr}`);

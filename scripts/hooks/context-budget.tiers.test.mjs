@@ -1,0 +1,153 @@
+// organism-infra/145 (batch C): the 162 hook reads its thresholds from the shared config by the calling
+// cell's agent_type, instead of the fixed 70k/80k.
+//
+// Seam: the hook CLI, as in context-budget.test.mjs (PreToolUse JSON on stdin, HOME=<fixture>).
+// With the shipped config (CONTEXT_BUDGET_CONFIG unset): developer and qa warn at 100k and refuse at
+// 120k; security, architect, designer, scout and any other agent_type stay at 70k / 80k.
+// With CONTEXT_BUDGET_CONFIG=<fixture file> the numbers come from that file, so none is hard-coded.
+// The warning and refusal texts name the cell's own limits, not "80k".
+//
+// Criterion map:
+//   hook reads thresholds by role (shipped numbers) -> "developer ...", "qa ...", "security ..." tests
+//   hook reads the config value, not constants      -> "a fixture config ..." tests
+//   messages carry the role's limits                -> "warning text ...", "refusal text ..." tests
+//   fail open, wrap-up calls unchanged              -> "the wrap-up calls stay allowed ..." test
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, writeFileSync, realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const SCRIPT = path.join(path.resolve(fileURLToPath(new URL("../..", import.meta.url))), "scripts", "hooks", "context-budget.mjs");
+const SESSION = "orch-session-145";
+
+function fixture(tokens) {
+  const home = realpathSync(mkdtempSync(path.join(tmpdir(), "ctx-tiers-")));
+  const wt = path.join(home, "worktrees", "agent-a");
+  mkdirSync(wt, { recursive: true });
+  const sub = path.join(home, ".claude", "projects", "-fixture-project", SESSION, "subagents");
+  mkdirSync(sub, { recursive: true });
+  const rec = (n) => JSON.stringify({ type: "assistant", cwd: wt, message: { role: "assistant", usage: { input_tokens: n, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 3 } } });
+  writeFileSync(path.join(sub, "agent-a.jsonl"), [rec(1000), rec(tokens)].join("\n") + "\n");
+  return { home, wt };
+}
+
+function writeConfig(body) {
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), "ctx-tiers-cfg-")));
+  const file = path.join(dir, "context-budget.json");
+  writeFileSync(file, JSON.stringify(body));
+  return file;
+}
+
+function run(tokens, agentType, { tool = "Read", toolInput = { file_path: "/repo/apps/ui/src/big.jsx" }, config = null } = {}) {
+  const f = fixture(tokens);
+  const env = { ...process.env, HOME: f.home };
+  delete env.CLAUDE_CODE_SESSION_ID;
+  delete env.CONTEXT_BUDGET_CONFIG;
+  if (config) env.CONTEXT_BUDGET_CONFIG = config;
+  const input = { session_id: SESSION, cwd: f.wt, hook_event_name: "PreToolUse", tool_name: tool, tool_input: toolInput, agent_id: "agent-a", agent_type: agentType };
+  return spawnSync("node", [SCRIPT], { cwd: f.wt, env, input: JSON.stringify(input), encoding: "utf8", timeout: 15000 });
+}
+
+const silent = (r, label) => {
+  assert.equal(r.status, 0, `${label}: exit ${r.status}\n${r.stderr}`);
+  assert.equal(r.stdout, "", `${label}: no stdout`);
+  assert.equal(r.stderr, "", `${label}: no stderr`);
+};
+const warns = (r, label) => {
+  assert.equal(r.status, 0, `${label}: exit ${r.status}\n${r.stderr}`);
+  const out = JSON.parse(r.stdout);
+  assert.match(out.hookSpecificOutput?.additionalContext ?? "", /checkpoint/i, label);
+  return out.hookSpecificOutput.additionalContext;
+};
+const refuses = (r, label) => {
+  assert.equal(r.status, 2, `${label}: exit ${r.status}\nstdout=${r.stdout}\nstderr=${r.stderr}`);
+  return r.stderr;
+};
+
+for (const role of ["developer", "qa"]) {
+  test(`${role}: silent below 100k, even at 99,999`, () => {
+    silent(run(80_000, role), `${role} 80k`);
+    silent(run(99_999, role), `${role} 99,999`);
+  });
+
+  test(`${role}: warns from 100k to 119,999 and still allows the call`, () => {
+    warns(run(100_000, role), `${role} 100k`);
+    warns(run(119_999, role), `${role} 119,999`);
+  });
+
+  test(`${role}: refuses at exactly 120k and beyond`, () => {
+    refuses(run(120_000, role), `${role} 120k`);
+    refuses(run(150_000, role, { tool: "Grep", toolInput: { pattern: "x" } }), `${role} 150k Grep`);
+  });
+}
+
+for (const role of ["security", "architect", "designer", "scout"]) {
+  test(`${role}: keeps 70k warn / 80k stop`, () => {
+    silent(run(69_999, role), `${role} 69,999`);
+    warns(run(70_000, role), `${role} 70k`);
+    warns(run(79_999, role), `${role} 79,999`);
+    refuses(run(80_000, role), `${role} 80k`);
+  });
+}
+
+test("an agent_type with no config entry gets the default 70k / 80k", () => {
+  warns(run(75_000, "herald"), "herald 75k");
+  refuses(run(85_000, "herald"), "herald 85k");
+});
+
+test("warning text names the cell's own limit, not 80k", () => {
+  const text = warns(run(105_000, "developer"), "developer 105k");
+  assert.match(text, /105k/);
+  assert.match(text, /120k/, "the warning names the developer's stop limit");
+  assert.doesNotMatch(text, /80k/);
+});
+
+test("refusal text names the cell's own limit and still tells it how to wrap up", () => {
+  const text = refuses(run(125_000, "qa"), "qa 125k");
+  assert.match(text, /125k/);
+  assert.match(text, /120k/);
+  assert.doesNotMatch(text, /80k/);
+  assert.match(text, /WIP commit/i);
+  assert.match(text, /outcome: partial/);
+});
+
+test("the wrap-up calls stay allowed at and above the developer's 120k stop", () => {
+  for (const command of ["git add scripts/a.mjs", 'git commit -m "WIP: budget"', "npm run board -- release organism-infra/145-cell-context-hook --keep-status", "node scripts/context.mjs --self"]) {
+    const r = run(130_000, "developer", { tool: "Bash", toolInput: { command } });
+    assert.equal(r.status, 0, `${command}: exit ${r.status}\n${r.stderr}`);
+  }
+});
+
+test("a fixture config sets the numbers: developer 30k warn / 40k stop", () => {
+  const config = writeConfig({
+    default: { warn: 70_000, stop: 80_000 },
+    cells: { developer: { warn: 30_000, stop: 40_000 } },
+    orchestrator: { warn: 70_000, stop: 80_000 },
+  });
+  silent(run(29_999, "developer", { config }), "29,999");
+  const text = warns(run(30_000, "developer", { config }), "30k");
+  assert.match(text, /40k/);
+  refuses(run(40_000, "developer", { config }), "40k");
+  // another role is untouched by the developer entry
+  silent(run(50_000, "security", { config }), "security 50k");
+});
+
+test("a fixture config's default entry applies to roles it does not list", () => {
+  const config = writeConfig({ default: { warn: 20_000, stop: 25_000 }, cells: {}, orchestrator: { warn: 70_000, stop: 80_000 } });
+  silent(run(19_999, "security", { config }), "19,999");
+  warns(run(20_000, "security", { config }), "20k");
+  refuses(run(25_000, "security", { config }), "25k");
+});
+
+test("an invalid or missing config file leaves the hook on the built-in 70k / 80k and never crashes it", () => {
+  const bad = writeConfig({ default: { warn: "x" }, cells: { developer: { warn: 5, stop: 1 } } });
+  silent(run(60_000, "developer", { config: bad }), "bad config 60k");
+  warns(run(75_000, "developer", { config: bad }), "bad config 75k");
+  refuses(run(85_000, "developer", { config: bad }), "bad config 85k");
+  const missing = path.join(tmpdir(), "no-such-dir-ctx-tiers", "context-budget.json");
+  silent(run(60_000, "developer", { config: missing }), "missing config 60k");
+  refuses(run(85_000, "developer", { config: missing }), "missing config 85k");
+});
