@@ -48,8 +48,27 @@ const ROUTE_VARIANTS = {
 function boardEvents(events, op) {
   return events
     .filter((e) => e && e.op === op && e.feature && keyOf(`${e.feature}/${e.ticket}`))
-    .map((e) => ({ key: keyOf(`${e.feature}/${e.ticket}`), cell: e.cell, toStatus: e.to_status, ts: String(e.ts ?? "") }))
+    .map((e) => ({ key: keyOf(`${e.feature}/${e.ticket}`), cell: e.cell, mode: e.mode ?? null, toStatus: e.to_status, ts: String(e.ts ?? "") }))
     .sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+}
+
+// organism-infra/124: a route row is written before the dispatch it predicts, so its own `actual` cannot name the
+// real next role. This derived view scores each route row against the first claim after it, any cell.
+function claimRole(c) {
+  return c.cell === "qa" && (c.mode === "specify" || c.mode === "verify") ? `qa-${c.mode}` : c.cell;
+}
+
+function routeActuals(rows, events) {
+  const claims = boardEvents(events, "claim");
+  const out = [];
+  for (const r of rows) {
+    if (r.kind !== "jev" || r.point !== "route") continue;
+    const key = keyOf(r.ticket);
+    const ts = String(r.ts ?? "");
+    const first = key ? claims.find((c) => c.key === key && c.ts > ts) : null;
+    out.push({ ticket: r.ticket, ts: r.ts, variant: r.variant ?? "new", pick: r.pick, logged: r.actual, actual: first ? claimRole(first) : null });
+  }
+  return out;
 }
 
 function routeReport(rows, events, variant) {
@@ -291,7 +310,7 @@ export function buildReport(allRows, events = []) {
   }
   return {
     tickets, points,
-    route: { newTicket: routeReport(rows, events, "new"), bounce: routeReport(rows, events, "bounce") },
+    route: { newTicket: routeReport(rows, events, "new"), bounce: routeReport(rows, events, "bounce"), actuals: routeActuals(rows, events) },
     priority: priorityReport(rows),
     scope: scopeReport(rows, tickets),
     wake: wakeReport(rows, events),
@@ -342,6 +361,7 @@ export function formatReport(report) {
     lines.push(...goLiveLines("route bounce", b, ROUTE_VARIANTS.bounce.minRows));
     for (const d of b.disagreements) lines.push(`route bounce disagreement ${d.ticket}: pick ${d.pick}, actual ${d.actual}`);
   }
+  for (const a of report.route?.actuals ?? []) lines.push(`route actual ${a.ticket}: pick ${a.pick ?? "none"}, actual ${a.actual ?? "none yet"}`);
   const ok = (x) => (x ? "PASS" : "FAIL");
   const p = report.priority;
   if (p) {
