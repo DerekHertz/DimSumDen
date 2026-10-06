@@ -1,16 +1,17 @@
 /**
  * Pure first-person walk core (den-v1/03): walk(state, input, dt, world) -> state.
  * No three, DOM or React in here; createDenExplorer in explorer.mjs is the thin adapter that feeds it keys, mouse
- * and the den's obstacles each frame.
+ * and the den's obstacles each frame (den-layout/04: the den's own plus the site plan's REVIEW_OBSTACLES).
  *
  *   state  {x, z, y, yaw, pitch, walkTime}   y is the eye height including the walking bob
  *   input  {forward, strafe, sprint, look:{dx,dy}, reducedMotion}   forward/strafe are -1, 0 or 1; look is mouse px
- *   world  {obstacles, avoid}   obstacles are den.obstacles (circle, ellipse, rotated box); avoid is [{x,z,r}] for
+ *   world  {obstacles, avoid}   obstacles are the den's and the site plan's (circle, ellipse, rotated box); avoid is [{x,z,r}] for
  *                               things that move (roaming pandas)
  */
 export const WALK = Object.freeze({
   eyeHeight: 1.65, speed: 2.1, sprintSpeed: 3.5, radius: 0.26, stepLength: 0.08,
-  bounds: Object.freeze({minX: -11.65, maxX: 11.65, minZ: -10.4, maxZ: 9.35}),
+  // The floor is the site plan's disc (review/layout.mjs: radius 24.5 at the origin); the walker's body stays inside it.
+  floorRadius: 24.5,
   pitchMin: -1.20, pitchMax: 1.30, lookRate: 0.0025, bob: 0.012, bobRate: 9,
   start: Object.freeze({x: 0, z: 8.95, yaw: 0, pitch: 0.14}),
 });
@@ -34,8 +35,7 @@ export function startWalk() {
 }
 
 export function isWalkBlocked(x,z,world) {
-  const b=WALK.bounds;
-  if(x<b.minX||x>b.maxX||z<b.minZ||z>b.maxZ)return true;
+  if(Math.hypot(x,z)>WALK.floorRadius-WALK.radius)return true;
   if(isDenPositionBlocked(x,z,world.obstacles||[]))return true;
   for(const a of world.avoid||[])if(Math.hypot(x-a.x,z-a.z)<a.r)return true;
   return false;
