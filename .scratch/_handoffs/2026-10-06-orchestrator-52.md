@@ -14,7 +14,7 @@ State, not rules; the genome wins.
 - Carried over from 03: unused controller `ticketPandas` path (cleanup); chip height over split-off pandas (not verified visually); security lows (cap bubble text, cap split pandas).
 
 ## Frontier
-Next: den-v1 04–07. Infra: 162 → 160 → 145 → 147 → 156 → 146/148/149 → 157; 159, 163. P3: 164, den-layout/05 (needs-design).
+Next: den-v1 05–07 (04 is parked). Infra: 162 → 160 → 145 → 147 → 156 → 146/148/149 → 157; 159, 163. P3: 164, den-layout/05 (needs-design).
 
 ## Usage
 5-hour 73% at 19:22Z (live, resets 21:10Z), weekly 26%. `usage.mjs` returned HTTP 429 early in the session, then recovered.
