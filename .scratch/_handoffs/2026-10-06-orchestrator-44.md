@@ -22,3 +22,10 @@ State, not rules; the genome wins. Active milestone den-v1. User priority: finis
 - 138 round-2 spikes: user runs `node apps/bridge/cells/conformance.mjs --spike S8,S4b,S6b,S3b --out ~/den-spikes-r2` themselves (auto-mode blocked the orchestrator from spawning real `claude` children; a first user run was stopped during S8). Fixture commit location still unconfirmed.
 - Live usage read (`scripts/usage.mjs`) returned HTTP 429 all session; last user-reported 5h 80%, wk 15%.
 - Gated genome edit for compaction relays; compact-button idea -> product after den-v1.
+
+## 138 round-2 spike results (user ran, 2026-10-06; fixtures + results.json in ~/den-spikes-r2, NOT committed)
+- S8 UNCONFIRMED: messaging socket present (/tmp/cc-socks/<pid>.sock, 0600, dir 0700, owner only); connect accepted; 4 probe shapes (user msg, interrupt x2, control_response allow) got silence and no effect. Not outcome a or b, so security re-review is owed before 142/143.
+- S4b UNCONFIRMED: the tool call never started in eof/term/kill, so survivor counts prove nothing (child exits cleanly on EOF, SIGTERM in 301 ms, SIGKILL).
+- S6b NO-GO: project-local allow did not apply (allowed.txt absent); deny held (.claude/probe.txt absent).
+- S3b UNCONFIRMED: no subagent control_request was raised.
+- Common thread: in S4b, S6b and S3b the tool call never ran. Possible single cause (allow rules not applying under the spike's settings, or haiku not calling the tool). Next session: dispatch architect (scout for digging) to diagnose before 141-143 rely on these; 140 (fake runtime) is unaffected. Then security on S8.
