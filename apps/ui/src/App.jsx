@@ -20,6 +20,9 @@ import { panelPlaceholder } from "./state/connection.mjs";
 import { createCameraStore } from "./scene/camera-store.mjs";
 import { LogoPill, Cards } from "./overlay/Cards.jsx";
 import { ZoomSwitcher, IntentBar, Timeline } from "./overlay/Bottom.jsx";
+import { PandaEditor } from './scene/procedural/PandaEditor.jsx';
+import { loadPandaSettings } from './scene/procedural/panda-settings.mjs';
+import './scene/procedural/scene-lab.css';
 
 class SceneBoundary extends Component {
   state={error:null};
@@ -35,6 +38,8 @@ function activeCount(snapshot) {
 }
 
 export function App() {
+  const [pandaSettings,setPandaSettings]=useState(loadPandaSettings);
+  const [easterEgg,setEasterEgg]=useState(null);
   const live = useLiveState();
   const [demo] = useState(demoRequested);
   const demoSnapshot = useDemoSnapshot(demo);
@@ -86,7 +91,7 @@ export function App() {
             <CameraRig store={camera} stage={stage} den={den} onModeChange={onExploreChange} onHint={setExploreHint} />
             <Suspense fallback={null}>
               <Den cells={sceneCells} frontier={frontier} tally={tally} onOpenTally={openTally}
-                selected={selected} onSelect={selectTicket} stage={stage} onReady={onDenReady} />
+                selected={selected} onSelect={selectTicket} stage={stage} onReady={onDenReady} pandaSettings={pandaSettings} onEasterEgg={setEasterEgg} />
             </Suspense>
           </Canvas>
         </SceneBoundary>
@@ -98,6 +103,8 @@ export function App() {
         {overflow > 0 ? <p className="scene-caption scene-more">+{overflow} more in queue</p> : null}
       </main>
       <LogoPill connection={connection} />
+      <div className="den-lab-tools"><a href="?lab=1">Scene lab ↗</a><details><summary>Edit walking pandas</summary><PandaEditor settings={pandaSettings} onApply={setPandaSettings}/></details></div>
+      {easterEgg?<aside className="restaurant-note" aria-label="Restaurant discovery"><button type="button" aria-label="Close discovery" onClick={()=>setEasterEgg(null)}>×</button><span>HOUSE SECRET</span><h2>{easterEgg.title}</h2><p>{easterEgg.text}</p></aside>:null}
       <Cards snapshot={snapshot} now={now} connection={connection} placeholder={placeholder} camera={camera} />
       <div className="den-entry">
         <button type="button" className="btn btn-solid" aria-pressed={exploring} aria-disabled={!den || undefined}

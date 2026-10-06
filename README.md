@@ -62,6 +62,8 @@ npm run smoke:ui      # browser smoke check (Playwright + Chromium)
 npm run board -- status <feature>/<NN-slug>
 ```
 
+Open **Scene lab** in the den (or add `?lab=1` to its URL) for three restaurant scene samples, orbitable models of all fourteen defined characters, and the walking panda studio. Planned characters are marked as concepts. **Edit walking pandas** in the live den uses the same shape and gait controls; Apply saves the settings on this device. Click the trolley, tea table, lucky bao, or specials board to discover restaurant easter eggs. The samples are independent of the live board.
+
 Agents are run as Claude Code sessions, for example `claude --agent developer`. They use your own Claude subscription through the CLI ([ADR 0001](docs/adr/0001-subscription-cli-cells.md)).
 
 ## Read more

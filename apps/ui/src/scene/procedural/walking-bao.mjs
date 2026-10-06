@@ -2,13 +2,15 @@
  * Four-legged Bao: horizontal body, four articulated limbs, planted-paw gait.
  * Reuses the seated model's face/materials, but has its own quadruped skeleton.
  */
-export function createWalkingBao(THREE,createBao) {
+import { pandaSettings } from './panda-settings.mjs';
+export function createWalkingBao(THREE,createBao,options={}) {
+  const settings=pandaSettings(options);
   const donor=createBao(THREE,{detail:'low'});
   const model=new THREE.Group();model.name='Bao_Roaming';
   model.userData={character:'Bao',pose:'quadruped'};
   const materials=donor.materials,bones={},anchors={},indices={},list=[],meshes=[];
   const V=a=>new THREE.Vector3(...a),Q=()=>new THREE.Quaternion();
-  const faceScale=0.66,facePoint=p=>p.clone().sub(V([0,3.26,0])).multiplyScalar(faceScale).add(V([0,1.65,1.73]));
+  const faceScale=0.66*settings.headScale,facePoint=p=>p.clone().sub(V([0,3.26,0])).multiplyScalar(faceScale).add(V([0,1.65,1.65]));
   function bone(name,parent,p){
     const b=new THREE.Bone();b.name=name;anchors[name]=V(p);
     b.position.copy(anchors[name]).sub(parent?anchors[parent]:V([0,0,0]));
@@ -44,7 +46,7 @@ export function createWalkingBao(THREE,createBao) {
     if(rotation)g.applyQuaternion(rotation);
     g.translate(...center);return attach(name,g,mat,joint);
   }
-  ellipsoid('WalkingBody',[0,1.25,-0.25],[0.94,0.90,1.28],materials.cream,'Spine');
+  ellipsoid('WalkingBody',[0,1.25,-0.25],[0.94*settings.bodyWidth,0.90,1.28],materials.cream,'Spine');
   ellipsoid('ShoulderBand',[0,1.27,0.65],[0.96,0.88,0.43],materials.charcoal,'Spine');
   ellipsoid('Neck',[0,1.42,1.12],[0.59,0.48,0.40],materials.charcoal,'Head');
   ellipsoid('WalkingTail',[0,1.28,-1.58],[0.20,0.18,0.19],materials.cream,'Tail');
@@ -71,8 +73,8 @@ export function createWalkingBao(THREE,createBao) {
   for(const [side,s]of [['L',1],['R',-1]])for(const front of [true,false]){
     const upper=(front?'Shoulder_':'Hip_')+side,lower=(front?'Elbow_':'Knee_')+side,foot=(front?'Wrist_':'Ankle_')+side;
     const a=anchors[upper],b=anchors[lower],c=anchors[foot];
-    segment('Upper_'+upper,a,b,front?0.235:0.27,upper);
-    segment('Lower_'+lower,b,c,front?0.205:0.23,lower);
+    segment('Upper_'+upper,a,b,(front?0.235:0.27)*settings.legWidth,upper);
+    segment('Lower_'+lower,b,c,(front?0.205:0.23)*settings.legWidth,lower);
     ellipsoid('Joint_'+lower,b.toArray(),[0.22,0.22,0.22],materials.charcoal,lower);
     ellipsoid('Paw_'+foot,[c.x,0.13,c.z+0.08],[0.25,0.13,0.32],materials.charcoal,foot);
     // Subtle toe separations, not forward-facing human-like palms.
@@ -84,7 +86,7 @@ export function createWalkingBao(THREE,createBao) {
   }
   // Donor geometry/skeleton are no longer needed; its materials are retained.
   donor.model.traverse(m=>{if(m.isMesh)m.geometry.dispose();});donor.skeleton.dispose();
-  const stride=0.72,duty=0.78;
+  const stride=settings.stride,duty=0.78;
   function resetPose(){
     for(const {b,p}of rest){b.position.copy(p);b.quaternion.identity();b.scale.set(1,1,1);}
     for(const m of meshes)if(m.morphTargetInfluences)m.morphTargetInfluences.fill(0);
@@ -103,7 +105,7 @@ export function createWalkingBao(THREE,createBao) {
       if(p<duty){offset=stride*(0.5-p/duty);}
       else{
         const t=(p-duty)/(1-duty),ease=t*t*(3-2*t);
-        offset=stride*(-0.5+ease);lift=0.18*Math.sin(Math.PI*t);pitch=-0.14*Math.sin(Math.PI*t);
+        offset=stride*(-0.5+ease);lift=settings.lift*Math.sin(Math.PI*t);pitch=-0.14*Math.sin(Math.PI*t);
       }
       const foot=limb.base.clone();foot.z+=offset*strength;foot.y+=lift*strength;
       const anchor=limb.anchor.clone().sub(V([0,1.25,-0.15])).applyQuaternion(spineQ).add(bones.Spine.position);
