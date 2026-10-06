@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** claimed
+**Status:** in-review
 
 **Serves:** Relay context budget (organism-infra/162). Three low findings from `.scratch/organism-infra/handoffs/162-security.md`.
 

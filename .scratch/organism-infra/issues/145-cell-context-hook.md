@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** claimed
+**Status:** in-review
 
 **Serves:** Testbed friction: cells run past the 80k context budget (105 developer 84.6k, 106 security 89k, 106 architect 115k), so every later call costs more.
 
@@ -36,3 +36,4 @@ The `.claude/settings.json` registration is gated: the developer writes the exac
 - **orchestrator, 2026-10-06:** batch C started 2026-10-06 (user yes): 145 + 165 + ADR 0010 note, one relay, one branch. qa specify first. Runs in parallel with 166 (no file overlap).
 - **qa, 2026-10-06:** partial: context budget, tests unrun
 - **qa, 2026-10-06:** qa specify partial: tests committed (b1c8093, tests/batch-c-context-budget) but unrun; SubagentHandback was refused by the 80k hook (not on its allowlist). See handoffs/145-qa-specify.md and 165-qa-specify.md.
+- **developer, 2026-10-06:** qa test bug: scripts/cell-start-context-config.test.mjs:119 runs cell-start twice on one fixture; the first run claims the ticket so the second is refused (already claimed). Not a code or env issue. qa should use a fresh fixture per iteration. Details in handoffs/145-developer-2.md.

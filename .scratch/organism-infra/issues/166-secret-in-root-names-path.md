@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Context supply at dispatch (ADR 0014). Retro 2026-10-06: `secret-in-root` hit 160, 145 and 147 back to back (9 jg rows in all), so no Start-here context reached any cell. Ticket 96 fixed this once and it came back. Nobody can see which file tripped it, so every recurrence costs a hunt.
 
@@ -27,3 +27,5 @@ Files: `scripts/dispatch-context.mjs`, its tests, whichever files currently trip
 
 ## Comments
 - **orchestrator, 2026-10-06:** qa light verify bounced on full-suite failures only (46, then 74, mostly Playwright and smoke timeouts) while other full suites ran in parallel. The ticket's own tests pass. User decision 2026-10-06: an environment issue, not a bounce, so it does not count toward fails-twice. Once batch C's suite run ends, a scout reruns the full suite on feat/166 with nothing else running. Green: continue to risk-check. Red: back to a developer. Suite-lock ticket filed.
+- **orchestrator, 2026-10-06:** Full-suite rerun alone on caa893f: 2185 pass, 0 fail, 0 skipped (scout). The qa verify failures were environmental, so light verify's other findings stand as a pass. Next: risk-check.
+- **security, 2026-10-06:** Security pass. gitleaks clean; no critical/high/medium. Low: dispatch-context.mjs:115 echoes tracked path by design; root-secret-scan.test.mjs duplicates the file-set filter (drift risk). Details in handoff 166-security.md.
