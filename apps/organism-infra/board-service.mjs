@@ -970,6 +970,42 @@ async function claimSkeleton(paths, feature, ticket) {
   return stateSkeleton(feature, ticket, cell, mode);
 }
 
+// organism-infra/158: push the releasing cell's branch to origin (upstream
+// tracking) so work never stays on one machine. Runs from `cwd` (the cell's
+// worktree). Skipped on a detached HEAD, on main (the end-of-session check
+// owns main), and when the repo has no origin. A failed push throws, so the
+// caller refuses the release before writing anything.
+function pushBranchToOrigin(cwd, ref) {
+  const git = (args) =>
+    execFileSync("git", args, {
+      cwd,
+      encoding: "utf8",
+      timeout: 120_000,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    }).trim();
+  let branch;
+  try {
+    branch = git(["symbolic-ref", "--short", "-q", "HEAD"]);
+  } catch {
+    return; // detached HEAD (or not a git repo): no branch to push
+  }
+  if (!branch || branch === "main") return;
+  try {
+    if (!git(["remote"]).split(/\s+/).includes("origin")) return;
+  } catch {
+    return;
+  }
+  try {
+    git(["push", "-u", "origin", "HEAD"]);
+  } catch (err) {
+    const detail = String(err.stderr || err.message || err).trim();
+    throw new BoardError(
+      `release blocked: pushing branch ${branch} to origin failed, so ${ref} stays claimed. Fix the cause and release again.\n${detail}`
+    );
+  }
+}
+
 export async function release(root, ref, newStatus, reason, options = {}) {
   const { force, keepStatus } = options;
   const pr = validatePrFlag(options.pr);
@@ -1066,6 +1102,9 @@ export async function release(root, ref, newStatus, reason, options = {}) {
     if (reason) {
       updated = `${updated.trimEnd()}\n- **${cell}, ${todayUTC()}:** ${reason}\n`;
     }
+    // organism-infra/158: the push comes after every refusal check and before
+    // any write, so a failed push leaves the claim, status and events untouched.
+    if (options.pushFrom) pushBranchToOrigin(options.pushFrom, ref);
     const events = [
       {
         feature,

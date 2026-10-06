@@ -84,6 +84,7 @@ async function main() {
         force: !!flags.force,
         keepStatus: !!flags["keep-status"],
         pr: flags.pr,
+        pushFrom: process.cwd(), // organism-infra/158: release pushes the cell's branch
       });
       console.log(`released ${ref}: ${result.status}`);
       return;
