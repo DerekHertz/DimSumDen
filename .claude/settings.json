@@ -65,6 +65,17 @@
         ]
       }
     ],
+    "PreToolUse": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/context-budget.mjs\"",
+              "timeout": 15
+            }
+          ]
+        }
+    ],
     "Notification": [
       {
         "hooks": [
