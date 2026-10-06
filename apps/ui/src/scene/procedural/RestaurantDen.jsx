@@ -12,6 +12,7 @@ import { loadReview } from '../../review/review-data.mjs';
 import { prepareReviewLayout } from '../../review/layout.mjs';
 import { createLeisure } from '../../review/leisure.mjs';
 import { createReviewAgents } from '../../review/agents.mjs';
+import { liveActorsFromSnapshot } from '../../review/live-actors.mjs';
 import { createReviewLandscape, REVIEW_SKIES } from '../../review/landscape.mjs';
 import { createConstructionPads } from '../../review/construction-pads.mjs';
 
@@ -34,7 +35,7 @@ function savedLook() {
   return { direction: review?.direction || 'traveler', settings: review?.settings || loadPandaSettings() };
 }
 
-export function RestaurantDen({ cells, frontier, tally, selected, onSelect, onOpenTally, stage, onReady }) {
+export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, stage, onReady }) {
   const [den, setDen] = useState(null);
   const [dark, setDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
   const [look] = useState(savedLook);
@@ -86,6 +87,17 @@ export function RestaurantDen({ cells, frontier, tally, selected, onSelect, onOp
     const c = live.current?.controller;
     if (c) c.sync(cells, frontier, tally?.rods);
   }, [den, cells, frontier, tally]);
+
+  // Real agents drive the role pandas (den-layout/03). The adapter is re-run each second so a tool-call
+  // bubble fades after its TTL without waiting for a new snapshot.
+  useEffect(() => {
+    const agents = live.current?.agents;
+    if (!agents) return undefined;
+    const bind = () => agents.applyLive(liveActorsFromSnapshot(snapshot, { now: Date.now() }));
+    bind();
+    const timer = setInterval(bind, 1000);
+    return () => clearInterval(timer);
+  }, [den, snapshot]);
 
   useFrame((_, delta) => {
     const l = live.current; if (!l) return;
