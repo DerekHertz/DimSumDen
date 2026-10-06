@@ -15,8 +15,9 @@
 import { spawn, execFile } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { randomUUID, randomBytes } from "node:crypto";
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync } from "node:fs";
-import { tmpdir, homedir } from "node:os";
+import net from "node:net";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { tmpdir, homedir, userInfo } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -82,6 +83,22 @@ export function parseCaptureLines(rawLines) {
     }
     return { t, raw, obj };
   });
+}
+
+// Fixtures are committed, so the owner's home paths and username must not survive in them. Homes are
+// replaced longest first (a home contains the username), then the username; neither replacement holds
+// a quote or backslash, so JSON lines stay valid. A username under 3 characters is left alone: replacing
+// it everywhere would mangle unrelated text.
+export function scrubText(text, { homes = [], username } = {}) {
+  let out = text;
+  const roots = homes
+    .filter((h) => typeof h === "string")
+    .map((h) => h.replace(/\/+$/, ""))
+    .filter((h) => h.length > 0)
+    .sort((a, b) => b.length - a.length);
+  for (const h of new Set(roots)) out = out.split(h).join("~");
+  if (typeof username === "string" && username.length >= 3) out = out.split(username).join("<user>");
+  return out;
 }
 
 // ---- Capture accessors ---------------------------------------------------------------------
@@ -160,19 +177,20 @@ export function evaluateS3({ allow, deny }, { allowBody, denyBody, allowFileExis
     ev.push(pass ? good : bad);
     if (!pass) ok = false;
   };
-  const reqA = controlRequests(allow)[0];
-  const reqD = controlRequests(deny)[0];
+  const reqA = controlRequests(allow).find((r) => r.request?.tool_name === "Write");
+  const reqD = controlRequests(deny).find((r) => r.request?.tool_name === "Write");
   check(Boolean(reqA), "allow run: a control_request was emitted for a tool outside the allowlist", "allow run: no control_request on stdout");
   check(Boolean(reqD), "deny run: a control_request was emitted", "deny run: no control_request on stdout");
   if (reqA) {
     const input = reqA.request?.input;
     check(flat(input).includes(allowBody), "control_request carries the full tool input (the written content is present)", "control_request input lacks the written content: input is not complete");
+    ev.push(`request.subtype: ${reqA.request?.subtype ?? "absent"}`);
     ev.push(`control_request shape: ${JSON.stringify({ type: reqA.type, request_id: reqA.request_id, subtype: reqA.request?.subtype, tool_name: reqA.request?.tool_name, input_keys: Object.keys(input ?? {}) })}`);
   }
   if (reqD) check(flat(reqD.request?.input).includes(denyBody), "deny run: control_request carries the full input", "deny run: control_request input lacks the content");
   check(allowFileExists === true, "allow was honoured: the file was written", "allow was not honoured: the file does not exist");
   check(denyFileExists === false, "deny was honoured: the file was not written", "deny was not honoured: the file exists");
-  return verdict("S3", ok, ev, { shapes: { controlRequest: reqA ?? null } });
+  return verdict("S3", ok, ev, { shapes: { controlRequest: reqA ?? null, requestSubtype: reqA?.request?.subtype ?? null } });
 }
 
 export function evaluateS4({ killed, resumed }, { killedAt, transcriptFound, sessionId }) {
@@ -256,6 +274,77 @@ export function evaluateS7(cap, { sentAt }) {
   ev.push(`result lines: ${results.length}; a later reply mentions the second message: ${mentionsSecond}`);
   ev.push(`behaviour: ${behavior}`);
   return verdict("S7", behavior === "queued-new-turn" || behavior === "merged-into-running-turn", ev, { behavior });
+}
+
+// S8 (ADR 0016 decision 7): the child's own messaging socket must not be a second way to answer a
+// permission request. Outcome a: no socket advertised. b: it exists but nothing on it takes effect.
+// c: messages or interrupts take effect (residual risk, recorded). d: a control_response over the
+// socket answers a pending request (no-go). A disable candidate counts only when the socket is gone
+// and the child still logs in.
+export function evaluateS8({ init, stat, connect, probes = [], disable = [] }) {
+  const ev = [];
+  const socketPath = init?.socketPath ?? null;
+  ev.push(`init.messaging_socket_path: ${socketPath ?? "absent"}`);
+  ev.push(`init.capabilities: ${(init?.capabilities ?? []).join(", ") || "none listed"}`);
+  if (socketPath) {
+    if (stat) {
+      const open = (stat.mode & 0o006) !== 0 || (stat.dirMode & 0o007) !== 0;
+      ev.push(`socket stat: type ${stat.type}, mode ${(stat.mode & 0o777).toString(8).padStart(4, "0")}, uid ${stat.uid} (this process ${stat.ownUid}), directory mode ${(stat.dirMode & 0o777).toString(8).padStart(4, "0")}`);
+      ev.push(open ? "access for others: OPEN (the socket or its directory is reachable by other users)" : "access for others: none (owner only)");
+    } else {
+      ev.push("socket stat: unavailable; access for others unknown");
+    }
+    if (!connect) ev.push("connect: not attempted");
+    else ev.push(connect.connected ? "connect: accepted" : `connect: refused (${connect.error ?? "no error given"})`);
+    if (connect?.unsolicited) ev.push(`unsolicited bytes on the socket right after connecting (event leak): ${JSON.stringify(connect.unsolicited.slice(0, 300))}`);
+    for (const p of probes) ev.push(`probe ${p.name}: sent ${p.shape}; reply ${p.reply === null || p.reply === undefined ? "none (silence)" : JSON.stringify(String(p.reply).slice(0, 200))}; effect ${p.effect ? "YES" : "no"}`);
+  }
+  let outcome;
+  let verdictName;
+  if (!socketPath) {
+    outcome = "a";
+    verdictName = "go";
+    ev.push("outcome a: the child advertises no messaging socket");
+  } else if (!connect) {
+    outcome = null;
+    verdictName = "unconfirmed";
+    ev.push("no connection attempt was recorded, so the socket is untested");
+  } else if (!connect.connected) {
+    outcome = "b";
+    verdictName = "go";
+    ev.push("outcome b: the socket refuses connections");
+  } else if (probes.some((p) => p.name === "control-response" && p.effect)) {
+    outcome = "d";
+    verdictName = "no-go";
+    ev.push("outcome d: a control_response over the socket answered a pending permission request");
+  } else if (probes.some((p) => p.effect)) {
+    outcome = "c";
+    verdictName = "residual";
+    ev.push(`outcome c: ${probes.filter((p) => p.effect).map((p) => p.name).join(", ")} took effect over the socket; a control_response did not (residual risk)`);
+  } else if (connect.unsolicited) {
+    outcome = "c";
+    verdictName = "residual";
+    ev.push("outcome c: no probe took effect, but the socket streams unsolicited bytes (an event leak), so it is not a plain go");
+  } else if (probes.length === 0 || probes.every((p) => p.reply === null || p.reply === undefined)) {
+    outcome = null;
+    verdictName = "unconfirmed";
+    ev.push("the socket accepted a connection but stayed silent and no probe showed an effect: the shapes tried may simply be wrong");
+  } else {
+    outcome = "b";
+    verdictName = "go";
+    ev.push("outcome b: the socket answers every probe with an error and no probe took effect");
+  }
+  const result = { spike: "S8", verdict: verdictName, outcome, evidence: ev };
+  if (verdictName !== "go") {
+    const hit = disable.find((c) => c.socketGone && c.loggedIn);
+    for (const c of disable) ev.push(`disable candidate ${c.via}: socket gone ${Boolean(c.socketGone)}, child still logs in ${Boolean(c.loggedIn)}`);
+    if (hit) {
+      result.verdict = "go";
+      result.disabledBy = hit.via;
+      ev.push(`go because ${hit.via} removes the socket and the child still works`);
+    }
+  }
+  return result;
 }
 
 // ---- Child process harness -----------------------------------------------------------------
@@ -397,8 +486,11 @@ function makeCtx(opts) {
     parentEnv,
     timeoutMs: opts.timeoutMs ?? 120_000,
     model: opts.model ?? "haiku",
-    start(args, cwd) {
-      return new Child({ bin, args, env: childEnv, cwd });
+    bin,
+    s8DisableFlags: opts.s8DisableFlags ?? [],
+    s8DisableEnv: opts.s8DisableEnv ?? {},
+    start(args, cwd, extraEnv = {}) {
+      return new Child({ bin, args, env: { ...childEnv, ...extraEnv }, cwd });
     },
   };
 }
@@ -442,12 +534,15 @@ async function runS2(ctx) {
 async function runS3(ctx) {
   const dir = makeWorkdir();
   const child = ctx.start(buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model, permissionPromptTool: "stdio" }), dir);
-  let decision = "allow";
+  let phase = "allow";
   let answered = 0;
   child.on("activity", () => {
     for (; answered < child.lines.length; answered += 1) {
       const o = child.lines[answered].obj;
-      if (o && isControlRequest(o)) child.send(controlResponseLine(o.request_id, decision, decision === "allow" ? o.request?.input : undefined));
+      if (o && isControlRequest(o)) {
+        const allowed = phase === "allow" && o.request?.subtype === "can_use_tool" && o.request.tool_name === "Write";
+        child.send(controlResponseLine(o.request_id, allowed ? "allow" : "deny", allowed ? o.request.input : undefined));
+      }
     }
   });
   const allowBody = `BODY-ALLOW${randomBytes(3).toString("hex").toUpperCase()}`;
@@ -456,7 +551,7 @@ async function runS3(ctx) {
   const denyFile = path.join(dir, "s3-deny.txt");
   await runTurn(child, `Use the Write tool to create the file ${allowFile} with exactly this content: ${allowBody}. Do nothing else. Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs);
   const split = child.lines.length;
-  decision = "deny";
+  phase = "deny";
   await runTurn(child, `Use the Write tool to create the file ${denyFile} with exactly this content: ${denyBody}. Do nothing else. Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs, split);
   await finish(child);
   const all = child.capture();
@@ -536,6 +631,154 @@ async function runS7(ctx) {
   return { result: evaluateS7(capture, { sentAt }), captures: { main: capture } };
 }
 
+function openSocket(socketPath) {
+  const sock = net.createConnection(socketPath);
+  const client = { sock, buf: "", connected: false, error: null, log: [], t0: Date.now() };
+  client.ready = new Promise((resolve) => {
+    sock.once("connect", () => {
+      client.connected = true;
+      resolve();
+    });
+    sock.once("error", (e) => {
+      client.error = e.code ?? e.message;
+      resolve();
+    });
+  });
+  sock.on("error", () => {});
+  sock.setEncoding("utf8");
+  sock.on("data", (c) => {
+    client.buf += c;
+    client.log.push({ t: Date.now() - client.t0, dir: "recv", data: c });
+  });
+  client.write = (text) => {
+    client.log.push({ t: Date.now() - client.t0, dir: "sent", data: text });
+    if (client.connected) sock.write(text);
+  };
+  return client;
+}
+
+const socketCapture = (client) => ({
+  lines: client.log.map((e) => ({ t: e.t, raw: JSON.stringify(e), obj: e })),
+  exit: null,
+  stderr: "",
+});
+
+function statSocket(socketPath) {
+  try {
+    const st = statSync(socketPath);
+    const dir = statSync(path.dirname(socketPath));
+    return { type: st.isSocket() ? "socket" : st.isFile() ? "file" : "other", mode: st.mode & 0o777, uid: st.uid, ownUid: process.getuid?.() ?? null, dirMode: dir.mode & 0o777 };
+  } catch {
+    return null;
+  }
+}
+
+// Candidate ways to switch the socket off: flags the child's own --help mentions near socket or
+// messaging words, plus the ones the user names on the command line.
+function helpFlags(bin) {
+  return new Promise((resolve) => {
+    execFile(bin, ["--help"], { timeout: 20_000 }, (err, stdout) => {
+      if (err && !stdout) return resolve([]);
+      const flags = new Set();
+      for (const line of String(stdout).split("\n")) {
+        if (!/socket|messaging|inbound/i.test(line)) continue;
+        for (const m of line.match(/--[a-z][a-z0-9-]*/g) ?? []) flags.add(m);
+      }
+      resolve([...flags].filter((f) => !FORBIDDEN_FLAGS.includes(f)));
+    });
+  });
+}
+
+async function tryDisable(ctx, dir, via, { flag, env }) {
+  const child = ctx.start(buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model, extraArgs: flag ? [flag] : [] }), dir, env);
+  try {
+    const last = await runTurn(child, `Reply with the single word ${PROBE_MARKER}.`, ctx.timeoutMs);
+    const init = initOf(child.capture());
+    const socketGone = !init?.messaging_socket_path || !existsSync(init.messaging_socket_path);
+    return { via, socketGone, loggedIn: Boolean(last) && !last.obj.is_error };
+  } finally {
+    child.endStdin();
+    child.kill("SIGKILL");
+  }
+}
+
+async function runS8(ctx) {
+  const dir = makeWorkdir();
+  const child = ctx.start(buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model, permissionPromptTool: "stdio", allowedTools: ["Bash(sleep 15)"] }), dir);
+  let client = null;
+  const input = { init: { socketPath: null, capabilities: [] }, stat: null, connect: null, probes: [], disable: [] };
+  try {
+    child.send(userMessageLine('Run the Bash command "sleep 15", then reply done.'));
+    await child.waitFor(isToolUse, ctx.timeoutMs);
+    const init = initOf(child.capture());
+    input.init = { socketPath: init?.messaging_socket_path ?? null, capabilities: init?.capabilities ?? [] };
+    if (input.init.socketPath) {
+      input.stat = statSocket(input.init.socketPath);
+      client = openSocket(input.init.socketPath);
+      await client.ready;
+      input.connect = { connected: client.connected, error: client.error ?? undefined, unsolicited: "", greeting: null };
+      if (client.connected) {
+        await sleep(2000);
+        input.connect.unsolicited = client.buf;
+        const nonce = `NONCE${randomBytes(4).toString("hex")}`;
+        const wires = {
+          "user-message": JSON.stringify({ type: "user", message: { role: "user", content: nonce } }),
+          "interrupt-control-request": JSON.stringify({ type: "control_request", request_id: "s8-int", request: { subtype: "interrupt" } }),
+          "interrupt-bare": JSON.stringify({ type: "interrupt" }),
+        };
+        for (const [name, wire] of Object.entries(wires)) {
+          const fromLine = child.lines.length;
+          const fromBuf = client.buf.length;
+          client.write(wire + "\n");
+          await sleep(2000);
+          const fresh = child.lines.slice(fromLine).filter((l) => l.obj);
+          const effect =
+            name === "user-message"
+              ? fresh.some((l) => l.obj.type !== "system" && JSON.stringify(l.obj).includes(nonce))
+              : fresh.some((l) => (l.obj.type === "user" && blocks(l.obj).some((b) => b.type === "tool_result")) || l.obj.type === "result");
+          input.probes.push({ name, shape: wire.replace(nonce, "<nonce>"), reply: client.buf.slice(fromBuf).trim() || null, effect });
+        }
+      }
+    }
+    await child.waitFor(isResult, ctx.timeoutMs);
+    if (client?.connected) {
+      // The control_response probe needs a real pending request, so it runs on a second turn.
+      const file = path.join(dir, "s8.txt");
+      const from = child.lines.length;
+      child.send(userMessageLine(`Use the Write tool to create ${file} with content x.`));
+      const req = await child.waitFor(isControlRequest, ctx.timeoutMs, from);
+      const shape = JSON.stringify({ type: "control_response", response: { subtype: "success", request_id: "<id>", response: { behavior: "allow" } } });
+      if (req) {
+        const fromBuf = client.buf.length;
+        client.write(controlResponseLine(req.obj.request_id, "allow", req.obj.request?.input));
+        await sleep(3000);
+        input.probes.push({ name: "control-response", shape, reply: client.buf.slice(fromBuf).trim() || null, effect: existsSync(file) });
+        child.send(controlResponseLine(req.obj.request_id, "deny"));
+        await child.waitFor(isResult, ctx.timeoutMs, from);
+      } else {
+        input.probes.push({ name: "control-response", shape, reply: null, effect: false });
+      }
+    }
+    if (input.init.socketPath) {
+      const flags = new Set([...(await helpFlags(ctx.bin)), ...ctx.s8DisableFlags]);
+      for (const flag of flags) input.disable.push(await tryDisable(ctx, dir, flag, { flag }));
+      for (const [name, value] of Object.entries(ctx.s8DisableEnv)) input.disable.push(await tryDisable(ctx, dir, `${name}=${value}`, { env: { [name]: value } }));
+    }
+    await finish(child);
+  } finally {
+    client?.sock.destroy();
+    child.kill("SIGKILL");
+  }
+  const captures = { main: child.capture() };
+  if (client) captures.socket = socketCapture(client);
+  return { result: evaluateS8(input), captures };
+}
+
+// Not built yet (slice 2 of ticket organism-infra/138).
+const notBuilt = (id) => async () => {
+  throw new Error(`${id} is not implemented yet`);
+};
+
 // turns: user turns the spike sends (each is a few API calls on a cheap model).
 export const SPIKES = {
   S1: { title: "child starts logged in under the env allowlist; --session-id, --agent, stdin message, init, exit on EOF; canary absent", turns: 1, run: runS1 },
@@ -545,14 +788,18 @@ export const SPIKES = {
   S5: { title: "billing: plan usage reading before and after one trivial headless run (user confirms on the usage page)", turns: 1, run: runS5 },
   S6: { title: "--settings merge and deny precedence over a project allow", turns: 1, run: runS6 },
   S7: { title: "a user message written mid-turn: queued, merged, dropped or interrupting", turns: 1, run: runS7 },
+  S8: { title: "the child's messaging socket: no second way to answer a permission request (outcomes a to d)", turns: 3, run: runS8 },
+  S4b: { title: "SIGTERM, stdin EOF and process-group kill leave no orphaned tool process", turns: 2, run: notBuilt("S4b") },
+  S6b: { title: "--setting-sources project,local in a worktree: allow applies, user and plugin config does not", turns: 1, run: notBuilt("S6b") },
+  S3b: { title: "a subagent permission request reaches the parent; a held request; updatedInput omitted", turns: 3, run: notBuilt("S3b") },
 };
 
 // ---- Runner and CLI ------------------------------------------------------------------------
 
-function writeCaptures(outDir, spike, captures) {
+function writeCaptures(outDir, spike, captures, scrub) {
   for (const [name, cap] of Object.entries(captures ?? {})) {
     const file = path.join(outDir, name === "main" ? `${spike}.jsonl` : `${spike}-${name}.jsonl`);
-    writeFileSync(file, cap.lines.map((l) => l.raw).join("\n") + (cap.lines.length ? "\n" : ""));
+    writeFileSync(file, scrubText(cap.lines.map((l) => l.raw).join("\n") + (cap.lines.length ? "\n" : ""), scrub));
   }
 }
 
@@ -560,6 +807,7 @@ export async function runSpikes(opts) {
   const { spikes, out, log = console.log } = opts;
   mkdirSync(out, { recursive: true });
   const ctx = makeCtx(opts);
+  const scrub = { homes: [opts.env?.HOME, homedir()], username: userInfo().username };
   const results = [];
   for (const id of spikes) {
     log(`running ${id}: ${SPIKES[id].title}`);
@@ -576,15 +824,30 @@ export async function runSpikes(opts) {
       const tail = Object.values(captures ?? {}).map((c) => c.stderr).join("").trim().slice(-400);
       if (tail) result.evidence.push(`stderr tail: ${tail}`);
     }
-    writeCaptures(out, id, captures);
+    writeCaptures(out, id, captures, scrub);
     results.push(result);
   }
-  writeFileSync(path.join(out, "results.json"), JSON.stringify(results, null, 2) + "\n");
+  writeFileSync(path.join(out, "results.json"), scrubText(JSON.stringify(results, null, 2) + "\n", scrub));
   return results;
 }
 
 export function parseCli(argv) {
-  const opts = { spikes: Object.keys(SPIKES), out: null, dryRun: false, model: "haiku", timeoutMs: 120_000, extraEnv: [], help: false, error: null };
+  const ids = Object.keys(SPIKES);
+  const byLower = new Map(ids.map((id) => [id.toLowerCase(), id]));
+  const opts = {
+    spikes: ids.filter((id) => /^S[1-7]$/.test(id)),
+    out: null,
+    dryRun: false,
+    model: "haiku",
+    timeoutMs: 120_000,
+    extraEnv: [],
+    repo: null,
+    s8DisableFlags: [],
+    s8DisableEnv: {},
+    s3bWaitMs: 90_000,
+    help: false,
+    error: null,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const value = () => argv[++i];
@@ -594,24 +857,39 @@ export function parseCli(argv) {
     else if (arg === "--model") opts.model = value();
     else if (arg === "--extra-env") opts.extraEnv.push(value());
     else if (arg === "--timeout") opts.timeoutMs = Number(value()) * 1000;
-    else if (arg === "--spike") {
-      const wanted = String(value() ?? "").split(",").map((s) => s.trim().toUpperCase());
-      const bad = wanted.find((s) => !SPIKES[s]);
-      if (bad !== undefined) {
-        opts.error = `unknown spike ${bad || "(empty)"}; choose from ${Object.keys(SPIKES).join(", ")}`;
+    else if (arg === "--repo") opts.repo = value();
+    else if (arg === "--s8-disable-flag") opts.s8DisableFlags.push(value());
+    else if (arg === "--s8-disable-env") {
+      const pair = String(value() ?? "");
+      const eq = pair.indexOf("=");
+      if (eq <= 0) {
+        opts.error = `--s8-disable-env needs NAME=VALUE, got ${pair || "(empty)"}`;
         break;
       }
-      opts.spikes = Object.keys(SPIKES).filter((s) => wanted.includes(s));
+      opts.s8DisableEnv[pair.slice(0, eq)] = pair.slice(eq + 1);
+    } else if (arg === "--s3b-wait") opts.s3bWaitMs = Number(value()) * 1000;
+    else if (arg === "--spike") {
+      const wanted = String(value() ?? "").split(",").map((x) => x.trim());
+      const bad = wanted.find((x) => !byLower.has(x.toLowerCase()));
+      if (bad !== undefined) {
+        opts.error = `unknown spike ${bad.toUpperCase() || "(empty)"}; choose from ${ids.join(", ")}`;
+        break;
+      }
+      const picked = new Set(wanted.map((x) => byLower.get(x.toLowerCase())));
+      opts.spikes = ids.filter((id) => picked.has(id));
     } else {
       opts.error = `unknown argument ${arg}`;
       break;
     }
   }
   if (!Number.isFinite(opts.timeoutMs) || opts.timeoutMs <= 0) opts.error ??= "--timeout needs a positive number of seconds";
+  if (!Number.isFinite(opts.s3bWaitMs) || opts.s3bWaitMs <= 0) opts.error ??= "--s3b-wait needs a positive number of seconds";
   return opts;
 }
 
 const HELP = `usage: node apps/bridge/cells/conformance.mjs [--spike S1,S3] [--out <dir>] [--model <m>] [--timeout <s>] [--extra-env NAME]... [--dry-run]
+       [--repo <checkout>] [--s8-disable-flag <flag>]... [--s8-disable-env NAME=VALUE]... [--s3b-wait <s>]
+The default run is S1 to S7; S8, S4b, S6b and S3b run only when named (--spike S8,S4b,S6b,S3b). S6b needs --repo.
 Runs ADR 0016's spikes against the real \`claude\` login (DEN_CLAUDE_BIN overrides the binary).
 --dry-run prints the plan and spends nothing.`;
 
@@ -640,6 +918,10 @@ async function main() {
     extraEnv: opts.extraEnv,
     model: opts.model,
     timeoutMs: opts.timeoutMs,
+    repo: opts.repo,
+    s8DisableFlags: opts.s8DisableFlags,
+    s8DisableEnv: opts.s8DisableEnv,
+    s3bWaitMs: opts.s3bWaitMs,
   });
   console.log("");
   for (const r of results) {
