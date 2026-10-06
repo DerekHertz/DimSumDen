@@ -116,15 +116,18 @@ test("below the configured warn (29k) is silent and claims the ticket, though 29
     assert.match(ticketStatus(fx), /claimed/);
   }));
 
-test("warns at the configured warn (30k) and at 39k, and proceeds", () =>
-  withFixture(CONFIG, (fx) => {
-    for (const n of [30_000, 39_000]) {
+// A run that proceeds claims the ticket, so each reading gets its own fresh fixture (a second run on the
+// same fixture would be refused with "ticket already claimed" for a reason unrelated to the budget).
+test("warns at the configured warn (30k) and at 39k, and proceeds", () => {
+  for (const n of [30_000, 39_000]) {
+    withFixture(CONFIG, (fx) => {
       const r = run(fx, n);
       assert.equal(r.status, 0, out(r));
       assert.match(out(r), new RegExp(`orchestrator context ${n / 1000}k`, "i"));
       assert.match(out(r), /no new tickets/i);
-    }
-  }));
+    });
+  }
+});
 
 test("refuses at the configured stop (40k) and names that limit in the message", () =>
   withFixture(CONFIG, (fx) => {
