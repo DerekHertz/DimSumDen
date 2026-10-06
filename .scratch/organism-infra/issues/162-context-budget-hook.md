@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Serves:** Retro 2026-10-06: the organism-infra/119 context budget is wording only, and it failed 3 times on den-layout/02 (qa specify 110k, developer 106k, developer 89k), all while reading PR #162's large sources.
 
@@ -32,3 +32,5 @@ The hook logic lives in a tested script under `scripts/`. The hook registration 
 - **orchestrator, 2026-10-06:** Retro: recurred on den-layout/04 (qa specify ended at 108k without a partial return). First in the infra queue, ahead of 145/147 (user, 2026-10-06).
 - **qa, 2026-10-06:** qa specify done: tests committed on tests/162-context-budget-hook
 - **orchestrator, 2026-10-06:** User 2026-10-06: at 80k+ the hook also allows Write/Edit under the session scratchpad dir (the handoff skill drafts there). Developer adds a test for it (and a test that a path escaping the scratchpad is still refused).
+- **qa, 2026-10-06:** All 31 ticket tests pass in full suite (2117 total). No test modifications. All ACs mapped to tests; AC6 human-verified. Ready for security review.
+- **security, 2026-10-06:** Security pass. gitleaks clean, no new deps, no shell/network exposure. Low: context-budget.mjs:35-39 escaped-quote payload slips past isSimpleCommand chain check at 80k+ (budget gate only, permissions still apply); :61 any /.scratch/ segment counts as wrap-up write; :74 session_id unvalidated (harness-supplied). Details in handoffs/162-security.md.
