@@ -1636,3 +1636,9 @@
 {"kind":"incident","ts":"2026-10-06T18:16:22Z","ticket":null,"cell":"orchestrator","tool":"other","what":"read untracked .agents/skills/usage-watch (Codex mirror, Claude->Codex replaced) instead of tracked .claude/skills copy; flagged a false mangling to user","cost":"one wrong finding","fix":"read skills from .claude/skills","rule_change":null}
 {"kind":"retro","ts":"2026-10-06T18:17:37Z","window_from":"2026-10-06T17:08:55Z","items":6,"fixes":[{"cause":"cells overrun 80k context budget (wording from 119 failed)","tool":"other","kind":"code","ref":"organism-infra/162"}]}
 {"kind":"jg","ts":"2026-10-06T18:17:50.002Z","ticket":"den-layout/03-real-agents-drive-the-pandas","bytes":0,"files":0,"ms":1,"skipped":"two or more named paths already located","fallback":null}
+{"kind":"usage","ts":"2026-10-06T18:18:10Z","five_hour":48,"weekly":23,"event":"dispatch","ticket":"den-layout/03","cell":"qa"}
+{"kind":"context","ts":"2026-10-06T18:18:10Z","session":"cfad8f50-9a6a-488f-9052-ce9fae0d7da5","context_tokens":45506,"percent":4.55,"event":"dispatch"}
+{"kind":"jev","ts":"2026-10-06T18:21:19.478Z","ticket":"den-layout/03-real-agents-drive-the-pandas","point":"tier","pick":"opus","actual":"sonnet","cost":0.000039648000000000004,"conf":0.98,"mode":"shadow","fallback":null,"floor":null,"ms":337,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-10-06T18:21:26.785Z","ticket":"den-layout/03-real-agents-drive-the-pandas","cell":"qa","mode":"specify","tokens":84615,"ms":187474,"outcome":"specify done: 12 failing tests, 296697f","context":79518}
+{"kind":"usage","ts":"2026-10-06T18:21:27Z","five_hour":51,"weekly":23,"event":"return","ticket":"den-layout/03","cell":"qa"}
+{"kind":"context","ts":"2026-10-06T18:21:27Z","session":"cfad8f50-9a6a-488f-9052-ce9fae0d7da5","context_tokens":51160,"percent":5.12,"event":"return"}

@@ -6,7 +6,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** den-layout spec "Wiring decisions" (user, 2026-10-06): connect the real agents to the signed-off front end.
 
@@ -33,3 +33,4 @@ No designer spec or review (user, 2026-10-06).
 
 - **orchestrator, 2026-10-06:** Published from the approved breakdown (user, 2026-10-06). No designer on this ticket (user override).
 - **orchestrator, 2026-10-06:** Absorbs den-v1/02 (tool-call bubble; user, 2026-10-06). Read `.scratch/den-v1/issues/02-tool-call-bubble.md` acceptance criteria and meet those that still apply in the new scene.
+- **orchestrator, 2026-10-06:** Live tool data in bubbles is out of scope (user, 2026-10-06): the bridge does not emit `cells[]` yet, so 03 builds and tests the consumer only; organism-infra/163 makes the bridge emit it.
