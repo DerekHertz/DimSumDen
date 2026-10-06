@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import os from "node:os";
+import { createHost } from "./cells/host.mjs";
 import { REQUEST_KINDS, appendRequestLine } from "./requests-log.mjs";
 import { createHub } from "./watch.mjs";
 import { createAuth } from "./auth.mjs";
@@ -20,10 +22,48 @@ const MAX_BODY = 4096;
 // 07 security forward: the panel renders agent text; forbid inline and foreign script.
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'";
 
-export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, auth: authOptions } = {}) {
+// Process-level handlers (ADR 0016 decision 2, process lifetime): the bridge owns its children, so a signal, a crash
+// or an exit ends them. Returns the function that removes every handler it installed.
+function installProcessHandlers(host) {
+  const signals = ["SIGINT", "SIGTERM", "SIGHUP"];
+  const onSignal = (sig) => {
+    host.shutdown().finally(() => process.exit(128 + (os.constants.signals[sig] ?? 15)));
+  };
+  const handlers = signals.map((sig) => [sig, () => onSignal(sig)]);
+  const onCrash = (err) => {
+    process.stderr.write(`bridge: uncaught exception: ${err?.stack ?? err}\n`);
+    host.shutdown().finally(() => process.exit(1));
+  };
+  const onExit = () => host.killAllSync();
+  for (const [sig, fn] of handlers) process.on(sig, fn);
+  process.on("uncaughtException", onCrash);
+  process.on("exit", onExit);
+  return () => {
+    for (const [sig, fn] of handlers) process.off(sig, fn);
+    process.off("uncaughtException", onCrash);
+    process.off("exit", onExit);
+  };
+}
+
+// runtime: a CellRuntime (organism-infra/140). With none, POST /agents is 503 and no process-level handler is
+// installed. policy: test-only overrides of cells/policy.mjs (the production entry point passes none).
+export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, auth: authOptions, runtime, policy } = {}) {
   let actualPort = port;
   const auth = createAuth(authOptions);
-  const hub = createHub(root);
+  let host;
+  const hub = createHub(root, { agents: () => host.snapshot() });
+  host = createHost({
+    root,
+    runtime,
+    policy,
+    onChange: (agent) => hub.publish({ type: "agent", agent }),
+    readUsage: async () => (await hub.snapshot()).usage?.fiveHour ?? null,
+    checkGate: async (ref) => {
+      const ticket = (await hub.snapshot()).tickets.find((t) => t.ref === ref);
+      return !ticket ? "unknown" : ticket.gate === "dispatch" ? "ok" : "nogate";
+    },
+  });
+  await host.ready;
   let postChain = Promise.resolve();
   await hub.ready;
   const server = http.createServer(async (req, res) => {
@@ -94,14 +134,16 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
       postChain = run.catch(() => {});
       await run;
     },
+    "POST /agents": (req, res) => postAgent(req, res),
+    "POST /agents/:id/stop": (req, res) => stopAgent(req, res),
   };
   const readRows = (file) => readFile(file, "utf8").then(parseJsonl, () => []);
   const reply = (res, status, obj, extra = {}) => {
     res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store", ...extra });
     res.end(JSON.stringify(obj));
   };
-  // Read a JSON object body of at most MAX_BODY bytes. Replies 413 or 400 itself and returns undefined on failure.
-  async function readJsonObject(req, res) {
+  // Read a body of at most MAX_BODY bytes. Replies 413 itself and returns undefined when it is too large.
+  async function readBody(req, res) {
     const declared = Number(req.headers["content-length"] ?? 0);
     if (declared > MAX_BODY) return void reply(res, 413, { error: "body too large" }, { Connection: "close" });
     const chunks = [];
@@ -111,9 +153,15 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
       if (size > MAX_BODY) return void reply(res, 413, { error: "body too large" }, { Connection: "close" });
       chunks.push(chunk);
     }
+    return Buffer.concat(chunks);
+  }
+  // Read a JSON object body of at most MAX_BODY bytes. Replies 413 or 400 itself and returns undefined on failure.
+  async function readJsonObject(req, res) {
+    const raw = await readBody(req, res);
+    if (!raw) return;
     let body;
     try {
-      body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      body = JSON.parse(raw.toString("utf8"));
     } catch {
       return void reply(res, 400, { error: "malformed JSON" });
     }
@@ -147,6 +195,23 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     const request = { id: randomUUID(), ts: new Date().toISOString(), kind, ref, ...(note !== undefined ? { note } : {}) };
     await appendRequestLine(root, request);
     reply(res, 201, { request });
+  }
+  // POST /agents (ADR 0016 decision 3): the only HTTP way an agent starts. Only ref, role and mode are read from
+  // the body; the host validates them, applies the policy and answers with a status from its table.
+  async function postAgent(req, res) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    const result = await host.dispatch({ ref: body.ref, role: body.role, mode: body.mode });
+    if (!result.ok) return reply(res, result.status, { error: result.error });
+    reply(res, result.status, { agent: result.agent, ...(result.usageUnknown ? { usageUnknown: true } : {}) });
+  }
+  // POST /agents/:id/stop: takes no body, but the 4 KB cap still applies before anything is looked up.
+  async function stopAgent(req, res) {
+    if (!(await readBody(req, res))) return;
+    const id = new URL(req.url, "http://x").pathname.split("/")[2];
+    const result = await host.stop(id);
+    if (!result.ok) return reply(res, result.status, { error: result.error });
+    reply(res, result.status, { ok: true });
   }
   // Static UI build (ADR 0011 decision 2): unknown paths serve index.html; traversal is a 403.
   async function serveStatic(pathname, req, res) {
@@ -199,16 +264,21 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     server.listen(port, HOST, resolve);
   });
   actualPort = server.address().port;
+  const uninstallProcessHandlers = runtime ? installProcessHandlers(host) : () => {};
   return {
     url: `http://${HOST}:${actualPort}`,
     port: actualPort,
     newLaunchCode: auth.newLaunchCode,
-    close: () =>
-      new Promise((resolve) => {
+    host: { start: host.start, shutdown: host.shutdown },
+    close: async () => {
+      await host.shutdown();
+      uninstallProcessHandlers();
+      await new Promise((resolve) => {
         hub.close();
         server.close(() => resolve());
         server.closeAllConnections?.();
-      }),
+      });
+    },
   };
 }
 
