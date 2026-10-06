@@ -80,12 +80,27 @@ function reachableFromEntry() {
   return seen;
 }
 
-test("the walker sees the live frontend: main.jsx reaches the procedural den", () => {
+// den-layout/02: PR #162's restaurant scene replaces the procedural Den.jsx. The ported scene and review
+// modules are reached from main.jsx (whatever component hosts them), and the old den renderer is not.
+test("the walker sees the live frontend: main.jsx reaches the ported restaurant scene and not the old den", () => {
   const reach = reachableFromEntry();
   const names = [...reach].map(rel);
   assert.ok(names.includes("apps/ui/src/App.jsx"), "App.jsx is reachable");
-  assert.ok(names.includes("apps/ui/src/scene/procedural/Den.jsx"), "procedural Den is reachable");
   assert.ok(names.includes("apps/ui/src/scene/scene-from-state.mjs"), "scene-from-state is reachable");
+  const ported = [
+    "apps/ui/src/scene/procedural/den-scene.mjs",
+    "apps/ui/src/scene/procedural/restaurant.mjs",
+    "apps/ui/src/review/agents.mjs",
+    "apps/ui/src/review/layout.mjs",
+    "apps/ui/src/review/leisure.mjs",
+    "apps/ui/src/review/construction-pads.mjs",
+    "apps/ui/src/review/landscape.mjs",
+    "apps/ui/src/review/site-plan.mjs",
+    "apps/ui/src/review/walking-panda.mjs",
+  ];
+  const unreached = ported.filter((p) => !names.includes(p));
+  assert.deepEqual(unreached, [], "ported modules main.jsx does not reach");
+  assert.ok(!names.includes("apps/ui/src/scene/procedural/Den.jsx"), "the old procedural Den.jsx must not be reachable (no path renders the old den)");
 });
 
 test("no file under apps/ui/src or apps/ui/public is unreachable from main.jsx, except tests of reachable modules", () => {
