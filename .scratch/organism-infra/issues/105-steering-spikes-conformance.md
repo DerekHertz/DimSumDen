@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Den loop steps 3-4 (go/no-go on the runtime shapes that T and A/D depend on; unblocks 106 and 107).
 
@@ -38,3 +38,4 @@ Write the manual conformance script and run spikes S1 to S7 from ADR 0016 agains
   - **S7 GO:** a message written mid-turn was merged into the running turn (`merged-into-running-turn`).
   - S1-S3 go unblocks 106; S7 go unblocks 107. Still open for 105: ADR 0016 open questions update, S1/S3 fixtures copied into the adapter tests (106 can take that), S5 billing check, S6 rerun.
 - **orchestrator, 2026-10-05:** S5 billing: the user checked the account billing page after the run and saw no separate credit charge, so headless runs appear to draw on plan usage (user, 2026-10-05). Mark S5 GO (plan usage) in ADR 0016 when it is updated.
+- **security, 2026-10-06:** Security pass. No critical or high. Low: conformance.mjs:447-451 S3 allow phase approves every tool request (fixed prompt, temp cwd); conformance.mjs:633 default out dir in tmpdir without 0700. gitleaks clean, no dependency change. See handoffs/105-security.md.
