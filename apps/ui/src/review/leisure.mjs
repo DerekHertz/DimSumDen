@@ -48,12 +48,27 @@ export function createLeisure(den,createBao){
   const dummy=new THREE.Group();dummy.position.set(1.3,0,0.9);training.add(dummy);cyl(dummy,0.12,1.6,[0,0.8,0],wood);
   for(const y of [0.8,1.1])box(dummy,[0.9,0.08,0.08],[0,y,0.12],wood);
   const trainee=panda(training,-1,0.5,'developer','traveler',0.8);panda(training,1.8,1.5,'scout','traveler',-0.7);animated.training={gong,panda:trainee};
-  const festival=zone(LEISURE_ZONES[3],2.5);
-  cyl(festival,1.75,0.16,[0,0.13,0],wood);
+  const festival=zone(LEISURE_ZONES[3],4.8);
+  const stage=cyl(festival,3.15,0.22,[0,0.16,0],wood);stage.name='Expanded festival stage';stage.userData.reviewPart=stage.name;
+  ring(festival,3.1,0.045,[0,0.29,0],gold);
+  for(const z of [3.25,3.55])box(festival,[2.4,0.1,0.35],[0,z===3.25?0.12:0.06,z],wood);
+  for(const x of [-2.8,2.8]){
+    cyl(festival,0.07,4.1,[x,2.05,-1.9],wood);
+    box(festival,[0.58,2.1,0.04],[x,2.75,-1.9],red);
+    for(const y of [2.1,2.7,3.3])box(festival,[0.28,0.05,0.025],[x,y,-1.86],gold);
+  }
+  box(festival,[6.1,0.1,0.13],[0,4.08,-1.9],gold);
+  for(let i=0;i<7;i++){
+    const x=-2.4+i*0.8,y=3.7-0.4*Math.sin(i/6*Math.PI);
+    cyl(festival,0.015,4.05-y,[x,(4.05+y)/2,-1.9],wood);
+    const lantern=add(festival,new THREE.SphereGeometry(0.23,12,8),red,[x,y,-1.9]);lantern.scale.y=1.3;
+    cyl(festival,0.035,0.18,[x,y-0.4,-1.9],gold);
+  }
+  for(const x of [-2.3,2.3]){cyl(festival,0.37,0.65,[x,0.61,-0.9],red);cyl(festival,0.39,0.035,[x,0.95,-0.9],cream);}
   const drum=cyl(festival,0.55,0.75,[0,0.55,0],red);cyl(festival,0.56,0.03,[0,0.94,0],cream);
   for(const y of [0.24,0.89])ring(festival,0.55,0.03,[0,y,0],gold);
   const ribbons=[];
-  for(const x of [-1.8,1.8]){cyl(festival,0.035,3,[x,1.5,-0.6],wood);const ribbon=box(festival,[0.17,1.2,0.025],[x,2.1,-0.6],red);ribbons.push(ribbon);}
+  for(const x of [-3.4,3.4]){cyl(festival,0.035,3,[x,1.5,-0.6],wood);const ribbon=box(festival,[0.17,1.2,0.025],[x,2.1,-0.6],red);ribbons.push(ribbon);}
   const drummer=panda(festival,-0.9,0.4,'release-manager','teahouse',0.6);panda(festival,1,0.4,'docs-writer','traveler',-0.6);animated.festival={drum,ribbons,panda:drummer};
   const diningZone=zone(LEISURE_ZONES[4],3.2),dining=createDiningTable(createBao);diningZone.add(dining.root);
   for(const x of [-2.5,2.5]){
