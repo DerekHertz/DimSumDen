@@ -1,0 +1,39 @@
+diff --git a/.claude/agents/orchestrator.md b/.claude/agents/orchestrator.md
+index d5d3736..855e8a5 100644
+--- a/.claude/agents/orchestrator.md
++++ b/.claude/agents/orchestrator.md
+@@ -106,6 +106,8 @@ Other sessions (main-session developers, the user) change git and the board whil
+ - Every dispatch or merge question to the user states the current 5-hour usage %, taken from `usage-watch` in that same step. No number means you skipped the check. At every check, append one JSON line to `.scratch/usage.jsonl`: `{"kind":"usage","ts","five_hour","weekly","event":"dispatch|return|merge","ticket","cell"}`. With each usage row, also append `{"kind":"context","ts","session","context_tokens","percent","event"}` from `scripts/context.mjs`. When a cell returns, run `node scripts/log-cell.mjs --ticket <ref> --cell <type> [--mode <m>] --tokens <n> --ms <n> --outcome "<text>"` with the subagent usage numbers. A background cell's report arrives before its task notification; wait for the notification, which carries `subagent_tokens` and `duration_ms`, and never log placeholder zeros. `board release --status resolved --pr <n>` writes the `resolved` row; never write it by hand. `scripts/dispatch-context.mjs` and `scripts/jg.mjs` append their own `{"kind":"jg",...}` rows; never write them by hand. `scripts/jev.mjs` appends its own `{"kind":"jev",...}` rows (ADR 0010 decision 5); never write them by hand. `scripts/jev-wake-prelude.mjs` does the same for `wake` rows. `scripts/jev.mjs advisory-outcome`, `priority-verdict` and `order` append the `jev-advisory-outcome`, `jev-priority-verdict` and `jev-order` rows; never write those by hand either. When the user rules on a priority flag, log it with `node scripts/jev.mjs priority-verdict --ticket <ref> --verdict right|wrong`. When the loop config changes (models, relay, limits), append `{"kind":"config",...}`. For every mistake or environment issue (yours or a cell's: a misused tool, a hang, a bounce, a skipped rule), append `{"kind":"incident","ts","ticket","cell","tool","what","cost","fix","rule_change"}`. Set `rule_change` to the genome or skill edit it led to, or null. Before proposing a rule change, check past incidents for the same `tool`.
+ - Keep your own context small. Read tickets and handoffs, not code. Send code questions to the `scout` subagent.
+ - Merging a cell's branch into `main` is a pass gate: show the branch, commits, and review summary, then ask.
++- Board-only commits push without a gate (organism-infra/158). Work must not stay on one machine. After a board change on `main` (tickets, comments, handoffs, `.scratch/` only), commit it and `git push origin main` yourself with a timeout. Check `git diff --name-only origin/main..main` first: if any path is outside `.scratch/`, it is code, so use a PR and the merge gate instead. `board release` never pushes `main`.
++- Before you write your session handoff, run `npm run session-check` in the main checkout and fix every item it prints (it lists each problem with its fix command). `npm run next-session` runs the same check and refuses to print the launch command until it is clean.
+ - In dispatch prompts, point cells at the `handoff` skill for the State block and at their genome for the protocol; never restate a schema or rule in your own words. A paraphrase that drops a field becomes the rule the cell follows.
+ - A previous orchestrator handoff carries state, not rules. Where it restates a rule, this genome wins.
+ - Never skip a ticket because you assume a cell lacks a tool (e.g. Blender). Dispatch it; the developer probes its tools before claiming and reports `blocked` if one is missing. Trust that probe, not old handoffs.
+diff --git a/.claude/skills/handoff/SKILL.md b/.claude/skills/handoff/SKILL.md
+index 237ecfc..9866963 100644
+--- a/.claude/skills/handoff/SKILL.md
++++ b/.claude/skills/handoff/SKILL.md
+@@ -8,6 +8,8 @@ Write a handoff document so a fresh cell can continue the work without reading t
+ 
+ Save it on the board, not in the OS temp dir: `.scratch/<feature-slug>/handoffs/<NN>-<cell-type>.md`, where `<NN>` is the ticket number you worked. If there is no ticket, use `.scratch/_handoffs/<YYYY-MM-DD>-<cell-type>.md`. Overwrite an earlier handoff from the same cell type on the same ticket. Draft the file under `/tmp` (`board handoff` refuses a draft inside any worktree), then publish it with `npm run -s board -- handoff <feature>/<NN-slug> --from <file> --name <NN>-<cell-type>.md`. It refuses to overwrite another cell's handoff. Never Write to the main checkout's path directly; the harness blocks it. Then append a one-line pointer to the ticket's `## Comments`.
+ 
++Before you write an orchestrator session handoff (`.scratch/_handoffs/<YYYY-MM-DD>-orchestrator-<N>.md`), run `npm run -s session-check` in the main checkout and fix every item it prints: local `main` ahead of `origin/main`, uncommitted board files under `.scratch/`, and in-flight tickets whose handoff branch is missing from or behind `origin`. Each item carries its fix command. A cell in a worktree skips this: `board release` pushes its branch.
++
+ Keep it under 60 lines. Start the file with a fenced `json` State block (ADR 0009 decision 4). `board release --status in-review|resolved` parses the `json` State block of the ticket's handoffs and refuses the release if none is valid. The block must name its author: `"cell"` (your cell type) and, for moded cells, `"mode"` (e.g. qa `specify` or `verify`). A handoff whose `cell`/`mode` differ from your claim, or that was written before your claim, doesn't count (ADR 0008 decision 11). Write the handoff after claiming and before releasing. `npm run -s board -- handoff <feature>/<NN-slug> --template` prints this block with the ticket, cell and mode filled in:
+ 
+ ```json
+diff --git a/.claude/skills/organism-protocol/SKILL.md b/.claude/skills/organism-protocol/SKILL.md
+index 1e10d26..80dfe8a 100644
+--- a/.claude/skills/organism-protocol/SKILL.md
++++ b/.claude/skills/organism-protocol/SKILL.md
+@@ -29,7 +29,7 @@ Your final report to the orchestrator stays under about 300 words: the verdict,
+ ## Pass gates (stop and ask the user)
+ 
+ Always ask before:
+-- merging to `main`, pushing, or opening a PR
++- merging to `main`, pushing, or opening a PR. Exception (organism-infra/158): the orchestrator may push a commit on `main` that touches only `.scratch/` (board state) straight to `origin/main`, without asking. Code still goes through a PR, and merges stay a gate. `board release` pushes a cell's own branch as part of the release, which is not a separate gate
+ - deleting files outside your ticket's scope
+ - adding a dependency
+ - changing an ADR, `CONTEXT.md` or `CLAUDE.md`

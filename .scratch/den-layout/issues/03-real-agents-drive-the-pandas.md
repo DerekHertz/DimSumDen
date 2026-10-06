@@ -32,3 +32,4 @@ No designer spec or review (user, 2026-10-06).
 ## Comments
 
 - **orchestrator, 2026-10-06:** Published from the approved breakdown (user, 2026-10-06). No designer on this ticket (user override).
+- **orchestrator, 2026-10-06:** Absorbs den-v1/02 (tool-call bubble; user, 2026-10-06). Read `.scratch/den-v1/issues/02-tool-call-bubble.md` acceptance criteria and meet those that still apply in the new scene.

@@ -6,7 +6,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** closed
 
 **Serves:** Den loop step 1 (you can see what an agent is doing right now).
 
@@ -24,3 +24,4 @@ A taken-over panda shows its agent's latest tool call (`tool.name` and a short s
 ## Comments
 
 - **Created (orchestrator, 2026-10-03):** From `.scratch/den-v1/spec.md` (ADR 0019). Keep under ~120k tokens; split rather than stretch.
+- **orchestrator, 2026-10-06:** Closed: absorbed by den-layout/03 (user, 2026-10-06): the bubble shows the latest tool in PR #162's scene

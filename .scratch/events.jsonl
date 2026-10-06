@@ -1823,3 +1823,4 @@
 {"seq":1174,"ts":"2026-10-06T17:02:52.239Z","feature":"organism-infra","ticket":"158-work-never-one-machine","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":1175,"ts":"2026-10-06T17:06:27.172Z","feature":"organism-infra","ticket":"158-work-never-one-machine","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":1176,"ts":"2026-10-06T17:06:27.191Z","feature":"organism-infra","ticket":"158-work-never-one-machine","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":1177,"ts":"2026-10-06T17:16:50.801Z","feature":"den-v1","ticket":"02-tool-call-bubble","cell":"orchestrator","op":"close","from":"ready-for-agent","to":"closed","reason":"absorbed by den-layout/03 (user, 2026-10-06): the bubble shows the latest tool in PR #162's scene"}
