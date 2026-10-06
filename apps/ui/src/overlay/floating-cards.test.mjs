@@ -320,6 +320,10 @@ test("Ctrl+Enter in the Note sends Deny with that note; Cmd+Enter does too; plai
   await expectPost(posts, { kind: "merge-reject", ref: "demo/02-verify-it" });
   assert.equal(posts[0].note, "needs a rewrite", "the note travels with the deny");
   posts.length = 0;
+  // organism-infra/150: the stub sees the POST before the page has handled the 202, and Cards.jsx holds the kind in
+  // `inflight` until then and drops a repeat keypress. The Deny button reads "Sending…" for exactly that span, so
+  // wait for it to read "Deny" again before firing the second key.
+  await needs.getByRole("button", { name: /^Deny/ }).waitFor({ state: "visible" });
   await note.fill("second thoughts");
   await note.focus();
   await page.keyboard.press("Meta+Enter");
