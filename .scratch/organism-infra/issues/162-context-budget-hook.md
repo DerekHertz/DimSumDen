@@ -30,3 +30,5 @@ The hook logic lives in a tested script under `scripts/`. The hook registration 
 
 - **orchestrator, 2026-10-06:** Filed from the pipeline retro (user yes, 2026-10-06). Code fix because the 119 wording already failed; incidents logged with tool `Read`.
 - **orchestrator, 2026-10-06:** Retro: recurred on den-layout/04 (qa specify ended at 108k without a partial return). First in the infra queue, ahead of 145/147 (user, 2026-10-06).
+- **qa, 2026-10-06:** qa specify done: tests committed on tests/162-context-budget-hook
+- **orchestrator, 2026-10-06:** User 2026-10-06: at 80k+ the hook also allows Write/Edit under the session scratchpad dir (the handoff skill drafts there). Developer adds a test for it (and a test that a path escaping the scratchpad is still refused).
