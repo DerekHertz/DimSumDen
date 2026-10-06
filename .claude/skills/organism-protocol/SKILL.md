@@ -29,7 +29,7 @@ Your final report to the orchestrator stays under about 300 words: the verdict, 
 ## Pass gates (stop and ask the user)
 
 Always ask before:
-- merging to `main`, pushing, or opening a PR
+- merging to `main`, pushing, or opening a PR. Exception (organism-infra/158): the orchestrator may push a commit on `main` that touches only `.scratch/` (board state) straight to `origin/main`, without asking. Code still goes through a PR, and merges stay a gate. `board release` pushes a cell's own branch as part of the release, which is not a separate gate
 - deleting files outside your ticket's scope
 - adding a dependency
 - changing an ADR, `CONTEXT.md` or `CLAUDE.md`
