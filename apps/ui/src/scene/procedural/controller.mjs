@@ -1,7 +1,7 @@
 import { planCells, poseFor } from './bindings.mjs';
 
 // Reconcile by ticket ref, so refreshes do not recreate skeletons or restart a panda's life.
-export function createLiveDenController(den,{onCreate=()=>{},onRemove=()=>{}}={}) {
+export function createLiveDenController(den,{onCreate=()=>{},onRemove=()=>{},manageResidents=true}={}) {
   const figures=new Map();
   let elapsed=0;
   const baseObstacles=[...den.obstacles];
@@ -22,8 +22,8 @@ export function createLiveDenController(den,{onCreate=()=>{},onRemove=()=>{}}={}
       f.cell=cell;den.placeTicketPanda(f.panda,cell.placement);
     }
     const busy=new Set(planned.map(c=>c.cellType));
-    for(const [role,p] of den.crew)p.model.visible=['product','architect'].includes(role)&&!busy.has(role);
-    for(const r of den.roamers)r.panda.model.visible=!busy.has(r.cellType);
+    if(manageResidents)for(const [role,p] of den.crew)p.model.visible=['product','architect'].includes(role)&&!busy.has(role);
+    if(manageResidents)for(const r of den.roamers)r.panda.model.visible=!busy.has(r.cellType);
     den.obstacles.splice(0,den.obstacles.length,...baseObstacles,...planned.filter(c=>c.placement.parent==='world').map(c=>({
       type:'circle',x:c.placement.position[0],z:c.placement.position[2],radius:0.32,
     })));
