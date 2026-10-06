@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import {createBao} from '../scene/procedural/bao.mjs';
 import {createWalkingBao} from './walking-panda.mjs';
 import {CHARACTERS} from '../scene/procedural/restaurant.mjs';
-import {createTraditionalGear,DIRECTIONS} from './traditional-props.mjs';
+import {createTraditionalGear,DIRECTIONS,TRADITIONAL_PROPS,bellySurface} from './traditional-props.mjs';
 import {normalizeReview,reviewHtml} from './review-data.mjs';
 import {createLeisure} from './leisure.mjs';
 import {withDen} from '../scene/procedural/den-test-helpers.mjs';
@@ -15,7 +15,7 @@ test('body, head and leg sliders alter real mesh extents; gait changes alter pla
   const size=(p,name)=>{const g=p.model.getObjectByName(name).geometry;g.computeBoundingBox();return g.boundingBox.getSize(new THREE.Vector3());};
   assert.ok(size(wide,'WalkingBody').x>size(narrow,'WalkingBody').x*2);
   assert.ok(size(wide,'HeadShape').x>size(narrow,'HeadShape').x*1.8);
-  assert.ok(size(wide,'Upper_Shoulder_L').x>size(narrow,'Upper_Shoulder_L').x*1.4);
+  assert.ok(size(wide,'Limb_Shoulder_L').x>size(narrow,'Limb_Shoulder_L').x*1.4);
   narrow.setGait({stride:0.35,lift:0.06});narrow.pose(0.9);narrow.model.updateMatrixWorld(true);
   const first=narrow.bones.Wrist_L.getWorldPosition(new THREE.Vector3());
   narrow.setGait({stride:0.8,lift:0.2});narrow.pose(0.9);narrow.model.updateMatrixWorld(true);
@@ -53,4 +53,35 @@ test('leisure activation changes visible props and animated pandas, and detaches
     leisure.update(1);const arm=leisure.residents[4].bones.Shoulder_R.rotation.x;leisure.update(2);assert.notEqual(leisure.residents[4].bones.Shoulder_R.rotation.x,arm);
     leisure.activate('training');assert.equal(leisure.active.training,false);leisure.dispose();assert.equal(leisure.root.parent,null);
   });
+});
+
+
+test('traveler identities are unique, sash follows the belly and shoulder seams overlap the arm roots',()=>{
+  assert.equal(new Set(Object.values(TRADITIONAL_PROPS).map(names=>names[2])).size,14);
+  const p=createBao(THREE),gear=createTraditionalGear(p,'orchestrator','traveler');
+  p.model.updateMatrixWorld(true);
+  const tail=p.model.getObjectByName('Conforming sash tail'),positions=tail.geometry.attributes.position;
+  for(let i=0;i<positions.count;i++){
+    const point=new THREE.Vector3().fromBufferAttribute(positions,i).applyMatrix4(tail.matrixWorld);
+    assert.ok(point.z>bellySurface(point.x,point.y)+0.05,'cloth clears the belly');
+  }
+  const seams=[];p.model.traverse(o=>{if(o.name==='Shoulder seam')seams.push(o);});assert.equal(seams.length,2);
+  for(const seam of seams){const position=seam.getWorldPosition(new THREE.Vector3());const shoulder=p.bones[position.x>0?'Shoulder_L':'Shoulder_R'].getWorldPosition(new THREE.Vector3());assert.ok(position.distanceTo(shoulder)<0.25);}
+  gear.dispose();p.dispose();
+});
+
+test('roaming panda has shoulder/hip pivots, no neck segment or elbow/knee bulges, and planted paws',()=>{
+  const p=createWalkingBao(THREE,createBao,{bodyWidth:1.24,headScale:1.35,legWidth:1.5});
+  assert.equal(p.model.getObjectByName('Neck'),undefined);
+  assert.equal(p.model.getObjectByName('ShoulderBand'),undefined);
+  assert.ok(!p.skeleton.bones.some(b=>/Elbow|Knee/.test(b.name)));
+  assert.ok(!p.model.children.some(o=>/Joint_|Lower_/.test(o.name)));
+  for(let i=0;i<64;i++){
+    p.pose(i/64);p.model.updateMatrixWorld(true);
+    for(const name of ['Wrist_L','Wrist_R','Ankle_L','Ankle_R']){
+      const y=p.bones[name].getWorldPosition(new THREE.Vector3()).y;
+      assert.ok(y>=0.139&&y<=0.241,'paws retain ground clearance without bending halfway down the limb');
+    }
+  }
+  p.dispose();
 });

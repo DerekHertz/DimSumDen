@@ -70,7 +70,7 @@ function LabWorld({view,sample,role,direction,settings,fit,playing,annotating,no
       pedestal=new THREE.Mesh(new THREE.CylinderGeometry(view==='walking'?2.8:2.4,view==='walking'?2.9:2.5,0.18,64),new THREE.MeshStandardMaterial({color:'#b8c6a9',roughness:1}));
       pedestal.position.y=-0.12;pedestal.receiveShadow=true;root.add(pedestal);scene.fog=null;
     }
-    setWorld(root);runtime.current={root,den,panda,mixer,details,leisure,gears,media:window.matchMedia('(prefers-reduced-motion: reduce)')};
+    setWorld(root);runtime.current={view,role,root,den,panda,mixer,details,leisure,gears,media:window.matchMedia('(prefers-reduced-motion: reduce)')};
     stage.current.root=root;stage.current.leisure=leisure;
     return ()=>{
       runtime.current=null;
@@ -86,8 +86,8 @@ function LabWorld({view,sample,role,direction,settings,fit,playing,annotating,no
     s.controls.enabled=!inputs.current.annotating;s.controls.update();
     const reduced=!inputs.current.playing,delta=reduced?0:Math.min(dt,0.05);s.time=(s.time||0)+delta;
     if(r.den){r.den.setRoaming(!reduced);r.den.update(delta,s.time);r.details.update(s.time,reduced);r.leisure.update(s.time,reduced);for(const [role,p]of r.den.crew)animateActivity(p,role,s.time,reduced);}
-    else if(view==='walking'){r.panda.setGait(inputs.current.settings);r.panda.update(delta,s.time,s.time*inputs.current.settings.speed/0.95,reduced?0:1);}
-    else{r.mixer.update(delta);animateActivity(r.panda,role,s.time,reduced);}
+    else if(r.view==='walking'){r.panda.setGait(inputs.current.settings);r.panda.update(delta,s.time,s.time*inputs.current.settings.speed/0.95,reduced?0:1);}
+    else{r.mixer.update(delta);animateActivity(r.panda,r.role,s.time,reduced);}
     camera.updateMatrixWorld();
     for(const note of inputs.current.notes){const pin=s.pins?.get(note.id);if(!pin)continue;const point=new THREE.Vector3(...note.point).project(camera);pin.style.display=point.z>1||point.z<-1?'none':'block';pin.style.left=`${(point.x+1)*50}%`;pin.style.top=`${(1-point.y)*50}%`;}
   });
@@ -135,7 +135,7 @@ export function SceneLab(){
   const exportArtifact=()=>{if(!globalThis.__REVIEW_IS_STANDALONE__){setStatus('Run npm run review:build, open the generated HTML file, then use Save annotated artifact.');return;}download(reviewHtml(globalThis.__REVIEW_DOCUMENT__,review),'DimSumDen-annotated-review.html','text/html');setStatus('Portable artifact saved with your comments and settings.');};
   const propName=TRADITIONAL_PROPS[role]?.[DIRECTIONS.findIndex(d=>d[0]===direction)];
   return <div className="scene-lab review-lab">
-    <header className="lab-header"><div className="lab-brand"><span>点心</span><div>Dim Sum Den<small>LOCAL ARTIFACT · REVIEW BEFORE INTEGRATION</small></div></div><div className="review-export"><button onClick={()=>{download(JSON.stringify(review,null,2),'DimSumDen-review.json','application/json');setStatus('Review JSON exported. Attach it in this chat.');}}>Export review JSON</button><button onClick={exportScreenshot}>Annotated screenshot</button><button onClick={exportArtifact}>Save annotated artifact</button><button onClick={()=>importRef.current.click()}>Import review</button><input ref={importRef} type="file" accept="application/json,.json" hidden onChange={importReview}/></div></header>
+    <header className="lab-header"><div className="lab-brand"><span>点心</span><div>Dim Sum Den<small>LOCAL ARTIFACT · CHARACTER FIT REVISION 3</small></div></div><div className="review-export"><button onClick={()=>{download(JSON.stringify(review,null,2),'DimSumDen-review.json','application/json');setStatus('Review JSON exported. Attach it in this chat.');}}>Export review JSON</button><button onClick={exportScreenshot}>Annotated screenshot</button><button onClick={exportArtifact}>Save annotated artifact</button><button onClick={()=>importRef.current.click()}>Import review</button><input ref={importRef} type="file" accept="application/json,.json" hidden onChange={importReview}/></div></header>
     <div className="lab-layout">
       <aside className="lab-sidebar"><p className="lab-eyebrow">CHOOSE · ADJUST · ANNOTATE</p><h1>Give the den<br/>a little soul.</h1><p className="lab-intro">Cooks, scholars and travelers. A restaurant where the pandas can work, play and rest.</p>
         <div className="lab-tabs" role="tablist" aria-label="Review views">{[['scene','Restaurant'],['characters','Characters'],['walking','Panda studio']].map(([id,title])=><button role="tab" aria-selected={view===id} key={id} onClick={()=>changeView(id)}>{title}</button>)}</div>
