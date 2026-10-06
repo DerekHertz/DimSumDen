@@ -28,3 +28,10 @@
 ## Comments
 
 - **orchestrator, 2026-10-06:** Filed from a grilling session on the user's ask ("make sure work doesn't stay hidden on a single machine since I switch from macbook to my pc"). User approved all three parts and dispatch of qa specify first, ahead of 145 (user, 2026-10-06). Leftover `worktree-agent-*` branches are out of scope (worktree-gc owns them).
+- **qa, 2026-10-06:** qa specify done: tests on tests/158-work-never-one-machine (80d1d9b); map in handoffs/158-qa-specify.md. Criterion 6 (.claude/ wording) is human-verified and depends on the gated edit.
+
+**orchestrator (2026-10-06), user decisions on qa specify's open points:**
+- `.scratch/usage.jsonl` (append-only log) is ignored by the end-of-session check; it never blocks.
+- A release on `main` (orchestrator) skips the push; the end-of-session check flags "main ahead of origin" with the fix command.
+- "The handoff step" = the `handoff` skill wording runs `session-check`. That is a gated `.claude/` edit: the developer writes it, with the genome edit, into its handoff for the user to apply.
+- Tests branch `tests/158-work-never-one-machine` (80d1d9b) is pushed to origin.

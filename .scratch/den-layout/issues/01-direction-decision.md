@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** ADR 0019 decision 8 (drift guardrails): records where the visual work goes so it does not compete with den-v1's loop.
 
@@ -25,3 +25,5 @@ Docs only, no code.
 ## Comments
 
 - **orchestrator, 2026-10-06:** Filed from a grilling session (user, 2026-10-06: Q4 agree).
+
+**orchestrator (2026-10-06), user decision after the first architect pass (dc872d7):** den-layout is unparked and runs interleaved with den-v1, not after 05/06/07. ADR 0019 amendment 1 must record: (a) den-layout active alongside den-v1, relaxing decision 8's one-active-feature rule for these two; (b) PR #162's layout is approved as-is, lifting decision 7's layout freeze for it; (c) no designer pass: the user did the visual checks and signed the design off; the remaining work is connecting real agents (bridge) to that front end. The MacBook review annotations are not needed.

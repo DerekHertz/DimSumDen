@@ -1,6 +1,6 @@
 # den-layout: build the den from the PR #162 direction
 
-Status: parked (until den-v1 05, 06 and 07 resolve; user, 2026-10-06). Ticket 01 (the decision record) is ready now.
+Status: active, interleaved with den-v1 (user, 2026-10-06, reversing the earlier park). Design signed off as PR #162 stands; no designer pass, no annotations needed. Remaining work: connect real agents to that front end.
 
 ## Source
 
@@ -15,4 +15,4 @@ Draft PR #162 (`codex/lively-den-scene-lab`), a standalone, simulated review bui
 
 ## Before tickets
 
-Designer `direction` mode with product, against PR #162 and the annotations; mockups approved before any code.
+No designer pass (user, 2026-10-06): PR #162 is the approved mockup. Tickets come from a scout survey of PR #162 vs the bridge seams, via /to-tickets.
