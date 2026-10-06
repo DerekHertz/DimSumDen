@@ -13,6 +13,6 @@ export default defineConfig({
   build: { outDir: fileURLToPath(new URL("./dist", import.meta.url)), emptyOutDir: true },
   server: {
     fs: { allow: [repoRoot] },
-    proxy: { "/state": bridge, "/metrics": bridge, "/events": bridge, "/requests": bridge },
+    proxy: { "/state": bridge, "/metrics": bridge, "/events": bridge, "/requests": bridge, "/session": bridge },
   },
 });

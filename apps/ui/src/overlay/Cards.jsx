@@ -60,7 +60,7 @@ function Card({ id, overlay, label, edge, open, onToggle, title, aside, busy, ch
   );
 }
 
-const Decision = forwardRef(function Decision({ request }, ref) {
+const Decision = forwardRef(function Decision({ request, session }, ref) {
   const [note, setNote] = useState("");
   const [error, setError] = useState(null);
   const [locked, setLocked] = useState(false);
@@ -74,14 +74,14 @@ const Decision = forwardRef(function Decision({ request }, ref) {
     inflight.current.add(kind);
     setSending(kind);
     setError(null);
-    const r = await submitGate({ fetch: window.fetch.bind(window), ref: request.ref, kind, note });
+    const r = await submitGate({ fetch: session.fetch, ref: request.ref, kind, note });
     inflight.current.delete(kind);
     setSending(null);
     if (!r.ok) {
       setError(r.message);
       if (!r.retryable) setLocked(true);
     }
-  }, [request.ref, note]);
+  }, [request.ref, note, session]);
 
   const canAct = !locked && !request.pending;
   useImperativeHandle(ref, () => ({
@@ -119,7 +119,7 @@ const Decision = forwardRef(function Decision({ request }, ref) {
   );
 });
 
-export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder }) {
+export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder, session }) {
   const { count, requests } = needsYouModel(snapshot, now);
   const [shown, setShown] = useState(null);
   const current = requests.find((r) => r.ref === shown) ?? requests[0] ?? null;
@@ -164,7 +164,7 @@ export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder 
               </div>
             </div>
             <pre className="code-well"><code>{current.preview.join("\n")}</code></pre>
-            <Decision key={current.ref} ref={decision} request={current} />
+            <Decision key={current.ref} ref={decision} request={current} session={session} />
             {others.length > 0 ? (
               <ul className="request-rows">
                 {others.map((r) => (
@@ -237,7 +237,7 @@ export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZo
  * The right-hand column. Needs you opens by itself while something waits, until the user toggles it; Stations & queue
  * starts closed. Under 600 px both start closed and opening one closes the other.
  */
-export function Cards({ snapshot, now, connection, placeholder, camera }) {
+export function Cards({ snapshot, now, connection, placeholder, camera, steering }) {
   const [needsOpen, setNeedsOpen] = useState(null); // null: follow the data
   const [stationsOpen, setStationsOpen] = useState(false);
   const waiting = needsYouModel(snapshot, now).count;
@@ -254,7 +254,8 @@ export function Cards({ snapshot, now, connection, placeholder, camera }) {
   };
   return (
     <div className="cards">
-      <NeedsYouCard snapshot={snapshot} now={now} open={needs} onToggle={toggleNeeds} busy={busy} placeholder={placeholder} />
+      {steering.message ? <p className="small muted session-none" data-session="none" role="status">{steering.message}</p> : null}
+      <NeedsYouCard snapshot={snapshot} now={now} open={needs} onToggle={toggleNeeds} busy={busy} placeholder={placeholder} session={steering.session} />
       <StationsCard snapshot={snapshot} open={stationsOpen} onToggle={toggleStations} busy={busy} placeholder={placeholder} onZoomStation={(id) => camera.goToStation(id)} />
     </div>
   );

@@ -216,6 +216,7 @@ body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-w
 
 .cards { right: 16px; top: 16px; width: min(320px, calc(100vw - 32px)); max-height: calc(100% - 32px - 88px); display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
 .card-wrap { display: contents; }
+.session-none { margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-l); background: var(--surface-glass); pointer-events: auto; }
 .card { --edge: var(--line); pointer-events: auto; display: flex; flex-direction: column; min-height: 0; background: var(--surface-200); color: var(--ink); border: 1px solid var(--line); border-top: 3px solid var(--edge); border-radius: var(--radius-l); box-shadow: var(--shadow-panel); }
 .card-lantern { --edge: var(--lantern-fill); }
 [data-overlay="stations"] { background: var(--surface-glass); }

@@ -19,6 +19,7 @@ import { useNow } from "./panel/Panel.jsx";
 import { panelPlaceholder } from "./state/connection.mjs";
 import { createCameraStore } from "./scene/camera-store.mjs";
 import { LogoPill, Cards } from "./overlay/Cards.jsx";
+import { useSession } from "./session/useSession.js";
 import { ZoomSwitcher, IntentBar, Timeline } from "./overlay/Bottom.jsx";
 
 class SceneBoundary extends Component {
@@ -36,6 +37,7 @@ function activeCount(snapshot) {
 
 export function App() {
   const live = useLiveState();
+  const steering = useSession();
   const [demo] = useState(demoRequested);
   const demoSnapshot = useDemoSnapshot(demo);
   const { connection, metricsRevision } = live;
@@ -98,7 +100,7 @@ export function App() {
         {overflow > 0 ? <p className="scene-caption scene-more">+{overflow} more in queue</p> : null}
       </main>
       <LogoPill connection={connection} />
-      <Cards snapshot={snapshot} now={now} connection={connection} placeholder={placeholder} camera={camera} />
+      <Cards snapshot={snapshot} now={now} connection={connection} placeholder={placeholder} camera={camera} steering={steering} />
       <div className="den-entry">
         <button type="button" className="btn btn-solid" aria-pressed={exploring} aria-disabled={!den || undefined}
           onClick={()=>{if(stage.explorer?.active)stage.explorer.exit();else stage.explorer?.enter();}}>

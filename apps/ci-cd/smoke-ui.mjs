@@ -4,6 +4,7 @@
 // the scene count, the queue order, a chart and one Approve round trip. One PASS/FAIL line per
 // check; exits non-zero on any FAIL.
 import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -87,7 +88,9 @@ async function main() {
   const kept = (await readFile(reqFile, "utf8")).split("\n").filter((l) => l && !l.includes(MERGE_REF));
   await writeFile(reqFile, kept.join("\n") + "\n");
 
-  const bridge = await startBridge({ root: fx.root, port: 0 });
+  // organism-infra/139: POST /requests needs a session, so the page opens with a launch code like a real user.
+  const launchCode = randomBytes(32).toString("base64url");
+  const bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode } });
   let browser;
   try {
     const load = await runCommand("node", ["apps/ci-cd/smoke.mjs", "--url", `${bridge.url}/`]);
@@ -101,7 +104,7 @@ async function main() {
     const page = await context.newPage();
     const requested = [];
     page.on("request", (r) => requested.push(r.url()));
-    await page.goto(bridge.url, { waitUntil: "load" });
+    await page.goto(`${bridge.url}/#code=${launchCode}`, { waitUntil: "load" });
     await page.waitForSelector("[data-overlay=stations] .queue-row", { timeout: 15000 }).catch(() => {});
 
     await check("font: Long Cang is self-hosted, no Google Fonts request", async () => {
