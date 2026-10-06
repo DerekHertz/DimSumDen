@@ -29,3 +29,4 @@ The hook logic lives in a tested script under `scripts/`. The hook registration 
 ## Comments
 
 - **orchestrator, 2026-10-06:** Filed from the pipeline retro (user yes, 2026-10-06). Code fix because the 119 wording already failed; incidents logged with tool `Read`.
+- **orchestrator, 2026-10-06:** Retro: recurred on den-layout/04 (qa specify ended at 108k without a partial return). First in the infra queue, ahead of 145/147 (user, 2026-10-06).

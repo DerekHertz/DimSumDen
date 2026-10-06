@@ -6,7 +6,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Serves:** den-layout spec "Wiring decisions": den-v1 builds on the new scene. den-v1/03 walk mode, carried into PR #162's site plan.
 
@@ -27,3 +27,6 @@ No designer spec or review (user, 2026-10-06).
 
 - **orchestrator, 2026-10-06:** Published from the approved breakdown (user, 2026-10-06). No designer on this ticket (user override). Can run alongside 03 if their files don't overlap.
 - **orchestrator, 2026-10-06:** From 02 scope (user, 2026-10-06): 02 drops the smoke:ui 'walk: Enter the den' check; 04 re-adds it against the new den.
+- **qa, 2026-10-06:** qa specify done: tests at 0b46b9a
+- **qa, 2026-10-06:** All 7 criteria tests pass. No test assertions loosened. walk.test.mjs bounds adapted to new scene geometry (not acceptance-criteria tests). smoke:ui walk check passes. Files within scope.
+- **orchestrator, 2026-10-06:** Merged as PR #169 (34e1aac) on green CI under relay autonomy. Relay: qa specify (0b46b9a) → developer (a3dcd59) → qa light verify pass → risk-check clean (security skipped). Open for the user's eyes: feel and camera framing of walking the new den.

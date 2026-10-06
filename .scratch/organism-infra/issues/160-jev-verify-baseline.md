@@ -2,7 +2,7 @@
 
 **Type:** bug
 
-**Priority:** P3
+**Priority:** P1
 
 **Blocked by:** None (can start immediately)
 
@@ -22,3 +22,4 @@
 ## Comments
 
 - **orchestrator, 2026-10-06:** Filed from the pipeline retro (user yes, 2026-10-06).
+- **orchestrator, 2026-10-06:** Retro: recurred on den-layout/04 (shadow verify said full after qa specify). P3 → P1 and ahead of 145/147 in the infra queue (user, 2026-10-06).
