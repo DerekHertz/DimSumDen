@@ -31,18 +31,19 @@ function clearSampleProps(panda){
   if(panda.materials.scarf){panda.materials.scarf.dispose();delete panda.materials.scarf;}
 }
 function LabWorld({view,sample,role,direction,settings,fit,playing,annotating,notes,stage,onPin,onSecret,onZone}){
-  const {camera,gl,scene}=useThree(),runtime=useRef(null);
+  const {camera,gl,scene,invalidate}=useThree(),runtime=useRef(null);
   const [world,setWorld]=useState(null),inputs=useRef(null);
   inputs.current={settings,fit,playing,annotating,notes};
   const shapeKey=`${settings.bodyWidth}:${settings.headScale}:${settings.legWidth}`;
   useEffect(()=>{
     const controls=new OrbitControls(camera,gl.domElement);controls.enableDamping=true;
+    const onCameraChange=()=>invalidate();controls.addEventListener('change',onCameraChange);
     controls.minDistance=3;controls.maxDistance=view==='scene'?70:14;controls.maxPolarAngle=Math.PI/2-0.03;
     camera.position.set(...(view==='scene'?[29,23,36]:view==='walking'?[5,3,7]:[6,4,8]));
     controls.target.set(0,view==='walking'?1:2.1,view==='scene'?1:0);controls.update();
     stage.current={...stage.current,camera,gl,scene,controls,restoreCamera(value){if(value){camera.position.fromArray(value.position);controls.target.fromArray(value.target);controls.update();}}};
-    return ()=>controls.dispose();
-  },[view,role,direction,sample,camera,gl,scene,stage]);
+    return ()=>{controls.removeEventListener('change',onCameraChange);controls.dispose();};
+  },[view,role,direction,sample,camera,gl,scene,stage,invalidate]);
   useEffect(()=>{
     const previous={background:scene.background,fog:scene.fog};
     scene.background=new THREE.Color(view==='scene'?sample.background:'#d5dfcb');
@@ -79,6 +80,7 @@ function LabWorld({view,sample,role,direction,settings,fit,playing,annotating,no
     };
   },[view,sample,role,direction,view==='walking'?shapeKey:null,scene,stage]);
   useEffect(()=>{runtime.current?.gears[0]?.applyFit(fit);},[fit,world]);
+  useEffect(()=>invalidate(),[settings,fit,notes,annotating,playing,world,invalidate]);
   useFrame((_,dt)=>{
     const r=runtime.current,s=stage.current;if(!r||!s.controls)return;
     s.controls.enabled=!inputs.current.annotating;s.controls.update();
@@ -143,7 +145,7 @@ export function SceneLab(){
         {view==='scene'?<><div className="lab-samples">{SAMPLE_SCENES.map((s,i)=><button key={s.id} className={s.id===sample.id?'selected':''} aria-pressed={s.id===sample.id} onClick={()=>{setSample(s);setZones({});}}><span className={`sample-dot ${s.id}`}>{i+1}</span><span><strong>{s.title}</strong><small>{s.description}</small></span></button>)}</div><section className="review-zones"><h3>After service</h3><p>Click a place in the scene or activate it here.</p>{LEISURE_ZONES.map(z=><button key={z.id} aria-pressed={!!zones[z.id]} onClick={()=>activate(z.id)}><strong>{z.name}</strong><small>{zones[z.id]?'Active · click to stop':z.activity}</small></button>)}</section></>:null}
       </aside>
       <main className={`lab-stage${annotating?' is-annotating':''}`} aria-label="Interactive review scene"><div className="lab-stage-title"><span className="lab-eyebrow">{view==='scene'?'A BIGGER BAMBOO RESTAURANT':view==='characters'?'TRADITIONAL PROP STUDY':'LIVE SHAPE & GAIT STUDY'}</span><h2>{view==='scene'?sample.title:view==='characters'?character[1]:'The wandering panda'}</h2><p>{view==='characters'?propName:view==='walking'?'Drag a slider. Watch the model change.':'Tea pavilion · games · courtyard · festival stage'}</p></div>
-        <LabBoundary><Canvas shadows dpr={[1,1.5]} camera={{fov:42,near:0.1,far:160}} gl={{antialias:true}}><LabWorld view={view} sample={sample} role={role} direction={direction} settings={settings} fit={fit} playing={playing} annotating={annotating} notes={filteredNotes} stage={stage} onPin={pin} onSecret={setSecret} onZone={activate}/></Canvas></LabBoundary>
+        <LabBoundary><Canvas shadows frameloop={playing?'always':'demand'} dpr={[1,1.5]} camera={{fov:42,near:0.1,far:160}} gl={{antialias:true}}><LabWorld view={view} sample={sample} role={role} direction={direction} settings={settings} fit={fit} playing={playing} annotating={annotating} notes={filteredNotes} stage={stage} onPin={pin} onSecret={setSecret} onZone={activate}/></Canvas></LabBoundary>
         <div className="review-pins">{filteredNotes.map((note,i)=><button key={note.id} ref={element=>{if(element)stage.current.pins.set(note.id,element);else stage.current.pins.delete(note.id);}} aria-label={`Comment ${i+1}: ${note.label}`} onClick={()=>revisit(note)}>{i+1}</button>)}</div>
         {draft?<div className="review-pin-prompt">Selected: {draft.part}. Write your comment on the right.</div>:null}
         {secret?<aside className="restaurant-note"><button aria-label="Close detail" onClick={()=>setSecret(null)}>×</button><span>IN THE GARDEN</span><h2>{secret.title}</h2><p>{secret.text}</p></aside>:null}
