@@ -50,3 +50,4 @@ Files: `docs/adr/0010-*.md`, `docs/adr/0015-*.md`, `docs/jev-usecases.md` (new).
 - **Created (orchestrator, 2026-10-05):** Filed and dispatched on the user's yes ("yes start dispatching"). The list was confirmed by the user on 2026-10-04.
 - **architect, 2026-10-06:** architect died with no handoff (handoff 36); user parks 136 until den-v1 works
 - **orchestrator, 2026-10-06:** Parked: User 2026-10-05: park until den-v1 works. The stalled architect's uncommitted partial work (ADR 0010/0015 edits, docs/jev-usecases.md) lives only in the Mac worktree agent-aa4acad29a81bddf3; the gated patch is at .scratch/_handoffs/gated/136-jev-go-live-genome.patch.
+- **architect, 2026-10-06:** stale lock from the architect that died on 2026-10-05 (handoff 36), no handoff left; force-cleared on the user's yes, 2026-10-05. Ticket stays parked; partial work stays in worktree agent-aa4acad29a81bddf3
