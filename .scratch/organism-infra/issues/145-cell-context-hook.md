@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 **Serves:** Testbed friction: cells run past the 80k context budget (105 developer 84.6k, 106 security 89k, 106 architect 115k), so every later call costs more.
 
@@ -34,3 +34,5 @@ The `.claude/settings.json` registration is gated: the developer writes the exac
 - **orchestrator, 2026-10-06 (user yes):** Architect proposal approved (handoffs/145-architect.md). Limits (warn/stop): developer and qa 100k/120k; security, architect, designer, scout 70k/80k; orchestrator 70k/80k under its own key. They live in `scripts/context-budget.json`, read through `scripts/context-budget.mjs` `budgetFor(role)` by the 162 hook, `cell-start` (orchestrator key) and `context.mjs --cell`. Part 3 (orchestrator hook) is dropped. The `organism-protocol` "Context budget" edit is gated. Re-check after 30 or more cells have been logged under the hook. Runs as batch C with 165 after 147.
 - **orchestrator, 2026-10-06 (user yes):** Batch C also carries a one-line ADR 0010 amendment under decision 3: "*Amendment (organism-infra/160, 2026-10-06):* for `verify`, the shadow and fallback baseline is today's relay rule: `light` when qa ran `specify` for the ticket, `full` otherwise. So shadow `effective` reports `light` after qa specify. `tier` is unchanged." Docs only; the developer adds it verbatim.
 - **orchestrator, 2026-10-06:** batch C started 2026-10-06 (user yes): 145 + 165 + ADR 0010 note, one relay, one branch. qa specify first. Runs in parallel with 166 (no file overlap).
+- **qa, 2026-10-06:** partial: context budget, tests unrun
+- **qa, 2026-10-06:** qa specify partial: tests committed (b1c8093, tests/batch-c-context-budget) but unrun; SubagentHandback was refused by the 80k hook (not on its allowlist). See handoffs/145-qa-specify.md and 165-qa-specify.md.

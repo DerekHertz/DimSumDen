@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** Context supply at dispatch (ADR 0014). Retro 2026-10-06: `secret-in-root` hit 160, 145 and 147 back to back (9 jg rows in all), so no Start-here context reached any cell. Ticket 96 fixed this once and it came back. Nobody can see which file tripped it, so every recurrence costs a hunt.
 

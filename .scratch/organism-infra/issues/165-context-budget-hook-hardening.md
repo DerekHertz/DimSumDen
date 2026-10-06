@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 **Serves:** Relay context budget (organism-infra/162). Three low findings from `.scratch/organism-infra/handoffs/162-security.md`.
 
@@ -32,3 +32,4 @@ Files: `scripts/hooks/context-budget.mjs` and its tests.
 - **orchestrator, 2026-10-06:** Filed from the 162 security lows (user yes, 2026-10-06). One ticket because all three are in one file.
 - **orchestrator, 2026-10-06:** Planned as `batch C` with the rescoped 145 (config-value thresholds), after 145's architect step. Both edit `scripts/hooks/context-budget.mjs`.
 - **orchestrator, 2026-10-06:** batch C started 2026-10-06 (user yes): 145 + 165 + ADR 0010 note, one relay, one branch. qa specify first.
+- **qa, 2026-10-06:** partial: context budget, tests unrun
