@@ -16,3 +16,10 @@ Draft PR #162 (`codex/lively-den-scene-lab`), a standalone, simulated review bui
 ## Before tickets
 
 No designer pass (user, 2026-10-06): PR #162 is the approved mockup. Tickets come from a scout survey of PR #162 vs the bridge seams, via /to-tickets.
+
+## Wiring decisions (user, 2026-10-06)
+
+- PR #162's scene replaces the live den in the main app (`main.jsx`), fed by the bridge. The current renderer goes; the standalone review build (`review:dev`, `review:build`) is dropped.
+- The 9 cell-type pandas bind to live agents through `sceneFromState` (den-v1/01): at their station with real state, bubble = latest tool, task = ticket; a second live agent of a role is a split-off panda. With no live agent bound they keep PR #162's idle leisure wandering. The 4 scenery pandas stay simulated.
+- Seam: PR #162's `createReviewAgents(..., { onChange })` in `apps/ui/src/scene/procedural/SceneLab.jsx` (actor shape in `apps/ui/src/review/agents.mjs`); live state from `apps/ui/src/state/live-store.mjs`.
+- Order: the wiring lands first; den-v1 04-07 then build on the new scene.

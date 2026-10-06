@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** ADR 0019 decision 8 (drift guardrails): records where the visual work goes so it does not compete with den-v1's loop.
 

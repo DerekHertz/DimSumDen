@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** Testbed friction: the user switches between the MacBook and the WSL PC, and work left local on one machine stalls the relay on the other. Incidents (usage.jsonl): 2026-09-29T22:28:33Z and 2026-09-29T22:37:50Z (board fork), 2026-10-05T05:03:56Z (Mac held an unpushed session), 2026-10-05T06:10:05Z (local main 3 ahead), and the 2026-10-06 incident on organism-infra/140 (tests branch d92cf29 and developer commit db9fc50 only on the MacBook).
 
@@ -35,3 +35,4 @@
 - A release on `main` (orchestrator) skips the push; the end-of-session check flags "main ahead of origin" with the fix command.
 - "The handoff step" = the `handoff` skill wording runs `session-check`. That is a gated `.claude/` edit: the developer writes it, with the genome edit, into its handoff for the user to apply.
 - Tests branch `tests/158-work-never-one-machine` (80d1d9b) is pushed to origin.
+- **developer, 2026-10-06:** developer done: tests green, commit 9a86ebb on 158-work-never-one-machine; handoffs/158-developer.md; gated patch .scratch/_handoffs/gated/158-board-only-push-and-session-check.patch awaits the user (!npm run apply-gated).
