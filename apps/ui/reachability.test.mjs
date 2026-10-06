@@ -59,6 +59,15 @@ function referencedFiles(file) {
   return [...found];
 }
 
+// A browser test that serves the UI with apps/ui/vite.config.mjs (vite createServer)
+// and drives the mounted App in Chromium tests reachable code through the entry,
+// even though it imports no UI module. Such a test is always kept.
+function mountsLiveApp(file) {
+  if (!isTest(file)) return false;
+  const text = readFileSync(file, "utf8");
+  return /apps\/ui\/vite\.config\.mjs/.test(text) && /createServer\s*\(/.test(text) && /\.goto\s*\(/.test(text);
+}
+
 function reachableFromEntry() {
   const seen = new Set();
   const queue = [ENTRY];
@@ -87,12 +96,13 @@ test("no file under apps/ui/src or apps/ui/public is unreachable from main.jsx, 
   // A fixture or helper is test support; any other unreachable module is dead code.
   const isSupport = (f) => /(fixture|helpers?)[.\-]/.test(f.split("/").pop()) || /(fixture|helpers?)\.[a-z]+$/.test(f);
 
-  // A test is kept when it names at least one reachable module. (A test that
-  // still names a deleted module fails on its own when it runs.)
+  // A test is kept when it names at least one reachable module, or when it mounts
+  // the live App through the vite config. (A test that still names a deleted
+  // module fails on its own when it runs.)
   const keptTests = new Set(
     tests.filter((t) => {
       const refs = referencedFiles(t);
-      return refs.some((r) => reach.has(r));
+      return mountsLiveApp(t) || refs.some((r) => reach.has(r));
     }),
   );
 
@@ -108,6 +118,20 @@ test("no file under apps/ui/src or apps/ui/public is unreachable from main.jsx, 
     .map(rel)
     .sort();
   assert.deepEqual(orphans, [], `unreachable from apps/ui/src/main.jsx:\n  ${orphans.join("\n  ")}`);
+});
+
+test("browser tests that mount the live App survive the removal (they test reachable code)", () => {
+  // Literal list from the pre-removal tree: each drives the mounted App in
+  // Chromium (Cards.jsx approve/deny keys, tally expand) and passes without the market scene.
+  const mustRemain = [
+    "src/overlay/floating-cards.test.mjs",
+    "src/scene/tally-expand.test.mjs",
+  ];
+  const missing = mustRemain.filter((p) => !existsSync(join(UI, p)));
+  assert.deepEqual(missing, [], "restore these live-App browser tests (do not delete them with the market scene)");
+  for (const p of mustRemain) {
+    if (existsSync(join(UI, p))) assert.ok(mountsLiveApp(join(UI, p)), `${p} is recognised as mounting the live App`);
+  }
 });
 
 test("the market scene modules are gone", () => {
