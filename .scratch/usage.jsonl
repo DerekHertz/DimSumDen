@@ -1727,3 +1727,16 @@
 {"kind":"cell","ts":"2026-10-06T21:57:31.852Z","ticket":"organism-infra/160-jev-verify-baseline","cell":"qa","mode":"specify","tokens":49039,"ms":108013,"outcome":"pass: 9 tests on tests/160 (93d323e), 5 failing as expected","context":43485}
 {"kind":"usage","ts":"2026-10-06T21:57:31Z","five_hour":4,"weekly":28,"event":"dispatch","ticket":"organism-infra/160-jev-verify-baseline","cell":"developer"}
 {"kind":"context","ts":"2026-10-06T21:57:31Z","session":"43d6a770-fe0b-4985-8676-026f5d8e8911","context_tokens":50706,"percent":5.07,"event":"dispatch"}
+{"kind":"jev","ts":"2026-10-06T22:04:02.381Z","ticket":"organism-infra/160-jev-verify-baseline","point":"verify","pick":"light","actual":"full","cost":0.00023297400000000002,"conf":0.65,"mode":"shadow","fallback":null,"floor":null,"ms":491,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-10-06T22:04:08.316Z","ticket":"organism-infra/160-jev-verify-baseline","cell":"developer","tokens":35256,"ms":257189,"outcome":"complete: aad879a, 3-line fix, npm test 2126/0","context":33929}
+{"kind":"usage","ts":"2026-10-06T22:04:15Z","five_hour":5,"weekly":28,"event":"return","ticket":"organism-infra/160-jev-verify-baseline","cell":"developer"}
+{"kind":"context","ts":"2026-10-06T22:04:15Z","session":"43d6a770-fe0b-4985-8676-026f5d8e8911","context_tokens":61324,"percent":6.13,"event":"return"}
+{"kind":"cell","ts":"2026-10-06T22:08:48.969Z","ticket":"organism-infra/160-jev-verify-baseline","cell":"qa","mode":"verify","tokens":33427,"ms":265016,"outcome":"pass (light, haiku)","context":29610}
+{"kind":"usage","ts":"2026-10-06T22:09:07Z","five_hour":7,"weekly":28,"event":"dispatch","ticket":"organism-infra/160-jev-verify-baseline","cell":"security"}
+{"kind":"context","ts":"2026-10-06T22:09:07Z","session":"43d6a770-fe0b-4985-8676-026f5d8e8911","context_tokens":67387,"percent":6.74,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-06T22:09:12.607Z","ticket":"organism-infra/160-jev-verify-baseline","cell":"scout","tokens":10975,"ms":9929,"outcome":"risk-check hit: test file shells out + board fixture; security dispatched","allow_no_handoff":"read-only scout risk-check; scouts do not hand off"}
+{"kind":"cell","ts":"2026-10-06T22:10:02.883Z","ticket":"organism-infra/160-jev-verify-baseline","cell":"security","tokens":33838,"ms":42727,"outcome":"pass, no findings","context":32632}
+{"kind":"resolved","ts":"2026-10-06T22:14:13.039Z","ticket":"organism-infra/160-jev-verify-baseline","pr":172,"bounces":0}
+{"kind":"jev-advisory-outcome","ts":"2026-10-06T22:14:18.502Z","ticket":"organism-infra/160-jev-verify-baseline","orchestratorPick":"qa-specify","jevPick":"qa-specify","userChoice":"qa-specify","bounced":false}
+{"kind":"usage","ts":"2026-10-06T22:14:18Z","five_hour":8,"weekly":28,"event":"merge","ticket":"organism-infra/160-jev-verify-baseline","cell":null}
+{"kind":"context","ts":"2026-10-06T22:14:18Z","session":"43d6a770-fe0b-4985-8676-026f5d8e8911","context_tokens":74879,"event":"merge"}

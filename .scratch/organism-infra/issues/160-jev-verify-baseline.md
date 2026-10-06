@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Serves:** Jev shadow accuracy (ADR 0010). Incident 2026-10-06T16:57 (usage.jsonl, tool `jev.mjs verify`).
 
@@ -23,3 +23,5 @@
 
 - **orchestrator, 2026-10-06:** Filed from the pipeline retro (user yes, 2026-10-06).
 - **orchestrator, 2026-10-06:** Retro: recurred on den-layout/04 (shadow verify said full after qa specify). P3 → P1 and ahead of 145/147 in the infra queue (user, 2026-10-06).
+- **qa, 2026-10-06:** All 2126 tests pass, 9 new tests green, both criteria covered, no test changes since specify, only scripts/jev.mjs modified (in scope).
+- **security, 2026-10-06:** Security pass at aad879a. No findings (critical to low). risk-check hits are benign: spawnSync of node with fixed argv, no shell, fixture board in a tmpdir. gitleaks clean. No dep/workflow changes. Detail: handoffs/160-security.md
