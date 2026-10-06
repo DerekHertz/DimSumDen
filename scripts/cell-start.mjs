@@ -12,9 +12,9 @@
 // non-zero, with the board's message, if the claim is refused.
 // organism-infra/119: before anything else it reads the orchestrator's context (context.mjs, which
 // a cell sees through the shared CLAUDE_CODE_SESSION_ID). At the orchestrator's warn
-// number (70k) it warns that the orchestrator should start no new tickets; at its stop number (80k) it refuses (exit 1) unless --force. --continue (a fix round
-// or later hop of a ticket already in flight) gets the warning, never the refusal. A null reading
-// never blocks.
+// number (70k) it warns that the orchestrator should start no new tickets; at its stop number (80k)
+// it refuses (exit 1) unless --force. --continue (a fix round or later hop of a ticket already in
+// flight) gets the warning, never the refusal. A null reading never blocks.
 import { spawnSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
