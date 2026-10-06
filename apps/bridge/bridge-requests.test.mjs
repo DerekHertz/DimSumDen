@@ -7,6 +7,10 @@ import { readFile, appendFile } from "node:fs/promises";
 import path from "node:path";
 import { startBridge } from "./server.mjs";
 import { makeStateFixture, FEATURE, PENDING_ID } from "./bridge-fixture.mjs";
+import { CODE, login } from "./bridge-auth-helpers.mjs";
+
+// organism-infra/139: POST /requests now needs a session token and a same-origin Origin (ADR 0016 decision 6.1).
+// Every request below carries both unless a test removes one; the validation tests are otherwise unchanged.
 
 const DISPATCH_REF = `${FEATURE}/02-ready-p0`; // gate "dispatch" in the fixture
 const MERGE_REF = `${FEATURE}/04-review`; // gate "merge", but its request is already pending
@@ -14,11 +18,13 @@ const MERGE_REF = `${FEATURE}/04-review`; // gate "merge", but its request is al
 let fx;
 let bridge;
 let file;
+let token;
 
 beforeEach(async () => {
   fx = await makeStateFixture();
   file = path.join(fx.root, ".scratch", "_requests", "requests.jsonl");
-  bridge = await startBridge({ root: fx.root, port: 0 });
+  bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE } });
+  token = await login(bridge);
 });
 afterEach(async () => {
   await bridge.close();
@@ -37,13 +43,22 @@ const safeJson = (s) => {
 function post(body, { headers = {}, raw = false, host } = {}) {
   return new Promise((resolve, reject) => {
     const payload = raw ? body : JSON.stringify(body);
+    const merged = {
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(payload),
+      Origin: `http://127.0.0.1:${bridge.port}`,
+      Authorization: `Bearer ${token}`,
+      ...(host ? { Host: host } : {}),
+      ...headers,
+    };
+    for (const k of Object.keys(merged)) if (merged[k] === null) delete merged[k]; // null drops a default header
     const req = http.request(
       {
         host: "127.0.0.1",
         port: bridge.port,
         path: "/requests",
         method: "POST",
-        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload), ...(host ? { Host: host } : {}), ...headers },
+        headers: merged,
       },
       (res) => {
         let d = "";
@@ -84,11 +99,12 @@ describe("POST /requests: valid", () => {
 
   test("an empty board has no such ref: 404 and no requests file is created", async () => {
     const empty = await makeStateFixture({ empty: true });
-    const b = await startBridge({ root: empty.root, port: 0 });
+    const b = await startBridge({ root: empty.root, port: 0, auth: { launchCode: CODE } });
     try {
+      const t = await login(b);
       const res = await fetch(`${b.url}/requests`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Origin: b.url, Authorization: `Bearer ${t}` },
         body: JSON.stringify({ kind: "dispatch-approve", ref: DISPATCH_REF }),
       });
       assert.equal(res.status, 404);
@@ -144,6 +160,11 @@ describe("POST /requests: invalid writes nothing", () => {
   test("wrong Content-Type is 403", () => rejects({ kind: "dispatch-approve", ref: DISPATCH_REF }, 403, { headers: { "Content-Type": "text/plain" } }));
   test("a foreign Origin is 403", () => rejects({ kind: "dispatch-approve", ref: DISPATCH_REF }, 403, { headers: { Origin: "http://evil.example" } }));
   test("a foreign Host header is 403", () => rejects({ kind: "dispatch-approve", ref: DISPATCH_REF }, 403, { host: "evil.example" }));
+  test("a missing Origin is 403 (required since 139, was optional)", () => rejects({ kind: "dispatch-approve", ref: DISPATCH_REF }, 403, { headers: { Origin: null } }));
+  test("no Authorization is 401", () => rejects({ kind: "dispatch-approve", ref: DISPATCH_REF }, 401, { headers: { Authorization: null } }));
+  test("a wrong token is 401", () => rejects({ kind: "dispatch-approve", ref: DISPATCH_REF }, 401, { headers: { Authorization: `Bearer ${"0".repeat(64)}` } }));
+  test("without a token even a nonexistent ref is 401, not 404 (auth runs before the id lookup)", () =>
+    rejects({ kind: "dispatch-approve", ref: `${FEATURE}/99-nope` }, 401, { headers: { Authorization: null } }));
 
   test("a same-origin Origin header is accepted", async () => {
     const res = await post({ kind: "dispatch-approve", ref: DISPATCH_REF }, { headers: { Origin: `http://127.0.0.1:${bridge.port}` } });
