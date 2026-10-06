@@ -33,7 +33,7 @@ function clearSampleProps(panda){
   for(const object of old){object.removeFromParent();object.geometry.dispose();}
   if(panda.materials.scarf){panda.materials.scarf.dispose();delete panda.materials.scarf;}
 }
-function LabWorld({view,sample,role,direction,settings,fit,playing,annotating,notes,stage,onPin,onSecret,onZone,onAgent,onActors}){
+function LabWorld({view,sample,role,direction,settings,fit,playing,annotating,notes,stage,onPin,onDetail,onZone,onAgent,onActors}){
   const {camera,gl,scene,invalidate}=useThree(),runtime=useRef(null);
   const [world,setWorld]=useState(null),inputs=useRef(null);
   inputs.current={settings,fit,playing,annotating,notes};
@@ -103,7 +103,7 @@ function LabWorld({view,sample,role,direction,settings,fit,playing,annotating,no
   });
   const click=e=>{
     if(inputs.current.annotating){e.stopPropagation();let part=e.object.name||'Model';for(let o=e.object;o;o=o.parent)if(o.userData.reviewPart){part=o.userData.reviewPart;break;}onPin({point:e.point.toArray(),part,camera:{position:camera.position.toArray(),target:stage.current.controls.target.toArray()}});return;}
-    for(let o=e.object;o;o=o.parent){if(o.userData.reviewAgent){e.stopPropagation();onAgent(o.userData.reviewAgent);return;}if(o.userData.zone){e.stopPropagation();onZone(o.userData.zone);return;}if(o.userData.easterEgg){e.stopPropagation();onSecret(o.userData.easterEgg);return;}}
+    for(let o=e.object;o;o=o.parent){if(o.userData.reviewAgent){e.stopPropagation();onAgent(o.userData.reviewAgent);return;}if(o.userData.zone){e.stopPropagation();onZone(o.userData.zone);return;}if(o.userData.easterEgg){e.stopPropagation();onDetail(o.userData.easterEgg);return;}}
   };
   return <><hemisphereLight args={['#fff5db','#627858',view==='scene'&&sample.id==='lantern'?1.1:2.2]}/><directionalLight position={[-10,18,12]} intensity={view==='scene'&&sample.id==='lantern'?1.4:3} color={sample.light} castShadow shadow-mapSize={[1024,1024]} shadow-camera-left={-25} shadow-camera-right={25} shadow-camera-top={25} shadow-camera-bottom={-25} shadow-normalBias={0.05}/><directionalLight position={[10,8,-5]} intensity={1.1} color="#d6e9ff"/>{world?<primitive object={world} dispose={null} onClick={click}/>:null}</>;
 }
@@ -113,7 +113,7 @@ export function SceneLab(){
   const [view,setView]=useState(initial?.view||'scene'),[sample,setSample]=useState(SAMPLE_SCENES.find(s=>s.id===initial?.sample)||SAMPLE_SCENES[0]);
   const [role,setRole]=useState(CHARACTERS.some(c=>c[0]===initial?.role)?initial.role:'orchestrator'),[direction,setDirection]=useState(initial?.direction||'traveler');
   const [settings,setSettings]=useState(initial?.settings||loadPandaSettings),[placements,setPlacements]=useState(initial?.placements||{});
-  const [notes,setNotes]=useState(initial?.notes||[]),[playing,setPlaying]=useState(!initial?.view||initial.view==='scene'),[secret,setSecret]=useState(null);
+  const [notes,setNotes]=useState(initial?.notes||[]),[playing,setPlaying]=useState(!initial?.view||initial.view==='scene'),[detail,setDetail]=useState(null);
   const [crew,setCrew]=useState({actors:[],events:[]}),[selectedAgent,setSelectedAgent]=useState(null),[following,setFollowing]=useState(false),[taskText,setTaskText]=useState('');
   const [annotating,setAnnotating]=useState(false),[draft,setDraft]=useState(null),[label,setLabel]=useState(''),[comment,setComment]=useState('');
   const [status,setStatus]=useState(''),[selectedNote,setSelectedNote]=useState(null),[zones,setZones]=useState({}),[focusedZone,setFocusedZone]=useState(null);
@@ -123,8 +123,8 @@ export function SceneLab(){
   const filteredNotes=notes.filter(n=>n.view===view&&(view==='characters'?n.role===role&&n.direction===direction:view==='scene'?n.sample===sample.id:true));
   const review=useMemo(()=>({format:'dim-sum-den-review',version:2,view,role,sample:sample.id,direction,settings,placements,notes}),[view,role,sample,direction,settings,placements,notes]);
   useEffect(()=>{saveReview(review);},[review]);
-  useEffect(()=>{setZones({});setFocusedZone(null);setSecret(null);setSelectedAgent(null);setFollowing(false);},[view,sample,direction]);
-  const changeView=value=>{setView(value);setAnnotating(false);setDraft(null);setSecret(null);setSelectedNote(null);};
+  useEffect(()=>{setZones({});setFocusedZone(null);setDetail(null);setSelectedAgent(null);setFollowing(false);},[view,sample,direction]);
+  const changeView=value=>{setView(value);setAnnotating(false);setDraft(null);setDetail(null);setSelectedNote(null);};
   const pin=point=>{setDraft(point);setLabel(point.part);setComment('');setStatus('Add a label and comment in the review panel.');};
   const saveNote=()=>{if(!draft||!comment.trim())return;const note={...draft,id:globalThis.crypto?.randomUUID?.()||String(Date.now()),label:label.trim()||draft.part,text:comment.trim(),view,role,sample:sample.id,direction,settings:{...settings},fit:{...fit}};setNotes(old=>[...old,note]);setDraft(null);setAnnotating(false);setStatus('Comment saved locally. Export it to share in chat.');};
   const revisit=note=>{
@@ -133,13 +133,13 @@ export function SceneLab(){
   };
   const importReview=async event=>{const file=event.target.files?.[0];if(!file)return;try{if(file.size>2_000_000)throw new Error('Choose a review smaller than 2 MB.');const data=normalizeReview(JSON.parse(await file.text()));setNotes(data.notes);setPlacements(data.placements);setSettings(data.settings);setView(data.view);setRole(CHARACTERS.some(c=>c[0]===data.role)?data.role:'orchestrator');setDirection(data.direction);setSample(SAMPLE_SCENES.find(s=>s.id===data.sample)||SAMPLE_SCENES[0]);setStatus('Review imported.');}catch(error){setStatus(error.message);}event.target.value='';};
   const stopFollowing=()=>{stage.current.followId=null;setFollowing(false);};
-  const focusZone=id=>{const zone=LEISURE_ZONES.find(z=>z.id===id);if(!zone)return;stopFollowing();const [x,,z]=zone.position,offset=id==='dragon'?[7,8,15]:id==='dining'?[5,6,7]:id==='festival'?[8,9,12]:[6,5,8];stage.current.restoreCamera?.({position:[x+offset[0],offset[1],z+offset[2]],target:[x+(id==='dragon'?0.5:0),1.4,z]});setFocusedZone(zone);setSecret(null);};
-  const overview=()=>{stopFollowing();stage.current.restoreCamera?.({position:[30,26,40],target:[0,2.1,1]});setFocusedZone(null);setSecret(null);};
-  const selectAgent=id=>{setSelectedAgent(id);setSecret(null);setFocusedZone(null);stopFollowing();const actor=stage.current.agents?.actors.get(id);if(!actor)return;const p=actor.panda.model.position;stage.current.restoreCamera?.(actor.stationary?{position:[p.x+12,10,p.z+18],target:[p.x,3.2,p.z]}:{position:[p.x+5,4.5,p.z+7],target:[p.x,0.9,p.z]});};
+  const focusZone=id=>{const zone=LEISURE_ZONES.find(z=>z.id===id);if(!zone)return;stopFollowing();const [x,,z]=zone.position,offset=id==='dragon'?[7,8,15]:id==='dining'?[5,6,7]:id==='festival'?[8,9,12]:[6,5,8];stage.current.restoreCamera?.({position:[x+offset[0],offset[1],z+offset[2]],target:[x+(id==='dragon'?0.5:0),1.4,z]});setFocusedZone(zone);setDetail(null);};
+  const overview=()=>{stopFollowing();stage.current.restoreCamera?.({position:[30,26,40],target:[0,2.1,1]});setFocusedZone(null);setDetail(null);};
+  const selectAgent=id=>{setSelectedAgent(id);setDetail(null);setFocusedZone(null);stopFollowing();const actor=stage.current.agents?.actors.get(id);if(!actor)return;const p=actor.panda.model.position;stage.current.restoreCamera?.(actor.stationary?{position:[p.x+12,10,p.z+18],target:[p.x,3.2,p.z]}:{position:[p.x+5,4.5,p.z+7],target:[p.x,0.9,p.z]});};
   const agentAction=(name,...args)=>{stage.current.agents?.[name]?.(...args);setCrew(stage.current.agents?.snapshot()||{actors:[],events:[]});setPlaying(true);};
   const followAgent=()=>{if(following){stopFollowing();return;}stage.current.followId=selectedAgent;setFollowing(true);setPlaying(true);};
   const currentAgent=crew.actors.find(a=>a.role===selectedAgent),busy=currentAgent&&(['received','working','needs-you','complete'].includes(currentAgent.state)||currentAgent.state==='walking'&&currentAgent.task);
-  const activate=id=>{stage.current.leisure?.activate(id);setZones({...stage.current.leisure?.active});setPlaying(true);const zone=LEISURE_ZONES.find(z=>z.id===id);if(zone)setSecret({title:zone.name,text:zone.hint});};
+  const activate=id=>{stage.current.leisure?.activate(id);setZones({...stage.current.leisure?.active});setPlaying(true);const zone=LEISURE_ZONES.find(z=>z.id===id);if(zone)setDetail({title:zone.name,text:zone.hint});};
   const exportScreenshot=()=>{
     const s=stage.current;if(!s.gl||!s.camera)return;s.gl.render(s.scene,s.camera);const original=s.gl.domElement;
     const width=1280,height=Math.round(original.height/original.width*width),footer=100+filteredNotes.length*70;
@@ -164,11 +164,11 @@ export function SceneLab(){
         {view==='scene'?<><div className="lab-samples">{SAMPLE_SCENES.map((s,i)=><button key={s.id} className={s.id===sample.id?'selected':''} aria-pressed={s.id===sample.id} onClick={()=>{setSample(s);setZones({});}}><span className={`sample-dot ${s.id}`}>{i+1}</span><span><strong>{s.title}</strong><small>{s.description}</small></span></button>)}</div><section className="review-zones"><h3>After service</h3><p>Activate a place to start its activity. View brings it closer for review.</p><button className="review-overview" onClick={overview}>View whole restaurant</button>{LEISURE_ZONES.map(z=><div className="review-zone-card" key={z.id}><button aria-pressed={!!zones[z.id]} onClick={()=>activate(z.id)}><strong>{z.name}</strong><small>{zones[z.id]?'Active · click to stop':z.activity}</small></button><button className="review-zone-focus" aria-label={`View ${z.name}`} onClick={()=>focusZone(z.id)}>View</button></div>)}</section></>:null}
       </aside>
       <main className={`lab-stage${annotating?' is-annotating':''}`} aria-label="Interactive review scene"><div className="lab-stage-title"><span className="lab-eyebrow">{view==='scene'?'A BIGGER BAMBOO RESTAURANT':view==='characters'?'TRADITIONAL PROP STUDY':'LIVE SHAPE & GAIT STUDY'}</span><h2>{view==='scene'?(focusedZone?.name||sample.title):view==='characters'?character[1]:'The wandering panda'}</h2><p>{view==='characters'?propName:view==='walking'?'Drag a slider. Watch the model change.':(focusedZone?.hint||'Tea · games · training · festival · dim sum · dragon dance')}</p></div>
-        <LabBoundary><Canvas shadows frameloop={playing?'always':'demand'} dpr={[1,1.5]} camera={{fov:42,near:0.1,far:160}} gl={{antialias:true}}><LabWorld view={view} sample={sample} role={role} direction={direction} settings={settings} fit={fit} playing={playing} annotating={annotating} notes={filteredNotes} stage={stage} onPin={pin} onSecret={setSecret} onZone={activate} onAgent={selectAgent} onActors={setCrew}/></Canvas></LabBoundary>
+        <LabBoundary><Canvas shadows frameloop={playing?'always':'demand'} dpr={[1,1.5]} camera={{fov:42,near:0.1,far:160}} gl={{antialias:true}}><LabWorld view={view} sample={sample} role={role} direction={direction} settings={settings} fit={fit} playing={playing} annotating={annotating} notes={filteredNotes} stage={stage} onPin={pin} onDetail={setDetail} onZone={activate} onAgent={selectAgent} onActors={setCrew}/></Canvas></LabBoundary>
         {view==='scene'&&!annotating?<div className="review-agent-tags">{crew.actors.map(a=><button key={a.role} ref={element=>{if(element)stage.current.actorTags.set(a.role,element);else stage.current.actorTags.delete(a.role);}} aria-label={`Select ${a.name} in the scene`} className={selectedAgent===a.role?'selected':''} data-state={a.state} onClick={()=>selectAgent(a.role)}><strong>{a.state==='needs-you'?'? ':a.state==='complete'?'✓ ':a.state==='received'?'✉ ':''}{a.name}</strong>{selectedAgent===a.role||['working','needs-you','complete'].includes(a.state)?<small>{a.activity}</small>:null}{selectedAgent===a.role&&a.bubble?<span>{a.bubble}</span>:null}</button>)}</div>:null}
         <div className="review-pins">{filteredNotes.map((note,i)=><button key={note.id} ref={element=>{if(element)stage.current.pins.set(note.id,element);else stage.current.pins.delete(note.id);}} aria-label={`Comment ${i+1}: ${note.label}`} onClick={()=>revisit(note)}>{i+1}</button>)}</div>
         {draft?<div className="review-pin-prompt">Selected: {draft.part}. Write your comment on the right.</div>:null}
-        {secret?<aside className="restaurant-note"><button aria-label="Close detail" onClick={()=>setSecret(null)}>×</button><span>IN THE GARDEN</span><h2>{secret.title}</h2><p>{secret.text}</p></aside>:null}
+        {detail?<aside className="restaurant-note"><button aria-label="Close detail" onClick={()=>setDetail(null)}>×</button><span>IN THE GARDEN</span><h2>{detail.title}</h2><p>{detail.text}</p></aside>:null}
         <div className="lab-scene-footer"><span>{annotating?'Click the model to pin a comment':'Drag to orbit · scroll to zoom'}</span><button aria-pressed={!playing} onClick={()=>setPlaying(!playing)}>{playing?'Pause activity':'Play activity'}</button></div>
       </main>
       <aside className="review-comments">
