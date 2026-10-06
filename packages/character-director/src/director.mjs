@@ -1,7 +1,7 @@
 // The character director (ADR 0007, spec.md "Character director"): a pure module, no renderer
 // dependency. It takes cell-state changes (and, later, handoff events, perch anchors and time) and
 // answers `tick(cellId, now)` with a clip name, whether it loops, a face frame and a cross-fade hint. State→clip
-// names come from the panda asset contract (apps/ui/src/assets/panda-contract.mjs) so the two
+// names were the panda asset contract (removed with the glbs, den-v1/08; director.test.mjs keeps a frozen copy) so the two
 // stay in lockstep.
 
 export const STATES = [

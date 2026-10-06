@@ -29,8 +29,6 @@ test("the perspective camera constants are gone", async () => {
   for (const name of ["FOV_DEG", "BASE_Y", "BASE_Z", "cameraPosition", "PAN_LIMIT", "visibleHalfWidth", "panLimit", "clampPan"]) {
     assert.ok(!(name in m), `${name} must not be exported by camera-rig.mjs`);
   }
-  const d = await import("./camera-default.mjs");
-  for (const name of ["FOV_DEG", "BASE_Y", "BASE_Z"]) assert.ok(!(name in d), `${name} must not be exported by camera-default.mjs`);
 });
 
 test("clampZoom holds the factor within 0.55..1.2", async () => {

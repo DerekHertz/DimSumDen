@@ -117,7 +117,7 @@ test("npm run dev listens on 127.0.0.1 only, not all interfaces", async () => {
   try {
     // Reachable via 127.0.0.1.
     const res = await waitForServer(
-      `http://127.0.0.1:${port}/apps/ui/src/scene/dev-scene.html`,
+      `http://127.0.0.1:${port}/apps/ui/index.html`,
       child
     );
     assert.equal(
