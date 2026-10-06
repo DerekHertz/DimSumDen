@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Testbed friction: the user switches between the MacBook and the WSL PC, and work left local on one machine stalls the relay on the other. Incidents (usage.jsonl): 2026-09-29T22:28:33Z and 2026-09-29T22:37:50Z (board fork), 2026-10-05T05:03:56Z (Mac held an unpushed session), 2026-10-05T06:10:05Z (local main 3 ahead), and the 2026-10-06 incident on organism-infra/140 (tests branch d92cf29 and developer commit db9fc50 only on the MacBook).
 
@@ -36,3 +36,6 @@
 - "The handoff step" = the `handoff` skill wording runs `session-check`. That is a gated `.claude/` edit: the developer writes it, with the genome edit, into its handoff for the user to apply.
 - Tests branch `tests/158-work-never-one-machine` (80d1d9b) is pushed to origin.
 - **developer, 2026-10-06:** developer done: tests green, commit 9a86ebb on 158-work-never-one-machine; handoffs/158-developer.md; gated patch .scratch/_handoffs/gated/158-board-only-push-and-session-check.patch awaits the user (!npm run apply-gated).
+- **qa, 2026-10-06:** Light verify complete: all 2023 tests pass, no assertions loosened, all criteria mapped to tests, criterion 6 human-verified in gated patch.
+- **security, 2026-10-06:** Security pass. No critical or high. medium: .claude/agents/orchestrator.md:109 board-only push to public unprotected main has no pre-push secret scan (CI gitleaks runs only after push); suggest gitleaks before push. low: scripts/session-check.mjs:158-161 branch from handoff prose unvalidated in printed fix command; board-service.mjs:1105 push runs under board lock. gitleaks clean. Handoff: 158-security.md
+- **orchestrator, 2026-10-06:** merged f5da3ee; security medium + 2 lows filed as 159
