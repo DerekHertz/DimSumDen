@@ -1,7 +1,7 @@
 import { Component, Suspense, useCallback, useMemo, useState } from "react";
 import { Canvas, events as defaultEvents } from "@react-three/fiber";
 import { CameraRig } from "./scene/procedural/CameraRig.jsx";
-import { Den } from "./scene/procedural/Den.jsx";
+import { RestaurantDen } from "./scene/procedural/RestaurantDen.jsx";
 import { PandaCard } from "./scene/procedural/PandaCard.jsx";
 import { createDenCameraStore } from "./scene/procedural/camera.mjs";
 import { STATION_LABELS, TALLY_ANCHOR } from "./scene/procedural/bindings.mjs";
@@ -87,7 +87,7 @@ export function App() {
             gl={{antialias:true}} events={sceneEvents} onPointerMissed={() => setSelected(null)}>
             <CameraRig store={camera} stage={stage} den={den} onModeChange={onExploreChange} onHint={setExploreHint} />
             <Suspense fallback={null}>
-              <Den cells={sceneCells} frontier={frontier} tally={tally} onOpenTally={openTally}
+              <RestaurantDen cells={sceneCells} frontier={frontier} tally={tally} onOpenTally={openTally}
                 selected={selected} onSelect={selectTicket} stage={stage} onReady={onDenReady} />
             </Suspense>
           </Canvas>
