@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Serves:** CI reliability: every den-v1 merge needs green CI, and this test fails about half the time on main.
 
@@ -22,3 +22,4 @@ In `floating-cards.test.mjs` (around line 326), the test fires the second deny k
 ## Comments
 
 - **orchestrator, 2026-10-06:** Found by 139 full qa verify (139-qa-verify.md). Filed with the user's yes. P1 because it turns CI red at random on product merges. A small qa-owned test fix.
+- **qa, 2026-10-06:** QA pass (full verify, db3cce6): 20/20 isolated runs green; mutating Cards.jsx to drop a second deny fails the test at floating-cards.test.mjs:330; npm test 1995 pass, 0 fail, 0 skipped; only the test file changed. See 150-qa.md.
