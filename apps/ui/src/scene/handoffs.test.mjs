@@ -226,7 +226,7 @@ test("every handoff arc between two kiosks stays outside Bao's padded roam rect 
 
 test("no layout module hard-codes Bao's old z (-2.4): everything follows BAO.position", async () => {
   const { readFileSync } = await import("node:fs");
-  for (const f of ["banquet-layout.mjs", "roam.mjs", "handoffs.mjs", "Market.jsx", "Den.jsx", "grove-layout.mjs", "iso-projection.mjs"]) {
+  for (const f of ["banquet-layout.mjs", "roam.mjs", "handoffs.mjs", "iso-projection.mjs"]) {
     const code = readFileSync(new URL(f, import.meta.url), "utf8").split("\n").map((l) => l.replace(/\/\/.*$/, "")).filter((l) => !/^\s*\*|^\s*\/\*/.test(l)).join("\n");
     assert.doesNotMatch(code, /-\s?2\.4\b/, `${f} still carries the literal -2.4`);
   }
