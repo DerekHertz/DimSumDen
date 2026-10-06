@@ -1198,7 +1198,9 @@ test("runSpikes S6b: runs in a detached worktree under <repo>/.claude/worktrees 
   const { r, repo, seen } = await runS6b({});
   assert.equal(r.verdict, "go", r.evidence.join("\n"));
   const root = realpathSync(path.join(repo, ".claude", "worktrees"));
-  assert.ok(realpathSync(seen.cwd).startsWith(`${root}${path.sep}s6b-`), seen.cwd);
+  // The worktree is gone by now, so realpath only its parent (which survives) and match the leaf by name.
+  assert.equal(realpathSync(path.dirname(seen.cwd)), root, seen.cwd);
+  assert.match(path.basename(seen.cwd), /^s6b-/, seen.cwd);
   const a = seen.args;
   const flag = (n) => a[a.indexOf(n) + 1];
   assert.equal(flag("--setting-sources"), "project,local");
