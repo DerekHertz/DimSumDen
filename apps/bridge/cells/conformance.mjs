@@ -864,8 +864,16 @@ async function runS8(ctx) {
     }
     if (input.init.socketPath) {
       const flags = new Set([...(await helpFlags(ctx.bin)), ...ctx.s8DisableFlags]);
-      for (const flag of flags) input.disable.push(await tryDisable(ctx, dir, flag, { flag }));
-      for (const [name, value] of Object.entries(ctx.s8DisableEnv)) input.disable.push(await tryDisable(ctx, dir, `${name}=${value}`, { env: { [name]: value } }));
+      // One candidate failing to run must not skip the rest: record it as not logged in.
+      const attempt = async (via, opts) => {
+        try {
+          input.disable.push(await tryDisable(ctx, dir, via, opts));
+        } catch {
+          input.disable.push({ via, socketGone: false, loggedIn: false });
+        }
+      };
+      for (const flag of flags) await attempt(flag, { flag });
+      for (const [name, value] of Object.entries(ctx.s8DisableEnv)) await attempt(`${name}=${value}`, { env: { [name]: value } });
     }
     await finish(child);
   } finally {
@@ -1045,30 +1053,40 @@ async function runS3b(ctx) {
   };
   const writeAsk = (file, body) => `Use the Write tool to create the file ${file} with exactly this content: ${body}. Do nothing else. Begin your reply with ${PROBE_MARKER}.`;
 
-  const subDir = makeWorkdir();
-  const sub = ctx.start(stdioArgs(), subDir);
-  answerWith(sub, (o) => controlResponseLine(o.request_id, "allow", o.request?.input));
-  await runTurn(sub, `Use the Task tool to start a subagent. The subagent must use the Write tool to create the file ${path.join(subDir, "s3b-sub.txt")} with exactly this content: SUBAGENT-BODY. Reply done when it finishes. Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs);
-  await finish(sub);
+  const children = [];
+  const startChild = (dir) => {
+    const c = ctx.start(stdioArgs(), dir);
+    children.push(c);
+    return c;
+  };
+  try {
+    const subDir = makeWorkdir();
+    const sub = startChild(subDir);
+    answerWith(sub, (o) => controlResponseLine(o.request_id, "allow", o.request?.input));
+    await runTurn(sub, `Use the Task tool to start a subagent. The subagent must use the Write tool to create the file ${path.join(subDir, "s3b-sub.txt")} with exactly this content: SUBAGENT-BODY. Reply done when it finishes. Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs);
+    await finish(sub);
 
-  const waitDir = makeWorkdir();
-  const held = ctx.start(stdioArgs(), waitDir);
-  held.send(userMessageLine(writeAsk(path.join(waitDir, "s3b-wait.txt"), "WAIT-BODY")));
-  const requested = await held.waitFor(isControlRequest, ctx.timeoutMs);
-  if (requested) await held.waitFor((o) => isResult(o) || isToolResultLine(o), ctx.s3bWaitMs, held.lines.indexOf(requested) + 1);
-  const wait = held.capture();
-  held.endStdin();
-  held.kill("SIGKILL");
+    const waitDir = makeWorkdir();
+    const held = startChild(waitDir);
+    held.send(userMessageLine(writeAsk(path.join(waitDir, "s3b-wait.txt"), "WAIT-BODY")));
+    const requested = await held.waitFor(isControlRequest, ctx.timeoutMs);
+    if (requested) await held.waitFor((o) => isResult(o) || isToolResultLine(o), ctx.s3bWaitMs, held.lines.indexOf(requested) + 1);
+    const wait = held.capture();
+    held.endStdin();
+    held.kill("SIGKILL");
 
-  const omitDir = makeWorkdir();
-  const omitFile = path.join(omitDir, "s3b-omitted.txt");
-  const omit = ctx.start(stdioArgs(), omitDir);
-  answerWith(omit, (o) => allowWithoutInputLine(o.request_id));
-  await runTurn(omit, writeAsk(omitFile, "OMIT-BODY"), ctx.timeoutMs);
-  await finish(omit);
+    const omitDir = makeWorkdir();
+    const omitFile = path.join(omitDir, "s3b-omitted.txt");
+    const omit = startChild(omitDir);
+    answerWith(omit, (o) => allowWithoutInputLine(o.request_id));
+    await runTurn(omit, writeAsk(omitFile, "OMIT-BODY"), ctx.timeoutMs);
+    await finish(omit);
 
-  const captures = { subagent: sub.capture(), wait, omitted: omit.capture() };
-  return { result: evaluateS3b(captures, { waitMs: ctx.s3bWaitMs, omittedFileExists: existsSync(omitFile) }), captures };
+    const captures = { subagent: sub.capture(), wait, omitted: omit.capture() };
+    return { result: evaluateS3b(captures, { waitMs: ctx.s3bWaitMs, omittedFileExists: existsSync(omitFile) }), captures };
+  } finally {
+    for (const c of children) c.kill("SIGKILL");
+  }
 }
 
 const isToolResultLine = (o) => o.type === "user" && Array.isArray(o.message?.content) && o.message.content.some((b) => b.type === "tool_result");
@@ -1183,7 +1201,7 @@ export function parseCli(argv) {
 
 const HELP = `usage: node apps/bridge/cells/conformance.mjs [--spike S1,S3] [--out <dir>] [--model <m>] [--timeout <s>] [--extra-env NAME]... [--dry-run]
        [--repo <checkout>] [--s8-disable-flag <flag>]... [--s8-disable-env NAME=VALUE]... [--s3b-wait <s>]
-The default run is S1 to S7; S8, S4b, S6b and S3b run only when named (--spike S8,S4b,S6b,S3b). S6b needs --repo.
+The default run is S1 to S7; S8, S4b, S6b and S3b run only when named (--spike S8,S4b,S6b,S3b). S6b adds its worktree to --repo (default: the repository containing this script); run \`claude\` there once so the owner has trusted it.
 Runs ADR 0016's spikes against the real \`claude\` login (DEN_CLAUDE_BIN overrides the binary).
 --dry-run prints the plan and spends nothing.`;
 
@@ -1191,6 +1209,15 @@ export function planText(opts) {
   const turns = opts.spikes.reduce((n, id) => n + SPIKES[id].turns, 0);
   const lines = opts.spikes.map((id) => `  ${id} (${SPIKES[id].turns} turns): ${SPIKES[id].title}`);
   return [`plan: ${opts.spikes.length} spikes, about ${turns} user turns on model ${opts.model} (each turn is roughly 2 to 4 API calls)`, ...lines].join("\n");
+}
+
+// S6b's default --repo (ADR 0016): the repository containing this script, or null outside git.
+function defaultRepo() {
+  try {
+    return execFileSync("git", ["-C", path.dirname(fileURLToPath(import.meta.url)), "rev-parse", "--show-toplevel"], { stdio: "pipe", encoding: "utf8" }).trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 async function main() {
@@ -1212,7 +1239,7 @@ async function main() {
     extraEnv: opts.extraEnv,
     model: opts.model,
     timeoutMs: opts.timeoutMs,
-    repo: opts.repo,
+    repo: opts.repo ?? defaultRepo(),
     s8DisableFlags: opts.s8DisableFlags,
     s8DisableEnv: opts.s8DisableEnv,
     s3bWaitMs: opts.s3bWaitMs,
