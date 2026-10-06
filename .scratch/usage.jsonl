@@ -1740,3 +1740,8 @@
 {"kind":"jev-advisory-outcome","ts":"2026-10-06T22:14:18.502Z","ticket":"organism-infra/160-jev-verify-baseline","orchestratorPick":"qa-specify","jevPick":"qa-specify","userChoice":"qa-specify","bounced":false}
 {"kind":"usage","ts":"2026-10-06T22:14:18Z","five_hour":8,"weekly":28,"event":"merge","ticket":"organism-infra/160-jev-verify-baseline","cell":null}
 {"kind":"context","ts":"2026-10-06T22:14:18Z","session":"43d6a770-fe0b-4985-8676-026f5d8e8911","context_tokens":74879,"event":"merge"}
+{"kind":"jev-order","ts":"2026-10-06T22:17:23.173Z","actual":["organism-infra/145","organism-infra/165","organism-infra/147","organism-infra/156","organism-infra/159"],"wouldHave":["organism-infra/145","organism-infra/147","organism-infra/156","organism-infra/159","organism-infra/165"],"same":false}
+{"kind":"jev","ts":"2026-10-06T22:17:26.732Z","ticket":"organism-infra/145-cell-context-hook","point":"route","pick":"user","actual":"orchestrator","cost":0.00005947200000000001,"conf":0.3,"mode":"advisory","fallback":null,"floor":null,"ms":570,"model":"jev-1.13.0","variant":"new"}
+{"kind":"usage","ts":"2026-10-06T22:17:33.000Z","five_hour":9,"weekly":29,"event":"dispatch","ticket":"organism-infra/145","cell":"orchestrator"}
+{"kind":"context","ts":"2026-10-06T22:17:33.000Z","session":"d904efea-9c24-4049-a8aa-2a0b836e2d3d","context_tokens":24875,"percent":2.49,"event":"dispatch"}
+{"kind":"jg","ts":"2026-10-06T22:20:20.641Z","ticket":"organism-infra/145-cell-context-hook","bytes":0,"files":0,"ms":158,"skipped":null,"fallback":"secret-in-root"}
