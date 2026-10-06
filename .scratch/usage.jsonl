@@ -1642,3 +1642,16 @@
 {"kind":"cell","ts":"2026-10-06T18:21:26.785Z","ticket":"den-layout/03-real-agents-drive-the-pandas","cell":"qa","mode":"specify","tokens":84615,"ms":187474,"outcome":"specify done: 12 failing tests, 296697f","context":79518}
 {"kind":"usage","ts":"2026-10-06T18:21:27Z","five_hour":51,"weekly":23,"event":"return","ticket":"den-layout/03","cell":"qa"}
 {"kind":"context","ts":"2026-10-06T18:21:27Z","session":"cfad8f50-9a6a-488f-9052-ce9fae0d7da5","context_tokens":51160,"percent":5.12,"event":"return"}
+{"kind":"cell","ts":"2026-10-06T18:29:09.931Z","ticket":"den-layout/03-real-agents-drive-the-pandas","cell":"developer","tokens":76782,"ms":317923,"outcome":"complete: bb23dac, npm test 2074 pass, smoke 10 pass","context":75505}
+{"kind":"incident","ts":"2026-10-06T18:29:09.931Z","ticket":"den-layout/03-real-agents-drive-the-pandas","cell":"developer","tool":"other","what":"Read used main-checkout path instead of worktree path","cost":null,"fix":null,"rule_change":null,"source":"cell-report"}
+{"kind":"jev","ts":"2026-10-06T18:29:09.974Z","ticket":"den-layout/03-real-agents-drive-the-pandas","point":"verify","pick":"light","actual":"full","cost":0.00023297400000000002,"conf":0.63,"mode":"shadow","fallback":null,"floor":null,"ms":572,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-10-06T18:29:25Z","five_hour":55,"weekly":23,"event":"dispatch","ticket":"den-layout/03","cell":"qa"}
+{"kind":"context","ts":"2026-10-06T18:29:25Z","session":"cfad8f50-9a6a-488f-9052-ce9fae0d7da5","context_tokens":61238,"percent":6.12,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-06T18:33:29.006Z","ticket":"den-layout/03-real-agents-drive-the-pandas","cell":"qa","mode":"verify","tokens":39413,"ms":242904,"outcome":"light verify pass at bb23dac","context":37816}
+{"kind":"jev","ts":"2026-10-06T18:34:20.745Z","ticket":"den-layout/03-real-agents-drive-the-pandas","point":"tier","pick":"opus","actual":"sonnet","cost":0.00004985400000000001,"conf":0.96,"mode":"shadow","fallback":null,"floor":null,"ms":472,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-10-06T18:34:34Z","five_hour":57,"weekly":24,"event":"dispatch","ticket":"den-layout/03","cell":"developer"}
+{"kind":"context","ts":"2026-10-06T18:34:34Z","session":"cfad8f50-9a6a-488f-9052-ce9fae0d7da5","context_tokens":72172,"percent":7.22,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-06T18:41:15.196Z","ticket":"den-layout/03-real-agents-drive-the-pandas","cell":"developer","tokens":65397,"ms":277788,"outcome":"fix round complete: 433e4dd, one panda per agent, 2079 pass","context":63535}
+{"kind":"jev","ts":"2026-10-06T18:41:15.237Z","ticket":"den-layout/03-real-agents-drive-the-pandas","point":"verify","pick":"light","actual":"full","cost":0.00023305800000000002,"conf":0.72,"mode":"shadow","fallback":null,"floor":null,"ms":565,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-10-06T18:41:27Z","five_hour":59,"weekly":24,"event":"dispatch","ticket":"den-layout/03","cell":"qa"}
+{"kind":"context","ts":"2026-10-06T18:41:27Z","session":"cfad8f50-9a6a-488f-9052-ce9fae0d7da5","context_tokens":75902,"percent":7.59,"event":"dispatch"}
