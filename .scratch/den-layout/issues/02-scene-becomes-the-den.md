@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** claimed
+**Status:** resolved
 
 **Serves:** den-layout spec "Wiring decisions" (user, 2026-10-06): PR #162's scene replaces the live den. ADR 0019 amendment 1.
 
@@ -30,3 +30,6 @@ No designer spec or review: the user signed off PR #162's visuals (user, 2026-10
 
 - **orchestrator, 2026-10-06:** Published from the approved breakdown (user, 2026-10-06). No designer on this ticket (user override).
 - **orchestrator, 2026-10-06:** Scope (user, 2026-10-06): smoke:ui retargets the camera-fit, wheel-zoom and drag-pan checks to the new scene and drops the 'walk: Enter the den' check (04 re-adds it). Walk, explorer and controller modules stay wired into the new App (old obstacles OK) so reachability test 2 passes; 04 swaps the obstacle source and spawn. Mount only the scene world inside App's Canvas; keep App overlays (floating-cards test). Port PR #162's own files only, never merge the branch.
+- **developer, 2026-10-06:** partial: context limit, WIP a0cf671
+- **qa, 2026-10-06:** All 2049 tests pass, smoke:ui passes all checks. Test file edits appropriate—no weakened assertions. All acceptance criteria covered by passing tests.
+- **security, 2026-10-06:** Security pass. gitleaks clean, npm audit 0, no dep/workflow change, no shell/path/HTML sinks from untrusted text. Low: review-data.mjs:18 download() and reviewHtml() are dead code from the old review build. Details in handoffs/02-security.md.
