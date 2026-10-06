@@ -207,11 +207,11 @@ async function main() {
       await page.setViewportSize({ width: 1440, height: 900 });
       // The signs follow a resize a few frames late (longer under load): the first probe can still show the
       // phone-sized layout from the previous check, which also "fits". Take the baseline only once the signs are
-      // centred on the scene box (the default frame puts Bao's feet, the middle of the Steamers and Front of House
-      // signs, at the horizontal centre), which a stale layout from a different width is not.
-      const centred = (p) => p.signs["Steamers"] && p.signs["Front of House"] && Math.abs((p.signs["Steamers"].x + p.signs["Front of House"].x) / 2 - p.width / 2) < 2;
+      // centred on the scene box (the default frame centres the den, so the middle of the Library and Drum signs, at
+      // x -4 and +4, is the horizontal centre), which a stale layout from a different width is not.
+      const centred = (p) => p.signs["Library"] && p.signs["Drum"] && Math.abs((p.signs["Library"].x + p.signs["Drum"].x) / 2 - p.width / 2) < 2;
       const base = await settle((p) => centred(p) && fits(p), "default frame before zoom");
-      const gap = (p) => p.signs["Front of House"].x - p.signs["Steamers"].x;
+      const gap = (p) => p.signs["Drum"].x - p.signs["Library"].x;
       const box = await page.locator("main.scene").boundingBox();
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
       await page.mouse.wheel(0, -300); // exponential: zoom factor 1 -> exp(-0.3) = 0.7408, so 1/0.7408 = 1.3499 times wider
@@ -226,13 +226,13 @@ async function main() {
     await check("camera pan: dragging 100 px right moves every sign 100 px right", async () => {
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.mouse.wheel(0, -3000); // back to the nearest zoom, where there is room to pan sideways
-      // At the nearest zoom (0.55) the outer signs (Tea, Pantry) sit past the viewport edge and ChipLayer hides them,
-      // so measure the signs that are still on screen with room to move 100 px: Steamers and Front of House at least.
-      await settle((p) => p.signs["Steamers"] && p.signs["Front of House"] && p.signs["Front of House"].x - p.signs["Steamers"].x > 1000, "zoomed in");
+      // At the nearest zoom (0.55) the station signs sit past the viewport edge and ChipLayer hides them, so measure
+      // the signs that are still on screen with room to move 100 px: Library and Drum (8 world units apart).
+      await settle((p) => p.signs["Library"] && p.signs["Drum"] && p.signs["Drum"].x - p.signs["Library"].x > 500, "zoomed in");
       await page.waitForTimeout(800); // let the rig's easing finish before measuring
       const start = await sceneProbe();
       const names = Object.keys(start.signs).filter((n) => start.signs[n].left >= 4 && start.signs[n].right + 110 <= start.width);
-      if (!names.includes("Steamers") || !names.includes("Front of House")) throw new Error("expected Steamers and Front of House on screen with room to pan, got " + JSON.stringify(names));
+      if (!names.includes("Library") || !names.includes("Drum")) throw new Error("expected Library and Drum on screen with room to pan, got " + JSON.stringify(names));
       const box = await page.locator("main.scene").boundingBox();
       const cx = box.x + box.width / 2;
       const cy = box.y + box.height / 2;
@@ -245,7 +245,7 @@ async function main() {
       for (const n of names) {
         if (Math.abs(after.signs[n].y - start.signs[n].y) > 4) throw new Error(`${n} sign moved vertically by ${after.signs[n].y - start.signs[n].y}`);
       }
-      return `${names.length} signs shifted ${Math.round(after.signs["Steamers"].x - start.signs["Steamers"].x)} px`;
+      return `${names.length} signs shifted ${Math.round(after.signs["Library"].x - start.signs["Library"].x)} px`;
     });
 
     // The 'walk: Enter the den' check is dropped for den-layout/02 (user, 2026-10-06): the walker's spawn and obstacles
