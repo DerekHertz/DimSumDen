@@ -4,7 +4,7 @@
 
 **Priority:** P1
 
-**Blocked by:** organism-infra/106
+**Blocked by:** organism-infra/106, den-layout/03
 
 **Status:** ready-for-agent
 
@@ -25,3 +25,4 @@ The live store in `apps/ui/src/state/` keeps a bounded per-agent ring buffer of 
 
 - **Created (orchestrator, 2026-10-03):** From `.scratch/den-v1/spec.md` (ADR 0019). Keep under ~120k tokens; split rather than stretch.
 - **orchestrator, 2026-10-04:** Dropped the `Blocked by` edge to den-v1/04 (user, 2026-10-04); 04 stays parked.
+- **orchestrator, 2026-10-06:** Now blocked by den-layout (approved breakdown, user 2026-10-06): builds on PR #162's scene once real agents drive it.
