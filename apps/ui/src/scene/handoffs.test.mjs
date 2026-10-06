@@ -183,9 +183,9 @@ test("wiring: App renders the procedural den with the frontier, and hearts still
   // choreography was not ported, but handoffs still drive the heart bubbles.
   const { readFileSync } = await import("node:fs");
   const app = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
-  assert.match(app, /import \{ Den \} from "\.\/scene\/procedural\/Den\.jsx"/);
+  assert.match(app, /import \{ RestaurantDen \} from "\.\/scene\/procedural\/RestaurantDen\.jsx"/);
   assert.match(app, /useHandoffs\(snapshot\)/);
-  assert.match(app, /<Den [^>]*frontier=\{frontier\}/);
+  assert.match(app, /<RestaurantDen [^>]*frontier=\{frontier\}/);
   assert.match(app, /<ChipLayer [^>]*hearts=\{hearts\}/);
   assert.match(readFileSync(new URL("./ChipLayer.jsx", import.meta.url), "utf8"), /chip-heart/);
 });

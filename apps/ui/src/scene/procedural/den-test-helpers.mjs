@@ -1,7 +1,7 @@
 // Shared by the procedural den tests: a stub canvas document and a helper that builds the live den and tears it down.
 import * as THREE from 'three';
 import { createBao } from './bao.mjs';
-import { createWalkingBao } from './walking-bao.mjs';
+import { createWalkingBao } from '../../review/walking-panda.mjs';
 import { createDenScene } from './den-scene.mjs';
 import { compactPanda, compactEnvironment } from './compact.mjs';
 import { createLiveDenController } from './controller.mjs';
