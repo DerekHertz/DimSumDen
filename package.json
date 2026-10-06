@@ -17,6 +17,7 @@
     "board": "node apps/organism-infra/board.mjs",
     "apply-gated": "node scripts/apply-gated.mjs",
     "next-session": "node scripts/next-session.mjs",
+    "session-check": "node scripts/session-check.mjs",
     "bridge": "node apps/bridge/server.mjs",
     "ui": "npm run ui:build && npm run bridge",
     "ui:build": "vite build --config apps/ui/vite.config.mjs",
