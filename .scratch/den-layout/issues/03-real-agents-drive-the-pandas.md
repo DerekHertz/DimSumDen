@@ -6,7 +6,7 @@
 
 **Blocked by:** 02
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** den-layout spec "Wiring decisions" (user, 2026-10-06): connect the real agents to the signed-off front end.
 
@@ -36,3 +36,5 @@ No designer spec or review (user, 2026-10-06).
 - **orchestrator, 2026-10-06:** Live tool data in bubbles is out of scope (user, 2026-10-06): the bridge does not emit `cells[]` yet, so 03 builds and tests the consumer only; organism-infra/163 makes the bridge emit it.
 - **qa, 2026-10-06:** All 2074 tests pass, smoke:ui 10 pass, no test assertions weakened, all acceptance criteria have passing tests.
 - **orchestrator, 2026-10-06:** Fix before merge (user, 2026-10-06), after qa light verify passed at bb23dac. One live agent renders twice: the role panda from `applyLive` and the older ticket panda from `createLiveDenController` (one per held ticket, in the station stall). Role pandas become the only live representation; keep anything the ticket pandas do that role pandas don't (e.g. click to inspect). Scope fix, not a bounce.
+- **qa, 2026-10-06:** Light verify complete: 2079 pass, 0 fail, smoke:ui 10 pass. Specify tests unchanged. New one-panda-per-agent.test.mjs validates fix (role pandas only live representation).
+- **security, 2026-10-06:** Security pass at 433e4dd. gitleaks clean, no dep or .github changes, no HTML/shell sinks. Low: live-actors.mjs:40 bubble text uncapped; agents.mjs applyLive split pandas uncapped. See handoffs/03-security.md.

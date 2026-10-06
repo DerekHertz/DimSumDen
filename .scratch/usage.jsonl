@@ -1655,3 +1655,13 @@
 {"kind":"jev","ts":"2026-10-06T18:41:15.237Z","ticket":"den-layout/03-real-agents-drive-the-pandas","point":"verify","pick":"light","actual":"full","cost":0.00023305800000000002,"conf":0.72,"mode":"shadow","fallback":null,"floor":null,"ms":565,"model":"jev-1.13.0"}
 {"kind":"usage","ts":"2026-10-06T18:41:27Z","five_hour":59,"weekly":24,"event":"dispatch","ticket":"den-layout/03","cell":"qa"}
 {"kind":"context","ts":"2026-10-06T18:41:27Z","session":"cfad8f50-9a6a-488f-9052-ce9fae0d7da5","context_tokens":75902,"percent":7.59,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-06T18:53:17.162Z","ticket":"den-layout/03-real-agents-drive-the-pandas","cell":"qa","mode":"verify","tokens":50750,"ms":704012,"outcome":"pass: light re-verify at 433e4dd, 2079 tests + smoke:ui 10 pass, one-panda fix verified","context":49649}
+{"kind":"usage","ts":"2026-10-06T18:53:23Z","five_hour":62,"weekly":24,"event":"return","ticket":"den-layout/03-real-agents-drive-the-pandas","cell":"qa"}
+{"kind":"context","ts":"2026-10-06T18:53:23Z","session":"cfad8f50-9a6a-488f-9052-ce9fae0d7da5","context_tokens":36902,"percent":3.69,"event":"return"}
+{"kind":"usage","ts":"2026-10-06T18:54:15Z","five_hour":null,"weekly":null,"event":"dispatch","ticket":"den-layout/03-real-agents-drive-the-pandas","cell":"security","note":"usage.mjs HTTP 429; last 62% at prior check"}
+{"kind":"context","ts":"2026-10-06T18:54:15Z","session":"cfad8f50-9a6a-488f-9052-ce9fae0d7da5","context_tokens":39301,"percent":3.93,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-06T18:55:09.671Z","ticket":"den-layout/03-real-agents-drive-the-pandas","cell":"security","tokens":33087,"ms":36084,"outcome":"pass: risk-check hit false positive (word 'board'); 2 low non-blocking findings","context":31997}
+{"kind":"usage","ts":"2026-10-06T18:58:56Z","five_hour":null,"weekly":null,"event":"merge","ticket":"den-layout/03-real-agents-drive-the-pandas","cell":"orchestrator","note":"usage.mjs HTTP 429; last 62%"}
+{"kind":"context","ts":"2026-10-06T18:58:56Z","session":"cfad8f50-9a6a-488f-9052-ce9fae0d7da5","context_tokens":46165,"percent":4.62,"event":"merge"}
+{"kind":"resolved","ts":"2026-10-06T18:59:15.689Z","ticket":"den-layout/03-real-agents-drive-the-pandas","pr":168,"bounces":0}
+{"kind":"jev-advisory-outcome","ts":"2026-10-06T18:59:18.352Z","ticket":"den-layout/03-real-agents-drive-the-pandas","orchestratorPick":"qa-specify","jevPick":"qa-specify","userChoice":"qa","bounced":false}
