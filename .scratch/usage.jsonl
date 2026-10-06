@@ -1745,3 +1745,15 @@
 {"kind":"usage","ts":"2026-10-06T22:17:33.000Z","five_hour":9,"weekly":29,"event":"dispatch","ticket":"organism-infra/145","cell":"orchestrator"}
 {"kind":"context","ts":"2026-10-06T22:17:33.000Z","session":"d904efea-9c24-4049-a8aa-2a0b836e2d3d","context_tokens":24875,"percent":2.49,"event":"dispatch"}
 {"kind":"jg","ts":"2026-10-06T22:20:20.641Z","ticket":"organism-infra/145-cell-context-hook","bytes":0,"files":0,"ms":158,"skipped":null,"fallback":"secret-in-root"}
+{"kind":"jev","ts":"2026-10-06T22:23:11.187Z","ticket":"organism-infra/147-dispatch-prompt-script","point":"route","pick":"other","actual":"orchestrator","cost":0.000043974,"conf":0.75,"mode":"advisory","fallback":null,"floor":null,"ms":450,"model":"jev-1.13.0","variant":"new"}
+{"kind":"jg","ts":"2026-10-06T22:23:11.677Z","ticket":"organism-infra/147-dispatch-prompt-script","bytes":0,"files":0,"ms":32,"skipped":null,"fallback":"secret-in-root"}
+{"kind":"usage","ts":"2026-10-06T22:23:19.000Z","five_hour":12,"weekly":29,"event":"dispatch","ticket":"organism-infra/147","cell":"qa"}
+{"kind":"context","ts":"2026-10-06T22:23:19.000Z","session":"d904efea-9c24-4049-a8aa-2a0b836e2d3d","context_tokens":39906,"percent":3.99,"event":"dispatch"}
+{"kind":"usage","ts":"2026-10-06T22:25:26.000Z","five_hour":15,"weekly":29,"event":"return","ticket":"organism-infra/145","cell":"architect"}
+{"kind":"context","ts":"2026-10-06T22:25:26.000Z","session":"d904efea-9c24-4049-a8aa-2a0b836e2d3d","context_tokens":45881,"percent":4.59,"event":"return"}
+{"kind":"incident","ts":"2026-10-06T22:25:26.000Z","ticket":"organism-infra/140","cell":"orchestrator","tool":"log-cell","what":"No cell rows were logged for 140's three over-budget cells (qa ~150k, architect ~134k, developer ~141k); found by the 145 architect","cost":"threshold evidence for 145 missing its three biggest data points","fix":"none yet; raise in next retro","rule_change":null}
+{"kind":"cell","ts":"2026-10-06T22:25:34.876Z","ticket":"organism-infra/145-cell-context-hook","cell":"architect","tokens":60413,"ms":268583,"outcome":"pass: tiered thresholds proposed (dev/qa 100k/120k, others 70k/80k); no orchestrator hook","context":58281}
+{"kind":"cell","ts":"2026-10-06T22:26:44.007Z","ticket":"organism-infra/147-dispatch-prompt-script","cell":"qa","mode":"specify","tokens":68749,"ms":168641,"outcome":"pass: 55 failing tests at 7ca8bc2","context":67112}
+{"kind":"jev","ts":"2026-10-06T22:26:50.447Z","ticket":"organism-infra/147-dispatch-prompt-script","point":"tier","pick":"sonnet","actual":"sonnet","cost":0.000041664000000000006,"conf":0.59,"mode":"shadow","fallback":null,"floor":null,"ms":522,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-10-06T22:27:02.000Z","five_hour":16,"weekly":30,"event":"dispatch","ticket":"organism-infra/147","cell":"developer"}
+{"kind":"context","ts":"2026-10-06T22:27:02.000Z","session":"d904efea-9c24-4049-a8aa-2a0b836e2d3d","context_tokens":52445,"percent":5.24,"event":"dispatch"}
