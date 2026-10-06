@@ -2,7 +2,7 @@
 // ADR 0016 decision 4 (registry persistence) and decision 6 items 9 and 10.
 //
 // LINE SCHEMA (pinned here; each line is one JSON object):
-//   spawn: { ts, event: "spawn", agentId, ref, role, sessionId, route }     route is "POST /agents" for the HTTP path
+//   spawn: { ts, event: "spawn", agentId, ref, role, sessionId, route }     route is "POST /agents" for the HTTP path, "start()" for the internal entry
 //   stop:  { ts, event: "stop",  agentId, ref, route: "POST /agents/:id/stop" }
 //   end:   { ts, event: "end",   agentId, ref, state: "terminated" | "done" | "failed", reason? }
 // On start the host replays the file. An agent with a spawn line and no end line was live when the last bridge
@@ -57,6 +57,16 @@ describe("sessions.jsonl is written, 0700 dir and 0600 file", () => {
     assert.ok(all.indexOf(spawn) < all.indexOf(stop) && all.indexOf(stop) < all.indexOf(end), "spawn, stop, end in order");
   });
 
+  test("an agent started through the internal start() is recorded with route \"start()\", not a POST route", async () => {
+    t = await makeBridge();
+    const { agent } = await t.bridge.host.start({ ref: `${FEATURE}/21-hop`, role: "developer" });
+    const [spawn] = await lines(t);
+    assert.equal(spawn.event, "spawn");
+    assert.equal(spawn.agentId, agent.id);
+    assert.equal(spawn.role, "developer");
+    assert.equal(spawn.route, "start()");
+  });
+
   test("no secret reaches the file: no token, no launch code", async () => {
     t = await makeBridge();
     await t.dispatch("architect");
@@ -83,7 +93,7 @@ describe("replay on start", () => {
     assert.ok(a, "the replayed agent is in the snapshot");
     assert.equal(a.state, "terminated");
     assert.equal(a.reason, "bridge-restart-unverified");
-    assert.equal(a.resume, `claude --resume ${SESSION}`);
+    assert.equal(a.resume, t.fake.resumeCommand(SESSION), "the runtime composes the resume string for a replayed agent");
     assert.equal(a.ref, `${FEATURE}/02-ready-p0`);
     assert.equal(a.role, "architect");
     assert.equal(a.sessionId, SESSION);

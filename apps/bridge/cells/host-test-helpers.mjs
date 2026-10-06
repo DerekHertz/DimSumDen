@@ -12,6 +12,8 @@
 //   host.start({ ref, role, mode? }) -> Promise<{ ok: true, status: 201, agent } | { ok: false, status, error }>
 //       the internal entry (relay runner); never reachable from HTTP; shares the reservation and the caps
 //   routes: POST /agents, POST /agents/:id/stop (token-gated, mutating), snapshot key `agents`, change type `agent`
+//   process: CellProcess = { handle, events, closeInput(), signal(sig), exited }; runtime.resumeCommand(sessionId) -> string
+//   All of this is recorded in ADR 0016 (fourth amendment, 2026-10-05); the tests and the ADR must agree.
 import assert from "node:assert/strict";
 import http from "node:http";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -24,7 +26,7 @@ export { FEATURE, send };
 export const DISPATCH_REF = `${FEATURE}/02-ready-p0`; // the one ticket with gate "dispatch" in the fixture
 export const NO_GATE_REF = `${FEATURE}/03-blocked-dep`;
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export const AGENT_ID_RE = /^[a-z]-[0-9a-f]{16}$/;
+export const AGENT_ID_RE = /^c-[0-9a-f]{16}$/; // ADR 0016 as amended: agent ids keep the c- prefix; approval ids are a-
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export async function until(fn, { ms = 3000, every = 15, what = "condition" } = {}) {

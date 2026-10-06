@@ -60,8 +60,9 @@ describe("shutdown stops every child, even ones that ignore SIGTERM", () => {
   }
 
   test("an uncaught exception: both children are killed and the bridge still exits non-zero", { timeout: 25000 }, async () => {
-    const { result } = await run("throw", () => {});
+    const { result, err } = await run("throw", () => {});
     assert.notEqual(result.code, 0, "a crash must not be turned into a clean exit");
+    assert.match(err, /probe boom/, "the handler reports the error on stderr instead of swallowing it");
   });
 
   test("process.exit() while children are alive: the exit handler SIGKILLs them synchronously", { timeout: 25000 }, async () => {
