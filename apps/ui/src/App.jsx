@@ -87,7 +87,7 @@ export function App() {
             gl={{antialias:true}} events={sceneEvents} onPointerMissed={() => setSelected(null)}>
             <CameraRig store={camera} stage={stage} den={den} onModeChange={onExploreChange} onHint={setExploreHint} />
             <Suspense fallback={null}>
-              <RestaurantDen cells={sceneCells} frontier={frontier} tally={tally} onOpenTally={openTally}
+              <RestaurantDen snapshot={snapshot} cells={sceneCells} frontier={frontier} tally={tally} onOpenTally={openTally}
                 selected={selected} onSelect={selectTicket} stage={stage} onReady={onDenReady} />
             </Suspense>
           </Canvas>

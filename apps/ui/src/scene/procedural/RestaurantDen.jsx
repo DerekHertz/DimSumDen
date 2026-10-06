@@ -12,13 +12,14 @@ import { loadReview } from '../../review/review-data.mjs';
 import { prepareReviewLayout } from '../../review/layout.mjs';
 import { createLeisure } from '../../review/leisure.mjs';
 import { createReviewAgents } from '../../review/agents.mjs';
+import { liveActorsFromSnapshot } from '../../review/live-actors.mjs';
 import { createReviewLandscape, REVIEW_SKIES } from '../../review/landscape.mjs';
 import { createConstructionPads } from '../../review/construction-pads.mjs';
 
 // The den: PR #162's restaurant scene (site plan, stations, leisure gardens, build pads, simulated pandas)
 // mounted inside the app's canvas. The wrapping App owns the camera, the overlays and the board state.
-// Live ticket pandas, the frontier baskets and the tally still ride on the same den through the controller;
-// the review pandas own the resident roles (so the controller leaves residents alone).
+// The frontier baskets and the tally ride on the same den through the controller. Live agents show only as
+// the role pandas (agents.applyLive): the controller adds no ticket pandas and leaves residents alone.
 
 // Sample pandas from the old lab carry props; the review scene wants them bare.
 function clearSampleProps(panda) {
@@ -34,7 +35,7 @@ function savedLook() {
   return { direction: review?.direction || 'traveler', settings: review?.settings || loadPandaSettings() };
 }
 
-export function RestaurantDen({ cells, frontier, tally, selected, onSelect, onOpenTally, stage, onReady }) {
+export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, stage, onReady }) {
   const [den, setDen] = useState(null);
   const [dark, setDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
   const [look] = useState(savedLook);
@@ -64,7 +65,7 @@ export function RestaurantDen({ cells, frontier, tally, selected, onSelect, onOp
     for (const resident of leisure.residents) if (!leisure.dragon.performers.includes(resident)) resident.model.visible = false;
     const agents = createReviewAgents(d, createBao, { direction: look.direction });
     const controller = createLiveDenController(d, {
-      manageResidents: false,
+      manageResidents: false, ticketPandas: false,
       onCreate: (p) => compactPanda(THREE, p),
       onRemove: (ref) => stage.anchors.delete(ref),
     });
@@ -72,7 +73,7 @@ export function RestaurantDen({ cells, frontier, tally, selected, onSelect, onOp
     const previous = { background: scene.background, fog: scene.fog };
     scene.background = new THREE.Color(REVIEW_SKIES[sampleId]);
     scene.fog = new THREE.Fog(REVIEW_SKIES[sampleId], 70, 115);
-    live.current = { den: d, controller, media, details, leisure, agents, time: 0 };
+    live.current = { den: d, controller, media, details, leisure, agents, anchored: new Set(), time: 0 };
     setDen(d); onReady(d);
     return () => {
       onReady(null); live.current = null;
@@ -87,6 +88,19 @@ export function RestaurantDen({ cells, frontier, tally, selected, onSelect, onOp
     if (c) c.sync(cells, frontier, tally?.rods);
   }, [den, cells, frontier, tally]);
 
+  // Real agents drive the role pandas (den-layout/03). The adapter is re-run each second so a tool-call
+  // bubble fades after its TTL without waiting for a new snapshot.
+  useEffect(() => {
+    const agents = live.current?.agents;
+    if (!agents) return undefined;
+    const bind = () => agents.applyLive(liveActorsFromSnapshot(snapshot, { now: Date.now() }));
+    bind();
+    const timer = setInterval(bind, 1000);
+    return () => clearInterval(timer);
+  }, [den, snapshot]);
+
+  useEffect(() => { live.current?.agents.setSelected(selected ?? null); }, [den, selected]);
+
   useFrame((_, delta) => {
     const l = live.current; if (!l) return;
     const reduced = l.media.matches, dt = Math.min(delta, 0.1);
@@ -97,8 +111,12 @@ export function RestaurantDen({ cells, frontier, tally, selected, onSelect, onOp
     if (!reduced) l.time += dt;
     l.details.update(l.time, reduced); l.leisure.update(l.time, reduced); l.agents.update(reduced ? 0 : dt, reduced);
     l.den.world.updateMatrixWorld(true);
-    for (const [ref, { panda }] of l.controller.figures) {
-      stage.anchors.set(ref, panda.model.localToWorld(new THREE.Vector3(0, 4.45, 0)));
+    // Chips and the card hang above the role pandas, the den's only live pandas; a ref that left drops its anchor.
+    const figures = l.agents.liveFigures();
+    for (const ref of l.anchored) if (!figures.has(ref)) { stage.anchors.delete(ref); l.anchored.delete(ref); }
+    for (const [ref, { model }] of figures) {
+      stage.anchors.set(ref, model.localToWorld(new THREE.Vector3(0, 4.45, 0)));
+      l.anchored.add(ref);
     }
     for (const [ref, basket] of l.den.frontier) stage.anchors.set(ref, basket.localToWorld(new THREE.Vector3(0, 0.6, 0)));
   });

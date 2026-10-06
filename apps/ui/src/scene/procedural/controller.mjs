@@ -1,12 +1,13 @@
 import { planCells, poseFor } from './bindings.mjs';
 
 // Reconcile by ticket ref, so refreshes do not recreate skeletons or restart a panda's life.
-export function createLiveDenController(den,{onCreate=()=>{},onRemove=()=>{},manageResidents=true}={}) {
+export function createLiveDenController(den,{onCreate=()=>{},onRemove=()=>{},manageResidents=true,ticketPandas=true}={}) {
   const figures=new Map();
   let elapsed=0;
   const baseObstacles=[...den.obstacles];
   function sync(cells,frontier=[],rods=[]) {
-    const planned=planCells(cells),wanted=new Map(planned.map(c=>[c.ref,c]));
+    // ticketPandas:false leaves live agents to the role pandas (den-layout/03): no panda per held ticket.
+    const planned=ticketPandas?planCells(cells):[],wanted=new Map(planned.map(c=>[c.ref,c]));
     for(const [ref,f] of figures){
       if(!wanted.has(ref)||wanted.get(ref).cellType!==f.cell.cellType){
         onRemove(ref);den.removeTicketPanda(f.panda);figures.delete(ref);
