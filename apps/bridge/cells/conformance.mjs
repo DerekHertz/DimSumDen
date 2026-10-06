@@ -12,11 +12,11 @@
 // environment is the adapter's allowlist (decision 6.6), never a copy of this process's.
 //
 // Written for the new vocabulary (agent, role): the role is what `--agent` selects.
-import { spawn, execFile } from "node:child_process";
+import { spawn, execFile, execFileSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { randomUUID, randomBytes } from "node:crypto";
 import net from "node:net";
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, statSync, rmSync } from "node:fs";
 import { tmpdir, homedir, userInfo } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -347,17 +347,109 @@ export function evaluateS8({ init, stat, connect, probes = [], disable = [] }) {
   return result;
 }
 
+// S4b: does ending the child (stdin EOF, SIGTERM, SIGKILL) in the middle of a tool call leave the
+// tool's process running? Survivors are counts of `sleep 61` processes. When the child-only signals
+// leave survivors the adapter must signal the process group, so the group step decides group-kill;
+// survivors even after the group signals are a no-go (the tool escaped its group).
+export function evaluateS4b({ eof, term, kill, group = null, unstarted = [] }) {
+  const ev = [];
+  ev.push(`stdin EOF mid-call: child ${eof.exited ? "exited" : "did NOT exit"}, ${eof.survivors} tool process(es) left`);
+  ev.push(`SIGTERM: child ${term.exited ? `exited after ${term.exitMs} ms` : "did not exit"}, tool processes left at 2 s ${term.survivorsAt2s}, at 10 s ${term.survivorsAt10s}`);
+  ev.push(`SIGKILL: ${kill.survivors} tool process(es) left`);
+  if (unstarted.length) ev.push(`the tool call never started in: ${unstarted.join(", ")} (survivor counts there prove nothing)`);
+  if (!eof.exited) {
+    ev.push("the child did not exit on stdin EOF in the middle of a tool call: closing stdin is not a safe way to end it");
+    return { spike: "S4b", verdict: "no-go", decision: null, evidence: ev };
+  }
+  const left = eof.survivors > 0 || term.survivorsAt2s > 0 || term.survivorsAt10s > 0 || kill.survivors > 0 || !term.exited;
+  let result;
+  if (!left) {
+    ev.push("no tool process outlived any child-only signal: ending the child alone is enough");
+    result = { spike: "S4b", verdict: "go", decision: "plain" };
+  } else if (!group) {
+    ev.push("a tool process outlived a child-only signal and the group signal was not tried");
+    result = { spike: "S4b", verdict: "no-go", decision: "group-kill" };
+  } else {
+    ev.push(`process-group SIGTERM left ${group.term.survivors}, then SIGKILL left ${group.kill.survivors}`);
+    const cleared = group.kill.survivors === 0;
+    ev.push(cleared ? "a process-group signal clears the tool process: the adapter signals the group (group-kill)" : "a tool process outlived the group signals: it left its process group");
+    result = { spike: "S4b", verdict: cleared ? "go" : "no-go", decision: "group-kill" };
+  }
+  if (result.verdict === "go" && unstarted.length) result.verdict = "unconfirmed";
+  return { ...result, evidence: ev };
+}
+
+// S6b: --setting-sources project,local in a real worktree (the production shape). Go needs the
+// project-local allow to apply, the inline deny to outrank it, and no user-scope MCP server or
+// plugin to load. A "not trusted" complaint with the allow unapplied is unconfirmed, not no-go.
+export function evaluateS6b(cap, { allowedExists, deniedExists }) {
+  const ev = [];
+  const writes = toolUses(cap).filter((u) => u.name === "Write");
+  const deniedAttempt = writes.some((u) => String(u.input?.file_path ?? "").endsWith(".claude/probe.txt"));
+  ev.push(`on disk: allowed.txt ${allowedExists}, .claude/probe.txt ${deniedExists}`);
+  const init = initOf(cap);
+  const badMcp = (init?.mcp_servers ?? []).filter((s) => s.source === "user" || s.source === "claudeai");
+  const badPlugins = (init?.plugins ?? []).filter((p) => p.path !== "builtin");
+  for (const s of badMcp) ev.push(`MCP server from the owner's config loaded: ${s.name} (source ${s.source})`);
+  for (const p of badPlugins) ev.push(`plugin loaded from outside the project: ${p.name} (${p.path})`);
+  const trustBlame = /not trusted|untrusted/i.test(cap.stderr ?? "");
+  const out = (v, ...more) => {
+    ev.push(...more);
+    return { spike: "S6b", verdict: v, evidence: ev };
+  };
+  if (deniedExists) return out("no-go", "the inline --settings deny did NOT outrank the allow (or was ignored)");
+  if (!init) return out("unconfirmed", "no init line: the child did not start, so the setting sources are unchecked");
+  if (badMcp.length || badPlugins.length) return out("no-go", "--setting-sources project,local did not keep user and plugin config out");
+  if (!allowedExists) {
+    if (trustBlame) return out("unconfirmed", "stderr says the worktree workspace is not trusted, so project settings may be ignored there: trust in the worktree is unverified");
+    return out("no-go", "the project-local allow did not apply, so --settings replaced it or the rule did not match");
+  }
+  if (!deniedAttempt) return out("unconfirmed", "the model never attempted the denied write, so precedence is untested");
+  return out("go", "the project-local allow applied, the inline deny outranked it, and no user or plugin config loaded");
+}
+
+// S3b is optional and never gating: three open questions about --permission-prompt-tool stdio.
+export function evaluateS3b({ subagent, wait, omitted }, { waitMs, omittedFileExists }) {
+  const ev = [];
+  const subReqs = controlRequests(subagent);
+  const identified = subReqs.some((r) => r.parent_tool_use_id);
+  const sawTask = toolUses(subagent).some((u) => u.name === "Task" || u.name === "Agent");
+  const subagentRequest = !subReqs.length ? "absent" : identified ? "reaches-parent-identified" : "reaches-parent-unidentified";
+  ev.push(`subagent permission request: ${subagentRequest}${subReqs.length ? ` (parent_tool_use_id ${identified ? "present" : "absent"})` : ""}`);
+  const waitReq = controlRequests(wait)[0];
+  let waitBehavior = null;
+  if (waitReq) {
+    const after = wait.lines.filter((l) => l.obj && l.t >= waitReq.t && l.obj !== waitReq.obj);
+    const answered = after.some((l) => l.obj.type === "result" || (l.obj.type === "user" && Array.isArray(l.obj.message?.content) && l.obj.message.content.some((b) => b.type === "tool_result")));
+    waitBehavior = answered ? "denied" : wait.exit ? "exited" : "hung";
+    ev.push(`unanswered request, waited ${waitMs} ms: ${waitBehavior}`);
+  } else {
+    ev.push("held request: no control_request was raised, so the question stays open");
+  }
+  const omittedReq = controlRequests(omitted)[0];
+  let omittedBehavior = null;
+  if (omittedReq) {
+    omittedBehavior = omittedFileExists ? "honoured" : "rejected";
+    ev.push(`allow without updatedInput: ${omittedBehavior}`);
+  } else {
+    ev.push("updatedInput omitted: no control_request was raised, so the question stays open");
+  }
+  const open = !waitReq || !omittedReq || (subagentRequest === "absent" && !sawTask);
+  return { spike: "S3b", verdict: open ? "unconfirmed" : "go", behavior: { subagentRequest, wait: waitBehavior, updatedInputOmitted: omittedBehavior }, evidence: ev };
+}
+
 // ---- Child process harness -----------------------------------------------------------------
 
 class Child extends EventEmitter {
-  constructor({ bin, args, env, cwd }) {
+  constructor({ bin, args, env, cwd, detached = false }) {
     super();
     this.t0 = Date.now();
     this.lines = [];
     this.stderr = "";
     this.exit = null;
     this.buf = "";
-    this.proc = spawn(bin, args, { env, cwd, stdio: ["pipe", "pipe", "pipe"], shell: false });
+    this.proc = spawn(bin, args, { env, cwd, stdio: ["pipe", "pipe", "pipe"], shell: false, detached });
+    this.pid = this.proc.pid;
     this.proc.stdin.on("error", () => {});
     this.proc.stdout.setEncoding("utf8");
     this.proc.stdout.on("data", (chunk) => {
@@ -399,6 +491,14 @@ class Child extends EventEmitter {
   }
   kill(signal) {
     this.proc.kill(signal);
+  }
+  // Signals the child's whole process group (the child must have been started detached).
+  killGroup(signal) {
+    try {
+      process.kill(-this.pid, signal);
+    } catch {
+      /* the group is already gone */
+    }
   }
   // Resolves with the first line at or after index `from` that satisfies `pred`, or null on timeout or exit.
   waitFor(pred, ms, from = 0) {
@@ -489,8 +589,11 @@ function makeCtx(opts) {
     bin,
     s8DisableFlags: opts.s8DisableFlags ?? [],
     s8DisableEnv: opts.s8DisableEnv ?? {},
-    start(args, cwd, extraEnv = {}) {
-      return new Child({ bin, args, env: { ...childEnv, ...extraEnv }, cwd });
+    repo: opts.repo ?? null,
+    s3bWaitMs: opts.s3bWaitMs ?? 90_000,
+    timing: { settleMs: 1500, eofPollMs: 15_000, termCheckMs: [2000, 10_000], ...opts.timing },
+    start(args, cwd, extraEnv = {}, { detached = false } = {}) {
+      return new Child({ bin, args, env: { ...childEnv, ...extraEnv }, cwd, detached });
     },
   };
 }
@@ -774,10 +877,201 @@ async function runS8(ctx) {
   return { result: evaluateS8(input), captures };
 }
 
-// Not built yet (slice 2 of ticket organism-infra/138).
-const notBuilt = (id) => async () => {
-  throw new Error(`${id} is not implemented yet`);
-};
+// ---- S4b: no orphaned tool process after the child ends ------------------------------------
+
+const SLEEP_CMD = "sleep 61";
+
+// Pids of every running `sleep 61`, from ps (the tool call's process, a grandchild of the child).
+function sleepPids() {
+  return new Promise((resolve) => {
+    execFile("ps", ["-axo", "pid=,command="], { timeout: 10_000 }, (err, stdout) => {
+      if (err) return resolve([]);
+      const pids = [];
+      for (const line of stdout.split("\n")) {
+        const m = line.trim().match(/^(\d+)\s+(.*)$/);
+        if (m && m[2].trim() === SLEEP_CMD) pids.push(Number(m[1]));
+      }
+      resolve(pids);
+    });
+  });
+}
+
+function killPid(pid, signal = "SIGKILL") {
+  try {
+    process.kill(pid, signal);
+  } catch {
+    /* already gone */
+  }
+}
+
+async function runS4b(ctx) {
+  const baseline = new Set(await sleepPids());
+  const { settleMs, eofPollMs, termCheckMs } = ctx.timing;
+  const tools = [`Bash(${SLEEP_CMD})`];
+  const captures = {};
+  const unstarted = [];
+  const children = [];
+  const survivors = async () => (await sleepPids()).filter((p) => !baseline.has(p)).length;
+  const reap = async (child) => {
+    for (const p of await sleepPids()) if (!baseline.has(p)) killPid(p);
+    child.killGroup("SIGKILL");
+    child.kill("SIGKILL");
+  };
+  // Starts a child, asks for a long sleep and waits until the tool call is running.
+  const begin = async (name, detached = false) => {
+    const child = ctx.start(buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model, allowedTools: tools }), makeWorkdir(), {}, { detached });
+    children.push(child);
+    child.send(userMessageLine(`Run the Bash command "${SLEEP_CMD}", then reply done. Begin your reply with ${PROBE_MARKER}.`));
+    const started = await child.waitFor(isToolUse, ctx.timeoutMs);
+    if (!started) unstarted.push(name);
+    await sleep(settleMs);
+    return child;
+  };
+  try {
+    let child = await begin("eof");
+    child.endStdin();
+    const eofExited = await child.waitExit(eofPollMs);
+    await sleep(settleMs);
+    const eof = { exited: eofExited, survivors: await survivors() };
+    captures.eof = child.capture();
+    await reap(child);
+
+    child = await begin("term");
+    const signalAt = child.now();
+    child.kill("SIGTERM");
+    await sleep(termCheckMs[0]);
+    const at2 = await survivors();
+    await sleep(Math.max(0, termCheckMs[1] - termCheckMs[0]));
+    const at10 = await survivors();
+    const term = { exited: Boolean(child.exit), exitMs: child.exit ? child.exit.t - signalAt : null, survivorsAt2s: at2, survivorsAt10s: at10 };
+    captures.term = child.capture();
+    await reap(child);
+
+    child = await begin("kill");
+    child.kill("SIGKILL");
+    await sleep(settleMs);
+    const kill = { survivors: await survivors() };
+    captures.kill = child.capture();
+    await reap(child);
+
+    let group = null;
+    if (eof.survivors > 0 || at2 > 0 || at10 > 0 || kill.survivors > 0 || !term.exited) {
+      child = await begin("group", true);
+      child.killGroup("SIGTERM");
+      await sleep(termCheckMs[0]);
+      const termLeft = await survivors();
+      child.killGroup("SIGKILL");
+      await sleep(settleMs);
+      group = { term: { survivors: termLeft }, kill: { survivors: await survivors() } };
+      captures.group = child.capture();
+      await reap(child);
+    }
+    return { result: evaluateS4b({ eof, term, kill, group, unstarted }), captures };
+  } finally {
+    // Whatever happened, no sleep 61 and no child may outlive the spike.
+    for (const p of await sleepPids()) if (!baseline.has(p)) killPid(p);
+    for (const c of children) {
+      c.killGroup("SIGKILL");
+      c.kill("SIGKILL");
+    }
+  }
+}
+
+// ---- S6b: setting sources in a real worktree -------------------------------------------------
+
+async function runS6b(ctx) {
+  const notRun = (why) => ({ result: { spike: "S6b", verdict: "unconfirmed", evidence: [why] }, captures: {} });
+  if (!ctx.repo) return notRun("no --repo given: S6b needs the path of a git repository to add a throwaway worktree to");
+  const gitIn = (...a) => execFileSync("git", ["-C", ctx.repo, ...a], { stdio: "pipe", encoding: "utf8" });
+  try {
+    gitIn("rev-parse", "--git-dir");
+  } catch (e) {
+    return notRun(`--repo ${ctx.repo} is not a git repository: ${String(e.stderr ?? e.message).trim().slice(0, 200)}`);
+  }
+  const wt = path.join(ctx.repo, ".claude", "worktrees", `s6b-${randomBytes(4).toString("hex")}`);
+  try {
+    try {
+      gitIn("worktree", "add", "--detach", wt, "HEAD");
+    } catch (e) {
+      return notRun(`git worktree add failed: ${String(e.stderr ?? e.message).trim().slice(0, 200)}`);
+    }
+    mkdirSync(path.join(wt, ".claude", "agents"), { recursive: true });
+    writeFileSync(path.join(wt, ".claude", "agents", "probe.md"), PROBE_ROLE);
+    writeFileSync(path.join(wt, ".claude", "settings.local.json"), JSON.stringify({ permissions: { allow: ["Write(allowed.txt)", "Write(.claude/**)"] } }));
+    const args = buildArgs({
+      sessionId: randomUUID(),
+      agent: "probe",
+      model: ctx.model,
+      settings: JSON.stringify({ permissions: { deny: ["Write(.claude/**)"] } }),
+      extraArgs: ["--setting-sources", "project,local", "--strict-mcp-config"],
+    });
+    const child = ctx.start(args, wt);
+    await runTurn(child, `Use the Write tool to create allowed.txt containing "ok", then use the Write tool to create .claude/probe.txt containing "ok". Report what happened. Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs);
+    await finish(child);
+    const capture = child.capture();
+    const result = evaluateS6b(capture, { allowedExists: existsSync(path.join(wt, "allowed.txt")), deniedExists: existsSync(path.join(wt, ".claude", "probe.txt")) });
+    return { result, captures: { main: capture } };
+  } finally {
+    try {
+      gitIn("worktree", "remove", "--force", wt);
+    } catch {
+      rmSync(wt, { recursive: true, force: true });
+    }
+    try {
+      gitIn("worktree", "prune");
+    } catch {
+      /* best effort */
+    }
+  }
+}
+
+// ---- S3b: subagent request, held request, updatedInput omitted -------------------------------
+
+// An allow with no updatedInput key at all (controlResponseLine always adds one).
+const allowWithoutInputLine = (requestId) =>
+  JSON.stringify({ type: "control_response", response: { subtype: "success", request_id: requestId, response: { behavior: "allow" } } }) + "\n";
+
+async function runS3b(ctx) {
+  const stdioArgs = () => buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model, permissionPromptTool: "stdio" });
+  // Answers every control_request with `reply(request)`; returns the stop function.
+  const answerWith = (child, reply) => {
+    let seen = 0;
+    child.on("activity", () => {
+      for (; seen < child.lines.length; seen += 1) {
+        const o = child.lines[seen].obj;
+        if (o && isControlRequest(o)) child.send(reply(o));
+      }
+    });
+  };
+  const writeAsk = (file, body) => `Use the Write tool to create the file ${file} with exactly this content: ${body}. Do nothing else. Begin your reply with ${PROBE_MARKER}.`;
+
+  const subDir = makeWorkdir();
+  const sub = ctx.start(stdioArgs(), subDir);
+  answerWith(sub, (o) => controlResponseLine(o.request_id, "allow", o.request?.input));
+  await runTurn(sub, `Use the Task tool to start a subagent. The subagent must use the Write tool to create the file ${path.join(subDir, "s3b-sub.txt")} with exactly this content: SUBAGENT-BODY. Reply done when it finishes. Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs);
+  await finish(sub);
+
+  const waitDir = makeWorkdir();
+  const held = ctx.start(stdioArgs(), waitDir);
+  held.send(userMessageLine(writeAsk(path.join(waitDir, "s3b-wait.txt"), "WAIT-BODY")));
+  const requested = await held.waitFor(isControlRequest, ctx.timeoutMs);
+  if (requested) await held.waitFor((o) => isResult(o) || isToolResultLine(o), ctx.s3bWaitMs, held.lines.indexOf(requested) + 1);
+  const wait = held.capture();
+  held.endStdin();
+  held.kill("SIGKILL");
+
+  const omitDir = makeWorkdir();
+  const omitFile = path.join(omitDir, "s3b-omitted.txt");
+  const omit = ctx.start(stdioArgs(), omitDir);
+  answerWith(omit, (o) => allowWithoutInputLine(o.request_id));
+  await runTurn(omit, writeAsk(omitFile, "OMIT-BODY"), ctx.timeoutMs);
+  await finish(omit);
+
+  const captures = { subagent: sub.capture(), wait, omitted: omit.capture() };
+  return { result: evaluateS3b(captures, { waitMs: ctx.s3bWaitMs, omittedFileExists: existsSync(omitFile) }), captures };
+}
+
+const isToolResultLine = (o) => o.type === "user" && Array.isArray(o.message?.content) && o.message.content.some((b) => b.type === "tool_result");
 
 // turns: user turns the spike sends (each is a few API calls on a cheap model).
 export const SPIKES = {
@@ -789,9 +1083,9 @@ export const SPIKES = {
   S6: { title: "--settings merge and deny precedence over a project allow", turns: 1, run: runS6 },
   S7: { title: "a user message written mid-turn: queued, merged, dropped or interrupting", turns: 1, run: runS7 },
   S8: { title: "the child's messaging socket: no second way to answer a permission request (outcomes a to d)", turns: 3, run: runS8 },
-  S4b: { title: "SIGTERM, stdin EOF and process-group kill leave no orphaned tool process", turns: 2, run: notBuilt("S4b") },
-  S6b: { title: "--setting-sources project,local in a worktree: allow applies, user and plugin config does not", turns: 1, run: notBuilt("S6b") },
-  S3b: { title: "a subagent permission request reaches the parent; a held request; updatedInput omitted", turns: 3, run: notBuilt("S3b") },
+  S4b: { title: "SIGTERM, stdin EOF and process-group kill leave no orphaned tool process", turns: 2, run: runS4b },
+  S6b: { title: "--setting-sources project,local in a worktree: allow applies, user and plugin config does not", turns: 1, run: runS6b },
+  S3b: { title: "a subagent permission request reaches the parent; a held request; updatedInput omitted", turns: 3, run: runS3b },
 };
 
 // ---- Runner and CLI ------------------------------------------------------------------------
