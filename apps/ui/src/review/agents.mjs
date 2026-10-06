@@ -217,8 +217,22 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
     a.gear.dispose();gears.splice(gears.indexOf(a.gear),1);
     a.panda.model.removeFromParent();a.panda.model.traverse(o=>o.geometry?.dispose());a.panda.dispose();owned.splice(owned.indexOf(a.panda),1);
   }
+  // The role panda is the den's only live representation of its agent: it carries the ticket ref (a click on any
+  // part resolves to it), glows when that ticket is selected, and is what the chips anchor to.
+  let selectedRef=null;
+  function glow(a,on){
+    const m=a.panda.materials?.cream;if(!m)return;
+    m.emissive?.set(on?'#08676b':'#000000');m.emissiveIntensity=on?0.12:0;
+  }
+  function setSelected(ref=null){selectedRef=ref;for(const a of actors.values())glow(a,!!a.live&&a.live.ref===ref);}
+  function liveFigures(){
+    const out=new Map();
+    for(const a of actors.values())if(a.live)out.set(a.live.ref,{model:a.panda.model,panda:a.panda});
+    return out;
+  }
   function syncLive(a){
     const l=a.live;a.task=l.task;a.bubble=l.bubble;a.reply='';
+    a.panda.model.userData.ticketRef=l.ref;glow(a,l.ref===selectedRef);
     if(a.state==='walking')return;
     a.state=l.state;a.activity=l.activity;
     if(!a.stationary&&a.age>=3&&distance([a.panda.model.position.x,a.panda.model.position.z],a.home)>0.9){a.age=0;route(a,'station',a.home,'working');}
@@ -229,6 +243,7 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
     syncLive(a);
   }
   function unbind(a){
+    delete a.panda.model.userData.ticketRef;glow(a,false);
     a.live=null;a.state='leisure';a.activity=a.stationary?'Hosting the den':'Getting ready for a break';a.task='';a.reply='';a.bubble='';a.answered=false;a.age=0;
     if(a.stationary)return;
     for(const id of [a.favorite,...Object.keys(PLACES).filter(id=>id!==a.favorite)]){
@@ -260,5 +275,5 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
     for(const a of actors.values())if(!owned.includes(a.panda))den.world.attach(a.panda.model);
     root.removeFromParent();
   }
-  emit();return {root,actors,obstacles,snapshot,update,wave,talk,sendTask,answer,resume,comeHere,gather,applyLive,dispose};
+  emit();return {root,actors,obstacles,snapshot,update,wave,talk,sendTask,answer,resume,comeHere,gather,applyLive,liveFigures,setSelected,dispose};
 }
