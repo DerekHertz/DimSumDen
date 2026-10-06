@@ -104,8 +104,8 @@ describe("dispatch: a fake-runtime agent starts, streams events, and is killed (
     assert.deepEqual(snap.agents.find((x) => x.id === a.id)?.ref, DISPATCH_REF);
   });
 
-  test("every role of the first slice dispatches: orchestrator, architect, product, designer, scout", async () => {
-    for (const role of ["orchestrator", "architect", "product", "designer", "scout"]) {
+  test("every role of the first slice dispatches: orchestrator, architect, product, designer, scout, herald", async () => {
+    for (const role of ["orchestrator", "architect", "product", "designer", "scout", "herald"]) {
       t = await makeBridge();
       const res = await t.dispatch(role);
       assert.equal(res.status, 201, `${role}: ${res.text}`);
@@ -447,11 +447,12 @@ describe("dispatch policy: refusals write nothing and start nothing", () => {
     assert.equal((await t.dispatch("scout")).body.agent.mode, null);
   });
 
-  test("herald is a known role the first slice does not dispatch: 409, nothing spawned (fail closed)", async () => {
+  test("herald dispatches from the route like the other non-relay roles (user, 2026-10-06)", async () => {
     t = await makeBridge();
     const res = await t.dispatch("herald");
-    await refused(res, 409, "herald");
-    assert.doesNotMatch(res.body.error, /orchestrator/i, "the relay-hop wording is for developer, qa and security only");
+    assert.equal(res.status, 201, res.text);
+    assert.equal(res.body.agent.role, "herald");
+    assert.equal(t.fake.spawns.length, 1);
   });
 
   test("a ref that is not on the board is 404; a ticket without a dispatch gate is 409", async () => {
