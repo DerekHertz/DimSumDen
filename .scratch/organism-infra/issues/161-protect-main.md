@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Serves:** 158 security finding (medium): the repo is public and `main` is unprotected (branch-protection API 404). User ask, 2026-10-06: "let's get the main branch protected too".
 
@@ -29,3 +29,5 @@ Changing branch protection is a gate: security prepares the exact `gh api` comma
 ## Comments
 
 - **orchestrator, 2026-10-06:** Filed on the user's ask; shape chosen: PRs + green CI, admin bypass (user, 2026-10-06).
+- **security, 2026-10-06:** Security pass: docs-only branch, gitleaks clean, tests green. Protection NOT applied (gate): user runs the gh api command in handoffs/161-protect-main-security.md. Residual (low): admin bypass allows owner direct and force push, as the ticket intends.
+- **security, 2026-10-06:** Docs committed; waiting on the user to run the branch-protection gh api command (gate)

@@ -26,3 +26,4 @@ No designer spec or review (user, 2026-10-06).
 ## Comments
 
 - **orchestrator, 2026-10-06:** Published from the approved breakdown (user, 2026-10-06). No designer on this ticket (user override). Can run alongside 03 if their files don't overlap.
+- **orchestrator, 2026-10-06:** From 02 scope (user, 2026-10-06): 02 drops the smoke:ui 'walk: Enter the den' check; 04 re-adds it against the new den.
