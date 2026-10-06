@@ -6,7 +6,7 @@
 
 **Blocked by:** 139
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** Den loop steps 3-4: the bridge dispatches, tracks and stops agents.
 
@@ -25,3 +25,4 @@ Scope source: ADR 0016 (as amended in PR #157) and the split table in `.scratch/
 - [ ] `sessions.jsonl` and its dir have modes 0600/0700; replay validates entries.
 
 ## Comments
+- **orchestrator, 2026-10-06:** User 2026-10-06: herald SHOULD be dispatchable from the UI ("interact with every agent"). Before the developer starts: flip the herald 409 to allowed on tests/140-steering-host-core (one line + one test, per 140-architect handoff) and amend ADR 0016 decision 3 to match. The architect wrongly released 140 as in-review; reset it to ready-for-agent before the developer claim. Tests head: c2d959c (not pushed). Follow-ups filed as 153 (audit line, worktree per agent, prompt template) and 154 (UI dispatch beyond one agent).
