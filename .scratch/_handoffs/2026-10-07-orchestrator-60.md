@@ -15,8 +15,8 @@ State, not rules; the genome wins.
 
 ## Owed
 - D2 ticket: add security finding 3 (bound shutdown's wait on pending spawns, fall back to killAllSync) as an acceptance criterion. Optional follow-up for host.mjs lows 1, 2 and 4.
-- ADR 0016: the user asked what it is. The fourth and herald amendments are merged; the REF_RE `\d{2,}` text fix to the ADR is still owed once the user confirms.
+- ADR 0016: the user asked what it is. The fourth and herald amendments are merged; the user said ok (2026-10-07) to fixing the REF_RE text in the ADR to `\d{2,}`; dispatch architect for that one-line edit.
 - 162 live check: confirm that a cell's PreToolUse hook input carries `agent_id` and the parent `session_id`. No user action needed beyond the next session doing it.
 - Security genome: the gitleaks path `~/.local/bin` is stale on the MacBook (/opt/homebrew/bin). A gated `.claude/` edit.
-- worktree-gc dry run shown to the user; waiting on their yes to apply.
+- worktree-gc applied with the user's yes.
 - Usage at handoff: 5-hour about 80%, weekly 38%.
