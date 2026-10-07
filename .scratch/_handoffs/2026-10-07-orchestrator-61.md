@@ -13,7 +13,7 @@ User, 2026-10-07: keep it a draft. Don't dispatch security on it, don't mark it 
 
 ## Next
 1. Batch D: dispatch the developer to claim 126 and 177, check `10ccc9a` against both tickets and the scope note (are the board CLI short-ref tests there?), finish anything missing, and write the handoffs. Then qa verify (qa specified, so light), risk-check, PR, merge on green per the relay.
-2. Then, in order from handoff 60: 127; batch 169/170/171; 135 (floating-cards flake); 156 (the gated genome/protocol edit). Then the retro's new tickets: 178, 179, 180.
+2. Then 181 (new, P2: `board audit` flags pushed work with no board trace; filed 2026-10-07 after this batch D gap). Then, in order from handoff 60: 127; batch 169/170/171; 135 (floating-cards flake); 156 (the gated genome/protocol edit). Then the retro's new tickets: 178, 179, 180.
 
 ## Owed (carried from handoff 60)
 - 143 (D2): add security finding 3 from PR #177 as an acceptance criterion: bound shutdown's wait on pending spawns, fall back to killAllSync. host.mjs lows 1, 2 and 4 are optional follow-ups.
