@@ -6,7 +6,7 @@
 
 **Blocked by:** 01, 03, den-layout/03, den-layout/04
 
-**Status:** claimed
+**Status:** in-review
 
 **Serves:** Den loop step 3 (walk up to a panda and get its card).
 
@@ -30,3 +30,8 @@ A new pure module `cardFor(scenePandas, approvals, viewer) -> Card | null` in `a
 - **orchestrator, 2026-10-03:** Parked: User 2026-10-03: paused; D1 fix round covers 01, 03 and zoom only. Get the updated UI wired first. PandaCard.jsx click dialog stays as-is on #151 for now.
 - **orchestrator, 2026-10-06:** Now blocked by den-layout (approved breakdown, user 2026-10-06): builds on PR #162's scene once real agents drive it.
 - **orchestrator, 2026-10-07:** Unparked: User approved building the read-only proximity card in this Codex session; scene dependencies are resolved.
+- **developer, 2026-10-07:** User visual check: card looks good. Scope added: free the cursor while staying in first person so existing cards can be clicked; add Tab cursor release and a Look around control to resume mouse look.
+- **qa, 2026-10-07:** QA bounce at 72bc7c5: browser acceptance 1/1 and all four placement geometries pass, but at 375x667 coarse pointer the expanded Stations header intercepts Needs-you header clicks (30s timeout); inspect den.css:38 capped rail shrinkage. Full-suite final HEAD remains pending CI. See 04-qa-proximity-placement.md.
+- **qa, 2026-10-07:** QA focused pass at 0f891dc: real phone queue->Needs-you->queue clicks and scroll access pass; headers and proximity/rail/pad/entry are disjoint; desktop placement and pointer-lock recapture pass. Prior 43/43 focused and 11/11 smoke retained; no full rerun. Final HEAD CI, security and user visual review pending. See 04-qa-proximity-rail.md.
+- **orchestrator, 2026-10-07:** Final frontend fix 0f891dc: QA and standards pass for phone rail scrolling and real queue/Needs-you clicks. PR #178 remains draft pending security review, final-head CI and user visual feedback. Latest design discussion is exploratory; no additional ticket is unparked.
+- **orchestrator, 2026-10-07:** Paused by user for usage limit. Code pushed at0f891dc; PR #178 remains draft. Resume from04-security-proximity-paused.md and04-qa-proximity-rail.md. Security review unfinished, final CI and user visual feedback pending; interrupted claim released. No merge.
