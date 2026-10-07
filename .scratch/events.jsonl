@@ -2036,3 +2036,5 @@
 {"seq":1387,"ts":"2026-10-07T20:50:26.508Z","feature":"organism-infra","ticket":"126-relay-scripts-resolve-like-board","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
 {"seq":1388,"ts":"2026-10-07T20:50:26.522Z","feature":"organism-infra","ticket":"177-log-cell-scout-no-handoff","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":1389,"ts":"2026-10-07T20:50:26.539Z","feature":"organism-infra","ticket":"177-log-cell-scout-no-handoff","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":1390,"ts":"2026-10-07T20:54:40.246Z","feature":"organism-infra","ticket":"183-ci-playwright-install-hang","cell":"developer","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":1391,"ts":"2026-10-07T20:58:32.891Z","feature":"organism-infra","ticket":"183-ci-playwright-install-hang","cell":"developer","op":"release","from_status":"claimed","to_status":"in-review","force":false}

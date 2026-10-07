@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** Every merge on the north-star path. A hung install blocks the merge gate for 15 minutes per attempt.
 
