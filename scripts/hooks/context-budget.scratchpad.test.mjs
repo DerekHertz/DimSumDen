@@ -27,7 +27,7 @@ function fixture(tokens) {
 function write(f, tool, filePath, sessionId = SESSION) {
   const env = { ...process.env, HOME: f.home };
   delete env.CLAUDE_CODE_SESSION_ID;
-  const input = { session_id: sessionId, cwd: f.wt, tool_name: tool, tool_input: { file_path: filePath, content: "x", old_string: "a", new_string: "b" }, agent_id: "agent-a", agent_type: "developer" };
+  const input = { session_id: sessionId, cwd: f.wt, tool_name: tool, tool_input: { file_path: filePath, content: "x", old_string: "a", new_string: "b" }, agent_id: "agent-a", agent_type: "security" };
   return spawnSync("node", [SCRIPT], { cwd: f.wt, env, input: JSON.stringify(input), encoding: "utf8", timeout: 15000 });
 }
 
