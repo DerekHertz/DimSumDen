@@ -2002,3 +2002,7 @@
 {"kind":"usage","ts":"2026-10-07T21:20:35Z","five_hour":21,"weekly":42,"event":"dispatch","ticket":"organism-infra/183","cell":"security"}
 {"kind":"context","ts":"2026-10-07T21:20:35Z","session":"27195b9f","context_tokens":69487,"percent":6.95,"event":"dispatch"}
 {"kind":"cell","ts":"2026-10-07T21:21:49.057Z","ticket":"organism-infra/183-ci-playwright-install-hang","cell":"security","tokens":29383,"ms":65324,"outcome":"pass; actions/cache SHA confirmed v6.1.0; 2 low findings","context":27684}
+{"kind":"resolved","ts":"2026-10-07T21:26:26.215Z","ticket":"organism-infra/183-ci-playwright-install-hang","pr":180,"bounces":0}
+{"kind":"usage","ts":"2026-10-07T21:26:26Z","five_hour":26,"weekly":43,"event":"merge","ticket":"organism-infra/183","cell":"orchestrator"}
+{"kind":"context","ts":"2026-10-07T21:26:26Z","session":"27195b9f","context_tokens":84089,"percent":8.41,"event":"merge"}
+{"kind":"jev-advisory-outcome","ts":"2026-10-07T21:26:26.267Z","ticket":"organism-infra/183-ci-playwright-install-hang","orchestratorPick":"developer-direct","jevPick":"qa-specify","userChoice":"developer-direct","bounced":false}
