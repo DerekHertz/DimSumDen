@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** Relay with `max_concurrent_cells: 2`. On 2026-10-06, the 166 qa light verify and batch C's developer scout ran full `npm test` suites at the same time. The overlapping runs had 46 and 74 failures, mostly Playwright navigation timeouts and `smoke:ui` timeouts, while the same branch passed 2185 tests when it ran alone. The flaky failures caused a false qa bounce and a scout run that hit its timeout (user decision: file the ticket, 2026-10-06).
 
