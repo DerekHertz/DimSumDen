@@ -55,3 +55,5 @@ Evidence on hand (`usage.jsonl`, handoffs of 26, 28, 34, 53): qa specify reached
 - The `usage.jsonl` kinds list in the orchestrator genome gains `kind:"jg"`; that line changes only with the user's permission.
 - `CONTEXT.md` gets no new terms yet. If adopted, **start-here context** may be worth defining.
 - Open: whether jg's index cache under local state persists across cloud sessions; whether the relay should refresh the file when the developer's base moves off main.
+
+**Amendment 1 (2026-10-07, organism-infra/136, the user's go-live terms):** decision 3's "Which cells" bullet is replaced. The start-here context file goes to every hop that starts cold: architect, qa `specify`, developer, and also full qa `verify`, `security` and `scout`. The evidence behind the old exclusion (0 of 6 `jg` uses at verify and security) predates the trial. Decision 4 hardens from "may" to a rule: `scout` calls `jg` before grepping, and falls back to `rg` as today. The orchestrator role file's step 0 and `scripts/dispatch-prompt.mjs` change with it; the role-file text is gated `.claude/` work, written as exact text in ticket 136. See ADR 0015 Amendment 2.
