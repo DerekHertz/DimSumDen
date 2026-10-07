@@ -2018,3 +2018,13 @@
 {"kind":"usage","ts":"2026-10-07T21:36:10Z","five_hour":31,"weekly":44,"event":"dispatch","ticket":"organism-infra/136-jev-go-live-amendment","cell":"architect"}
 {"kind":"context","ts":"2026-10-07T21:36:10Z","session":"02771d2b-99c4-444a-b629-28af49c9f77c","context_tokens":50531,"percent":5.05,"event":"dispatch"}
 {"kind":"jg","ts":"2026-10-07T21:36:10.924Z","ticket":"organism-infra/136-jev-go-live-amendment","bytes":0,"files":0,"ms":1,"skipped":"non-code type (design-question)","fallback":null}
+{"kind":"cell","ts":"2026-10-07T21:41:00.754Z","ticket":"organism-infra/136-jev-go-live-amendment","cell":"architect","tokens":78776,"ms":276991,"outcome":"partial: ADR 0010/0015/0014 amendments, ledger, CONTEXT terms done; gated text for orchestrator.md, scout.md, CLAUDE.md left","context":77000}
+{"kind":"usage","ts":"2026-10-07T21:41:07Z","five_hour":35,"weekly":44,"event":"dispatch","ticket":"organism-infra/136-jev-go-live-amendment","cell":"architect"}
+{"kind":"context","ts":"2026-10-07T21:41:07Z","session":"02771d2b-99c4-444a-b629-28af49c9f77c","context_tokens":56713,"percent":5.67,"event":"dispatch"}
+{"kind":"jg","ts":"2026-10-07T21:41:07.644Z","ticket":"organism-infra/136-jev-go-live-amendment","bytes":0,"files":0,"ms":0,"skipped":"non-code type (design-question)","fallback":null}
+{"kind":"cell","ts":"2026-10-07T21:48:30.120Z","ticket":"organism-infra/136-jev-go-live-amendment","cell":"architect","tokens":97377,"ms":420497,"outcome":"pass: gated wording pairs posted to ticket; architect work complete"}
+{"kind":"incident","ts":"2026-10-07T21:48:30.140Z","ticket":"organism-infra/136-jev-go-live-amendment","cell":"architect","tool":"other","what":"second architect round this session ended without a SubagentHandback report (hook refusal / not called); handoff file carried state","cost":"orchestrator had to read board state to reconstruct the return","fix":"raise with user as environment issue","rule_change":null}
+{"kind":"resolved","ts":"2026-10-07T21:52:12.652Z","ticket":"organism-infra/136-jev-go-live-amendment","pr":181,"bounces":0}
+{"kind":"jev-advisory-outcome","ts":"2026-10-07T21:52:16.984Z","ticket":"organism-infra/136-jev-go-live-amendment","orchestratorPick":"architect","jevPick":"architect","userChoice":"architect","bounced":false}
+{"kind":"usage","ts":"2026-10-07T21:52:17Z","five_hour":39,"weekly":45,"event":"merge","ticket":"organism-infra/136-jev-go-live-amendment","cell":"orchestrator"}
+{"kind":"context","ts":"2026-10-07T21:52:17Z","session":"02771d2b-99c4-444a-b629-28af49c9f77c","context_tokens":65218,"percent":6.52,"event":"merge"}
