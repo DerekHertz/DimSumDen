@@ -16,7 +16,6 @@ test("page title and header read Dim Sum Den", () => {
 test("Long Cang is self-hosted (showcase-v1/08): local woff2 @font-face, OFL beside it, no Google Fonts host anywhere", () => {
   assert.doesNotMatch(html, /fonts\.(googleapis|gstatic)\.com|family=/);
   assert.doesNotMatch(css, /fonts\.(googleapis|gstatic)\.com/);
-  assert.doesNotMatch(read("./scene/TallyFace.jsx"), /fonts\.(googleapis|gstatic)\.com/);
   const face = css.match(/@font-face\s*\{[^}]*Long Cang[^}]*\}/)?.[0] ?? "";
   const url = face.match(/url\(["']?(\.\/fonts\/[^"')]+\.woff2)["']?\)/)?.[1];
   assert.ok(url, "@font-face for Long Cang points at a local woff2");
@@ -54,18 +53,6 @@ test("station labels are non-interactive anchors with no visible pill", () => {
   assert.doesNotMatch(rule, /background/);
   assert.match(rule, /pointer-events:\s*none/);
   assert.match(css, /--rice-paper:\s*#[0-9a-fA-F]{6}/);
-});
-
-test("the back-stall platforms are station-neutral stone, not panda ink", () => {
-  const market = read("./scene/Market.jsx");
-  const platform = market.match(/platform > 0 \? \(([\s\S]*?)\) : null/)[1];
-  assert.match(platform, /color=\{STONE\}/);
-  assert.doesNotMatch(platform, /INK/);
-  assert.match(market, /const STONE = "#[0-9a-f]{6}"/);
-});
-
-test("the tally face canvas draws its heading in the display font", () => {
-  assert.match(read("./scene/TallyFace.jsx"), /Long Cang/);
 });
 
 test("station labels are rendered by the chip layer from the pure model, anchored per stall", () => {

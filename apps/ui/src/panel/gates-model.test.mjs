@@ -140,6 +140,34 @@ test("409 reports 'already pending' and is not retryable", async () => {
   assert.equal(r.retryable, false);
 });
 
+// organism-infra/139: the fetch handed to submitGate is the session's (it adds the Bearer token). A 401 or 403 means
+// the session is gone or the gate refused it; pressing the button again cannot help, so it is not retryable.
+test("401 reports the lost session in one line and is not retryable (organism-infra/139)", async () => {
+  const f = fakeFetch(() => json(401, { error: "unauthorized" }));
+  const r = await submitGate({ fetch: f, ref: "fx/01-a", kind: "merge-approve" });
+  assert.equal(r.ok, false);
+  assert.equal(r.status, 401);
+  assert.match(r.message, /^Couldn't send: /);
+  assert.match(r.message, /401/);
+  assert.doesNotMatch(r.message, /[\r\n]/);
+  assert.equal(r.retryable, false);
+  assert.equal(f.calls.length, 1, "no automatic retry");
+});
+
+test("403 (the gate refused the Origin) is not retryable either", async () => {
+  const r = await submitGate({ fetch: fakeFetch(() => json(403, { error: "foreign origin" })), ref: "fx/01-a", kind: "merge-approve" });
+  assert.equal(r.status, 403);
+  assert.match(r.message, /^Couldn't send: /);
+  assert.equal(r.retryable, false);
+});
+
+test("submitGate never adds a credential itself: the caller's fetch carries the token, not the payload", async () => {
+  const f = fakeFetch(() => json(201));
+  await submitGate({ fetch: f, ref: "fx/01-a", kind: "merge-approve", note: "ok" });
+  assert.deepEqual(Object.keys(JSON.parse(f.calls[0].init.body)).sort(), ["kind", "note", "ref"]);
+  assert.equal(f.calls[0].url, "/requests", "no token in the url");
+});
+
 test("other 4xx errors are retryable and carry the status", async () => {
   const f = fakeFetch(() => json(404, { error: "no such ticket" }));
   const r = await submitGate({ fetch: f, ref: "fx/01-a", kind: "merge-approve" });

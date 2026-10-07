@@ -24,6 +24,8 @@
    - *Applying a pick.* `effective = max(minimum, pick)` under the order haiku < sonnet < opus. `other`, low confidence, or any failure gives `effective = fallback default`. In `shadow` mode `effective` is always the fallback default and `applied` is false; the pick is only logged. The default of `--mode` in the script is `shadow`, so going live is a reviewed code diff.
    - *Confidence.* Jev's distribution is recorded as `conf` (probability of the pick). No threshold is applied in shadow mode; live thresholds are set from the bands that matched in shadow (Jev rule: shadow first).
 
+   - *Amendment (organism-infra/160, 2026-10-06):* for `verify`, the shadow and fallback baseline is today's relay rule: `light` when qa ran `specify` for the ticket, `full` otherwise. So shadow `effective` reports `light` after qa specify. `tier` is unchanged.
+
 4. **Fallback: the organism never blocks on Jev.** The fallback is exactly today's behavior: the cell's genome model (the minimum tier below) and full qa verify. It triggers on: no `TYPESAFE_API_KEY`, network error, non-2xx, a 10 s timeout, unparseable answer, an input that matches a secret pattern from `scripts/risk-check.mjs` (`blocked-input`), or the daily cap. The row records the reason in `fallback`; the script prints it and still exits 0.
 
 5. **Shadow-log row**, appended by `jev.mjs` to `.scratch/usage.jsonl`, one per call (including fallbacks):

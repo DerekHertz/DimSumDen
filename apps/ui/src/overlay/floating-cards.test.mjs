@@ -92,7 +92,14 @@ function fixture() {
 }
 const quietSnapshot = () => ({ schema: 1, seq: 1, tickets: [], frontier: [], usage: null, requests: [] });
 
-async function openApp({ snapshot = fixture(), viewport = DESKTOP, hasTouch = false, isMobile = false } = {}) {
+// organism-infra/139: the bridge now gates POST /requests behind a session. The stub plays the bridge's side:
+// POST /session redeems LAUNCH_CODE for SESSION_TOKEN, and POST /requests answers 401 unless the request carries
+// `Authorization: Bearer <SESSION_TOKEN>`, so every existing Approve/Deny test below also proves the Bearer is sent.
+// `code: null` opens the page with no fragment (a reload, or a used-up link); `sessionStatus` makes /session refuse.
+const LAUNCH_CODE = "test-launch-code";
+const SESSION_TOKEN = "tok-ui-session-0123456789abcdef0123456789abcdef";
+
+async function openApp({ snapshot = fixture(), viewport = DESKTOP, hasTouch = false, isMobile = false, code = LAUNCH_CODE, sessionStatus = 200 } = {}) {
   // isMobile gives a coarse pointer, which the 44px touch-target rules key on.
   const context = await browser.newContext({ viewport, reducedMotion: "reduce", hasTouch: hasTouch || isMobile, isMobile });
   // organism-infra/94: software GL rasterising the scene starves Playwright clicks (test 18 clicks 80 times); see
@@ -101,6 +108,8 @@ async function openApp({ snapshot = fixture(), viewport = DESKTOP, hasTouch = fa
   const page = await context.newPage();
   const errors = [];
   const posts = [];
+  const sessions = []; // POST /session bodies
+  const unauth = []; // POST /requests that arrived without the right Bearer
   page.on("pageerror", (e) => errors.push(e.message));
   await page.addInitScript((snap) => {
     class FakeEventSource {
@@ -118,15 +127,24 @@ async function openApp({ snapshot = fixture(), viewport = DESKTOP, hasTouch = fa
   }, snapshot);
   await page.route((url) => url.pathname === "/state", (r) => r.fulfill({ json: snapshot }));
   await page.route((url) => url.pathname === "/metrics", (r) => r.fulfill({ json: { throughput: { windows: [] }, tokensByCell: {}, incidentsByTool: {} } }));
+  await page.route((url) => url.pathname === "/session", (r) => {
+    const req = r.request();
+    sessions.push({ ...JSON.parse(req.postData() ?? "{}"), method: req.method(), contentType: req.headers()["content-type"], authorization: req.headers().authorization });
+    return sessionStatus === 200 ? r.fulfill({ status: 200, json: { token: SESSION_TOKEN } }) : r.fulfill({ status: sessionStatus, json: { error: "refused" } });
+  });
   await page.route((url) => url.pathname === "/requests", (r) => {
     const req = r.request();
     if (req.method() === "POST") {
+      if (req.headers().authorization !== `Bearer ${SESSION_TOKEN}`) {
+        unauth.push(req.headers().authorization ?? null);
+        return r.fulfill({ status: 401, json: { error: "unauthorized" } });
+      }
       posts.push(JSON.parse(req.postData() ?? "{}"));
       return r.fulfill({ status: 202, json: {} });
     }
     return r.fulfill({ json: [] });
   });
-  await page.goto(base);
+  await page.goto(code === null ? base : `${base}#code=${code}`);
   // The app is up once the Tally pill (ticket 05) is on screen; the overlays may not exist yet, and then
   // the tests below fail on their own assertions rather than in setup.
   await page.locator("button.chip-tally").waitFor({ state: "visible", timeout: 30000 });
@@ -136,7 +154,8 @@ async function openApp({ snapshot = fixture(), viewport = DESKTOP, hasTouch = fa
   // delays the failure of a test that is really broken; no test here asserts on a timeout elapsing.
   page.setDefaultTimeout(20000);
   return {
-    page, context, errors, posts,
+    page, context, errors, posts, sessions, unauth,
+    noSession: page.locator('[data-session="none"]'),
     logo: page.locator('[data-overlay="logo"]'),
     needs: page.locator('[data-overlay="needs-you"]'),
     stations: page.locator('[data-overlay="stations"]'),
@@ -301,6 +320,10 @@ test("Ctrl+Enter in the Note sends Deny with that note; Cmd+Enter does too; plai
   await expectPost(posts, { kind: "merge-reject", ref: "demo/02-verify-it" });
   assert.equal(posts[0].note, "needs a rewrite", "the note travels with the deny");
   posts.length = 0;
+  // organism-infra/150: the stub sees the POST before the page has handled the 202, and Cards.jsx holds the kind in
+  // `inflight` until then and drops a repeat keypress. The Deny button reads "Sending…" for exactly that span, so
+  // wait for it to read "Deny" again before firing the second key.
+  await needs.getByRole("button", { name: /^Deny/ }).waitFor({ state: "visible" });
   await note.fill("second thoughts");
   await note.focus();
   await page.keyboard.press("Meta+Enter");
@@ -771,3 +794,84 @@ async function expectPost(posts, want) {
   assert.equal(posts[0].kind, want.kind);
   assert.equal(posts[0].ref, want.ref);
 }
+
+// ---- Steering session (organism-infra/139) -------------------------------------------------------------------
+// Markup contract: when there is no usable session the page shows exactly one element [data-session="none"]
+// holding one line of copy (the wording is a designer glance or orchestrator call: human-verified). The den itself
+// (scene, Needs you card) still renders, because the read routes stay open. With a session the element is absent.
+async function waitFor(cond, what, ms = 20000) {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline && !(await cond())) await new Promise((r) => setTimeout(r, 50));
+  assert.ok(await cond(), `timed out waiting for ${what}`);
+}
+
+test("the UI redeems #code once at POST /session as JSON, drops the fragment from the address bar, and shows no 'no session' line", { timeout: 90000 }, withApp({}, async ({ page, sessions, noSession }) => {
+  await waitFor(() => sessions.length === 1, "POST /session");
+  assert.equal(sessions[0].code, LAUNCH_CODE);
+  assert.equal(sessions[0].method, "POST");
+  assert.match(sessions[0].contentType, /^application\/json/);
+  assert.equal(sessions[0].authorization, undefined, "no Bearer on the redemption");
+  await waitFor(async () => !page.url().includes("#"), "the fragment to leave the address bar");
+  assert.ok(!page.url().includes("code="), `the launch code must not stay in the URL: ${page.url()}`);
+  assert.equal(await noSession.count(), 0);
+}));
+
+test("Approve sends Authorization: Bearer <session token> (a click right after load is not dropped or sent bare)", { timeout: 90000 }, withApp({}, async ({ page, needs, posts, unauth }) => {
+  await header(needs).focus();
+  await page.keyboard.press("a");
+  await expectPost(posts, { kind: "merge-approve", ref: "demo/02-verify-it" });
+  assert.deepEqual(unauth, [], "every POST /requests carried the session token");
+}));
+
+test("the token lives in sessionStorage only: not localStorage, not a cookie, and the launch code is stored nowhere", { timeout: 90000 }, withApp({}, async ({ page, context, sessions }) => {
+  await waitFor(() => sessions.length === 1, "POST /session");
+  await waitFor(() => page.evaluate(() => sessionStorage.length > 0), "the token to be stored");
+  const stores = await page.evaluate(() => ({ session: JSON.stringify({ ...sessionStorage }), local: JSON.stringify({ ...localStorage }) }));
+  assert.ok(stores.session.includes(SESSION_TOKEN), "sessionStorage holds the token so a reload keeps the session");
+  assert.ok(!stores.local.includes(SESSION_TOKEN), "localStorage must not hold the token (it outlives the tab and is shared across tabs)");
+  assert.ok(!stores.session.includes(LAUNCH_CODE) && !stores.local.includes(LAUNCH_CODE), "the launch code is never stored");
+  const cookies = JSON.stringify(await context.cookies());
+  assert.ok(!cookies.includes(SESSION_TOKEN), "no cookie carries the token");
+}));
+
+test("reloading the page keeps the session: no new code, no new /session call, and Approve still works with the Bearer", { timeout: 90000 }, withApp({}, async ({ page, needs, sessions, posts, unauth, noSession }) => {
+  await waitFor(() => sessions.length === 1, "POST /session");
+  await waitFor(() => page.evaluate(() => sessionStorage.length > 0), "the token to be stored");
+  await page.reload();
+  await page.locator("button.chip-tally").waitFor({ state: "visible", timeout: 30000 });
+  assert.ok(!page.url().includes("code="), "the reloaded URL carries no code");
+  await header(needs).focus();
+  await page.keyboard.press("a");
+  await expectPost(posts, { kind: "merge-approve", ref: "demo/02-verify-it" });
+  assert.equal(sessions.length, 1, "the reload did not redeem a code again");
+  assert.deepEqual(unauth, []);
+  assert.equal(await noSession.count(), 0, "a reload is not a lost session");
+}));
+
+test("no code and no stored session: one line of copy, the den still renders, and Approve files nothing", { timeout: 90000 }, withApp({ code: null }, async ({ page, needs, noSession, sessions, posts, unauth }) => {
+  await noSession.waitFor({ state: "visible", timeout: 20000 });
+  assert.equal(await noSession.count(), 1, "exactly one such element");
+  const text = (await noSession.innerText()).trim();
+  assert.ok(text.length > 0 && text.length <= 140, `one short line, got ${JSON.stringify(text)}`);
+  assert.ok(!/\n/.test(text), "one line, no line break");
+  assert.equal(sessions.length, 0, "nothing to redeem, so no POST /session");
+  assert.equal(await needs.count(), 1, "the Needs you card still renders from the open read routes");
+  await header(needs).focus();
+  await page.keyboard.press("a");
+  await page.waitForTimeout(300);
+  assert.deepEqual(posts, []);
+  assert.deepEqual(unauth, [], "the UI never sends an unauthenticated POST /requests");
+}));
+
+test("a refused or already-used code shows the same one line, drops the fragment, and files nothing", { timeout: 90000 }, withApp({ sessionStatus: 401 }, async ({ page, needs, noSession, sessions, posts, unauth }) => {
+  await noSession.waitFor({ state: "visible", timeout: 20000 });
+  assert.equal(await noSession.count(), 1);
+  assert.ok(!/\n/.test((await noSession.innerText()).trim()));
+  assert.equal(sessions.length, 1);
+  assert.ok(!page.url().includes("code="), `the spent code must not stay in the URL: ${page.url()}`);
+  await header(needs).focus();
+  await page.keyboard.press("a");
+  await page.waitForTimeout(300);
+  assert.deepEqual(posts, []);
+  assert.deepEqual(unauth, []);
+}));

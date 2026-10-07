@@ -76,6 +76,12 @@ function checkFile(file) {
     hits.push({ file: filePath, reason: "CI workflow / branch protection config changed" });
   }
 
+  // ADR 0016 decision 6.10: a spawned agent can edit its own permission surface under .claude/, so any change
+  // there (settings, role files, skills, hooks) goes to a security review.
+  if (/^\.claude\//.test(filePath)) {
+    hits.push({ file: filePath, reason: ".claude/** changed (agent permission surface)" });
+  }
+
   if (CODE_PATH_RE.test(filePath)) {
     for (const pattern of CODE_RISK_PATTERNS) {
       if (pattern.re.test(addedText)) {

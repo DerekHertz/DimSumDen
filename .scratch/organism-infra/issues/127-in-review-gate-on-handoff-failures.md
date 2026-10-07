@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** pipeline retro 2026-10-03, cause 2. Developers moved tickets to review with a failing `smoke:ui` noted as "unknown".
 
@@ -25,3 +25,4 @@ The three batch D1 developer handoffs (den-v1/01, 03, 04) listed a `smoke:ui` fa
 ## Comments
 
 - **Created (orchestrator, 2026-10-03):** Pipeline retro. Handoffs `.scratch/den-v1/handoffs/01-developer.md`, `03-developer.md`, `04-developer.md`.
+- **orchestrator, 2026-10-07:** Parked: User 2026-10-07: north star first (den v1 loop). Pipeline work waits; unpark after den-v1/07 or on a 3rd repeat incident that blocks the relay.

@@ -80,7 +80,7 @@ test("tier point returns pick/conf and a full jev row (shadow default: effective
 
 test("verify point returns pick/conf and a jev row (shadow: actual stays full)", async () => {
   const { decide } = await load();
-  const { result, row } = await decide(args({ point: "verify", transport: fake(verLight) }));
+  const { result, row } = await decide(args({ point: "verify", qaSpecified: false, transport: fake(verLight) }));
   assert.equal(result.pick, "light");
   assert.equal(result.conf, 0.88);
   assert.equal(result.effective, "full");
@@ -138,7 +138,7 @@ test("every fallback reason returns the default, logs fallback, and never throws
     assert.equal(row.cost, 0);
     assert.equal(row.kind, "jev");
   }
-  const v = await decide(args({ point: "verify", env: {}, transport: fake(verLight) }));
+  const v = await decide(args({ point: "verify", qaSpecified: false, env: {}, transport: fake(verLight) }));
   assert.equal(v.result.effective, "full");
   assert.equal(v.row.actual, "full");
 });

@@ -7,7 +7,7 @@
   },
   "scripts": {
     "pretest": "npm run check:bom",
-    "test": "node --test \"apps/**/*.test.mjs\" \"packages/**/*.test.mjs\" \"scripts/**/*.test.mjs\"",
+    "test": "node scripts/test-lock.mjs node --test \"apps/**/*.test.mjs\" \"packages/**/*.test.mjs\" \"scripts/**/*.test.mjs\"",
     "test:path": "node scripts/test-path.mjs",
     "dev": "node apps/ci-cd/dev-server.mjs",
     "smoke": "node apps/ci-cd/smoke.mjs",
@@ -17,6 +17,7 @@
     "board": "node apps/organism-infra/board.mjs",
     "apply-gated": "node scripts/apply-gated.mjs",
     "next-session": "node scripts/next-session.mjs",
+    "session-check": "node scripts/session-check.mjs",
     "bridge": "node apps/bridge/server.mjs",
     "ui": "npm run ui:build && npm run bridge",
     "ui:build": "vite build --config apps/ui/vite.config.mjs",

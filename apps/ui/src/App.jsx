@@ -1,7 +1,7 @@
 import { Component, Suspense, useCallback, useMemo, useState } from "react";
 import { Canvas, events as defaultEvents } from "@react-three/fiber";
 import { CameraRig } from "./scene/procedural/CameraRig.jsx";
-import { Den } from "./scene/procedural/Den.jsx";
+import { RestaurantDen } from "./scene/procedural/RestaurantDen.jsx";
 import { PandaCard } from "./scene/procedural/PandaCard.jsx";
 import { createDenCameraStore } from "./scene/procedural/camera.mjs";
 import { STATION_LABELS, TALLY_ANCHOR } from "./scene/procedural/bindings.mjs";
@@ -19,6 +19,7 @@ import { useNow } from "./panel/Panel.jsx";
 import { panelPlaceholder } from "./state/connection.mjs";
 import { createCameraStore } from "./scene/camera-store.mjs";
 import { LogoPill, Cards } from "./overlay/Cards.jsx";
+import { useSession } from "./session/useSession.js";
 import { ZoomSwitcher, IntentBar, Timeline } from "./overlay/Bottom.jsx";
 
 class SceneBoundary extends Component {
@@ -36,6 +37,7 @@ function activeCount(snapshot) {
 
 export function App() {
   const live = useLiveState();
+  const steering = useSession();
   const [demo] = useState(demoRequested);
   const demoSnapshot = useDemoSnapshot(demo);
   const { connection, metricsRevision } = live;
@@ -85,7 +87,7 @@ export function App() {
             gl={{antialias:true}} events={sceneEvents} onPointerMissed={() => setSelected(null)}>
             <CameraRig store={camera} stage={stage} den={den} onModeChange={onExploreChange} onHint={setExploreHint} />
             <Suspense fallback={null}>
-              <Den cells={sceneCells} frontier={frontier} tally={tally} onOpenTally={openTally}
+              <RestaurantDen snapshot={snapshot} cells={sceneCells} frontier={frontier} tally={tally} onOpenTally={openTally}
                 selected={selected} onSelect={selectTicket} stage={stage} onReady={onDenReady} />
             </Suspense>
           </Canvas>
@@ -98,7 +100,7 @@ export function App() {
         {overflow > 0 ? <p className="scene-caption scene-more">+{overflow} more in queue</p> : null}
       </main>
       <LogoPill connection={connection} />
-      <Cards snapshot={snapshot} now={now} connection={connection} placeholder={placeholder} camera={camera} />
+      <Cards snapshot={snapshot} now={now} connection={connection} placeholder={placeholder} camera={camera} steering={steering} />
       <div className="den-entry">
         <button type="button" className="btn btn-solid" aria-pressed={exploring} aria-disabled={!den || undefined}
           onClick={()=>{if(stage.explorer?.active)stage.explorer.exit();else stage.explorer?.enter();}}>

@@ -1,9 +1,9 @@
 // Pure placement and state mapping for the code-built den.
 export const STATIONS = {
-  steamers: { index: 0, x: -5.2, z: 0.6, yaw: 0.18, label: 'Steamers' },
-  'front-of-house': { index: 1, x: 5.2, z: 0.6, yaw: -0.18, label: 'Front of House' },
-  tea: { index: 2, x: -7.15, z: 5.3, yaw: 0.12, label: 'Tea' },
-  pantry: { index: 3, x: 7.15, z: 5.3, yaw: -0.12, label: 'Pantry' },
+  steamers: { index: 0, x: -8.8, z: -7.5, yaw: 0.28, label: 'Steamers' },
+  'front-of-house': { index: 1, x: 8.8, z: -7.5, yaw: -0.28, label: 'Front of House' },
+  tea: { index: 2, x: -12.5, z: 2.5, yaw: 0.18, label: 'Tea' },
+  pantry: { index: 3, x: 12.5, z: 2.5, yaw: -0.18, label: 'Pantry' },
 };
 export const ROLE_STATION = {
   orchestrator:'pass', product:'pass', architect:'pass',
@@ -11,8 +11,8 @@ export const ROLE_STATION = {
 };
 // The Pass roles stand on their own pads on the ground; Bao is the orchestrator, so nothing perches on him.
 export const PADS = {
-  product: { x: -5.1, z: -6.8, label: 'Library' },
-  architect: { x: 5.1, z: -6.8, label: 'Drum' },
+  product: { x: -4, z: -8.5, label: 'Library' },
+  architect: { x: 4, z: -8.5, label: 'Drum' },
 };
 export const TALLY_ANCHOR = { x: 2.62, y: 2.0, z: 6.05 };
 export const DEN_TARGET = [0, 2.0, 0];

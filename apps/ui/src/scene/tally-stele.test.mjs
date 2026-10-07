@@ -49,47 +49,6 @@ test("frame is 1.1 wide x 1.4 tall x 0.12 deep with 0.08 bars, on two 0.08 x 0.1
   close(frameTop(), 1.55, 1e-9, "frame top");
 });
 
-test("no stone stele geometry remains: no plinth or tablet in the layout, no stone colours or tablet meshes in TallyFace.jsx", () => {
-  assert.equal(TALLY.plinth, undefined, "plinth gone");
-  assert.equal(TALLY.tablet, undefined, "tablet gone");
-  assert.equal(TALLY.faceBottom, undefined, "the pagoda slate's hanging face stays gone");
-  const src = read("./TallyFace.jsx");
-  assert.doesNotMatch(src, /roofTriangles|stall-roof/, "no roof");
-  assert.doesNotMatch(src, /#4a4d4a/i, "stone tablet colour gone");
-  assert.doesNotMatch(src, /#3d403d/i, "stone plinth colour gone");
-  assert.doesNotMatch(src, /plinth|tablet/i, "no plinth or tablet geometry");
-  assert.doesNotMatch(src, /drawFace|chart\.bars/, "no canvas chart face");
-});
-
-test("the abacus is low-poly wood: box frame and legs, cylinder rods, sphere beads, wood literals #8A5A34 and #4A2E1C", () => {
-  const src = read("./TallyFace.jsx");
-  assert.match(src, /boxGeometry/, "box frame and legs");
-  assert.match(src, /cylinderGeometry/, "cylinder rods");
-  assert.match(src, /sphereGeometry/, "sphere beads");
-  assert.match(src, /#8A5A34/i, "wood");
-  assert.match(src, /#4A2E1C/i, "wood-deep for rods and frame shadow");
-});
-
-test("bead colours follow the live system theme and come from tokens: station-steamers via stationHue; the model's colour names, not hard-coded teal", () => {
-  const src = read("./TallyFace.jsx");
-  assert.match(src, /stationHue/, "Tokens beads use the steamers station hue");
-  assert.match(src, /theme/i, "theme follows the system, as the stalls do");
-  assert.match(src, /tallyRods/, "the abacus draws from the tallyRods view-model");
-  assert.doesNotMatch(src, /#3aced3/i, "old fixed qi-teal literal gone: counted beads follow the theme");
-});
-
-test("beads slide through beadSlide (240 ms, only on a change) and jump under reduced motion", () => {
-  const src = read("./TallyFace.jsx");
-  assert.match(src, /beadSlide/);
-  assert.match(src, /prefers-reduced-motion/);
-});
-
-test("clicking any abacus mesh opens the Tally (onClick on the group); the stage is still passed through", () => {
-  const src = read("./TallyFace.jsx");
-  assert.match(src, /onClick/);
-  assert.match(src, /name="tally"/);
-});
-
 test("grounded beside the basket: on the floor, level with the basket, 0.3+ clear of it, behind the cub row", () => {
   assert.equal(TALLY.groundY, 0);
   assert.equal(TALLY.z, CUB_BASKET.z);

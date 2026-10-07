@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** relay reliability (retro, 2026-10-04; user approved filing): a test that fails at random makes `npm test` results untrustworthy for every ticket's developer and qa verify.
 
@@ -26,3 +26,4 @@ Find the cause of the intermittent failure and fix it, in the test or in the cod
 ## Comments
 
 - 2026-10-04 orchestrator: filed from the retro after 134. Evidence: `.scratch/organism-infra/handoffs/134-developer.md` (failures).
+- **orchestrator, 2026-10-07:** Parked: User 2026-10-07: north star first (den v1 loop). Pipeline work waits; unpark after den-v1/07 or on a 3rd repeat incident that blocks the relay.

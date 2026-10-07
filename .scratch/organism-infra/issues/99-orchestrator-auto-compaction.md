@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** parked
 
 ## What to build
 
@@ -30,3 +30,5 @@ Files: `scripts/` (new helper and test), `.claude/settings*.json` or hooks (user
 - **orchestrator, 2026-10-02:** Add from the Claude Code usage audit (proposal 8, user yes): a `PreCompact` hook that writes a state snapshot (in-flight tickets, branches, pending gates) before compaction, and a "compact button": check whether the auto-compact threshold can be set near 80k (a), else whether a key binding can send `/compact` (b); the status line from 109 turning red with `→ /compact` at 80k is the fallback (c). Ship settings as a gated patch (108).
 - **orchestrator, 2026-10-03:** Parked: pipeline work not blocking v1 and not a third repeat incident (refocus, docs/refocus/triage-2026-10-02.md)
 - **orchestrator, 2026-10-05:** Unparked: User asked again for auto-compaction at the 80k threshold (user, 2026-10-04); testbed friction: this session ran to 94k before a manual /compact request
+- **orchestrator, 2026-10-05:** Scope addition (retro 2026-10-04, user yes; confirmed 2026-10-05): enforce the cell context budget in code, not only in wording. Evidence: den-v1/01 developer reached 122k and den-v1/03 designer 98k against the 80k budget.
+- **orchestrator, 2026-10-06:** Parked: User 2026-10-05: no Serves line naming a den-v1 step (refocus guardrail, ADR 0019 decision 8); park until v1 works.

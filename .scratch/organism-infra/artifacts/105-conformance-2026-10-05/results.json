@@ -1,0 +1,123 @@
+[
+  {
+    "spike": "S1",
+    "verdict": "go",
+    "evidence": [
+      "system/init emitted after the first stdin user message",
+      "init.session_id equals the --session-id (38f9ef3a-7792-4d70-80dc-2e5df894b5bc)",
+      "a result line arrived without an error (logged in, first stdin message accepted)",
+      "reply carries the role marker PROBE-ROLE-OK: --agent was honoured under -p",
+      "canary variable did not reach the child",
+      "child exited on stdin EOF"
+    ]
+  },
+  {
+    "spike": "S2",
+    "verdict": "go",
+    "evidence": [
+      "tool_use line arrived 4052 ms before its tool_result for a 3000 ms command, so delivery latency is about -1052 ms (go needs under 1000)",
+      "subagent activity: not exercised (the model never started a subagent); rerun if the tailer decision matters"
+    ],
+    "tailerNeeded": null
+  },
+  {
+    "spike": "S3",
+    "verdict": "go",
+    "evidence": [
+      "allow run: a control_request was emitted for a tool outside the allowlist",
+      "deny run: a control_request was emitted",
+      "control_request carries the full tool input (the written content is present)",
+      "control_request shape: {\"type\":\"control_request\",\"request_id\":\"5fbbed42-9f35-4ca2-a446-cee46819b6ab\",\"subtype\":\"can_use_tool\",\"tool_name\":\"Write\",\"input_keys\":[\"file_path\",\"content\"]}",
+      "deny run: control_request carries the full input",
+      "allow was honoured: the file was written",
+      "deny was honoured: the file was not written"
+    ],
+    "shapes": {
+      "controlRequest": {
+        "t": 3905,
+        "type": "control_request",
+        "request_id": "5fbbed42-9f35-4ca2-a446-cee46819b6ab",
+        "request": {
+          "subtype": "can_use_tool",
+          "tool_name": "Write",
+          "display_name": "Write",
+          "input": {
+            "file_path": "/tmp/den-conformance-EggAXp/s3-allow.txt",
+            "content": "BODY-ALLOW96B368"
+          },
+          "description": "s3-allow.txt",
+          "permission_suggestions": [
+            {
+              "type": "setMode",
+              "mode": "acceptEdits",
+              "destination": "session"
+            }
+          ],
+          "tool_use_id": "toolu_0137tyVyQP7b1xbiu5Lm3H3D"
+        },
+        "obj": {
+          "type": "control_request",
+          "request_id": "5fbbed42-9f35-4ca2-a446-cee46819b6ab",
+          "request": {
+            "subtype": "can_use_tool",
+            "tool_name": "Write",
+            "display_name": "Write",
+            "input": {
+              "file_path": "/tmp/den-conformance-EggAXp/s3-allow.txt",
+              "content": "BODY-ALLOW96B368"
+            },
+            "description": "s3-allow.txt",
+            "permission_suggestions": [
+              {
+                "type": "setMode",
+                "mode": "acceptEdits",
+                "destination": "session"
+              }
+            ],
+            "tool_use_id": "toolu_0137tyVyQP7b1xbiu5Lm3H3D"
+          }
+        }
+      }
+    }
+  },
+  {
+    "spike": "S4",
+    "verdict": "go",
+    "evidence": [
+      "SIGTERM ended the running child in 1103 ms (code 143)",
+      "transcript 5f6d9868-872e-4a57-af20-d616a2bbe3bd.jsonl is on disk after the kill",
+      "--resume reopened the session and answered",
+      "resumed init.session_id equals the original 5f6d9868-872e-4a57-af20-d616a2bbe3bd",
+      "resumed reply mentions the interrupted command: true"
+    ]
+  },
+  {
+    "spike": "S5",
+    "verdict": "unconfirmed",
+    "evidence": [
+      "the 5-hour window rolled over between readings (2026-10-06T02:00:00.220925+00:00 to 2026-10-06T01:59:59.871755+00:00): not comparable",
+      "the result line reports total_cost_usd 0.0068278",
+      "the account's usage page must still be checked by the user (decision 2); until then the billing question stays unconfirmed in the ADR"
+    ]
+  },
+  {
+    "spike": "S6",
+    "verdict": "no-go",
+    "evidence": [
+      "attempted writes: allowed.txt true, .claude/probe.txt true",
+      "on disk: allowed.txt false, .claude/probe.txt false",
+      "the project's allow did not apply: --settings replaced the project permissions instead of merging, or the allow rule did not match",
+      "stderr tail: Ignoring 2 permissions.allow entries from .claude/settings.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects[\"/tmp/den-conformance-NrkjLQ\"].hasTrustDialogAccepted: true in /home/dhertzell/.claude.json."
+    ]
+  },
+  {
+    "spike": "S7",
+    "verdict": "go",
+    "evidence": [
+      "running tool call: result at 15710 ms (message written at 3342 ms), error false",
+      "result lines: 1; a later reply mentions the second message: true",
+      "behaviour: merged-into-running-turn"
+    ],
+    "behavior": "merged-into-running-turn"
+  }
+]

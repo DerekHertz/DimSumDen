@@ -1,0 +1,8 @@
+{
+  "default": { "warn": 70000, "stop": 80000 },
+  "cells": {
+    "developer": { "warn": 100000, "stop": 120000 },
+    "qa": { "warn": 100000, "stop": 120000 }
+  },
+  "orchestrator": { "warn": 70000, "stop": 80000 }
+}

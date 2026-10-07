@@ -4,9 +4,13 @@
 //          --tokens <int> --ms <int> --outcome "<text>"
 //          [--context <int>]                 (the cell's final `context.mjs --self` reading; organism-infra/119)
 //          [--allow-no-handoff "<reason>"]   (skip the recent-handoff check; reason is logged in the row)
-// Root is $ORGANISM_ROOT, else the current directory. Any rejection exits 1 and writes nothing.
+// Root is $ORGANISM_ROOT, else the main checkout (git worktree list, as board does), else the current directory.
+// A short --ticket <feature>/<NN> resolves to the full slug ref (organism-infra/126).
+// A scout row needs no handoff (organism-infra/177): scouts are read-only and never publish one.
+// Any rejection exits 1 and writes nothing.
 import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, writeSync } from "node:fs";
 import path from "node:path";
+import { resolveRoot, resolveShortRef } from "../apps/organism-infra/board-service.mjs";
 
 const CELLS = ["product", "architect", "orchestrator", "developer", "scout", "qa", "security", "designer"];
 const REF_RE = /^([a-z0-9-]+)\/([A-Za-z0-9][A-Za-z0-9._-]*)$/;
@@ -27,7 +31,7 @@ for (let i = 0; i < args.length; i += 2) {
   f[name] = args[i + 1];
 }
 
-const m = REF_RE.exec(f.ticket ?? "");
+let m = REF_RE.exec(f.ticket ?? "");
 if (!m || m[2] === ".." || m[2].includes("..")) fail(`--ticket must be <feature>/<NN-slug>, got ${JSON.stringify(f.ticket)}`);
 if (!CELLS.includes(f.cell)) fail(`--cell must be one of ${CELLS.join(", ")}`);
 for (const n of ["tokens", "ms"]) {
@@ -57,7 +61,18 @@ if (f.failures !== undefined) {
   }
 }
 
-const root = path.resolve(process.env.ORGANISM_ROOT || process.cwd());
+let root;
+try {
+  root = path.resolve(resolveRoot(process.cwd(), process.env));
+} catch {
+  root = process.cwd(); // not in a git checkout and no $ORGANISM_ROOT: the old default
+}
+try {
+  f.ticket = resolveShortRef(root, f.ticket);
+} catch (err) {
+  fail(err.message);
+}
+m = REF_RE.exec(f.ticket);
 if (!existsSync(path.join(root, ".scratch", m[1], "issues", `${m[2]}.md`))) fail(`ticket not found: ${f.ticket}`);
 
 // organism-infra/51: a cell row needs a recent handoff from that cell/mode, else
@@ -65,7 +80,7 @@ if (!existsSync(path.join(root, ".scratch", m[1], "issues", `${m[2]}.md`))) fail
 if (f["allow-no-handoff"] !== undefined) {
   if (!f["allow-no-handoff"].trim()) fail("--allow-no-handoff needs a non-empty reason");
   if (f["allow-no-handoff"].length > 300) fail("--allow-no-handoff reason must be at most 300 characters");
-} else {
+} else if (f.cell !== "scout") {
   const dir = path.join(root, ".scratch", m[1], "handoffs");
   const nn = /^(\d{2,})-/.exec(m[2])?.[1];
   const refs = new Set([f.ticket, nn && `${m[1]}/${nn}`]);

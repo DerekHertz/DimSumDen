@@ -20,8 +20,8 @@ import { createServer } from "vite";
 import { chromium } from "playwright";
 import { buildLaunchOptions } from "../../../ci-cd/launch-options.mjs";
 import { lightenScene } from "../../../ci-cd/light-scene.mjs";
-import { TALLY } from "./banquet-layout.mjs";
-import { defaultFrame, worldToScreen } from "./iso-projection.mjs";
+import { cameraConfig } from "./procedural/camera.mjs";
+import { DEN_TARGET, TALLY_ANCHOR } from "./procedural/bindings.mjs";
 
 const TALLY_RODS_CAPTION = "Tally rods: Served 1 bead = 1 ticket this window; Tokens 1 bead = 20k per ticket; Spills 1 bead = 0.1 per ticket.";
 const VIEW = { width: 1280, height: 800 };
@@ -95,10 +95,17 @@ const focusInfo = (page) =>
   });
 const settle = (page) => page.waitForTimeout(450);
 
-// Screen position of a world point at the default isometric frame (den-iso-v1/02), in page pixels (the scene starts at x 0, y 0).
+// Screen position of a world point at the app's default frame (procedural/camera.mjs, den-layout/02), in page pixels
+// (the scene starts at x 0, y 0). The camera is orthographic and centred on DEN_TARGET: pixels per unit is the viewport
+// height over the frustum height, and the iso pitch squashes depth by sin and lifts height by cos.
 function screenOf(sceneBox, x, y, z) {
-  const p = worldToScreen([x, y, z], defaultFrame({ width: sceneBox.width, height: sceneBox.height }));
-  return { x: sceneBox.x + p.x, y: sceneBox.y + p.y };
+  const c = cameraConfig({ width: sceneBox.width, height: sceneBox.height });
+  const k = sceneBox.height / (c.top - c.bottom), pitch = Math.atan(1 / Math.SQRT2);
+  const [tx, ty, tz] = DEN_TARGET;
+  return {
+    x: sceneBox.x + sceneBox.width / 2 + k * (x - tx),
+    y: sceneBox.y + sceneBox.height / 2 + k * ((z - tz) * Math.sin(pitch) - (y - ty) * Math.cos(pitch)),
+  };
 }
 
 test("click on the pill opens the card in place: dialog shown, aria-expanded true, focus on the Tally heading, nothing scrolls (criterion 1)", { timeout: 90000 }, async () => {
@@ -159,7 +166,7 @@ test("a click on the abacus in the scene opens the card, and clicking it again l
   const { page, pill, scene, context } = await openApp();
   try {
     const box = await scene.boundingBox();
-    const mid = screenOf(box, TALLY.x, TALLY.groundY + TALLY.leg.height + TALLY.frame.height / 2, TALLY.z);
+    const mid = screenOf(box, TALLY_ANCHOR.x, 0.95, TALLY_ANCHOR.z); // the restaurant scene abacus: board centre about 0.95 above the ground
     await page.mouse.click(mid.x, mid.y);
     const dialog = dialogOf(page);
     await dialog.waitFor({ state: "visible" });

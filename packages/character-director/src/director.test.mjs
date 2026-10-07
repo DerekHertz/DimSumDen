@@ -1,7 +1,23 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CLIPS, LOOPS, FACE_FRAMES, PROP_ASSETS } from "../../../apps/ui/src/assets/panda-contract.mjs";
 import { STATES, STATE_MAP, DUR_FAST, DUR_HEARTBEAT, HABIT_LOOPS, createCharacterDirector } from "./director.mjs";
+// The panda glb contract (apps/ui/src/assets/panda-contract.mjs) was removed with the glbs (den-v1/08). The names
+// it held are kept here as a frozen copy, so the director's state mapping is still checked against the clip names
+// the rig authored.
+const CLIPS = [
+  "sit_still", "breathe", "blink", "paw_raise", "arms_folded", "slump", "lean_back", "doze", "wave",
+  "fan_tap_and_point", "scroll_unroll", "blueprint_unroll",
+];
+const LOOPS = ["breathe", "paw_raise", "doze", "fan_tap_and_point", "scroll_unroll", "blueprint_unroll"];
+const FACE_FRAMES = [
+  "blink", "content_squint", "wide_eyes", "half_lidded", "focused_squint",
+  "narrowed", "eyes_shut_savoring", "sour_pucker", "sleepy", "yawn",
+];
+const PROP_ASSETS = {
+  orchestrator: { clip: "fan_tap_and_point" },
+  product: { clip: "scroll_unroll" },
+  architect: { clip: "blueprint_unroll" },
+};
 
 test("every state maps to a loop, entry one-shot, face frame and held pose, all named in the asset contract", () => {
   assert.deepEqual([...STATES].sort(), [

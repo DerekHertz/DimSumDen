@@ -93,10 +93,10 @@ test("npm run dev serves a .mjs file as text/javascript with Cache-Control: no-s
 
   try {
     const res = await waitForServer(
-      `http://localhost:${port}/apps/ui/src/scene/dev-scene.mjs`,
+      `http://localhost:${port}/apps/ui/src/scene/scene-from-state.mjs`,
       child
     );
-    assert.equal(res.status, 200, `expected 200 for dev-scene.mjs, got ${res.status}. stderr: ${stderr}`);
+    assert.equal(res.status, 200, `expected 200 for scene-from-state.mjs, got ${res.status}. stderr: ${stderr}`);
 
     const contentType = res.headers.get("content-type") || "";
     assert.ok(
@@ -120,13 +120,13 @@ test("npm run dev takes a port argument and listens on the requested port", asyn
 
   try {
     const res = await waitForServer(
-      `http://localhost:${port}/apps/ui/src/scene/dev-scene.html`,
+      `http://localhost:${port}/apps/ui/index.html`,
       child
     );
     assert.equal(
       res.status,
       200,
-      `dev server did not serve dev-scene.html on the requested port ${port}`
+      `dev server did not serve index.html on the requested port ${port}`
     );
   } finally {
     await stopServer(child);

@@ -9,6 +9,10 @@ import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { loadContextTokens } from "./context-state.mjs";
+import { budgetFor } from "./context-budget.mjs";
+
+// --cell <type> (organism-infra/145): adds warn, stop (budgetFor(type), scripts/context-budget.json) and
+// state ("ok" | "warn" | "stop"; null on a null reading), with or without --self.
 
 const WINDOW = Number(process.env.CONTEXT_WINDOW_TOKENS) || 1_000_000;
 
@@ -127,11 +131,22 @@ const home = process.env.HOME || os.homedir();
 const projects = path.join(home, ".claude", "projects");
 const id = process.env.CLAUDE_CODE_SESSION_ID;
 
+const cellFlag = process.argv.indexOf("--cell");
+const cellType = cellFlag >= 0 ? process.argv[cellFlag + 1] : undefined;
+
+function withBudget(out) {
+  if (cellFlag < 0) return out;
+  const { warn, stop } = budgetFor(cellType);
+  const t = out.context_tokens;
+  const state = t === null ? null : t >= stop ? "stop" : t >= warn ? "warn" : "ok";
+  return { ...out, warn, stop, state };
+}
+
 if (process.argv.includes("--self")) {
   const t = selfTranscript(projects, id);
   const tokens = t ? lastUsageTokens(t.file) : null;
   const percent = tokens === null ? null : Math.min(100, Math.round((tokens / WINDOW) * 10000) / 100);
-  console.log(JSON.stringify({ session: id || null, context_tokens: tokens, percent, scope: "self" }));
+  console.log(JSON.stringify(withBudget({ session: id || null, context_tokens: tokens, percent, scope: "self" })));
   process.exit(0);
 }
 
@@ -143,4 +158,4 @@ const t = seen !== null ? null : (id && sessionTranscript(projects, id)) || newe
 const tokens = seen !== null ? seen : t ? lastUsageTokens(t.file) : null;
 const session = seen !== null ? id : t ? t.session : null;
 const percent = tokens === null ? null : Math.min(100, Math.round((tokens / WINDOW) * 10000) / 100);
-console.log(JSON.stringify({ session, context_tokens: tokens, percent }));
+console.log(JSON.stringify(withBudget({ session, context_tokens: tokens, percent })));

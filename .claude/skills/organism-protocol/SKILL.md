@@ -29,7 +29,7 @@ Your final report to the orchestrator stays under about 300 words: the verdict, 
 ## Pass gates (stop and ask the user)
 
 Always ask before:
-- merging to `main`, pushing, or opening a PR
+- merging to `main`, pushing, or opening a PR. Exception (organism-infra/158): the orchestrator may push a commit on `main` that touches only `.scratch/` (board state) straight to `origin/main`, without asking. Code still goes through a PR, and merges stay a gate. `board release` pushes a cell's own branch as part of the release, which is not a separate gate
 - deleting files outside your ticket's scope
 - adding a dependency
 - changing an ADR, `CONTEXT.md` or `CLAUDE.md`
@@ -74,10 +74,11 @@ Give every long-running command an explicit timeout: test runs, dev servers, bro
 
 ## Context budget (organism-infra/119)
 
-Every call re-reads your whole context, so a smaller one costs less. Aim to finish under 80k tokens. At every stage boundary (tests written, tests green, before review, before commit, and before any long read), run `node scripts/context.mjs --self`. It prints `{"session","context_tokens","percent","scope":"self"}` for your own transcript; `context_tokens: null` means no reading, so carry on.
+Every call re-reads your whole context, so a smaller one costs less. Thresholds live in `scripts/context-budget.json`: `developer` and `qa` warn at 100k and stop at 120k; `security`, `architect`, `designer`, `scout` and the orchestrator warn at 70k and stop at 80k. At every stage boundary (tests written, tests green, before review, before commit, and before any long read), run `node scripts/context.mjs --self --cell <your cell type>`. It prints `{"session","context_tokens","percent","warn","stop","state","scope":"self"}` for your own transcript; `context_tokens: null` means no reading, so carry on. Follow `state`:
 
-- **70k or more:** finish the current stage. Start no new exploration and no new stage you can leave to a fresh cell.
-- **80k or more:** stop. Commit your work in progress on the branch (a WIP commit, never a stash). Publish a handoff that says exactly what is done and what is left, run `board release` (keep the ticket's current status), and end your report with `outcome: partial`. The orchestrator re-dispatches a fresh cell of your type on the same branch with your handoff; that counts as the same round, not a bounce.
+- **`ok`:** carry on.
+- **`warn`:** finish the current stage. Start no new exploration and no new stage you can leave to a fresh cell.
+- **`stop`:** stop. Commit your work in progress on the branch (a WIP commit, never a stash). Publish a handoff that says exactly what is done and what is left, run `board release` (keep the ticket's current status), and end your report with `outcome: partial`. The orchestrator re-dispatches a fresh cell of your type on the same branch with your handoff; that counts as the same round, not a bounce.
 
 Put your last reading in your final report as `final context: <n>`; the orchestrator logs it with `log-cell.mjs --context <n>`.
 

@@ -5,6 +5,7 @@ vendor/
 .claude/worktrees/
 .claude/settings.local.json
 .scratch/**/*.lock
+.scratch/_run/
 
 # Blender autosave backups
 *.blend1

@@ -1,0 +1,153 @@
+#!/usr/bin/env node
+// organism-infra/147: print the mandatory lines of a relay dispatch prompt, so the orchestrator pastes them instead of
+// writing them by hand (wrong ticket paths and cell-start run from the main checkout cost cells retries).
+// Usage: node scripts/dispatch-prompt.mjs --ticket <feature>/<NN-slug> --cell <type> [--mode <m>]
+//                                         [--base <sha> | --branch <b>] [--continue] [--batch <name>]
+// Prints: the ticket path (with issues/, checked to exist), the cell-start line with the flags for this cell and mode, a note
+// that it runs inside the cell's worktree, the handoff path to write (a new name when an earlier one is already published),
+// the context line (architect, qa specify and developer only, and only when dispatch-context.mjs gives a path), and the
+// release flag for this hop. The only side effect is that dispatch-context may write its own context file and usage row.
+// Bad arguments exit 2 with the reason on stderr and nothing on stdout.
+import { spawnSync } from "node:child_process";
+import { existsSync, readdirSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { resolveRoot } from "../apps/organism-infra/board-service.mjs";
+
+const USAGE =
+  "usage: node scripts/dispatch-prompt.mjs --ticket <feature>/<NN-slug> --cell <type> [--mode <m>] [--base <sha> | --branch <b>] [--continue] [--batch <name>]";
+
+// style: "branch" starts on a branch (writes code or tests), "detach" starts detached (a reviewer), "either" uses --branch when given.
+// release: "keep" = --keep-status, otherwise the --status value.
+const SPECS = {
+  architect: { modes: null, style: "either", release: "in-review", context: true },
+  developer: { modes: null, style: "branch", release: "in-review", context: true },
+  security: { modes: null, style: "detach", release: "keep", context: false },
+  qa: {
+    modes: {
+      specify: { style: "branch", release: "keep", context: true },
+      verify: { style: "detach", release: "keep", context: false },
+    },
+  },
+  designer: {
+    modes: {
+      spec: { style: "either", release: "ready-for-agent", context: false },
+      direction: { style: "either", release: "ready-for-agent", context: false },
+      review: { style: "detach", release: "keep", context: false },
+      critique: { style: "detach", release: "keep", context: false },
+    },
+  },
+};
+
+const VALUE_FLAGS = new Set(["--ticket", "--cell", "--mode", "--base", "--branch", "--batch"]);
+
+function parseArgs(argv) {
+  const opts = { continue: false };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--continue") opts.continue = true;
+    else if (VALUE_FLAGS.has(a)) {
+      const v = argv[++i];
+      if (v === undefined || v.startsWith("--")) return { error: `${a} needs a value` };
+      opts[a.slice(2)] = v;
+    } else return { error: `unknown argument ${a}` };
+  }
+  if (!opts.ticket) return { error: "--ticket <feature>/<NN-slug> is required" };
+  if (!opts.cell) return { error: "--cell <type> is required" };
+  if (!/^[\w.-]+\/[\w.-]+$/.test(opts.ticket) || opts.ticket.split("/").some((s) => s.startsWith("."))) {
+    return { error: `bad ticket ref ${opts.ticket}` };
+  }
+  const cell = SPECS[opts.cell];
+  if (!cell) return { error: `unknown cell ${opts.cell} (one of ${Object.keys(SPECS).join(", ")})` };
+  let spec = cell;
+  if (cell.modes) {
+    if (!opts.mode) return { error: `${opts.cell} needs --mode (one of ${Object.keys(cell.modes).join(", ")})` };
+    spec = cell.modes[opts.mode];
+    if (!spec) return { error: `unknown ${opts.cell} mode ${opts.mode} (one of ${Object.keys(cell.modes).join(", ")})` };
+  } else if (opts.mode) return { error: `${opts.cell} takes no --mode` };
+  if (!opts.base) return { error: "--base <sha> is required (cell-start needs it)" };
+  if (spec.style === "branch" && !opts.branch) return { error: `${opts.cell}${opts.mode ? ` ${opts.mode}` : ""} needs --branch <name>` };
+  return { ...opts, spec };
+}
+
+// The next free handoff name: <NN>-<cell>[-<mode>].md, then -2, -3 (board handoff refuses to overwrite an earlier claim's file).
+function handoffName(dir, stem) {
+  let max = 0;
+  let names = [];
+  try {
+    names = readdirSync(dir);
+  } catch {
+    /* no handoffs yet */
+  }
+  for (const n of names) {
+    const m = new RegExp(`^${stem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:-(\\d+))?\\.md$`).exec(n);
+    if (m) max = Math.max(max, m[1] ? Number(m[1]) : 1);
+  }
+  return max === 0 ? `${stem}.md` : `${stem}-${max + 1}.md`;
+}
+
+// dispatch-context prints one JSON line {path, ...}; any failure or a null path means no context line.
+function contextPath(ref, env) {
+  const script = fileURLToPath(new URL("./dispatch-context.mjs", import.meta.url));
+  const r = spawnSync(process.execPath, [script, "--ticket", ref], { encoding: "utf8", timeout: 120000, env });
+  if (r.status !== 0) return null;
+  try {
+    const last = r.stdout.trim().split("\n").pop();
+    return JSON.parse(last).path ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function main(argv) {
+  const opts = parseArgs(argv);
+  if (opts.error) {
+    process.stderr.write(`dispatch-prompt: ${opts.error}\n${USAGE}\n`);
+    return 2;
+  }
+  let root;
+  try {
+    root = resolveRoot(process.cwd(), process.env);
+  } catch (e) {
+    process.stderr.write(`dispatch-prompt: ${e.message}\n`);
+    return 2;
+  }
+  const [feature, slug] = opts.ticket.split("/");
+  const ticketFile = path.join(root, ".scratch", feature, "issues", `${slug}.md`);
+  if (!existsSync(ticketFile)) {
+    process.stderr.write(`dispatch-prompt: no ticket at ${ticketFile} (${opts.ticket} must resolve to .scratch/<feature>/issues/<NN-slug>.md)\n`);
+    return 2;
+  }
+
+  const { spec } = opts;
+  const detach = spec.style === "detach" || (spec.style === "either" && !opts.branch);
+  const startFlags = ["--base", opts.base, ...(detach ? ["--detach"] : ["--branch", opts.branch]), "--ticket", opts.ticket, "--cell", opts.cell];
+  if (opts.mode) startFlags.push("--mode", opts.mode);
+  if (opts.continue) startFlags.push("--continue");
+
+  const num = /^\d+/.exec(slug)?.[0] ?? slug;
+  const stem = `${num}-${opts.cell}${opts.mode ? `-${opts.mode}` : ""}`;
+  const handoffsDir = path.join(root, ".scratch", feature, "handoffs");
+  const name = handoffName(handoffsDir, stem);
+  const release = spec.release === "keep" ? "--keep-status" : `--status ${spec.release}`;
+
+  const lines = [`Ticket: ${ticketFile}`];
+  if (opts.batch) lines.push(`Batch: ${opts.batch}. Claim, hand off and release every ticket in the batch.`);
+  lines.push(
+    "Start with this one command, run inside your worktree (never in the main checkout):",
+    `node scripts/cell-start.mjs ${startFlags.join(" ")}`,
+    "If it refuses the claim, stop and report.",
+  );
+  if (spec.context) {
+    const ctx = contextPath(opts.ticket, process.env);
+    if (ctx) lines.push(`Start-here context: ${ctx} (jg output; read before searching; may be incomplete or stale)`);
+  }
+  lines.push(
+    `Write your handoff to ${path.join(handoffsDir, name)} with the handoff skill: draft it under /tmp, then publish it with \`npm run board -- handoff ${opts.ticket} --from <draft> --name ${name}\`, before release.`,
+    `Release with \`npm run board -- release ${opts.ticket} ${release}\`.`,
+  );
+  process.stdout.write(`${lines.join("\n")}\n`);
+  return 0;
+}
+
+process.exit(main(process.argv.slice(2)));

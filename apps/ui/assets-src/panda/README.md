@@ -1,6 +1,6 @@
 # Panda asset
 
-The source for `apps/ui/public/models/panda.glb`: the shared panda rig (ADR 0006), the face atlas, and the clip library. `npm test` checks the glb against the asset contract in `apps/ui/src/assets/panda-contract.mjs`.
+The Blender source for the shared panda rig (ADR 0006), the face atlas, and the clip library. The live den no longer loads a glb (ADR 0019 decision 7: procedural three.js only), so the exported glbs are no longer committed and nothing in `npm test` checks them; this folder is kept as the source until organism-infra/125 retires it.
 
 ## Rebuild
 
@@ -22,15 +22,15 @@ Each step works in the `PandaAsset` scene and leaves `panda-mascot.blend` itself
 | `build_face.py` | Removes the baked sleepy eyelids and draws `face-atlas.png`. It then builds the `face` decal: a thin shell over the front of the head, skinned to `head`. |
 | `build_clips.py` | Authors every clip as an action, with its `loop` and `faceFrames` metadata. Includes the three Brain-type habit loops (ticket 07): `fan_tap_and_point` (orchestrator), `scroll_unroll` (product), `blueprint_unroll` (architect). |
 | `export_glb.py` | Writes the glb (actions become named animations, custom properties become extras) and `panda.blend`. |
-| `build_props.py` | Ticket 07: builds the three habit props (fan, scroll, blueprint) as small standalone meshes and exports each to `apps/ui/public/models/props/*.glb`. Not part of the rebuild loop above (run it separately, or whenever a prop's look changes); it doesn't touch `PandaAsset` or `panda.blend`. |
+| `build_props.py` | Ticket 07: builds the three habit props (fan, scroll, blueprint) as small standalone meshes and exports each as a glb under `props/` in its configured output folder (no longer committed). Not part of the rebuild loop above (run it separately, or whenever a prop's look changes); it doesn't touch `PandaAsset` or `panda.blend`. |
 
 ## Props and hats
 
-Props and hats (`apps/ui/public/models/props/*.glb`) are separate assets, not baked into `panda.glb` (spec.md "Export"). A runtime attach parents a prop's root node under the matching `paw_L`/`paw_R`/`hat` socket bone with an identity transform, and the socket's own animation then carries the prop through every clip. `apps/ui/src/assets/panda-contract.mjs`'s `PROP_ASSETS` names each Brain type's prop file, socket and habit clip; `apps/ui/src/scene/dev-scene.mjs` shows the attach/detach.
+Props and hats (the `props/*.glb` exports) are separate assets, not baked into `panda.glb` (spec.md "Export"). A runtime attach parents a prop's root node under the matching `paw_L`/`paw_R`/`hat` socket bone with an identity transform, and the socket's own animation then carries the prop through every clip. The runtime that did this (`panda-contract.mjs`, `dev-scene.mjs`) was removed with the market scene (den-v1/08).
 
 The socket sits at the centre of the paw, which is a ball of radius 0.19 around it (`PAW_RADIUS`), so a prop built around its origin is buried in the fist. Each prop's grip point sits on the paw surface and its body extends out of it: the fan's hinge sits just past the paw tip and its 0.26 blade rises from it, face to the camera; the scroll lies across the paw, just past its tip; the blueprint stands up facing the camera, just in front of the paw, rising from its bottom edge. The placement constants and the socket-frame axes are at the top of `build_props.py`.
 
-`apps/ui/src/assets/prop-placement.test.mjs` checks the exported props in world space, attached under their sockets in `panda.glb` at rest and through each habit clip: at least 60% of each prop's box outside the paw, the grip point on the paw surface, each prop's orientation, and each prop not hidden behind its paw from the front camera. `apps/ui/src/assets/prop-placement.mjs` does the measuring and can be reused for a new prop.
+The test that measured the props in world space (at least 60% of each prop's box outside the paw, the grip point on the paw surface, each prop's orientation, and not hidden behind its paw from the front camera) was removed with the glbs (den-v1/08); the placement constants in `build_props.py` still hold those numbers.
 
 ## Face atlas
 

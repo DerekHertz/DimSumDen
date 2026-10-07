@@ -1,0 +1,203 @@
+// den-v1/08: the UI ships only what main.jsx reaches. After the market scene is
+// removed, every file under apps/ui/src and apps/ui/public is either reachable
+// from the entry, or is a test (or a helper only tests use) of a reachable module.
+// The import graph is built from the sources, never from file names.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, extname, join, relative, resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const UI = dirname(fileURLToPath(import.meta.url));
+const SRC = join(UI, "src");
+const PUBLIC = join(UI, "public");
+const ROOT = resolve(UI, "..", "..");
+const ENTRY = join(SRC, "main.jsx");
+const CODE_EXT = new Set([".js", ".jsx", ".mjs", ".css"]);
+const isTest = (f) => /\.test\.mjs$/.test(f);
+
+function walk(dir) {
+  if (!existsSync(dir)) return [];
+  const out = [];
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) out.push(...walk(p));
+    else out.push(p);
+  }
+  return out;
+}
+
+const rel = (p) => relative(ROOT, p).split("\\").join("/");
+
+// Resolve a relative specifier found in `from` to an existing file, trying
+// the usual extensions and index files.
+function resolveSpec(from, spec) {
+  const base = resolve(dirname(from), spec.split("?")[0].split("#")[0]);
+  const tries = [base, ...[".mjs", ".js", ".jsx", ".css"].map((e) => base + e)];
+  for (const t of tries) if (existsSync(t) && statSync(t).isFile()) return t;
+  return null;
+}
+
+// Every file a source file names: static and dynamic imports, CSS @import and
+// url(), and any "./x" or "../x" string literal (covers readFileSync(new URL(...))
+// and fetch of public assets). Root-absolute "/models/..." strings map to public/.
+function referencedFiles(file) {
+  if (!CODE_EXT.has(extname(file))) return [];
+  const text = readFileSync(file, "utf8");
+  const found = new Set();
+  const rels = text.matchAll(/["'`(](\.{1,2}\/[^"'`)\s]+)["'`)]/g);
+  for (const m of rels) {
+    const r = resolveSpec(file, m[1]);
+    if (r) found.add(r);
+  }
+  const abs = text.matchAll(/["'`(](\/(?:models|textures|assets|fonts)\/[^"'`)\s]+)["'`)]/g);
+  for (const m of abs) {
+    const p = join(PUBLIC, m[1]);
+    if (existsSync(p) && statSync(p).isFile()) found.add(p);
+  }
+  return [...found];
+}
+
+// A browser test that serves the UI with apps/ui/vite.config.mjs (vite createServer)
+// and drives the mounted App in Chromium tests reachable code through the entry,
+// even though it imports no UI module. Such a test is always kept.
+function mountsLiveApp(file) {
+  if (!isTest(file)) return false;
+  const text = readFileSync(file, "utf8");
+  return /apps\/ui\/vite\.config\.mjs/.test(text) && /createServer\s*\(/.test(text) && /\.goto\s*\(/.test(text);
+}
+
+function reachableFromEntry() {
+  const seen = new Set();
+  const queue = [ENTRY];
+  while (queue.length) {
+    const f = queue.pop();
+    if (seen.has(f)) continue;
+    seen.add(f);
+    for (const n of referencedFiles(f)) if (!seen.has(n)) queue.push(n);
+  }
+  return seen;
+}
+
+// den-layout/02: PR #162's restaurant scene replaces the procedural Den.jsx. The ported scene and review
+// modules are reached from main.jsx (whatever component hosts them), and the old den renderer is not.
+test("the walker sees the live frontend: main.jsx reaches the ported restaurant scene and not the old den", () => {
+  const reach = reachableFromEntry();
+  const names = [...reach].map(rel);
+  assert.ok(names.includes("apps/ui/src/App.jsx"), "App.jsx is reachable");
+  assert.ok(names.includes("apps/ui/src/scene/scene-from-state.mjs"), "scene-from-state is reachable");
+  const ported = [
+    "apps/ui/src/scene/procedural/den-scene.mjs",
+    "apps/ui/src/scene/procedural/restaurant.mjs",
+    "apps/ui/src/review/agents.mjs",
+    "apps/ui/src/review/layout.mjs",
+    "apps/ui/src/review/leisure.mjs",
+    "apps/ui/src/review/construction-pads.mjs",
+    "apps/ui/src/review/landscape.mjs",
+    "apps/ui/src/review/site-plan.mjs",
+    "apps/ui/src/review/walking-panda.mjs",
+  ];
+  const unreached = ported.filter((p) => !names.includes(p));
+  assert.deepEqual(unreached, [], "ported modules main.jsx does not reach");
+  assert.ok(!names.includes("apps/ui/src/scene/procedural/Den.jsx"), "the old procedural Den.jsx must not be reachable (no path renders the old den)");
+});
+
+test("no file under apps/ui/src or apps/ui/public is unreachable from main.jsx, except tests of reachable modules", () => {
+  const reach = reachableFromEntry();
+  const all = [...walk(SRC), ...walk(PUBLIC)];
+  const tests = all.filter((f) => isTest(f));
+
+  // A fixture or helper is test support; any other unreachable module is dead code.
+  const isSupport = (f) => /(fixture|helpers?)[.\-]/.test(f.split("/").pop()) || /(fixture|helpers?)\.[a-z]+$/.test(f);
+
+  // A test is kept when it names at least one reachable module, or when it mounts
+  // the live App through the vite config. (A test that still names a deleted
+  // module fails on its own when it runs.)
+  const keptTests = new Set(
+    tests.filter((t) => {
+      const refs = referencedFiles(t);
+      return mountsLiveApp(t) || refs.some((r) => reach.has(r));
+    }),
+  );
+
+  // Fixtures and helpers are kept when a kept test names them.
+  const keptHelpers = new Set();
+  for (const t of keptTests) {
+    for (const r of referencedFiles(t)) if (!reach.has(r) && isSupport(r)) keptHelpers.add(r);
+  }
+
+  const orphans = all
+    .filter((f) => !/\/(OFL|LICENSE)[^/]*$/.test(f))
+    .filter((f) => !reach.has(f) && !keptTests.has(f) && !keptHelpers.has(f))
+    .map(rel)
+    .sort();
+  assert.deepEqual(orphans, [], `unreachable from apps/ui/src/main.jsx:\n  ${orphans.join("\n  ")}`);
+});
+
+test("browser tests that mount the live App survive the removal (they test reachable code)", () => {
+  // Literal list from the pre-removal tree: each drives the mounted App in
+  // Chromium (Cards.jsx approve/deny keys, tally expand) and passes without the market scene.
+  const mustRemain = [
+    "src/overlay/floating-cards.test.mjs",
+    "src/scene/tally-expand.test.mjs",
+  ];
+  const missing = mustRemain.filter((p) => !existsSync(join(UI, p)));
+  assert.deepEqual(missing, [], "restore these live-App browser tests (do not delete them with the market scene)");
+  for (const p of mustRemain) {
+    if (existsSync(join(UI, p))) assert.ok(mountsLiveApp(join(UI, p)), `${p} is recognised as mounting the live App`);
+  }
+});
+
+test("the market scene modules are gone", () => {
+  const gone = [
+    "src/scene/Den.jsx",
+    "src/scene/Market.jsx",
+    "src/scene/Backdrop.jsx",
+    "src/scene/CameraRig.jsx",
+    "src/scene/dev-scene.mjs",
+    "src/scene/dev-scene.html",
+    "src/scene/headgear.mjs",
+    "src/scene/bao-rig.fixture.mjs",
+    "src/assets/panda-contract.mjs",
+    "src/assets/prop-placement.mjs",
+  ];
+  const present = gone.filter((p) => existsSync(join(UI, p)));
+  assert.deepEqual(present, []);
+});
+
+test("no .glb remains in the repo outside .scratch/", () => {
+  const tracked = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
+    cwd: ROOT,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  })
+    .split("\0")
+    .filter(Boolean)
+    .filter((p) => existsSync(join(ROOT, p)));
+  const glbs = tracked.filter((p) => /\.glb$/i.test(p) && !p.startsWith(".scratch/"));
+  assert.deepEqual(glbs, []);
+});
+
+test("apps/ui/public/models holds no glbs or textures", () => {
+  const left = walk(join(PUBLIC, "models")).map(rel);
+  assert.deepEqual(left, []);
+});
+
+test("live docs name no file that no longer exists (README, docs/agents, the panda sources README)", () => {
+  const docs = [
+    join(ROOT, "README.md"),
+    join(UI, "assets-src", "panda", "README.md"),
+    ...walk(join(ROOT, "docs", "agents")).filter((f) => f.endsWith(".md")),
+  ].filter((f) => existsSync(f));
+  const missing = [];
+  for (const doc of docs) {
+    const text = readFileSync(doc, "utf8");
+    for (const m of text.matchAll(/`((?:apps|packages|scripts)\/[A-Za-z0-9_./*-]+\.(?:mjs|jsx|js|html|glb))`/g)) {
+      const p = m[1];
+      if (p.includes("*")) continue; // globs name a family, not one file
+      if (!existsSync(join(ROOT, p))) missing.push(`${rel(doc)}: ${p}`);
+    }
+  }
+  assert.deepEqual(missing, []);
+});

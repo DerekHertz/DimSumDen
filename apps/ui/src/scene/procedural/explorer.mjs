@@ -1,5 +1,6 @@
 /** Ground-level exploration with mouse capture or drag-to-look fallback: the THREE and DOM adapter over the pure walk core. */
 import { walk, startWalk, isDenPositionBlocked, isWalkBlocked } from './walk.mjs';
+import { REVIEW_OBSTACLES } from '../../review/site-plan.mjs';
 export { isDenPositionBlocked };
 export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=()=>{},onHint=()=>{}}) {
   const camera=new THREE.PerspectiveCamera(66,1,0.045,160);
@@ -70,7 +71,8 @@ export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=(
       const p=r.panda.model.position;
       avoid.push({x:p.x,z:p.z,r:0.72});
     }
-    return {obstacles:den.obstacles,avoid};
+    // den.obstacles holds the moved stalls and central props; the site plan adds the posts, tables, festival, pond and pads.
+    return {obstacles:[...den.obstacles,...REVIEW_OBSTACLES],avoid};
   }
   const blocked=(x,z)=>isWalkBlocked(x,z,world());
   function update(delta){

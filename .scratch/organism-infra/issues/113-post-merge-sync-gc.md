@@ -6,7 +6,7 @@
 
 **Blocked by:** 109, 110, 111
 
-**Status:** ready-for-agent
+**Status:** parked
 
 ## What to build
 
@@ -24,3 +24,4 @@ Files: `scripts/post-merge.mjs` (+ test), `scripts/worktree-gc.mjs`; gated: `.cl
 
 ## Comments
 - **orchestrator, 2026-10-02:** Audit proposal 5, user "sure".
+- **orchestrator, 2026-10-06:** Parked: User 2026-10-05: no Serves line naming a den-v1 step (refocus guardrail, ADR 0019 decision 8); park until v1 works.

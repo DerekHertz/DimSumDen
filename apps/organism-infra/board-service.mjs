@@ -19,7 +19,7 @@ import {
   mkdtemp,
   rm,
 } from "node:fs/promises";
-import { constants as fsConstants } from "node:fs";
+import { constants as fsConstants, readdirSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -113,6 +113,27 @@ export function parseTicketRef(ref) {
     throw new BoardError(`invalid ticket segment: ${ticket}`);
   }
   return { feature, ticket };
+}
+
+// organism-infra/126: the one short-ref resolver. <feature>/<NN> (the whole numeric
+// segment) resolves to the full <feature>/<NN-slug> of the one issue file whose name
+// starts with "<NN>-". A ref that is not short passes through unchanged. Zero or two
+// or more matches throw. Used by the board CLI, log-cell.mjs and jev.mjs.
+export function resolveShortRef(root, ref) {
+  checkArgLength(ref, "ticket ref");
+  const m = typeof ref === "string" ? /^([a-z0-9-]+)\/(\d+)$/.exec(ref) : null;
+  if (!m) return ref;
+  const [, feature, nn] = m;
+  let names = [];
+  try {
+    names = readdirSync(path.join(root, ".scratch", feature, "issues"));
+  } catch {
+    // no such feature: reported as no match below
+  }
+  const hits = names.filter((n) => n.startsWith(`${nn}-`) && n.endsWith(".md")).map((n) => n.slice(0, -3));
+  if (hits.length === 0) throw new BoardError(`ticket not found: ${ref} (no issue file starting ${nn}- in .scratch/${feature}/issues)`);
+  if (hits.length > 1) throw new BoardError(`ambiguous ticket ref ${ref}: matches ${hits.map((h) => `${feature}/${h}`).join(", ")}`);
+  return `${feature}/${hits[0]}`;
 }
 
 async function exists(p) {
@@ -970,6 +991,42 @@ async function claimSkeleton(paths, feature, ticket) {
   return stateSkeleton(feature, ticket, cell, mode);
 }
 
+// organism-infra/158: push the releasing cell's branch to origin (upstream
+// tracking) so work never stays on one machine. Runs from `cwd` (the cell's
+// worktree). Skipped on a detached HEAD, on main (the end-of-session check
+// owns main), and when the repo has no origin. A failed push throws, so the
+// caller refuses the release before writing anything.
+function pushBranchToOrigin(cwd, ref) {
+  const git = (args) =>
+    execFileSync("git", args, {
+      cwd,
+      encoding: "utf8",
+      timeout: 120_000,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    }).trim();
+  let branch;
+  try {
+    branch = git(["symbolic-ref", "--short", "-q", "HEAD"]);
+  } catch {
+    return; // detached HEAD (or not a git repo): no branch to push
+  }
+  if (!branch || branch === "main") return;
+  try {
+    if (!git(["remote"]).split(/\s+/).includes("origin")) return;
+  } catch {
+    return;
+  }
+  try {
+    git(["push", "-u", "origin", "HEAD"]);
+  } catch (err) {
+    const detail = String(err.stderr || err.message || err).trim();
+    throw new BoardError(
+      `release blocked: pushing branch ${branch} to origin failed, so ${ref} stays claimed. Fix the cause and release again.\n${detail}`
+    );
+  }
+}
+
 export async function release(root, ref, newStatus, reason, options = {}) {
   const { force, keepStatus } = options;
   const pr = validatePrFlag(options.pr);
@@ -1066,6 +1123,9 @@ export async function release(root, ref, newStatus, reason, options = {}) {
     if (reason) {
       updated = `${updated.trimEnd()}\n- **${cell}, ${todayUTC()}:** ${reason}\n`;
     }
+    // organism-infra/158: the push comes after every refusal check and before
+    // any write, so a failed push leaves the claim, status and events untouched.
+    if (options.pushFrom) pushBranchToOrigin(options.pushFrom, ref);
     const events = [
       {
         feature,

@@ -82,9 +82,9 @@ export async function buildContext({
 }) {
   const t0 = now();
   const has = exists ?? ((p) => existsSync(path.resolve(root, p)));
-  const finish = ({ file, files = 0, skipped = null, fallback = null }) => {
+  const finish = ({ file, files = 0, skipped = null, fallback = null, secret_path }) => {
     const bytes = file === undefined ? 0 : Buffer.byteLength(file);
-    const row = { kind: "jg", ts: new Date(t0).toISOString(), ...(ticket && { ticket }), bytes, files, ms: Math.max(0, now() - t0), skipped, fallback };
+    const row = { kind: "jg", ts: new Date(t0).toISOString(), ...(ticket && { ticket }), bytes, files, ms: Math.max(0, now() - t0), skipped, fallback, ...(secret_path && { secret_path }) };
     return file === undefined ? { row } : { file, row };
   };
 
@@ -112,7 +112,7 @@ export async function buildContext({
     } catch {
       continue; // deleted, a symlink to nowhere, a directory (submodule): nothing to send
     }
-    if (hasSecret(body)) return finish({ fallback: "secret-in-root" });
+    if (hasSecret(body)) return finish({ fallback: "secret-in-root", secret_path: f }); // organism-infra/166: the path only, never the match
   }
 
   if (jgVersion && versionAtLeast(await jgVersion(), MIN_JG_VERSION) === false) return finish({ fallback: "jg-version" });
@@ -257,7 +257,7 @@ async function main(argv) {
   } catch (e) {
     process.stderr.write(`dispatch-context: usage row not logged (${e.code ?? e.message})\n`);
   }
-  print({ path: file === undefined ? null : outFile, bytes: row.bytes, skipped: row.skipped, fallback: row.fallback });
+  print({ path: file === undefined ? null : outFile, bytes: row.bytes, skipped: row.skipped, fallback: row.fallback, ...(row.secret_path && { secret_path: row.secret_path }) });
   return 0;
 }
 

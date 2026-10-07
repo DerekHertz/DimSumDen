@@ -3,6 +3,7 @@
 // See docs/adr/0008-board-service.md for the command set and locking design.
 import {
   resolveRoot,
+  resolveShortRef,
   claim,
   release,
   resolve,
@@ -53,18 +54,22 @@ function parseFlags(args, { allowed = null, boolean = [] } = {}) {
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
   const root = resolveRoot(process.cwd(), process.env);
+  // organism-infra/126: <feature>/<NN> resolves to the full slug ref (undefined passes through).
+  const full = (r) => (r === undefined ? r : resolveShortRef(root, r));
 
   switch (command) {
     case "claim": {
       const { positional, flags } = parseFlags(rest, { allowed: ["mode"] });
-      const [ref, cellType] = positional;
+      const [rawRef, cellType] = positional;
+      const ref = full(rawRef);
       const result = await claim(root, ref, cellType, { mode: flags.mode });
       console.log(`claimed ${ref}: ${result.status}`);
       return;
     }
     case "reclaim": {
       const { positional, flags } = parseFlags(rest, { allowed: ["mode", "reason"] });
-      const [ref, cellType] = positional;
+      const [rawRef, cellType] = positional;
+      const ref = full(rawRef);
       const result = await reclaim(root, ref, cellType, { mode: flags.mode, reason: flags.reason });
       console.log(`reclaimed ${ref} for ${cellType}: ${result.status}`);
       return;
@@ -79,11 +84,12 @@ async function main() {
         allowed: ["status", "reason", "force", "keep-status", "pr"],
         boolean: ["force", "keep-status"],
       });
-      const [ref] = positional;
+      const ref = full(positional[0]);
       const result = await release(root, ref, flags.status, flags.reason, {
         force: !!flags.force,
         keepStatus: !!flags["keep-status"],
         pr: flags.pr,
+        pushFrom: process.cwd(), // organism-infra/158: release pushes the cell's branch
       });
       console.log(`released ${ref}: ${result.status}`);
       return;
@@ -91,7 +97,7 @@ async function main() {
     case "resolve": {
       // organism-infra/98: claim, orchestrator handoff and resolved release in one step.
       const { positional, flags } = parseFlags(rest, { allowed: ["pr", "note"] });
-      const result = await resolve(root, positional, { pr: flags.pr, note: flags.note });
+      const result = await resolve(root, positional.map(full), { pr: flags.pr, note: flags.note });
       for (const ref of result.resolved) console.log(`resolved ${ref}`);
       return;
     }
@@ -101,7 +107,7 @@ async function main() {
     case "reopen": {
       // Refocus 2026-10-02: take tickets off the relay (or bring one back) in one step.
       const { positional, flags } = parseFlags(rest, { allowed: ["reason"] });
-      const result = await setOffRelay(root, positional, command, { reason: flags.reason });
+      const result = await setOffRelay(root, positional.map(full), command, { reason: flags.reason });
       for (const ref of result.done) console.log(`${result.status} ${ref}`);
       return;
     }
@@ -110,7 +116,7 @@ async function main() {
         allowed: ["from", "name", "template", "cell", "mode"],
         boolean: ["template"],
       });
-      const [ref] = positional;
+      const ref = full(positional[0]);
       if (flags.template) {
         if (flags.from !== undefined || flags.name !== undefined) {
           throw new BoardError("--template prints a State block; it takes no --from or --name");
@@ -128,7 +134,7 @@ async function main() {
     }
     case "status": {
       const { positional } = parseFlags(rest, { allowed: [] });
-      const [ref] = positional;
+      const ref = full(positional[0]);
       const status = await getStatus(root, ref);
       console.log(status);
       return;
@@ -136,7 +142,8 @@ async function main() {
     case "comment": {
       // Only `--as` is a flag on comment; any other "--x" is rejected.
       const { positional, flags } = parseFlags(rest, { allowed: ["as", "verdict"] });
-      const [ref, text] = positional;
+      const [rawRef, text] = positional;
+      const ref = full(rawRef);
       await comment(root, ref, text, { as: flags.as, verdict: flags.verdict });
       console.log(`commented on ${ref}`);
       return;

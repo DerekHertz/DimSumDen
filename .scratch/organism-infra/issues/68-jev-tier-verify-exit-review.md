@@ -10,7 +10,7 @@ Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [ ] Orchestrator judges the 2 bounces per point from the handoffs and records tier and verify verdicts (live, stay shadow, or drop) with the current numbers as the baseline (tier: 24 tickets, 3 fallbacks, +11.7% tokens; verify: 20 tickets, 0 fallbacks, -5.5% tokens, median about 450 ms).
 - [ ] `jev-report.mjs` output supports the verdict without hand computation.
@@ -27,3 +27,4 @@ Source: `.scratch/organism-infra/spec.md`, ADR 0015.
 - **orchestrator, 2026-10-02:** Retro: the pending item in handoffs/68-orchestrator.md names organism-infra/11, which is resolved. Nothing left to do.
 - **orchestrator, 2026-10-02:** Retro: on ticket 98, `jev verify` returned effective=full although qa had run specify (the genome rule says light). Check how verify detects a qa specify handoff when 68's follow-up is next worked.
 - **orchestrator, 2026-10-03:** Re-scoped (refocus 2026-10-02, docs/refocus/triage-2026-10-02.md): verify goes live now, judged by bounce rate and tokens per ticket against the 10 tickets before it, with fallback to full verify on any red test; tier stays in shadow (live would move ~60% of runs from sonnet to opus). Agreement with the orchestrator is no longer the bar.
+- **orchestrator, 2026-10-05:** Closed: Closed per the Jev greenlight list point 10 (user, 2026-10-04; confirmed again 2026-10-05): its numbers become the baseline for the go-live trial (ticket 136)
