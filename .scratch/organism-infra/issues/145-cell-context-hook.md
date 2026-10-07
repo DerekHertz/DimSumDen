@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Testbed friction: cells run past the 80k context budget (105 developer 84.6k, 106 security 89k, 106 architect 115k), so every later call costs more.
 
@@ -37,3 +37,6 @@ The `.claude/settings.json` registration is gated: the developer writes the exac
 - **qa, 2026-10-06:** partial: context budget, tests unrun
 - **qa, 2026-10-06:** qa specify partial: tests committed (b1c8093, tests/batch-c-context-budget) but unrun; SubagentHandback was refused by the 80k hook (not on its allowlist). See handoffs/145-qa-specify.md and 165-qa-specify.md.
 - **developer, 2026-10-06:** qa test bug: scripts/cell-start-context-config.test.mjs:119 runs cell-start twice on one fixture; the first run claims the ticket so the second is refused (already claimed). Not a code or env issue. qa should use a fresh fixture per iteration. Details in handoffs/145-developer-2.md.
+- **security, 2026-10-07:** Security pass at ed2646a. No critical/high. Low: SKILL's 'context.mjs --self --cell' not in wrap-up allowlist (fails closed); unescaped dot in scratchpad regex (not exploitable). gitleaks clean. Handoff 145-security.md.
+- **orchestrator, 2026-10-07:** Retro 2026-10-06: the developer handoff's pending gated patch (organism-protocol Context budget section) was applied by the user as b1cd098 on feat/batch-c-context-budget and merged in #175; the patch is in .scratch/_handoffs/gated/applied/.
+- **orchestrator, 2026-10-07:** The developer handoff's pending item naming organism-infra/119 (Context budget section of organism-protocol) is done: applied as b1cd098, merged in #175.

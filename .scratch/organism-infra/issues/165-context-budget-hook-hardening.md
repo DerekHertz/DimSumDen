@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Relay context budget (organism-infra/162). Three low findings from `.scratch/organism-infra/handoffs/162-security.md`.
 
@@ -33,3 +33,4 @@ Files: `scripts/hooks/context-budget.mjs` and its tests.
 - **orchestrator, 2026-10-06:** Planned as `batch C` with the rescoped 145 (config-value thresholds), after 145's architect step. Both edit `scripts/hooks/context-budget.mjs`.
 - **orchestrator, 2026-10-06:** batch C started 2026-10-06 (user yes): 145 + 165 + ADR 0010 note, one relay, one branch. qa specify first.
 - **qa, 2026-10-06:** partial: context budget, tests unrun
+- **security, 2026-10-07:** Security pass at ed2646a. Backslash chain bypass closed, wrap-up writes anchored to main .scratch, session id validated. No critical/high. gitleaks clean. Handoff 165-security.md.
