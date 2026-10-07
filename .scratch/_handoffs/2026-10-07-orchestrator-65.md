@@ -14,7 +14,8 @@ State, not rules; the genome wins. Written at about 66k context.
 
 ## Next session, in order
 1. **File build tickets A–H.** Their scopes are in `.scratch/organism-infra/handoffs/136-architect-2.md`. Run /to-tickets; the user approves the breakdown before it is published. Also add a ticket for the qa.md light-verify wording on unspecified tickets. It is gated and not drafted; see 136-architect-3.md `pending`.
-2. **The user applies the gated role-file wording pairs** for orchestrator.md, scout.md and CLAUDE.md. They are in 136's comments, and each applies after its build ticket merges (per the architect). Remind the user.
+   **User verdicts, recorded in a comment on 136:** move risk-check before verify. Keep O5's risk-check clauses and O6, and scope build ticket B on that order. **O8 is applied** (PR #182 merged).
+2. **The user applies the remaining gated role-file wording pairs** for orchestrator.md, scout.md and CLAUDE.md. They are in 136's comments, and each applies after its build ticket merges (per the architect). Remind the user.
 3. **42 security**, then **182 developer** (gated-edit method), then 143 criterion → 141 → 142 → 143 → 106 → 107. den-v1/05-06 come after 106, and 07 after 107.
 
 ## Waiting on the user
