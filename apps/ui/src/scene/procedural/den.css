@@ -19,7 +19,7 @@
 .panda-detail-body { padding:16px; }
 .panda-detail-body pre { white-space:pre-wrap; overflow-wrap:anywhere; }
 .den-error { position:absolute; left:16px; bottom:150px; padding:16px; background:var(--surface-glass); color:var(--ink); border-radius:12px; max-width:360px; }
-.proximity-card { position:absolute; z-index:5; top:50%; right:24px; transform:translateY(-50%); width:min(330px,calc(100vw - 32px)); max-height:calc(100dvh - 180px); overflow:auto; padding:20px; border:1px solid var(--line); border-radius:16px; background:var(--surface-glass); color:var(--ink); box-shadow:var(--shadow-panel); pointer-events:none; }
+.proximity-card { position:absolute; z-index:5; left:16px; bottom:124px; width:min(330px,calc(100vw - 32px)); max-height:calc(100dvh - 300px); overflow:auto; padding:20px; border:1px solid var(--line); border-radius:16px; background:var(--surface-glass); color:var(--ink); box-shadow:var(--shadow-panel); pointer-events:none; }
 .proximity-card h2 { margin:4px 0 8px; font-size:23px; }
 .den-cursor-free .proximity-card { pointer-events:auto; }
 .den-entry button + button { margin-left:8px; }
@@ -34,6 +34,10 @@
   .den-visiting .den-entry { bottom:278px; }
   .den-walk-pad { bottom:154px; }
   .panda-detail { top:auto; bottom:115px; max-height:55dvh; width:calc(100vw - 32px); }
-  .proximity-card { top:16px; right:16px; transform:none; max-height:45dvh; padding:14px; }
+  .proximity-card { bottom:278px; max-height:calc(40dvh - 116px); padding:14px; }
+  .den-visiting:has(.proximity-card) .cards { max-height:calc(30dvh - 90px); overflow-y:auto; }
+  .den-visiting:has(.proximity-card) .den-entry { bottom:100px; }
+  .den-visiting:has(.proximity-card) .den-walk-hint { display:none; }
 }
+@media (min-width:600px) and (max-width:699px) { .proximity-card { width:calc(100vw - 368px); } }
 @media (pointer:fine) { .den-walk-pad { display:none; } }
