@@ -15,6 +15,7 @@ import { createReviewAgents } from '../../review/agents.mjs';
 import { liveActorsFromSnapshot } from '../../review/live-actors.mjs';
 import { createReviewLandscape, REVIEW_SKIES } from '../../review/landscape.mjs';
 import { createConstructionPads } from '../../review/construction-pads.mjs';
+import { cardFor } from '../../overlay/proximity-card.mjs';
 
 // The den: PR #162's restaurant scene (site plan, stations, leisure gardens, build pads, simulated pandas)
 // mounted inside the app's canvas. The wrapping App owns the camera, the overlays and the board state.
@@ -35,12 +36,14 @@ function savedLook() {
   return { direction: review?.direction || 'traveler', settings: review?.settings || loadPandaSettings() };
 }
 
-export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, stage, onReady }) {
+export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, stage, onReady, onNearby }) {
   const [den, setDen] = useState(null);
   const [dark, setDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
   const [look] = useState(savedLook);
   const live = useRef(null);
-  const inputs = useRef({}); inputs.current = { cells, frontier, tally, selected, onSelect, onOpenTally };
+  const inputs = useRef({}); inputs.current = { snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, onNearby };
+  const position = useRef(new THREE.Vector3()).current;
+  const proximityElapsed = useRef(0);
   const { scene } = useThree();
   const sampleId = dark ? 'lantern' : 'morning';
 
@@ -119,6 +122,24 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
       l.anchored.add(ref);
     }
     for (const [ref, basket] of l.den.frontier) stage.anchors.set(ref, basket.localToWorld(new THREE.Vector3(0, 0.6, 0)));
+    // Sample at 10 Hz, after the moving pandas' world matrices are updated. Idle and scenery pandas also get cards.
+    proximityElapsed.current += dt;
+    if (proximityElapsed.current >= 0.1) {
+      proximityElapsed.current = 0;
+      let card = null;
+      if (stage.explorer?.active) {
+        const snap = inputs.current.snapshot;
+        const pandas = [...l.agents.actors].map(([id, a]) => {
+          a.panda.model.getWorldPosition(position);
+          const agent = a.live ? snap?.agents?.find(row => row.ref === a.live.ref && row.role === a.role && !['done', 'failed', 'terminated'].includes(row.state)) : null;
+          return { id, name: a.name, role: a.role, station: a.station, position: { x: position.x, z: position.z }, ref: a.live?.ref, agent };
+        });
+        const camera = stage.explorer.camera;
+        card = cardFor(pandas, snap?.approvals ?? [], { x: camera.position.x, z: camera.position.z, yaw: camera.rotation.y });
+      }
+      if (card) delete card.distance; // Distance selects the panda; it does not make the card re-render every stride.
+      inputs.current.onNearby?.(card);
+    }
   });
 
   const hit = (e) => {

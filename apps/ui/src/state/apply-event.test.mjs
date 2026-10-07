@@ -76,6 +76,17 @@ describe("applyEvent: ticket", () => {
 });
 
 describe("applyEvent: replace-style events", () => {
+  test("agent changes keep a live card's state and tool current without mutating the snapshot", () => {
+    const before = { ...base(), agents: [{ id: 'c-qa', state: 'working' }, { id: 'c-scout', state: 'working' }] };
+    const agent = { id: 'c-qa', state: 'needs-you', tool: { name: 'Read', summary: 'ticket' }, capabilities: { approve: true } };
+    const next = applyEvent(before, { seq: 43, type: 'agent', agent });
+    assert.deepEqual(next.agents.find(a => a.id === 'c-qa'), agent);
+    assert.equal(next.agents.length, 2);
+    assert.equal(before.agents[0].state, 'working');
+    const added = applyEvent(next, { seq: 44, type: 'agent', agent: { id: 'c-dev', state: 'working' } });
+    assert.equal(added.agents.length, 3);
+  });
+
   test("frontier replaces frontier", () => {
     const next = applyEvent(base(), { seq: 43, type: "frontier", refs: [B, A] });
     assert.deepEqual(next.frontier, [B, A]);

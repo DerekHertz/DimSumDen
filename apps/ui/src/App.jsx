@@ -3,6 +3,7 @@ import { Canvas, events as defaultEvents } from "@react-three/fiber";
 import { CameraRig } from "./scene/procedural/CameraRig.jsx";
 import { RestaurantDen } from "./scene/procedural/RestaurantDen.jsx";
 import { PandaCard } from "./scene/procedural/PandaCard.jsx";
+import { ProximityCard } from "./overlay/ProximityCard.jsx";
 import { createDenCameraStore } from "./scene/procedural/camera.mjs";
 import { STATION_LABELS, TALLY_ANCHOR } from "./scene/procedural/bindings.mjs";
 import { denEvents } from "./scene/procedural/events.mjs";
@@ -48,12 +49,14 @@ export function App() {
   const camera = useMemo(() => createDenCameraStore(createCameraStore(),()=>stage.explorer?.exit()), [stage]);
   const [den,setDen]=useState(null);
   const [exploring,setExploring]=useState(false);
+  const [nearby, setNearby] = useState(null);
+  const onNearby = useCallback(card => setNearby(previous => JSON.stringify(previous) === JSON.stringify(card) ? previous : card), []);
   const [exploreHint,setExploreHint]=useState('WASD / arrows to walk · drag to look · Esc to leave');
   const onDenReady=useCallback(value=>setDen(value),[]);
   const sceneEvents=useMemo(()=>state=>denEvents(defaultEvents(state),stage),[stage]);
   const selectTicket=useCallback(ref=>{stage.explorer?.exit();setSelected(ref);},[stage]);
   const closeTicket=useCallback(()=>{setSelected(null);document.querySelector('main[aria-label="Den scene"]')?.focus({preventScroll:true});},[]);
-  const onExploreChange=useCallback(active=>{setExploring(active);if(active){setSelected(null);setTallyOpen(false);}},[]);
+  const onExploreChange=useCallback(active=>{setExploring(active);setNearby(null);if(active){setSelected(null);setTallyOpen(false);}},[]);
   const frontier=snapshot?.frontier ?? [];
   const cells = useMemo(() => (snapshot ? sceneFromState(snapshot) : []), [snapshot]);
   // Bao's crown always holds the Pass: an idle stand-in when no orchestrator work is active.
@@ -88,13 +91,14 @@ export function App() {
             <CameraRig store={camera} stage={stage} den={den} onModeChange={onExploreChange} onHint={setExploreHint} />
             <Suspense fallback={null}>
               <RestaurantDen snapshot={snapshot} cells={sceneCells} frontier={frontier} tally={tally} onOpenTally={openTally}
-                selected={selected} onSelect={selectTicket} stage={stage} onReady={onDenReady} />
+                selected={selected} onSelect={selectTicket} stage={stage} onReady={onDenReady} onNearby={onNearby} />
             </Suspense>
           </Canvas>
         </SceneBoundary>
         <ChipLayer cells={sceneChips} labelsOverride={STATION_LABELS} hearts={hearts} onToggleTally={toggleTally} tallyOpen={tallyOpen} tally={tally} tickets={snapshot?.tickets} selected={selected} onSelect={selectTicket} stage={stage} />
         {tallyOpen ? <TallyCard tally={tally} metrics={metrics} failed={metricsFailed} onRetry={retryMetrics} onClose={closeTally} stage={stage} /> : null}
         {selected?<PandaCard snapshot={snapshot} selected={selected} onClose={closeTicket} />:null}
+        {exploring ? <ProximityCard card={nearby} /> : null}
         <div className="den-crosshair" aria-hidden="true" hidden={!exploring}>+</div>
         {snapshot && cells.length === 0 ? <p className="scene-caption scene-empty">The den is quiet. No active tickets.</p> : null}
         {overflow > 0 ? <p className="scene-caption scene-more">+{overflow} more in queue</p> : null}
