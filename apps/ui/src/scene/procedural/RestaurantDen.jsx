@@ -134,7 +134,9 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
           const matches = row => row.ref === a.live?.ref && row.role === a.role;
           const agent = a.live ? snap?.agents?.findLast(row => matches(row) && !['done', 'failed', 'terminated'].includes(row.state)) ?? snap?.agents?.findLast(matches) : null;
           // Board-driven pandas precede bridge-owned runs: keep their honest state/tool, with no invented handle.
-          const tool = a.live?.bubble ? { name: 'Current tool', summary: a.live.bubble } : null;
+          const cell = a.live ? (snap?.cells ?? []).filter(row => row.ref === a.live.ref && (!row.cellType || row.cellType === a.role))
+            .reduce((latest, row) => !latest || Date.parse(row.lastEventAt) > Date.parse(latest.lastEventAt) ? row : latest, null) : null;
+          const tool = cell?.tool ?? null; // The card keeps the current tool after its floating bubble fades.
           return { id, name: a.name, role: a.role, station: a.station, position: { x: position.x, z: position.z }, ref: a.live?.ref, state: a.live?.state, tool, agent };
         });
         const camera = stage.explorer.camera;
