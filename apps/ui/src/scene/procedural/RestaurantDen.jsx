@@ -131,8 +131,11 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
         const snap = inputs.current.snapshot;
         const pandas = [...l.agents.actors].map(([id, a]) => {
           a.panda.model.getWorldPosition(position);
-          const agent = a.live ? snap?.agents?.find(row => row.ref === a.live.ref && row.role === a.role && !['done', 'failed', 'terminated'].includes(row.state)) : null;
-          return { id, name: a.name, role: a.role, station: a.station, position: { x: position.x, z: position.z }, ref: a.live?.ref, agent };
+          const matches = row => row.ref === a.live?.ref && row.role === a.role;
+          const agent = a.live ? snap?.agents?.findLast(row => matches(row) && !['done', 'failed', 'terminated'].includes(row.state)) ?? snap?.agents?.findLast(matches) : null;
+          // Board-driven pandas precede bridge-owned runs: keep their honest state/tool, with no invented handle.
+          const tool = a.live?.bubble ? { name: 'Current tool', summary: a.live.bubble } : null;
+          return { id, name: a.name, role: a.role, station: a.station, position: { x: position.x, z: position.z }, ref: a.live?.ref, state: a.live?.state, tool, agent };
         });
         const camera = stage.explorer.camera;
         card = cardFor(pandas, snap?.approvals ?? [], { x: camera.position.x, z: camera.position.z, yaw: camera.rotation.y });

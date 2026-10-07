@@ -73,3 +73,13 @@ test('reach and facing use world coordinates and ignore missing positions', () =
   assert.equal(cardFor([{ id: 'unknown' }], [], viewer), null);
   assert.equal(cardFor([], [], null), null);
 });
+
+test('a board-bound panda keeps its working details even before it has a bridge control handle', () => {
+  const panda = { id: 'developer', role: 'developer', position: { x: 0, z: -2 }, ref: 'fx/04-card', state: 'working', tool: { name: 'Read', summary: 'ticket' } };
+  const card = cardFor([panda], [], { x: 0, z: 0, yaw: 0 });
+  assert.equal(card.ref, 'fx/04-card');
+  assert.equal(card.state, 'working');
+  assert.deepEqual(card.tool, { name: 'Read', summary: 'ticket' });
+  assert.equal(card.agentId, null);
+  assert.equal(card.actions.T.reason, 'agent controls unavailable');
+});

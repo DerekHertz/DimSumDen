@@ -15,7 +15,8 @@ export function cardFor(scenePandas, approvals, viewer) {
   const agent = nearest.agent?.id && !['done', 'failed', 'terminated'].includes(nearest.agent.state) ? nearest.agent : null;
   const approval = agent ? approvals.find(a => a.agentId === agent.id && (a.status ?? a.state ?? 'pending') === 'pending' && !a.decision) ?? null : null;
   const action = reason => ({ enabled: !reason, reason });
-  const inactive = agent ? null : 'no agent running';
+  const state = agent?.state ?? (nearest.agent ? 'resident' : nearest.state ?? 'resident');
+  const inactive = agent ? null : state === 'resident' ? 'no agent running' : 'agent controls unavailable';
   const permissionReason = inactive || (agent.capabilities?.approve !== true ? 'runtime cannot answer permissions' : !approval ? 'no pending permission request' : null);
   const actions = {
     T: action(inactive || (agent.capabilities?.send !== true ? 'runtime cannot send messages' : null)),
@@ -25,6 +26,6 @@ export function cardFor(scenePandas, approvals, viewer) {
   return {
     id: nearest.id, name: nearest.name, role: nearest.role, station: nearest.station, distance,
     agentId: agent?.id ?? null, ref: agent?.ref ?? nearest.ref ?? null,
-    state: agent?.state ?? 'resident', tool: agent?.tool ?? nearest.tool ?? null, approval, actions,
+    state, tool: agent ? agent.tool ?? null : nearest.agent ? null : nearest.tool ?? null, approval, actions,
   };
 }
