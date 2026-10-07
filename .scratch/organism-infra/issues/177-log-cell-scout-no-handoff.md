@@ -1,0 +1,27 @@
+# 177: `log-cell.mjs` doesn't require a handoff for scout rows
+
+**Type:** bug
+
+**Priority:** P3
+
+**Blocked by:** None (can start immediately)
+
+**Status:** ready-for-agent
+
+**Serves:** Pipeline retro, 2026-10-07. Scouts are read-only helpers and never publish a handoff, so `node scripts/log-cell.mjs --cell scout ...` is always refused without `--allow-no-handoff "<reason>"`. This session the orchestrator had to rerun two scout rows (user yes, 2026-10-07).
+
+## What to build
+
+In `scripts/log-cell.mjs`, skip the missing-handoff refusal when `--cell scout`. Every other cell type keeps the check, and `--allow-no-handoff` keeps working as it does now.
+
+Files: `scripts/log-cell.mjs` and its tests.
+
+## Acceptance criteria
+
+- [ ] `log-cell.mjs --cell scout` with no handoff on the board writes its row and exits 0 (test)
+- [ ] Any other cell type with no handoff and no `--allow-no-handoff` is still refused (test)
+- [ ] The existing log-cell tests still pass
+
+## Comments
+
+- **orchestrator, 2026-10-07:** Filed from the pipeline retro (user yes, 2026-10-07).

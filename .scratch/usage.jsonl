@@ -1859,3 +1859,11 @@
 {"kind":"cell","ts":"2026-10-07T01:11:28.104Z","ticket":"organism-infra/168-serialize-full-test-runs","cell":"scout","tokens":11161,"ms":16854,"outcome":"risk-check exit 1: 4 hits (shell-out, lock code) -> full security","allow_no_handoff":"read-only risk-check scout"}
 {"kind":"usage","ts":"2026-10-07T01:11:28Z","five_hour":69,"weekly":36,"event":"dispatch","ticket":"organism-infra/168","cell":"security"}
 {"kind":"context","ts":"2026-10-07T01:11:28Z","session":"a66b4f7c-63ab-4094-b8ca-d956ccb88402","context_tokens":78777,"percent":null,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-07T01:12:12.944Z","ticket":"organism-infra/168-serialize-full-test-runs","cell":"security","tokens":28918,"ms":37507,"outcome":"security pass, 3 lows non-blocking","context":27635}
+{"kind":"usage","ts":"2026-10-07T01:13:22Z","five_hour":70,"weekly":37,"event":"merge","ticket":"organism-infra/168-serialize-full-test-runs","cell":"orchestrator"}
+{"kind":"context","ts":"2026-10-07T01:13:22Z","session":"a66b4f7c-63ab-4094-b8ca-d956ccb88402","context_tokens":25227,"percent":2.52,"event":"merge"}
+{"kind":"resolved","ts":"2026-10-07T01:17:10.618Z","ticket":"organism-infra/168-serialize-full-test-runs","pr":176,"bounces":0}
+{"kind":"jev-advisory-outcome","ts":"2026-10-07T01:17:10.668Z","ticket":"organism-infra/168-serialize-full-test-runs","orchestratorPick":"qa-specify","jevPick":"qa-specify","userChoice":"qa-specify","bounced":false}
+{"kind":"incident","ts":"2026-10-07T01:17:44Z","ticket":"organism-infra/156-grep-tool-unavailable-in-cells","cell":"orchestrator","tool":"other","what":"log-cell.mjs refused scout rows (no handoff) twice this session; scouts never write handoffs by design","cost":"2 reruns","fix":"reran with --allow-no-handoff","rule_change":null}
+{"kind":"incident","ts":"2026-10-07T01:17:44Z","ticket":null,"cell":"orchestrator","tool":"npm","what":"tried npm run board -- --help and npm run pipeline-retro; neither exists (frontier via buildSnapshot, retro is a skill)","cost":"2 wasted calls","fix":"used snapshot.mjs and the Skill tool","rule_change":null}
+{"kind":"retro","ts":"2026-10-07T01:18:38Z","window_from":"2026-10-07T00:43:43Z","items":4,"fixes":[{"cause":"log-cell refuses scout rows without a handoff","tool":"other","kind":"code","ref":"organism-infra/177"}]}
