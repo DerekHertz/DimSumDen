@@ -15,6 +15,7 @@ import { createReviewAgents } from '../../review/agents.mjs';
 import { liveActorsFromSnapshot } from '../../review/live-actors.mjs';
 import { createReviewLandscape, REVIEW_SKIES } from '../../review/landscape.mjs';
 import { createConstructionPads } from '../../review/construction-pads.mjs';
+import { cardFor } from '../../overlay/proximity-card.mjs';
 
 // The den: PR #162's restaurant scene (site plan, stations, leisure gardens, build pads, simulated pandas)
 // mounted inside the app's canvas. The wrapping App owns the camera, the overlays and the board state.
@@ -35,12 +36,14 @@ function savedLook() {
   return { direction: review?.direction || 'traveler', settings: review?.settings || loadPandaSettings() };
 }
 
-export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, stage, onReady }) {
+export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, stage, onReady, onNearby }) {
   const [den, setDen] = useState(null);
   const [dark, setDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
   const [look] = useState(savedLook);
   const live = useRef(null);
-  const inputs = useRef({}); inputs.current = { cells, frontier, tally, selected, onSelect, onOpenTally };
+  const inputs = useRef({}); inputs.current = { snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, onNearby };
+  const position = useRef(new THREE.Vector3()).current;
+  const proximityElapsed = useRef(0);
   const { scene } = useThree();
   const sampleId = dark ? 'lantern' : 'morning';
 
@@ -119,6 +122,29 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
       l.anchored.add(ref);
     }
     for (const [ref, basket] of l.den.frontier) stage.anchors.set(ref, basket.localToWorld(new THREE.Vector3(0, 0.6, 0)));
+    // Sample at 10 Hz, after the moving pandas' world matrices are updated. Idle and scenery pandas also get cards.
+    proximityElapsed.current += dt;
+    if (proximityElapsed.current >= 0.1) {
+      proximityElapsed.current = 0;
+      let card = null;
+      if (stage.explorer?.active) {
+        const snap = inputs.current.snapshot;
+        const pandas = [...l.agents.actors].map(([id, a]) => {
+          a.panda.model.getWorldPosition(position);
+          const matches = row => row.ref === a.live?.ref && row.role === a.role;
+          const agent = a.live ? snap?.agents?.findLast(row => matches(row) && !['done', 'failed', 'terminated'].includes(row.state)) ?? snap?.agents?.findLast(matches) : null;
+          // Board-driven pandas precede bridge-owned runs: keep their honest state/tool, with no invented handle.
+          const cell = a.live ? (snap?.cells ?? []).filter(row => row.ref === a.live.ref && (!row.cellType || row.cellType === a.role))
+            .reduce((latest, row) => !latest || Date.parse(row.lastEventAt) > Date.parse(latest.lastEventAt) ? row : latest, null) : null;
+          const tool = cell?.tool ?? null; // The card keeps the current tool after its floating bubble fades.
+          return { id, name: a.name, role: a.role, station: a.station, position: { x: position.x, z: position.z }, ref: a.live?.ref, state: a.live?.state, tool, agent };
+        });
+        const camera = stage.explorer.camera;
+        card = cardFor(pandas, snap?.approvals ?? [], { x: camera.position.x, z: camera.position.z, yaw: camera.rotation.y });
+      }
+      if (card) delete card.distance; // Distance selects the panda; it does not make the card re-render every stride.
+      inputs.current.onNearby?.(card);
+    }
   });
 
   const hit = (e) => {

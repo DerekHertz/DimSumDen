@@ -6,6 +6,13 @@ export function applyEvent(state, event) {
   if (!state || !event || event.seq !== state.seq + 1) return null;
   const next = { ...state, seq: event.seq };
   switch (event.type) {
+    case "agent": {
+      if (!event.agent?.id) return null; // An incomplete agent event requires a fresh snapshot.
+      const agents = state.agents ?? [];
+      const found = agents.some(agent => agent.id === event.agent.id);
+      next.agents = found ? agents.map(agent => agent.id === event.agent.id ? event.agent : agent) : [...agents, event.agent];
+      break;
+    }
     case "ticket": {
       const rest = state.tickets.filter((t) => t.ref !== event.ref);
       if (event.ticket) rest.push(event.ticket);

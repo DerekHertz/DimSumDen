@@ -1,0 +1,67 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createServer } from 'vite';
+import { chromium } from 'playwright';
+import { buildLaunchOptions } from '../../../ci-cd/launch-options.mjs';
+import { lightenScene } from '../../../ci-cd/light-scene.mjs';
+
+test('entering the den shows the nearby resident card; moving away and leaving hides it', { timeout: 60000 }, async () => {
+  let server, browser;
+  try {
+    server = await createServer({ configFile: 'apps/ui/vite.config.mjs', server: { port: 0, host: '127.0.0.1' }, logLevel: 'silent' });
+    await server.listen();
+    browser = await chromium.launch(buildLaunchOptions());
+    const context = await browser.newContext({ reducedMotion: 'reduce' });
+    await lightenScene(context);
+    const page = await context.newPage();
+    const errors = [], writes = [];
+    page.on('pageerror', e => errors.push(e.message));
+    page.on('request', r => { if (r.method() === 'POST') writes.push(r.url()); });
+    const snapshot = { schema: 1, seq: 1, tickets: [], frontier: [], usage: null, requests: [], agents: [] };
+    await page.route('**/events', r => r.fulfill({ contentType: 'text/event-stream', body: `event: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n` }));
+    await page.route('**/state', r => r.fulfill({ json: snapshot }));
+    await page.route('**/metrics', r => r.fulfill({ json: { throughput: { windows: [] }, tokensByCell: {}, incidentsByTool: {} } }));
+    await page.route('**/session', r => r.fulfill({ status: 404, json: {} }));
+    await page.goto(server.resolvedUrls.local[0]);
+    const enter = page.getByRole('button', { name: 'Enter the den', exact: true });
+    await page.waitForFunction(() => document.querySelector('.den-entry button')?.getAttribute('aria-disabled') !== 'true');
+    await enter.click();
+    await page.waitForFunction(() => document.pointerLockElement?.tagName === 'CANVAS');
+    const card = page.getByRole('region', { name: 'Nearby panda' });
+    await card.waitFor();
+    assert.match(await card.textContent(), /The Cub/);
+    assert.match(await card.textContent(), /no agent running/);
+    assert.equal(await card.locator('button:disabled').count(), 4);
+    await page.keyboard.press('Tab');
+    await page.waitForFunction(() => document.pointerLockElement === null);
+    assert.equal(await page.getByRole('button', { name: 'Leave the den', exact: true }).count(), 1);
+    assert.equal(await card.count(), 1, 'using the cursor keeps the nearby card visible');
+    const toggle = page.locator('[data-overlay=stations] .card-toggle');
+    const expanded = await toggle.getAttribute('aria-expanded');
+    await toggle.click();
+    assert.notEqual(await toggle.getAttribute('aria-expanded'), expanded, 'the free cursor can click an existing card');
+    await page.getByRole('button', { name: 'Look around', exact: true }).click();
+    await page.waitForFunction(() => document.pointerLockElement?.tagName === 'CANVAS');
+    await page.keyboard.press('Tab');
+    await page.waitForFunction(() => document.pointerLockElement === null);
+    await page.keyboard.press('KeyT');
+    await page.keyboard.press('KeyF');
+    await page.keyboard.press('KeyA');
+    await page.keyboard.press('KeyD');
+    assert.deepEqual(writes, [], 'the card and its advertised shortcuts are read-only');
+    await page.getByRole('button', { name: 'Look around', exact: true }).click();
+    await page.waitForFunction(() => document.pointerLockElement?.tagName === 'CANVAS');
+    await page.keyboard.down('KeyS');
+    await card.waitFor({ state: 'hidden', timeout: 10000 });
+    await page.keyboard.up('KeyS');
+    await page.keyboard.press('Tab');
+    await page.waitForFunction(() => document.pointerLockElement === null);
+    await page.keyboard.press('Escape');
+    await enter.waitFor();
+    assert.equal(await card.count(), 0);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser?.close();
+    await server?.close();
+  }
+});

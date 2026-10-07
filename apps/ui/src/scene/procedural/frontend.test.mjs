@@ -112,6 +112,35 @@ function eventTarget(){
     count(){return [...listeners.values()].reduce((n,s)=>n+s.size,0);},
   };
 }
+test('Tab frees the cursor without leaving first person, clears movement, and mouse look can resume',()=>{
+  const doc=eventTarget(),win=eventTarget(),canvas=eventTarget(),previousDoc=globalThis.document,previousWin=globalThis.window;
+  doc.pointerLockElement=null;win.matchMedia=()=>({matches:false});
+  canvas.requestPointerLock=()=>{doc.pointerLockElement=canvas;doc.emit('pointerlockchange');};
+  doc.exitPointerLock=()=>{doc.pointerLockElement=null;doc.emit('pointerlockchange');};
+  globalThis.document=doc;globalThis.window=win;
+  let explorer;
+  try {
+    const modes=[],navigation={enabled:true};
+    explorer=createDenExplorer(THREE,{canvas,orbitControls:navigation,den:{obstacles:[],roamers:[]},onModeChange:v=>modes.push(v)});
+    explorer.enter();
+    assert.equal(doc.pointerLockElement,canvas);
+    const key=code=>doc.emit('keydown',{code,target:{closest:()=>null},preventDefault(){}});
+    key('KeyW');key('Tab');
+    assert.equal(doc.pointerLockElement,null);
+    assert.equal(explorer.active,true);
+    assert.equal(navigation.enabled,false);
+    const position=explorer.camera.position.clone();
+    explorer.update(0.1);assert.deepEqual(explorer.camera.position.toArray(),position.toArray());
+    doc.emit('mousemove',{movementX:100,movementY:0});explorer.update(0.1);
+    assert.equal(explorer.camera.rotation.y,0,'moving a free cursor does not turn the camera');
+    explorer.capture();
+    assert.equal(doc.pointerLockElement,canvas);
+    doc.emit('mousemove',{movementX:100,movementY:0});explorer.update(0.1);
+    assert.ok(explorer.camera.rotation.y<0);
+    key('Escape');assert.equal(explorer.active,false);
+    assert.deepEqual(modes,[true,false]);
+  }finally{explorer?.dispose();globalThis.document=previousDoc;globalThis.window=previousWin;}
+});
 test('first-person fallback accepts scene keys, ignores fields and buttons, and cleans up its listeners',()=>{
   const doc=eventTarget(),win=eventTarget(),canvas=eventTarget(),previousDoc=globalThis.document,previousWin=globalThis.window;
   doc.pointerLockElement=null;win.matchMedia=()=>({matches:false});
