@@ -2013,3 +2013,8 @@
 {"kind":"context","ts":"2026-10-07T21:30:30Z","session":"02771d2b-99c4-444a-b629-28af49c9f77c","context_tokens":37354,"percent":3.74,"event":"dispatch"}
 {"kind":"jg","ts":"2026-10-07T21:32:25.202Z","ticket":"organism-infra/136-jev-go-live-amendment","bytes":0,"files":0,"ms":0,"skipped":"non-code type (design-question)","fallback":null}
 {"kind":"config","ts":"2026-10-07T21:32:30.335Z","what":"Claude Code updated to 2.1.293; haiku alias now resolves to claude-haiku-5-5 (136 settlement item 8 prerequisite)"}
+{"kind":"cell","ts":"2026-10-07T21:35:59.123Z","ticket":"organism-infra/136-jev-go-live-amendment","cell":"architect","tokens":95527,"ms":169082,"outcome":"partial: merged main only; rewrite of ADR 0010/0015 amendments, ledger, CONTEXT terms, build-ticket scopes, gated text left","context":80000}
+{"kind":"incident","ts":"2026-10-07T21:35:59.159Z","ticket":"organism-infra/136-jev-go-live-amendment","cell":"architect","tool":"other","what":"architect hit 80k reading ADRs/draft before any edit; SubagentHandback refused by hook so no report delivered (handoff file carried the state)","cost":"95k tokens, no doc edits","fix":"re-dispatch architect with handoff decisions as start point","rule_change":null}
+{"kind":"usage","ts":"2026-10-07T21:36:10Z","five_hour":31,"weekly":44,"event":"dispatch","ticket":"organism-infra/136-jev-go-live-amendment","cell":"architect"}
+{"kind":"context","ts":"2026-10-07T21:36:10Z","session":"02771d2b-99c4-444a-b629-28af49c9f77c","context_tokens":50531,"percent":5.05,"event":"dispatch"}
+{"kind":"jg","ts":"2026-10-07T21:36:10.924Z","ticket":"organism-infra/136-jev-go-live-amendment","bytes":0,"files":0,"ms":1,"skipped":"non-code type (design-question)","fallback":null}
