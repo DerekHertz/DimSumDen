@@ -31,3 +31,4 @@ Files: `package.json` (the `test` script), a small wrapper under `scripts/`, and
 ## Comments
 
 - **orchestrator, 2026-10-06:** Filed after the 166 false bounce (user yes, 2026-10-06).
+- **security, 2026-10-07:** Security pass. Hand review of 1927f81; gitleaks clean; no deps or CI changes. scripts/test-lock.mjs:70-81 stale-takeover check-then-rename race (low); :37-45 pid reuse (low); :106 fixed lock name in shared tmpdir (low). Details in handoff 168-security.md.

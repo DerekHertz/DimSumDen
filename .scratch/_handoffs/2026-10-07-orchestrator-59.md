@@ -10,3 +10,4 @@
 - organism-infra/140: user 2026-10-07 waits for the MacBook push (tests/ and feat/140-steering-host-core, still not on origin). Then light verify. 140 gates the whole steering chain (141/142 -> 143 -> 106 -> 107 -> den-v1 05/06/07; den-v1 04 parked, needs unpark).
 - Frontier after 168: 140 verify when pushed; 126, 127 (aged ahead); batch 169/170/171.
 - Usage: 5-hour 69% (resets 02:50Z), weekly 36%. Orchestrator context ~80k at handoff.
+- UPDATE: 168 security PASS (3 lows, non-blocking: stale-takeover race, pid-only liveness, fixed tmp path; see 168-security.md). Security worktree .claude/worktrees/agent-a808c4eb62c7f0262 clean, remove it. Still to do: log-cell for security once its task notification gives tokens/ms (final context 27635), then push feat/168, open PR, merge on green, resolve.
