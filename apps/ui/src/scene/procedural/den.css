@@ -36,6 +36,7 @@
   .panda-detail { top:auto; bottom:115px; max-height:55dvh; width:calc(100vw - 32px); }
   .proximity-card { bottom:278px; max-height:calc(40dvh - 116px); padding:14px; }
   .den-visiting:has(.proximity-card) .cards { max-height:calc(30dvh - 90px); overflow-y:auto; }
+  .den-visiting:has(.proximity-card) .cards .card { flex-shrink:0; }
   .den-visiting:has(.proximity-card) .den-entry { bottom:100px; }
   .den-visiting:has(.proximity-card) .den-walk-hint { display:none; }
 }
