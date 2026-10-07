@@ -195,3 +195,4 @@ Files: `docs/adr/0010-*.md`, `docs/adr/0015-*.md`, `docs/jev-usecases.md` (new).
   8. CLAUDE.md names no shadow rules. C1 is needed only because it states 'light verify if qa specified, full otherwise'. C2 is optional: CLAUDE.md does not mention Jev today and the file is meant to stay short.
   9. Not changed: orchestrator.md Rules lines about jev.mjs/jev-wake-prelude.mjs appending their own rows (still true), and the frontmatter.
 - **orchestrator, 2026-10-07:** **orchestrator, 2026-10-07 (user verdict):** move risk-check before verify (architect note 2): keep O5's risk-check clauses and O6; build ticket B is scoped on that order. O8 applied (PR #182).
+- **orchestrator, 2026-10-07:** SubagentHandback misses (two architect returns with no report): user chose to scout the refusing hook now and file a ticket with the cause (2026-10-07).
