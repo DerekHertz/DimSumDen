@@ -10,10 +10,10 @@
 import {
   appendFileSync, closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readdirSync, readFileSync, realpathSync,
 } from "node:fs";
-import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { hasSecret, isDenied } from "./exposure.mjs";
+import { resolveRoot, resolveShortRef } from "../apps/organism-infra/board-service.mjs";
 
 const MODEL = "jev-1.13.0";
 const MAX_CHARS = 16000;
@@ -330,14 +330,23 @@ export function latestBounceComment(eventsText, feature, slug) {
   return text;
 }
 
+// organism-infra/126: the root finder and short-ref resolver are board's own (board-service.mjs).
 function boardRoot() {
-  if (process.env.ORGANISM_ROOT) return process.env.ORGANISM_ROOT;
   try {
-    const out = execFileSync("git", ["worktree", "list", "--porcelain"], { encoding: "utf8" });
-    const m = out.match(/^worktree (.+)$/m);
-    if (m) return m[1];
-  } catch {}
-  return process.cwd();
+    return resolveRoot(process.cwd(), process.env);
+  } catch {
+    return process.cwd();
+  }
+}
+
+// A short ref <feature>/<NN> becomes the full slug ref; none or several matches refuse (exit 1, no row).
+function resolveRefs(root, refs) {
+  try {
+    return refs.map((r) => resolveShortRef(root, r));
+  } catch (err) {
+    process.stderr.write(`jev: ${err.message}\n`);
+    return null;
+  }
 }
 
 const CLI_POINTS = ["tier", "verify", "route", "route-bounce", "priority", "scope"];
@@ -463,6 +472,16 @@ async function main(argv) {
     const err = logPointError(point, opts);
     if (err) return usage(err);
     const root = boardRoot();
+    if (opts.ticket !== undefined) {
+      const refs = resolveRefs(root, [opts.ticket]);
+      if (!refs) return 1;
+      opts.ticket = refs[0];
+    }
+    if (opts.actual !== undefined) {
+      const refs = resolveRefs(root, opts.actual.split(","));
+      if (!refs) return 1;
+      opts.actual = refs.join(",");
+    }
     const usagePath = path.join(root, ".scratch", "usage.jsonl");
     const row = logPointRow(point, opts, root, readRows(usagePath), new Date());
     appendFileSync(usagePath, JSON.stringify(row) + "\n");
@@ -483,6 +502,9 @@ async function main(argv) {
   }
 
   const root = boardRoot();
+  const resolved = resolveRefs(root, [opts.ticket]);
+  if (!resolved) return 1;
+  opts.ticket = resolved[0];
   const [feature, slug] = opts.ticket.split("/");
   const ticketPath = path.join(root, ".scratch", feature, "issues", `${slug}.md`);
   const usagePath = path.join(root, ".scratch", "usage.jsonl");
