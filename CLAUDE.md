@@ -12,7 +12,7 @@ Cell types are defined by genomes in `.claude/agents/`, grouped into stations:
 - `qa`, `security` (Tea & Pantry)
 - `designer`, `herald` (Front of House); herald drafts public posts, the user publishes
 
-Code tickets run a relay: qa `specify` writes failing tests, developer makes them pass, qa `verify` checks (light verify if qa specified, full otherwise), then `npm run risk-check`: a clean exit skips `security`, a hit dispatches it. The orchestrator opens the PR and merges on green CI. designer specs and reviews UI tickets and critiques asset tickets. Every cell follows the `organism-protocol` skill: claim before working, stop at pass gates, hand off, then end.
+Code tickets run a relay: qa `specify` writes failing tests, developer makes them pass, qa `verify` checks (light verify if qa specified, full otherwise), then `npm run risk-check`: a clean exit skips `security`, a hit dispatches it. The orchestrator opens the PR and merges on green CI. designer specs UI tickets with the user (a detailed spec plus low-cost mockups), and the user does all visual critique of UI and asset tickets until a cheaper automated critique exists. Every cell follows the `organism-protocol` skill: claim before working, stop at pass gates, hand off, then end.
 
 Relay autonomy (see `organism-protocol`): once the user approves a ticket, the orchestrator runs its relay end to end, PR and merge included. Other gates still apply. It stops for user verdicts, open scope questions, a twice-failed ticket, environment issues, 5-hour usage at 90%+, or a red or conflicted merge. Up to two cells run at once (`max_concurrent_cells: 2`), on different tickets with non-overlapping files.
 
