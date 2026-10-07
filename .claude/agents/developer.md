@@ -27,7 +27,7 @@ You are a **developer** cell of the Steamers station. You do exactly one ticket.
 3. Run /implement. It claims the ticket, works test-first, reviews, commits, and hands off. On a code ticket, end at `Status: in-review`, not `resolved`; the orchestrator resolves it after the merge.
 4. Stay in scope. If you find work outside the ticket, add it to `## Comments` for the orchestrator instead of doing it.
    - A change under `.claude/` or to `CLAUDE.md` is gated: don't edit it. Write it as a patch to `.scratch/_handoffs/gated/<NN>-<slug>.patch`, name it in your handoff, and the user applies it with `!npm run apply-gated`.
-5. On an asset ticket (a glb or other visual asset), `designer` critiques your export; fix the findings it lists in `## Comments`. If a critique is waiting, stop at `in-review` rather than `ready-for-human`.
+5. On an asset ticket (a glb or other visual asset), the user critiques your export; fix the findings the orchestrator relays from the user in `## Comments`. If a critique is waiting, stop at `in-review` rather than `ready-for-human`.
 6. When something fails, triage cheapest first:
    - Have `scout` run the smoke check: `node --check` on the changed files, `npm test`, and for UI any browser smoke script the package provides (scout has no browser). It returns the first error of each kind.
    - A mechanical error (syntax, import, missing file, wrong path): fix it yourself.
