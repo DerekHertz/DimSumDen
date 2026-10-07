@@ -19,7 +19,7 @@ import {
   mkdtemp,
   rm,
 } from "node:fs/promises";
-import { constants as fsConstants } from "node:fs";
+import { constants as fsConstants, readdirSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -113,6 +113,27 @@ export function parseTicketRef(ref) {
     throw new BoardError(`invalid ticket segment: ${ticket}`);
   }
   return { feature, ticket };
+}
+
+// organism-infra/126: the one short-ref resolver. <feature>/<NN> (the whole numeric
+// segment) resolves to the full <feature>/<NN-slug> of the one issue file whose name
+// starts with "<NN>-". A ref that is not short passes through unchanged. Zero or two
+// or more matches throw. Used by the board CLI, log-cell.mjs and jev.mjs.
+export function resolveShortRef(root, ref) {
+  checkArgLength(ref, "ticket ref");
+  const m = typeof ref === "string" ? /^([a-z0-9-]+)\/(\d+)$/.exec(ref) : null;
+  if (!m) return ref;
+  const [, feature, nn] = m;
+  let names = [];
+  try {
+    names = readdirSync(path.join(root, ".scratch", feature, "issues"));
+  } catch {
+    // no such feature: reported as no match below
+  }
+  const hits = names.filter((n) => n.startsWith(`${nn}-`) && n.endsWith(".md")).map((n) => n.slice(0, -3));
+  if (hits.length === 0) throw new BoardError(`ticket not found: ${ref} (no issue file starting ${nn}- in .scratch/${feature}/issues)`);
+  if (hits.length > 1) throw new BoardError(`ambiguous ticket ref ${ref}: matches ${hits.map((h) => `${feature}/${h}`).join(", ")}`);
+  return `${feature}/${hits[0]}`;
 }
 
 async function exists(p) {
