@@ -137,8 +137,40 @@ How hard qa verify looks at a developer's branch: `light` (run the tests, check 
 _Avoid_: Review level
 
 **Shadow mode**:
-Jev's picks are logged next to what actually ran and never applied. A point leaves shadow on outcomes (bounce rate and tokens per ticket), not on agreement with the orchestrator (ADR 0019).
-_Avoid_: Dry run, trial
+Jev's picks are logged next to what actually ran and never applied. A use case no longer needs its own shadow run before going live; it runs a **Trial** (ADR 0010 Amendment 1).
+_Avoid_: Dry run
+
+**Trial**:
+A use case's first live run: 10 resolved tickets on which it fired, then one keep-or-kill verdict from the user, judged on outcomes (weighted tokens per ticket and bounces against the 10 tickets before go-live), not on agreement with the orchestrator (ADR 0019).
+_Avoid_: Shadow run, pilot
+
+**Use case**:
+One thing Jev is allowed to do, listed in `docs/jev-usecases.md` with its mode, inputs, measure, baseline, kill condition and confidence floor.
+_Avoid_: Point, feature
+
+**Label set**:
+The fixed options Jev picks among for one use case (for example `small | standard | hard | other`). Jev never answers outside it.
+_Avoid_: Enum, categories
+
+**Safety miss**:
+The event, defined per use case, that turns the use case off at once (for example an escaped bug after a light verify, or a Haiku developer that bounces).
+_Avoid_: Failure, incident
+
+**Advisory mode**:
+A use case's output is shown to the orchestrator or the user but applied to nothing.
+_Avoid_: Display-only, suggestion mode
+
+**Config row**:
+The `kind:"config"` row in `usage.jsonl` that sets a use case's mode and confidence floor and freezes its baseline. Appending one is how a use case goes live, is kept, is killed or rolls back.
+_Avoid_: Settings, flag
+
+**Wake-up gate**:
+The check at orchestrator session start that decides whether new board input needs Claude at all. Code wakes on a fixed list (any user-authored comment first); Jev may suppress only an `informational` input.
+_Avoid_: Wake filter, prelude
+
+**Reserved budget**:
+The per-session API spend ceiling for Jev calls, split among use cases (ADR 0015 decision 7).
+_Avoid_: Quota, cap (the cap is the limit; the reserved budget is the split)
 
 ## Observation
 
