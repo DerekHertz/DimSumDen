@@ -23,3 +23,4 @@ The relay rule is light verify when qa ran `specify` for the ticket, and full ot
 ## Comments
 
 - **orchestrator, 2026-10-05:** Filed from pipeline-retro (user yes 2026-10-05). Incidents: 08 ×2 (handoff 38), 124 (usage.jsonl).
+- **orchestrator, 2026-10-07:** Pipeline retro 2026-10-07: shadow verify effective=full after qa specify has hit 3 tickets (158, den-layout/04, 140) and forced one full verify. The user approved running it next, right after batch D.
