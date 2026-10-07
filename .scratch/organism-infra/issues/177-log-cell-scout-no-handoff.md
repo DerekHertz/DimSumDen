@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Pipeline retro, 2026-10-07. Scouts are read-only helpers and never publish a handoff, so `node scripts/log-cell.mjs --cell scout ...` is always refused without `--allow-no-handoff "<reason>"`. This session the orchestrator had to rerun two scout rows (user yes, 2026-10-07).
 
