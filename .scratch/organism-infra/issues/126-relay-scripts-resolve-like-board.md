@@ -26,3 +26,4 @@
 - **Created (orchestrator, 2026-10-03):** Pipeline retro. Incidents: the log-cell root from a worktree (102), the jev short ref (102), and earlier on 2026-10-01 log-cell/jev with `none/...` refs.
 
 - 2026-10-07 orchestrator: batch D = organism-infra/126 + organism-infra/177 (share scripts/log-cell.mjs). The user approved it on 2026-10-07; it will be dispatched in the next session. First cell: qa-specify (orchestrator and Jev agree).
+- **orchestrator, 2026-10-07:** Scope (user, 2026-10-07): board has no short-ref resolver today (qa specify finding). The developer adds ONE resolver in apps/organism-infra/board-service.mjs and uses it in board's CLI as well as log-cell.mjs and jev.mjs. Board CLI short refs get the developer's own tests; qa's tests cover log-cell and jev. Known unrelated failure: apps/ui/den-scene-mounted.test.mjs on Node 24 (ticket 180).
