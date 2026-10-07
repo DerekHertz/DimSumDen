@@ -2,17 +2,18 @@
 import { walk, startWalk, isDenPositionBlocked, isWalkBlocked } from './walk.mjs';
 import { REVIEW_OBSTACLES } from '../../review/site-plan.mjs';
 export { isDenPositionBlocked };
-export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=()=>{},onHint=()=>{}}) {
+export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=()=>{},onHint=()=>{},onCursorChange=()=>{}}) {
   const camera=new THREE.PerspectiveCamera(66,1,0.045,160);
   const keys=new Set(),listeners=[];
-  let active=false,state=startWalk(),look={dx:0,dy:0},drag=null,wasLocked=false;
+  let active=false,state=startWalk(),look={dx:0,dy:0},drag=null,wasLocked=false,freeCursorRequested=false;
   function listen(target,event,callback,options){
     target.addEventListener(event,callback,options);
     listeners.push(()=>target.removeEventListener(event,callback,options));
   }
   function place(){camera.position.set(state.x,state.y,state.z);camera.rotation.set(state.pitch,state.yaw,0,'YXZ');}
-  function fallback(){if(active)onHint('WASD / arrows to walk · drag to look · Shift to go faster · Esc to leave');}
+  function fallback(){if(active){onCursorChange(true);onHint('WASD / arrows to walk · drag to look · Shift to go faster · Esc to leave');}}
   function capture(){
+    freeCursorRequested=false;keys.clear();look={dx:0,dy:0};
     if(!active||!canvas.requestPointerLock){fallback();return;}
     try{
       const pending=canvas.requestPointerLock();
@@ -21,26 +22,32 @@ export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=(
   }
   function enter(){
     if(active)return;
-    active=true;keys.clear();look={dx:0,dy:0};state=startWalk();
+    active=true;freeCursorRequested=false;keys.clear();look={dx:0,dy:0};state=startWalk();
     place();orbitControls.enabled=false;
     onModeChange(true);fallback();capture();
   }
   function exit(){
     if(!active)return;
-    active=false;keys.clear();drag=null;orbitControls.enabled=true;onModeChange(false);
+    active=false;freeCursorRequested=false;keys.clear();drag=null;orbitControls.enabled=true;onCursorChange(false);onModeChange(false);
     if(document.pointerLockElement===canvas)document.exitPointerLock();
     wasLocked=false;
   }
   listen(document,'pointerlockchange',()=>{
     const locked=document.pointerLockElement===canvas;
-    if(active&&locked)onHint('WASD / arrows to walk · mouse to look · Shift to go faster · Esc to leave');
-    if(wasLocked&&!locked&&active)exit();
+    if(active&&locked){onCursorChange(false);onHint('WASD / arrows to walk · mouse to look · Tab to use cards · Esc to leave');}
+    if(wasLocked&&!locked&&active){
+      if(freeCursorRequested){onCursorChange(true);onHint('Cursor free · click cards · Look around to resume · Esc to leave');}
+      else exit();
+    }
     wasLocked=locked;
   });
   listen(document,'pointerlockerror',fallback);
   listen(document,'keydown',e=>{
     if(!active)return;
     if(e.code==='Escape'){e.preventDefault();exit();return;}
+    if(e.code==='Tab'&&document.pointerLockElement===canvas){
+      e.preventDefault();freeCursorRequested=true;keys.clear();drag=null;look={dx:0,dy:0};document.exitPointerLock();return;
+    }
     if(e.target.closest?.('input,select,textarea,button,a,[contenteditable],[role="dialog"]'))return;
     if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'].includes(e.code)){
       e.preventDefault();keys.add(e.code);
@@ -53,7 +60,7 @@ export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=(
   function turn(dx,dy){look.dx+=dx;look.dy+=dy;}
   listen(document,'mousemove',e=>{if(active&&document.pointerLockElement===canvas)turn(e.movementX,e.movementY);});
   listen(canvas,'pointerdown',e=>{
-    if(!active||document.pointerLockElement===canvas||e.button!==0)return;
+    if(!active||freeCursorRequested||document.pointerLockElement===canvas||e.button!==0)return;
     drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);
   });
   listen(canvas,'pointermove',e=>{
@@ -76,7 +83,7 @@ export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=(
   }
   const blocked=(x,z)=>isWalkBlocked(x,z,world());
   function update(delta){
-    if(!active)return;
+    if(!active||freeCursorRequested)return;
     const forward=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'));
     const strafe=Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
     const input={forward,strafe,sprint:keys.has('ShiftLeft')||keys.has('ShiftRight'),look,

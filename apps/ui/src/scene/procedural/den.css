@@ -21,6 +21,8 @@
 .den-error { position:absolute; left:16px; bottom:150px; padding:16px; background:var(--surface-glass); color:var(--ink); border-radius:12px; max-width:360px; }
 .proximity-card { position:absolute; z-index:5; top:50%; right:24px; transform:translateY(-50%); width:min(330px,calc(100vw - 32px)); max-height:calc(100dvh - 180px); overflow:auto; padding:20px; border:1px solid var(--line); border-radius:16px; background:var(--surface-glass); color:var(--ink); box-shadow:var(--shadow-panel); pointer-events:none; }
 .proximity-card h2 { margin:4px 0 8px; font-size:23px; }
+.den-cursor-free .proximity-card { pointer-events:auto; }
+.den-entry button + button { margin-left:8px; }
 .proximity-station { margin:0; font-size:12px; }
 .proximity-state, .proximity-ticket, .proximity-tool, .proximity-pending { margin:8px 0; font-size:13px; overflow-wrap:anywhere; }
 .proximity-actions { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }

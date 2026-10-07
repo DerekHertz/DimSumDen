@@ -4,7 +4,7 @@ import { cameraConfig, clampTarget, clampZoom, dragPan, keyPan, pinchZoom, wheel
 import { createDenExplorer } from './explorer.mjs';
 import * as THREE from 'three';
 
-export function CameraRig({store,stage,den,onModeChange,onHint}) {
+export function CameraRig({store,stage,den,onModeChange,onHint,onCursorChange}) {
   const { gl, size, set } = useThree();
   const initialCamera=useThree(s=>s.camera);
   const camera=useRef(initialCamera).current;
@@ -12,7 +12,7 @@ export function CameraRig({store,stage,den,onModeChange,onHint}) {
   useEffect(()=>{
     if(!den)return;
     const explorer=createDenExplorer(THREE,{
-      canvas:gl.domElement,orbitControls:navigation,den,onHint,
+      canvas:gl.domElement,orbitControls:navigation,den,onHint,onCursorChange,
       onModeChange:active=>{
         set({camera:active?explorer.camera:camera});
         stage.camera=active?explorer.camera:camera;onModeChange(active);
@@ -23,7 +23,7 @@ export function CameraRig({store,stage,den,onModeChange,onHint}) {
     stage.explorer=explorer;
     document.querySelectorAll('[data-den-walk]').forEach(el=>explorer.bindButton(el,el.dataset.denWalk));
     return ()=>{explorer.dispose();stage.explorer=null;set({camera});};
-  },[den,gl,camera,set,stage,navigation,onModeChange,onHint]);
+  },[den,gl,camera,set,stage,navigation,onModeChange,onHint,onCursorChange]);
   // The viewport follows the canvas (the whole scene box: the cards float over it); kept in a ref for the handlers.
   const viewport = useRef({ width: size.width, height: size.height });
   viewport.current = { width: size.width, height: size.height };
