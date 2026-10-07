@@ -25,3 +25,5 @@ Files: `scripts/log-cell.mjs` and its tests.
 ## Comments
 
 - **orchestrator, 2026-10-07:** Filed from the pipeline retro (user yes, 2026-10-07).
+
+- 2026-10-07 orchestrator: batch D = organism-infra/126 + organism-infra/177 (share scripts/log-cell.mjs). The user approved it on 2026-10-07; it will be dispatched in the next session. First cell: qa-specify (orchestrator and Jev agree).

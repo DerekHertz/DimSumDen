@@ -6,7 +6,7 @@
 
 **Blocked by:** 139
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Den loop steps 3-4: the bridge dispatches, tracks and stops agents.
 
