@@ -28,3 +28,4 @@ Change the relay text so it matches the user's decision. These are gated files (
 ## Comments
 
 - **Created (orchestrator, 2026-10-07):** From the user's decision in session 5d5ed639. Until it merges, the orchestrator follows the comment on den-v1/05, 06 and 07.
+- **orchestrator, 2026-10-07:** User chose the gated-edit method (136 settlement item 9): the developer writes the exact new text for `.claude/agents/orchestrator.md`, `designer.md` and `CLAUDE.md` into its handoff; the user applies it in an interactive session without auto mode. Dispatch on that basis.

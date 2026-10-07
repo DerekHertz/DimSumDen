@@ -2,11 +2,11 @@
 
 **Type:** design-question
 
-**Priority:** P1
+**Priority:** P0
 
 **Blocked by:** None
 
-**Status:** parked
+**Status:** ready-for-agent
 
 **Serves:** ADR 0019 decision 5 (Jev routes each step and is judged by outcomes). The user settled the go-live terms in a grilling on 2026-10-04 and confirmed the list ("yes to the jev list"). Nothing is live yet; this amendment comes first.
 
@@ -52,3 +52,13 @@ Files: `docs/adr/0010-*.md`, `docs/adr/0015-*.md`, `docs/jev-usecases.md` (new).
 - **orchestrator, 2026-10-06:** Parked: User 2026-10-05: park until den-v1 works. The stalled architect's uncommitted partial work (ADR 0010/0015 edits, docs/jev-usecases.md) lives only in the Mac worktree agent-aa4acad29a81bddf3; the gated patch is at .scratch/_handoffs/gated/136-jev-go-live-genome.patch.
 - **architect, 2026-10-06:** stale lock from the architect that died on 2026-10-05 (handoff 36), no handoff left; force-cleared on the user's yes, 2026-10-05. Ticket stays parked; partial work stays in worktree agent-aa4acad29a81bddf3
 - **orchestrator, 2026-10-06:** With the user's yes, the dead architect's drafts are WIP-committed as fa3181f on local branch `docs/136-jev-go-live-amendment` (worktree agent-aa4acad2, now clean; pushed to origin with the user's yes, 2026-10-06). Resume from that commit; ADR 0015 Amendment 2 lists conflicts for the user to settle.
+- **orchestrator, 2026-10-07 (un-parked, P0):** User: "we need to start actually letting jev help with making decisions and finding information for agents ... bump the priority." Grilling settled the draft's conflicts C1-C7; user confirmed "yes to 136". The architect resumes from fa3181f (`docs/136-jev-go-live-amendment`), writes these into ADR 0010/0015 and `docs/jev-usecases.md`, adds new terms to `CONTEXT.md`, and scopes the build tickets:
+  1. **Route, new tickets (C2):** live. The orchestrator proposes Jev's pick at conf ≥ 0.8; below that it falls back and shows both; user approves every dispatch. Before go-live: normalize label aliases in advisory-outcome rows (`qa`=`qa-specify`, `developer`=`developer-direct`; real agreement 27/39 = 69%); add `security` to route's labels; prepend a code-built header to `state` (ticket Type, files touched, flags for gated `.claude/`/`CLAUDE.md`, `.github/workflows`, `apps/ui`/assets, relay defaults; jev-1.13 has a 32k-token window); sharpen the criteria text; also build an atomic version (yes/no questions: scope open → product, design/ADR → architect, UI/visual → designer, CI/deps/secrets → security; else qa-specify or developer-direct, composed in code; TypeSafe advises "atomic questions composed in code"). Replay both on the 39 labelled tickets; keep the higher; go live only at ≥ 80% agreement. Then a 10-ticket trial; one safety miss turns it off. TypeSafe offers no few-shot or fine-tuning.
+  2. **Verify (C3):** lift the qa-unspecified floor: light verify when Jev picks `light` at conf ≥ 0.8, all tests green, risk-check clean. Any escaped bug turns it off.
+  3. **Done-check (74):** escalate-only. Jev judges criteria from criteria + test output + diff; `fail` → full verify or back to developer; `pass` changes nothing. Sending the diff waits for 42.
+  4. **Wake (C1):** live despite ADR 0019; code wakes on any user-authored comment; trial judged on safety only.
+  5. **Priority and scope (C6):** displayed suggestions only, collecting data; not live until the data supports it.
+  6. **Handoff text and diffs to TypeSafe (C4):** un-park 42 (security review) right after 136; bounce routing, handoff trimming and done-check wait on it.
+  7. **Finding information:** the start-here context file goes to every hop that starts cold (full qa verify, security, scout); scout calls `jg` before grepping.
+  8. **Tier (C7):** retune from the 98 shadow rows; Haiku 5.5 (`claude-haiku-5-5`, Claude Code ≥ 2.1.293) may take developer work on tickets Jev rates `small` at conf ≥ 0.8; one Haiku bounce turns lowering off. Light verify moves to Haiku with it.
+  9. **Gated edits (C5):** the cell writes the exact new text for `.claude/`/`CLAUDE.md` into the ticket; the user applies it in an interactive session without auto mode. Same method unblocks 182.

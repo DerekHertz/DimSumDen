@@ -30,3 +30,5 @@ Make the step fail fast and recover instead of eating the job's timeout:
 ## Comments
 
 - **Created (orchestrator, 2026-10-07):** User, 2026-10-07: re-run once; if it hangs again, file a ticket for security. It hung again.
+- **qa, 2026-10-07:** QA pass (full verify). 2405 tests pass, 0 skipped; ci-workflow.test.mjs 6/6. All 3 criteria mapped; workflow tests are text-level, so cache miss/hit and browser discovery need a real CI run. New actions/cache SHA pin for security. See handoff 183-qa-verify.md.
+- **security, 2026-10-07:** Security pass. gitleaks clean; actions/cache SHA verified as v6.1.0; least-privilege permissions kept; no new dependency. Low: ci.yml no --with-deps (Chrome preinstalled, fallback only); cache saved only on job success. See handoff 183-security.md.
