@@ -6,7 +6,7 @@
 
 **Blocked by:** 01, 03, den-layout/03, den-layout/04
 
-**Status:** parked
+**Status:** claimed
 
 **Serves:** Den loop step 3 (walk up to a panda and get its card).
 
@@ -29,3 +29,4 @@ A new pure module `cardFor(scenePandas, approvals, viewer) -> Card | null` in `a
 - **orchestrator, 2026-10-03:** User decision 2026-10-03: fix 04 on PR #151 (no split). Fix round builds the proximity card (cardFor, reach/facing, idle card, capability flags) per the spec; PandaCard click dialog is not the card.
 - **orchestrator, 2026-10-03:** Parked: User 2026-10-03: paused; D1 fix round covers 01, 03 and zoom only. Get the updated UI wired first. PandaCard.jsx click dialog stays as-is on #151 for now.
 - **orchestrator, 2026-10-06:** Now blocked by den-layout (approved breakdown, user 2026-10-06): builds on PR #162's scene once real agents drive it.
+- **orchestrator, 2026-10-07:** Unparked: User approved building the read-only proximity card in this Codex session; scene dependencies are resolved.
