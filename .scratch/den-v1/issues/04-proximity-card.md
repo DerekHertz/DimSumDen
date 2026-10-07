@@ -6,7 +6,7 @@
 
 **Blocked by:** 01, 03, den-layout/03, den-layout/04
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Den loop step 3 (walk up to a panda and get its card).
 
@@ -38,3 +38,4 @@ A new pure module `cardFor(scenePandas, approvals, viewer) -> Card | null` in `a
 - **security, 2026-10-07:** Security pass at 0f891dc365b3112e4276b389dc1f71c611188aa6. No findings: loopback-only test server, React text rendering, disabled read-only actions, agent-scoped pending approval flags; no new shell, board-write, dependency or CI surface. Gitleaks passed across 6 commits; 42 focused tests passed. PR178 stays draft for the user visual verdict. Handoff: 04-security.md.
 - **orchestrator, 2026-10-07:** User approved final layout and cursor behavior in this Codex chat. Security passed at 0f891dc; final-head CI test and security jobs both green (run37568176193). Both draft gates complete; final merge validation remains.
 - **orchestrator, 2026-10-07:** Final merged-tree validation: 2413 passed, 1 failed, 0 cancelled/skipped in 144.3s. Low-80 checkout test reproduces identically on current main; scripts/jg.mjs and failing test are unchanged by PR178. Security and user visual gates passed; PR178 remains draft while the final validation blocker is diagnosed.
+- **orchestrator, 2026-10-07:** PR178 merged as b028ec3 after security pass, user layout/cursor approval, green final-head CI and host integration 2414/2414 tests (126.6s). Initial isolated test failure was synthetic sandbox /tmp/.git; actual WSL host passes. Preview stopped; clean temporary reviewer/integration worktrees removed. PR183 standards/spec review complete with zero actionable findings; PR183 remains draft.
