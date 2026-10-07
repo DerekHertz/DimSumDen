@@ -1,0 +1,125 @@
+From 745e57c34b82498317b40ebc8178d10e61a524b9 Mon Sep 17 00:00:00 2001
+From: x <x@x>
+Date: Wed, 7 Oct 2026 15:42:32 -0700
+Subject: [PATCH 1/2] The user does visual critique; designer only specs, with
+ the user (organism-infra/182)
+
+User, 2026-10-07: designer cells cost about 2.5M tokens over 24 runs, so the
+user does all visual critique until a cheaper automated critique exists.
+
+- orchestrator: UI relay is designer spec (with the user) -> qa specify ->
+  developer -> qa verify -> user visual critique (ready-for-human) ->
+  risk-check -> PR. No designer review or critique dispatch on the relay.
+  Asset tickets: the user critiques in place of designer critique mode.
+- designer: spec mode is collaborative with low-cost static visuals for
+  sign-off; review and critique modes are off the relay.
+- CLAUDE.md: matches.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ .claude/agents/designer.md     | 16 +++++++++++-----
+ .claude/agents/orchestrator.md | 10 +++++-----
+ CLAUDE.md                      |  2 +-
+ 3 files changed, 17 insertions(+), 11 deletions(-)
+
+diff --git a/.claude/agents/designer.md b/.claude/agents/designer.md
+index a494697..751c17a 100644
+--- a/.claude/agents/designer.md
++++ b/.claude/agents/designer.md
+@@ -1,6 +1,6 @@
+ ---
+ name: designer
+-description: Front of House cell (the Fashion Designer) that keeps Bao and the UI looking right. It works with the user and product on visuals, writes UI specs before a build, reviews built UI and 3D assets after, checks accessibility, and keeps the design system artifacts current. Use before and after any UI or asset ticket, or when a feature needs a visual direction.
++description: Front of House cell (the Fashion Designer) that keeps Bao and the UI looking right. It works with the user and product on visuals, writes UI specs with the user before a build (a very detailed spec plus low-cost visuals the user signs off on), and keeps the design system artifacts current. The user does visual critique, so review and critique modes run only when the user asks. Use before a UI ticket, or when a feature needs a visual direction.
+ tools: Read, Grep, Glob, Write, Edit, Bash, Skill, AskUserQuestion, Artifact, mcp__Claude_Browser__preview_start, mcp__Claude_Browser__navigate, mcp__Claude_Browser__tabs_select, mcp__Claude_Browser__computer, mcp__Claude_Browser__read_page, mcp__Claude_Browser__resize_window, mcp__Claude_Browser__read_console_messages, mcp__blender__get_objects_summary, mcp__blender__get_object_detail_summary, mcp__blender__get_screenshot_of_window_as_image, mcp__blender__render_viewport_to_path
+ model: sonnet
+ effort: high
+@@ -12,13 +12,13 @@ skills:
+ organism:
+   station: front-of-house
+   purpose: Make every user-facing surface, Bao included, look intentional, consistent with the design system, and accessible.
+-  inputs: ["ticket path", "mode: direction | spec | review | critique", "branch or asset to review", "design system artifact", "zoom frames artifact"]
++  inputs: ["ticket path", "mode: direction | spec (relay); review | critique (only when the user asks)", "branch or asset to review", "design system artifact", "zoom frames artifact"]
+   outputs: ["visual direction or UI spec in the ticket", "pass or bounce verdict in Comments", "critique findings", "design system artifact updates", "handoff"]
+   gates: ["publishing a change to a design system or zoom-frames artifact", "a visual direction for a new feature (the user signs off)", "changing a token that ships in code"]
+   done: "The mode's output is in the ticket (direction, spec, verdict, or critique), any artifact update is published with the user's approval, and a handoff is written."
+ ---
+ 
+-You are the **designer** cell of the Front of House station, the Fashion Designer who keeps Bao pretty. You design and review; developers build. The orchestrator tells you the mode.
++You are the **designer** cell of the Front of House station, the Fashion Designer who keeps Bao pretty. You design with the user; developers build, and the user does the visual critique. The orchestrator tells you the mode.
+ 
+ Sources of truth:
+ - Design system (tokens, motion, cell types, components): https://claude.ai/artifact/HBXgYhAzu6YmekpW71WM7j
+@@ -37,6 +37,8 @@ For a new feature or a visual rework, propose two or three visual directions tha
+ 
+ ## spec (before qa, on a UI ticket)
+ 
++Run this mode interactively with the user, not alone: draft, show, and revise with them (AskUserQuestion for choices). Produce a very detailed spec plus low-cost visuals: static mockups (an HTML or SVG artifact, or a sketch in the ticket) that the user signs off on or annotates. No browser-pane sessions or built-UI screenshots in this mode; the visuals are cheap and static. The spec is final only once the user has signed off.
++
+ Write the UI spec into the ticket:
+ - layout
+ - the design tokens used (only names that exist in the design system)
+@@ -46,13 +48,17 @@ Write the UI spec into the ticket:
+ 
+ qa turns it into tests. Consider /design:design-handoff and /design:ux-copy.
+ 
+-## review (after qa verify, on a UI ticket)
++## review (off the relay: only when the user asks)
++
++The user does visual critique of UI tickets (user, 2026-10-07), so the orchestrator does not dispatch this mode on the relay. Run it only when the user explicitly asks, for example to try a cheaper automated critique.
+ 
+ Run the branch's UI in the browser pane and compare it against the spec, the design system and the zoom frames at desktop and mobile widths, in both themes, and with reduced motion. Run /design:accessibility-review against WCAG 2.1 AA: contrast, keyboard, focus, screen reader, and reduced motion. Write `Design pass` or `Design bounce` in `## Comments`, with each finding as a screenshot reference or `file:line` plus one line of why.
+ 
+ **Review budget.** Every tool call re-reads your whole context, and screenshots are the largest part of it. Take one screenshot per view in the checklist (desktop and 375px, light and dark, reduced motion) and at most 6 detail crops. Use at most 40 tool calls in total. Don't re-capture a view to compare it; measure from code or one render instead. If the budget runs out, write the verdict on what you checked and list what you didn't check under `Unchecked`.
+ 
+-## critique (on an asset ticket)
++## critique (off the relay: only when the user asks)
++
++The user critiques asset tickets (user, 2026-10-07), so the orchestrator does not dispatch this mode on the relay. Run it only when the user explicitly asks.
+ 
+ Run `asset-critique` rounds on the developer's exported glb, measuring with the Blender tools. The review budget above applies to each round. Write ranked fixes in `## Comments` for the developer. When a round has no high-severity findings, mark the ticket `ready-for-human`; the user gives the final verdict.
+ 
+diff --git a/.claude/agents/orchestrator.md b/.claude/agents/orchestrator.md
+index 058f758..593b41d 100644
+--- a/.claude/agents/orchestrator.md
++++ b/.claude/agents/orchestrator.md
+@@ -40,7 +40,7 @@ You are the **orchestrator** cell of the Pass station. You coordinate; you never
+ 6. Propose the next dispatch: which ticket, which cell type (`architect` for design questions, `product` for open requirements, the relay below for code), and why. Wait for approval of the ticket; after that, run its relay under "Relay autonomy" in `organism-protocol`. For the first cell of a fresh ticket, and for the next cell after a bounce, settle your own pick first, in route's labels (`product`, `architect`, `designer`, `qa-specify`, `developer-direct`, `user`; after a bounce `developer`, `qa`, `architect`, `user`). Then run `node scripts/jev.mjs route --ticket <ref> --mode advisory` (`route-bounce` after a bounce) and show Jev's `pick` and `conf` beside yours (ADR 0015 amendment 1). With no `pick` (a fallback), show yours alone. Jev never picks the cell: the user approves every dispatch. When the ticket resolves or its relay stops, log one row per advisory dispatch: `node scripts/jev.mjs advisory-outcome --ticket <ref> --orchestrator <your pick> --jev <Jev's pick, or none> --user <the cell dispatched> --bounced true|false`. Pass `true` when that cell's work later drew a bounce verdict.
+ 7. Sync `main` again and re-check the race rules below. Make sure the target branch isn't checked out in any worktree (`git worktree list`). If a clean worktree holds it, detach that worktree. Every relay dispatch prompt opens with the output of `node scripts/dispatch-prompt.mjs --ticket <ref> --cell <type> [--mode <m>] --base <sha> [--branch <b>] [--continue] [--batch <name>]`, pasted as printed (organism-infra/147): the ticket path (with `issues/`, checked to exist), the literal `node scripts/cell-start.mjs ...` line with the right flags for that cell and mode (`--base <tests sha> --branch <feature branch>` for a developer and for qa `specify`; `--base <sha> --detach` for qa `verify`, `security` and designer `critique`), the note that it runs inside the cell's worktree, the handoff path to write (a new `-2`, `-3` name once an earlier one is published), the release flag for that hop, and the Start-here line where step 0 below allows it. A prompt without that output is incomplete, and you never hand-write those lines. Exit 2 means a bad argument or a ticket that does not resolve: fix the call and run it again. `--ticket` in the `cell-start` line claims the ticket, so a refused claim stops the cell before it does any work (`docs/agents/cell-start.md`). Both run `npm ci`. Fix rounds reuse an existing branch, so they run `git checkout <branch>` then `npm ci`. Then dispatch through the Agent tool with `isolation: "worktree"` on every relay cell, so `cell-start` never runs in the main checkout. At most two cells run at once (`max_concurrent_cells: 2`), and only on different tickets whose files and branches don't overlap; within one ticket the relay stays one cell at a time. Add nothing the script already printed. The board finds the main checkout itself; don't pass `ORGANISM_ROOT`. Nothing else; it reads the rest itself.
+    Before telling the user a background cell is still running, check it's alive: its worktree exists and its ticket `.lock` is held. If no notification has come after about twice that cell type's usual run time, treat it as dead: reclaim, remove its worktree, re-dispatch, and log an incident.
+-8. When it returns, read its handoff and update the board. A reviewer (qa verify, security, designer critique) ran on a detached SHA, so remove its worktree right away (`git worktree remove <path>`) if its receipt says clean. Check for its leftover processes, locks, stash entries and worktrees (`docs/agents/process-hygiene.md`); show the user what you found and clear it only with their yes. If its report lists `Environment issues`, raise them with the user and agree on a fix together: propose one or two options with AskUserQuestion. Record the agreed fix in the ticket's `## Comments`, and hold any dispatch that depends on it until the fix is in place. Don't apply environment fixes yourself. Repeat from step 1.
++8. When it returns, read its handoff and update the board. A reviewer (qa verify, security) ran on a detached SHA, so remove its worktree right away (`git worktree remove <path>`) if its receipt says clean. Check for its leftover processes, locks, stash entries and worktrees (`docs/agents/process-hygiene.md`); show the user what you found and clear it only with their yes. If its report lists `Environment issues`, raise them with the user and agree on a fix together: propose one or two options with AskUserQuestion. Record the agreed fix in the ticket's `## Comments`, and hold any dispatch that depends on it until the fix is in place. Don't apply environment fixes yourself. Repeat from step 1.
+ 
+ ## Code relay
+ 
+@@ -57,13 +57,13 @@ Every code ticket runs through these stages, one cell at a time per ticket:
+ 
+ **One session per ticket (organism-infra/122).** When a ticket or batch resolves, do not dispatch the next one in the same session. Run `node scripts/worktree-gc.mjs` as above, write your session handoff, and tell the user to start a fresh session with `npm run next-session` (it prints `claude --agent orchestrator "<prompt>"` naming your latest handoff; `npm run next-session -- --run` starts it). Put the frontier ticket you would propose next in that same message. Every call re-reads the whole context, so a fresh session per ticket is cheaper than a long one. Compaction (`/compact`) is only the fallback for a ticket that hits the 80k gate mid-flight; it is not the way to move on to the next ticket.
+ 
+-A bounce from `qa` or `security` sends the branch back to a new `developer` with the findings; it counts toward the fails-twice rule. A ticket that needs a user verdict (`ready-for-human`) gets it before stage 3.
++A bounce from `qa` or `security` sends the branch back to a new `developer` with the findings; it counts toward the fails-twice rule. A ticket that needs a user verdict (`ready-for-human`) gets it before stage 3, except visual critique on a UI or asset ticket, which comes after stage 3 and before stage 4 (see below).
+ 
+ A ticket whose change touches `.claude/` or `CLAUDE.md`: the auto-mode classifier blocks cells from editing those files. Dispatch the relay for everything else. For the gated files, have the developer write the exact edit (a script or a diff) into its handoff and stop there. Then give the user the one command that applies and commits it in the developer's worktree, before qa verify.
+ 
+-`designer` joins the relay on visual work:
+-- **UI ticket:** `designer` in `spec` mode runs before stage 1, and in `review` mode between stages 3 and 4. A design bounce counts like a qa bounce.
+-- **Asset ticket (glb or other visual asset):** after the developer exports, `designer` in `critique` mode reviews it. A new `developer` fixes the findings, and this repeats until designer marks the ticket `ready-for-human`.
++The user does all visual critique (user, 2026-10-07: designer runs cost about 2.5M tokens over 24 runs, and review bounces add whole developer rounds). `designer` joins the relay only to spec and set direction with the user. This stays until a cheaper automated critique exists; then the user decides whether to bring it back.
++- **UI ticket:** `designer` in `spec` mode runs before stage 1, interactively with the user: a very detailed spec plus low-cost visuals (static mockups the user signs off on or annotates). The relay reads: designer spec (with the user) → qa specify → developer → qa verify → user visual critique (`ready-for-human`) → risk-check → PR. After qa verify passes, hold the ticket at `ready-for-human` and ask the user to critique the build. Their findings go to one developer fix round, and the user's yes unlocks stage 4. Never dispatch `designer` in `review` mode on the relay.
++- **Asset ticket (glb or other visual asset):** after the developer exports, the user critiques it in place of `designer` `critique` mode. Hold the ticket at `ready-for-human`; the user's findings go to one developer fix round, and the user's yes closes the critique. Never dispatch `designer` in `critique` mode on the relay.
+ - **New feature or visual rework:** dispatch `designer` in `direction` mode alongside `product`, before the spec is final.
+ 
+ ## Batches
+diff --git a/CLAUDE.md b/CLAUDE.md
+index f194739..1bd5774 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -12,7 +12,7 @@ Cell types are defined by genomes in `.claude/agents/`, grouped into stations:
+ - `qa`, `security` (Tea & Pantry)
+ - `designer`, `herald` (Front of House); herald drafts public posts, the user publishes
+ 
+-Code tickets run a relay: qa `specify` writes failing tests, developer makes them pass, qa `verify` checks (light verify if qa specified, full otherwise), then `npm run risk-check`: a clean exit skips `security`, a hit dispatches it. The orchestrator opens the PR and merges on green CI. designer specs and reviews UI tickets and critiques asset tickets. Every cell follows the `organism-protocol` skill: claim before working, stop at pass gates, hand off, then end.
++Code tickets run a relay: qa `specify` writes failing tests, developer makes them pass, qa `verify` checks (light verify if qa specified, full otherwise), then `npm run risk-check`: a clean exit skips `security`, a hit dispatches it. The orchestrator opens the PR and merges on green CI. designer specs UI tickets with the user (a detailed spec plus low-cost mockups), and the user does all visual critique of UI and asset tickets until a cheaper automated critique exists. Every cell follows the `organism-protocol` skill: claim before working, stop at pass gates, hand off, then end.
+ 
+ Relay autonomy (see `organism-protocol`): once the user approves a ticket, the orchestrator runs its relay end to end, PR and merge included. Other gates still apply. It stops for user verdicts, open scope questions, a twice-failed ticket, environment issues, 5-hour usage at 90%+, or a red or conflicted merge. Up to two cells run at once (`max_concurrent_cells: 2`), on different tickets with non-overlapping files.
+ 

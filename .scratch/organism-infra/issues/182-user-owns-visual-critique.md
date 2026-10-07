@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Serves:** den-v1/05, 06, 07 (the UI steps of the v1 loop). Designer cells have cost ~2.5M tokens over 24 runs (spec avg 104k, review 95k, direction 147k), and review bounces add whole developer rounds. User, 2026-10-07: "i prefer to do all of the visual critiques given how expensive it is, once we come up with a more efficient system then we can integrate that into the agentic workflow."
 
@@ -29,3 +29,5 @@ Change the relay text so it matches the user's decision. These are gated files (
 
 - **Created (orchestrator, 2026-10-07):** From the user's decision in session 5d5ed639. Until it merges, the orchestrator follows the comment on den-v1/05, 06 and 07.
 - **orchestrator, 2026-10-07:** User chose the gated-edit method (136 settlement item 9): the developer writes the exact new text for `.claude/agents/orchestrator.md`, `designer.md` and `CLAUDE.md` into its handoff; the user applies it in an interactive session without auto mode. Dispatch on that basis.
+- **qa, 2026-10-07:** QA pass: npm test 2405/0 fail/0 skipped; all 4 criteria met in 9ff77ae (docs check by diff). developer.md step 5 edit is outside the three named files (listed, not judged). See handoff 182-qa-verify.
+- **security, 2026-10-07:** Security pass. Docs-only diff (3 named genome/CLAUDE.md files plus developer.md step 5), no code, deps or CI changes. gitleaks origin/main..9ff77ae: no leaks. Low: orchestrator.md:41 still lists designer critique in the detached-dispatch flags (stale, harmless). Low: developer.md:30 edit is outside the three named files, listed by qa. No gate (auth, secrets, network) is weakened. See handoff 182-security.
