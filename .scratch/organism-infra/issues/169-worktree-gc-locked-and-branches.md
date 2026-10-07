@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Worktree cleanup after a merge (orchestrator relay stage 5). Retro 2026-10-06: finished cells leave their harness worktrees locked by the live session pid ("claude agent agent-<id> (pid <n> ...)"), so `git worktree remove` and `worktree-gc` refuse them until the orchestrator unlocks each by hand. This happened twice this session. About 80 merged `worktree-agent-*` branches also piled up, because gc deletes only the branch a removed worktree had checked out (user yes, 2026-10-06).
 
@@ -29,3 +29,4 @@ Files: `scripts/worktree-gc.mjs` and its tests.
 ## Comments
 
 - **orchestrator, 2026-10-06:** Filed from the pipeline retro (user yes, 2026-10-06).
+- **orchestrator, 2026-10-07:** Parked: User 2026-10-07: north star first (den v1 loop). Pipeline work waits; unpark after den-v1/07 or on a 3rd repeat incident that blocks the relay.

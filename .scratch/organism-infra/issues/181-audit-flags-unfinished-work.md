@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Picking up where the last session stopped. On 2026-10-07, batch D's developer pushed `10ccc9a` to `feat/batch-d-126-177` and the session ended: no claim, no handoff, no board event, and both tickets still read `ready-for-agent`. Nothing on the board showed the work existed; the user had to ask "where did we leave off" and a session found it by comparing branches with `events.jsonl` by hand. This gets worse when sessions run on more than one machine (WSL, MacBook, cloud), and it applies to all of them.
 
@@ -36,3 +36,4 @@ Files: `apps/organism-infra/board-audit.mjs`, `scripts/session-start.mjs`, and t
 ## Comments
 
 - **main session, 2026-10-07:** Filed at the user's request after the batch D developer push was found without a board trace. The user chose this over setting up cloud sessions for now. Cloud would make sessions visible but would not catch a session that ends mid-relay.
+- **orchestrator, 2026-10-07:** Parked: User 2026-10-07: north star first (den v1 loop). Pipeline work waits; unpark after den-v1/07 or on a 3rd repeat incident that blocks the relay.

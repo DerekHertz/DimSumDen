@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** pipeline retro 2026-10-03, cause 1 (relay scripts disagree with `board` on root and refs).
 

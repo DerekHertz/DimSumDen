@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Pipeline retro, 2026-10-07. Three times (den-layout/01, 162, 140) the orchestrator published a resolve handoff whose State block `pending` held plain strings instead of `{item, owner}` objects. The publish or the following `board release` refused, and the message did not show the expected shape, so each one took extra rounds.
 
@@ -26,3 +26,4 @@ Files: the board CLI's handoff/State-block validation in `apps/organism-infra/` 
 ## Comments
 
 - **orchestrator, 2026-10-07:** Filed from the pipeline retro (user yes, 2026-10-07).
+- **orchestrator, 2026-10-07:** Parked: User 2026-10-07: north star first (den v1 loop). Pipeline work waits; unpark after den-v1/07 or on a 3rd repeat incident that blocks the relay.

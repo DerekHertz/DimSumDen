@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Gated `.claude/` edits on a relay branch (docs/agents/gated-patches.md). Retro 2026-10-06: `npm run apply-gated` only targets the checkout it runs in, so batch C's gated protocol edit needed a hand-written `git -C <worktree> apply` plus commit. The multi-line command wrapped when the user pasted it and failed, and the orchestrator then committed the patch while it was still in `gated/` instead of `gated/applied/` (user yes, 2026-10-06).
 
@@ -30,3 +30,4 @@ Files: `scripts/apply-gated.mjs`, its tests, `docs/agents/gated-patches.md`.
 ## Comments
 
 - **orchestrator, 2026-10-06:** Filed from the pipeline retro (user yes, 2026-10-06).
+- **orchestrator, 2026-10-07:** Parked: User 2026-10-07: north star first (den v1 loop). Pipeline work waits; unpark after den-v1/07 or on a 3rd repeat incident that blocks the relay.
