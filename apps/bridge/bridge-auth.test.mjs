@@ -13,6 +13,9 @@ import { startBridge } from "./server.mjs";
 import { ROUTES } from "./routes.mjs";
 import { makeStateFixture, FEATURE } from "./bridge-fixture.mjs";
 import { CODE, origin, send, login, authed } from "./bridge-auth-helpers.mjs";
+// The fake runtime serves the agent routes (organism-infra/140). Until cells/runtime.mjs exists the older rows
+// still run; cells/host-core.test.mjs fails on the missing module.
+const { createFakeRuntime } = await import("./cells/runtime.mjs").catch(() => ({}));
 
 const DISPATCH_REF = `${FEATURE}/02-ready-p0`; // gate "dispatch" in the fixture
 
@@ -22,6 +25,17 @@ const BODIES = {
   "POST /requests": {
     real: { kind: "dispatch-approve", ref: DISPATCH_REF },
     bogus: { kind: "dispatch-approve", ref: `${FEATURE}/99-nope` },
+  },
+  // organism-infra/140: the agent routes, served by a bridge started with a fake runtime (beforeEach below).
+  "POST /agents": {
+    real: { ref: DISPATCH_REF, role: "architect" },
+    bogus: { ref: `${FEATURE}/99-nope`, role: "architect" },
+  },
+  // A stop needs a live agent for the authenticated happy path; `prepare` starts one and returns its id.
+  "POST /agents/:id/stop": {
+    real: {},
+    bogus: {},
+    prepare: async () => (await bridge.host.start({ ref: `${FEATURE}/31-auth-stop`, role: "scout" })).agent.id,
   },
 };
 // Path parameters: a registry path like "/cells/:id/stop" is exercised with each value.
@@ -35,14 +49,17 @@ let fx;
 let bridge;
 let token;
 let file;
+let fake;
 
 beforeEach(async () => {
   fx = await makeStateFixture();
   file = path.join(fx.root, ".scratch", "_requests", "requests.jsonl");
-  bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE } });
+  fake = createFakeRuntime?.() ?? null;
+  bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, ...(fake ? { runtime: fake } : {}) });
   token = await login(bridge);
 });
 afterEach(async () => {
+  for (const r of fake?.spawns ?? []) if (!r.exited) r.exit();
   await bridge.close();
   await fx.cleanup();
 });
@@ -134,7 +151,9 @@ describe("token-gated mutating routes (table-driven from ROUTES)", () => {
     const name = `${r.method} ${r.path}`;
     describe(name, () => {
       test("valid Bearer, same-origin Origin (127.0.0.1 or localhost) and JSON succeeds", async () => {
-        const res = await call(r, { headers: authed(bridge, token) });
+        const prepared = BODIES[`${r.method} ${r.path}`]?.prepare;
+        const id = prepared ? await prepared() : "an-id";
+        const res = await call(r, { id, headers: authed(bridge, token) });
         assert.ok(res.status >= 200 && res.status < 300, `${res.status} ${res.text}`);
         // A repeat of the same request may now be refused as a duplicate (409); what matters is that the localhost
         // spelling of the same origin is not refused by the gate.

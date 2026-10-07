@@ -10,6 +10,8 @@ export const ROUTES = [
   { method: "GET", path: "/events", auth: "none", mutating: false },
   { method: "POST", path: "/session", auth: "origin", mutating: true },
   { method: "POST", path: "/requests", auth: "token", mutating: true },
+  { method: "POST", path: "/agents", auth: "token", mutating: true },
+  { method: "POST", path: "/agents/:id/stop", auth: "token", mutating: true },
 ];
 
 // ":name" segments match any one non-empty segment. Paths are matched exactly (no trailing slash, case-sensitive).
