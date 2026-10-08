@@ -13,3 +13,8 @@
 ## Next
 1. Ask the user about gated patches 136 and 198, and the `refs/backup/` pins.
 2. Propose den-v1/07, then 09.
+
+## Addendum (user answers)
+- refs/backup pins: user chose "scout checks them". Next session: scout lists pinned commits whose changes are not on main; user decides those, the rest are dropped (`git update-ref -d`).
+- Gated 198: already in orchestrator.md (reverse-applies cleanly); moved to `gated/applied/`.
+- Gated 136: stale, applies neither way against the current genome. Needs regenerating against today's orchestrator.md before the user can apply it.
