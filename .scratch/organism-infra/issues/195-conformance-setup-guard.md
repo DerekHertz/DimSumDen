@@ -39,3 +39,5 @@ Fix `apps/bridge/cells/conformance.mjs` so that a re-run gives a valid verdict:
 
 ## Comments
 - **orchestrator, 2026-10-08:** Filed on the user's yes. 143 waits on the re-run this enables. The 6.3 verdicts still need a security re-review and the user's acceptance after the re-run (142-architect.md pending).
+- **qa, 2026-10-08:** qa light verify: escalate to full verify. npm test green (2516, 0 skipped); criterion 'every spike' has no test for S5. Detail in 195-qa-verify.md. risk-check hit: security.
+- **orchestrator, 2026-10-08:** User decision on the escalation: accept S5 as covered. runS5 passes captures through the shared setupProblems path (conformance.mjs:1195, 728-738), so no full verify. Next: security (risk-check hit on the test file's shell-out).
