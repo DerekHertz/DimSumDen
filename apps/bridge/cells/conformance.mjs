@@ -7,7 +7,8 @@
 // Usage: node apps/bridge/cells/conformance.mjs [--spike S1,S3] [--out <dir>] [--model <m>]
 //          [--timeout <seconds>] [--extra-env NAME]... [--dry-run] [--help]
 //
-// Every child runs in a throwaway temp directory (never this repo) with a generated role file
+// Every child runs in a throwaway temp directory (S6b: a throwaway worktree of --repo; its comparison
+// probe also runs once in --repo itself, restoring .claude/settings.local.json) with a generated role file
 // `probe` (agents are chosen with `--agent <role>`), on a cheap model by default. The child's
 // environment is the adapter's allowlist (decision 6.6), never a copy of this process's.
 //
@@ -16,7 +17,7 @@ import { spawn, execFile, execFileSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { randomUUID, randomBytes } from "node:crypto";
 import net from "node:net";
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, statSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, statSync, rmSync, readFileSync, realpathSync } from "node:fs";
 import { tmpdir, homedir, userInfo } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -284,13 +285,16 @@ export function evaluateS7(cap, { sentAt }) {
 export function evaluateS8({ init, stat, connect, probes = [], disable = [] }) {
   const ev = [];
   const socketPath = init?.socketPath ?? null;
+  let dirForeign = false;
   ev.push(`init.messaging_socket_path: ${socketPath ?? "absent"}`);
   ev.push(`init.capabilities: ${(init?.capabilities ?? []).join(", ") || "none listed"}`);
   if (socketPath) {
     if (stat) {
-      const open = (stat.mode & 0o006) !== 0 || (stat.dirMode & 0o007) !== 0;
-      ev.push(`socket stat: type ${stat.type}, mode ${(stat.mode & 0o777).toString(8).padStart(4, "0")}, uid ${stat.uid} (this process ${stat.ownUid}), directory mode ${(stat.dirMode & 0o777).toString(8).padStart(4, "0")}`);
-      ev.push(open ? "access for others: OPEN (the socket or its directory is reachable by other users)" : "access for others: none (owner only)");
+      // Reaching a socket needs read or write on it; reaching its directory needs any group or other bit.
+      const open = (stat.mode & 0o066) !== 0 || (stat.dirMode & 0o077) !== 0;
+      ev.push(`socket stat: type ${stat.type}, mode ${(stat.mode & 0o777).toString(8).padStart(4, "0")}, uid ${stat.uid} (this process ${stat.ownUid}), directory uid ${stat.dirUid ?? "unknown"}, directory mode ${(stat.dirMode & 0o777).toString(8).padStart(4, "0")}`);
+      ev.push(open ? "access for group or others: OPEN (the socket or its directory is reachable by group members or other users)" : "access for group or others: none (owner only)");
+      dirForeign = typeof stat.dirUid === "number" && typeof stat.ownUid === "number" && stat.dirUid !== stat.ownUid;
     } else {
       ev.push("socket stat: unavailable; access for others unknown");
     }
@@ -313,10 +317,10 @@ export function evaluateS8({ init, stat, connect, probes = [], disable = [] }) {
     outcome = "b";
     verdictName = "go";
     ev.push("outcome b: the socket refuses connections");
-  } else if (probes.some((p) => p.name === "control-response" && p.effect)) {
+  } else if (probes.some((p) => p.name.startsWith("control-response") && p.effect)) {
     outcome = "d";
     verdictName = "no-go";
-    ev.push("outcome d: a control_response over the socket answered a pending permission request");
+    ev.push(`outcome d: a control_response over the socket answered a pending permission request (${probes.filter((p) => p.name.startsWith("control-response") && p.effect).map((p) => p.name).join(", ")})`);
   } else if (probes.some((p) => p.effect)) {
     outcome = "c";
     verdictName = "residual";
@@ -333,6 +337,10 @@ export function evaluateS8({ init, stat, connect, probes = [], disable = [] }) {
     outcome = "b";
     verdictName = "go";
     ev.push("outcome b: the socket answers every probe with an error and no probe took effect");
+  }
+  if (verdictName === "go" && dirForeign) {
+    verdictName = "no-go";
+    ev.push(`the socket directory is owned by uid ${stat.dirUid}, not this process's uid ${stat.ownUid}: its owner could swap the socket, so this is not a go`);
   }
   const result = { spike: "S8", verdict: verdictName, outcome, evidence: ev };
   if (verdictName !== "go") {
@@ -351,12 +359,17 @@ export function evaluateS8({ init, stat, connect, probes = [], disable = [] }) {
 // tool's process running? Survivors are counts of the in-flight tool's processes (runS4b). When the child-only signals
 // leave survivors the adapter must signal the process group, so the group step decides group-kill;
 // survivors even after the group signals are a no-go (the tool escaped its group).
-export function evaluateS4b({ eof, term, kill, group = null, unstarted = [] }) {
+export function evaluateS4b({ eof, term, kill, group = null, unstarted = [], notes = [] }) {
   const ev = [];
   ev.push(`stdin EOF mid-call: child ${eof.exited ? "exited" : "did NOT exit"}, ${eof.survivors} tool process(es) left`);
   ev.push(`SIGTERM: child ${term.exited ? `exited after ${term.exitMs} ms` : "did not exit"}, tool processes left at 2 s ${term.survivorsAt2s}, at 10 s ${term.survivorsAt10s}`);
   ev.push(`SIGKILL: ${kill.survivors} tool process(es) left`);
-  if (unstarted.length) ev.push(`the tool call never started in: ${unstarted.join(", ")} (survivor counts there prove nothing)`);
+  if (unstarted.length) {
+    ev.push(`the tool call was not shown in flight in: ${unstarted.join(", ")} (survivor counts there prove nothing)`);
+    ev.push(...notes);
+    ev.push("setup-invalid: no go or no-go is possible until a run shows the tool really running when the signal lands");
+    return { spike: "S4b", verdict: "setup-invalid", decision: null, evidence: ev };
+  }
   if (!eof.exited) {
     ev.push("the child did not exit on stdin EOF in the middle of a tool call: closing stdin is not a safe way to end it");
     return { spike: "S4b", verdict: "no-go", decision: null, evidence: ev };
@@ -375,7 +388,6 @@ export function evaluateS4b({ eof, term, kill, group = null, unstarted = [] }) {
     ev.push(cleared ? "a process-group signal clears the tool process: the adapter signals the group (group-kill)" : "a tool process outlived the group signals: it left its process group");
     result = { spike: "S4b", verdict: cleared ? "go" : "no-go", decision: "group-kill" };
   }
-  if (result.verdict === "go" && unstarted.length) result.verdict = "unconfirmed";
   return { ...result, evidence: ev };
 }
 
@@ -457,12 +469,20 @@ function argsFor(ctx, { prod = false, settings, extraArgs = [], ...rest }) {
 // Before scoring, the child's init must show a default permission mode and no MCP server: otherwise
 // the run measured the owner's setup, not ours. Returns one line per failed field (empty when valid).
 // An absent init is not a setup failure here: the evaluators already report a child that never started.
-export function setupProblems(captures) {
+// Captures with no init by design: the S8 socket log and the S3 deny slice. A child that never started
+// (spawn error) stays the evaluator's no-go. hook_started is skipped for S6b, whose worktree has its own hooks.
+export function setupProblems(captures, { spike } = {}) {
   const out = [];
   for (const [name, cap] of Object.entries(captures ?? {})) {
-    const init = initOf(cap);
-    if (!init) continue;
+    if (name === "socket" || name === "deny") continue;
     const where = Object.keys(captures).length > 1 ? ` (${name} run)` : "";
+    const init = initOf(cap);
+    if (!init) {
+      if (!cap.exit?.error) out.push(`init: no system/init line${where}: the child ran but its setup (permissionMode, mcp_servers, plugins) was not checked`);
+      continue;
+    }
+    for (const p of (Array.isArray(init.plugins) ? init.plugins : []).filter((x) => x?.path !== "builtin")) out.push(`init.plugins has a plugin from outside the builtin set${where}: ${p?.name ?? "?"} (${p?.path ?? "?"})`);
+    if (spike !== "S6b" && objs(cap).some((o) => o.type === "system" && o.subtype === "hook_started")) out.push(`hook_started event${where}: a hook ran in the child, so the run measured the owner's setup`);
     if (init.permissionMode !== "default") out.push(`init.permissionMode is ${JSON.stringify(init.permissionMode ?? null)}, not "default"${where}: tools may run without a permission prompt`);
     const servers = Array.isArray(init.mcp_servers) ? init.mcp_servers : [];
     if (servers.length) out.push(`init.mcp_servers is not empty${where}: ${servers.map((m) => `${m.name ?? "?"} (source ${m.source ?? "?"})`).join(", ")}`);
@@ -622,6 +642,7 @@ function makeCtx(opts) {
     s8DisableFlags: opts.s8DisableFlags ?? [],
     s8DisableEnv: opts.s8DisableEnv ?? {},
     repo: opts.repo ?? null,
+    scrub: { homes: [opts.env?.HOME, homedir()], username: userInfo().username },
     s3bWaitMs: opts.s3bWaitMs ?? 90_000,
     timing: { settleMs: 1500, eofPollMs: 15_000, termCheckMs: [2000, 10_000], ...opts.timing },
     start(args, cwd, extraEnv = {}, { detached = false } = {}) {
@@ -802,7 +823,7 @@ function statSocket(socketPath) {
   try {
     const st = statSync(socketPath);
     const dir = statSync(path.dirname(socketPath));
-    return { type: st.isSocket() ? "socket" : st.isFile() ? "file" : "other", mode: st.mode & 0o777, uid: st.uid, ownUid: process.getuid?.() ?? null, dirMode: dir.mode & 0o777 };
+    return { type: st.isSocket() ? "socket" : st.isFile() ? "file" : "other", mode: st.mode & 0o777, uid: st.uid, ownUid: process.getuid?.() ?? null, dirUid: dir.uid, dirMode: dir.mode & 0o777 };
   } catch {
     return null;
   }
@@ -841,6 +862,8 @@ async function runS8(ctx) {
   const dir = makeWorkdir();
   const child = ctx.start(argsFor(ctx, { prod: true, sessionId: randomUUID(), agent: "probe", model: ctx.model, permissionPromptTool: "stdio", allowedTools: ["Bash(sleep 15)"] }), dir);
   let client = null;
+  let nonceSeen = () => false;
+  let msgFrom = 0;
   const input = { init: { socketPath: null, capabilities: [] }, stat: null, connect: null, probes: [], disable: [] };
   try {
     child.send(userMessageLine('Run the Bash command "sleep 15", then reply done.'));
@@ -856,6 +879,7 @@ async function runS8(ctx) {
         await sleep(2000);
         input.connect.unsolicited = client.buf;
         const nonce = `NONCE${randomBytes(4).toString("hex")}`;
+        nonceSeen = (lines) => lines.some((l) => l.obj.type !== "system" && JSON.stringify(l.obj).includes(nonce));
         const wires = {
           "user-message": JSON.stringify({ type: "user", message: { role: "user", content: nonce } }),
           "interrupt-control-request": JSON.stringify({ type: "control_request", request_id: "s8-int", request: { subtype: "interrupt" } }),
@@ -867,15 +891,26 @@ async function runS8(ctx) {
           client.write(wire + "\n");
           await sleep(2000);
           const fresh = child.lines.slice(fromLine).filter((l) => l.obj);
-          const effect =
-            name === "user-message"
-              ? fresh.some((l) => l.obj.type !== "system" && JSON.stringify(l.obj).includes(nonce))
-              : fresh.some((l) => (l.obj.type === "user" && blocks(l.obj).some((b) => b.type === "tool_result")) || l.obj.type === "result");
+          const interrupted = (l) =>
+            (l.obj.type === "user" && blocks(l.obj).some((b) => b.type === "tool_result" && (b.is_error || /interrupt/i.test(flat(b.content))))) ||
+            (l.obj.type === "result" && (l.obj.is_error || /interrupt/i.test(flat(l.obj.result))));
+          const effect = name === "user-message" ? nonceSeen(fresh) : fresh.some(interrupted);
           input.probes.push({ name, shape: wire.replace(nonce, "<nonce>"), reply: client.buf.slice(fromBuf).trim() || null, effect });
+          if (name === "user-message") msgFrom = fromLine;
         }
       }
     }
     await child.waitFor(isResult, ctx.timeoutMs);
+    const msgProbe = input.probes.find((p) => p.name === "user-message");
+    if (msgProbe && !msgProbe.effect) {
+      // The CLI queues a peer message until the running tool call ends, so look again up to the turn's result.
+      const late = () => nonceSeen(child.lines.slice(msgFrom).filter((l) => l.obj));
+      for (let waited = 0; !late() && waited < ctx.timing.settleMs; waited += 100) await sleep(100);
+      if (late()) {
+        msgProbe.effect = true;
+        msgProbe.late = true;
+      }
+    }
     if (client?.connected) {
       // The control_response probe needs a real pending request, so it runs on a second turn.
       const file = path.join(dir, "s8.txt");
@@ -888,10 +923,16 @@ async function runS8(ctx) {
         client.write(controlResponseLine(req.obj.request_id, "allow", req.obj.request?.input));
         await sleep(3000);
         input.probes.push({ name: "control-response", shape, reply: client.buf.slice(fromBuf).trim() || null, effect: existsSync(file) });
+        const shape2 = JSON.stringify({ type: "control_response", request_id: "<id>", response: { behavior: "allow" } });
+        const fromBuf2 = client.buf.length;
+        client.write(JSON.stringify({ type: "control_response", request_id: req.obj.request_id, response: { behavior: "allow", updatedInput: req.obj.request?.input ?? {} } }) + "\n");
+        await sleep(3000);
+        input.probes.push({ name: "control-response-2", shape: shape2, reply: client.buf.slice(fromBuf2).trim() || null, effect: existsSync(file) });
         child.send(controlResponseLine(req.obj.request_id, "deny"));
         await child.waitFor(isResult, ctx.timeoutMs, from);
       } else {
         input.probes.push({ name: "control-response", shape, reply: null, effect: false });
+        input.probes.push({ name: "control-response-2", shape: '{"type":"control_response","request_id":"<id>","response":{"behavior":"allow"}}', reply: null, effect: false });
       }
     }
     if (input.init.socketPath) {
@@ -920,20 +961,23 @@ async function runS8(ctx) {
 // ---- S4b: no orphaned tool process after the child ends ------------------------------------
 
 // The in-flight tool is `tail -f <unique file>`: a long-running process that is not a sleep (a guard
-// may refuse a sleep, as ADR 0016 round 2 found) and carries a path no other process has, so ps can
-// find it.
-const holdCommand = (file) => `tail -f ${file}`;
+// may refuse a sleep, as ADR 0016 round 2 found). The file sits inside the child's cwd and is named by a
+// relative path, because the CLI refuses `tail -f` on a path outside the cwd (round 3, security 143
+// finding 1). The allow rule is a wildcard (`Bash(tail -f *)`), so the unique file name is in the prompt
+// and the tool's command line only, never in the child's argv: ps finds the tool by that name.
+const holdCommand = (name) => `tail -f ${name}`;
+const HOLD_ALLOW = "Bash(tail -f *)";
 
-// Pids of every running process whose command line carries `marker`, from ps (the tool call's
-// process, a grandchild of the child; a wrapping shell that also carries the marker counts too).
-function toolPids(marker) {
+// Pids of running processes whose command line carries `marker` (the tool call's process, a descendant of
+// the child; a wrapping shell that also carries the marker counts too), never one in `exclude` (the child).
+function toolPids(marker, exclude = []) {
   return new Promise((resolve) => {
     execFile("ps", ["-axo", "pid=,command="], { timeout: 10_000 }, (err, stdout) => {
       if (err) return resolve([]);
       const pids = [];
       for (const line of stdout.split("\n")) {
         const m = line.trim().match(/^(\d+)\s+(.*)$/);
-        if (m && m[2].includes(marker) && Number(m[1]) !== process.pid) pids.push(Number(m[1]));
+        if (m && m[2].includes(marker) && Number(m[1]) !== process.pid && !exclude.includes(Number(m[1]))) pids.push(Number(m[1]));
       }
       resolve(pids);
     });
@@ -948,34 +992,52 @@ function killPid(pid, signal = "SIGKILL") {
   }
 }
 
+const isPermissionDenied = (o) => o.type === "system" && o.subtype === "permission_denied";
+
 async function runS4b(ctx) {
-  const holdDir = mkdtempSync(path.join(tmpdir(), "den-s4b-"));
-  const hold = path.join(holdDir, `hold-${randomBytes(6).toString("hex")}.txt`);
-  writeFileSync(hold, "");
-  const command = holdCommand(hold);
-  const sleepPids = () => toolPids(hold);
-  const baseline = new Set(await sleepPids());
   const { settleMs, eofPollMs, termCheckMs } = ctx.timing;
-  const tools = [`Bash(${command})`];
   const captures = {};
   const unstarted = [];
+  const notes = [];
   const children = [];
-  const survivors = async () => (await sleepPids()).filter((p) => !baseline.has(p)).length;
-  const reap = async (child) => {
-    for (const p of await sleepPids()) if (!baseline.has(p)) killPid(p);
-    child.killGroup("SIGKILL");
-    child.kill("SIGKILL");
+  const markers = [];
+  let current = null;
+  const survivors = async () => (await toolPids(current.marker, [current.child.pid])).length;
+  const reap = async () => {
+    for (const p of await toolPids(current.marker, [current.child.pid])) killPid(p);
+    current.child.killGroup("SIGKILL");
+    current.child.kill("SIGKILL");
   };
   // Starts a child, asks for the long-running command and waits until its process is really running.
+  // The tool counts as in flight only with a tool_use, no permission_denied, no result yet (the turn
+  // has not ended) and a process other than the child itself carrying the marker.
   const begin = async (name, detached = false) => {
-    const child = ctx.start(argsFor(ctx, { prod: true, sessionId: randomUUID(), agent: "probe", model: ctx.model, allowedTools: tools }), makeWorkdir(), {}, { detached });
+    const dir = makeWorkdir();
+    const marker = `hold-${randomBytes(6).toString("hex")}.txt`;
+    writeFileSync(path.join(dir, marker), "");
+    markers.push(marker);
+    const child = ctx.start(argsFor(ctx, { prod: true, sessionId: randomUUID(), agent: "probe", model: ctx.model, allowedTools: [HOLD_ALLOW] }), dir, {}, { detached });
     children.push(child);
-    child.send(userMessageLine(`Run the Bash command "${command}", then reply done. Begin your reply with ${PROBE_MARKER}.`));
-    let started = Boolean(await child.waitFor(isToolUse, ctx.timeoutMs));
-    for (let waited = 0; started && waited < settleMs * 10 && (await survivors()) === 0; waited += 100) await sleep(100);
-    started = started && (await survivors()) > 0;
-    if (!started) unstarted.push(name);
+    current = { child, marker };
+    child.send(userMessageLine(`Run the Bash command "${holdCommand(marker)}", then reply done. Begin your reply with ${PROBE_MARKER}.`));
+    const sawTool = Boolean(await child.waitFor(isToolUse, ctx.timeoutMs));
+    const seen = (pred) => child.lines.some((l) => l.obj && pred(l.obj));
+    let running = false;
+    for (let waited = 0; sawTool && waited < settleMs * 10 && !running && !seen(isPermissionDenied) && !seen(isResult); waited += 100) {
+      running = (await survivors()) > 0;
+      if (!running) await sleep(100);
+    }
     await sleep(settleMs);
+    running = running && (await survivors()) > 0;
+    let why = null;
+    if (!sawTool) why = "no tool_use line arrived";
+    else if (seen(isPermissionDenied)) why = "the CLI refused the tool call (permission_denied)";
+    else if (seen(isResult)) why = "the turn already ended (result line) before the signal";
+    else if (!running) why = `no process other than the child carries the marker ${marker}`;
+    if (why) {
+      unstarted.push(name);
+      notes.push(`${name}: ${why}`);
+    }
     return child;
   };
   try {
@@ -985,7 +1047,7 @@ async function runS4b(ctx) {
     await sleep(settleMs);
     const eof = { exited: eofExited, survivors: await survivors() };
     captures.eof = child.capture();
-    await reap(child);
+    await reap();
 
     child = await begin("term");
     const signalAt = child.now();
@@ -996,14 +1058,14 @@ async function runS4b(ctx) {
     const at10 = await survivors();
     const term = { exited: Boolean(child.exit), exitMs: child.exit ? child.exit.t - signalAt : null, survivorsAt2s: at2, survivorsAt10s: at10 };
     captures.term = child.capture();
-    await reap(child);
+    await reap();
 
     child = await begin("kill");
     child.kill("SIGKILL");
     await sleep(settleMs);
     const kill = { survivors: await survivors() };
     captures.kill = child.capture();
-    await reap(child);
+    await reap();
 
     let group = null;
     if (eof.survivors > 0 || at2 > 0 || at10 > 0 || kill.survivors > 0 || !term.exited) {
@@ -1015,23 +1077,83 @@ async function runS4b(ctx) {
       await sleep(settleMs);
       group = { term: { survivors: termLeft }, kill: { survivors: await survivors() } };
       captures.group = child.capture();
-      await reap(child);
+      await reap();
     }
-    return { result: evaluateS4b({ eof, term, kill, group, unstarted }), captures };
+    return { result: evaluateS4b({ eof, term, kill, group, unstarted, notes }), captures };
   } finally {
     // Whatever happened, no tool process and no child may outlive the spike.
-    for (const p of await sleepPids()) if (!baseline.has(p)) killPid(p);
+    for (const m of markers) for (const p of await toolPids(m)) killPid(p);
     for (const c of children) {
       c.killGroup("SIGKILL");
       c.kill("SIGKILL");
     }
-    rmSync(holdDir, { recursive: true, force: true });
   }
 }
 
 // ---- S6b: setting sources in a real worktree -------------------------------------------------
 
-async function runS6b(ctx) {
+// One Write probe for allowed.txt, run in `cwd`; returns whether the file appeared. The capture is
+// saved to <outDir>/S6b-<name>.jsonl as evidence only (it is not scored or setup-checked).
+async function s6bAllowProbe(ctx, cwd, name, outDir, { agent } = {}) {
+  const child = ctx.start(argsFor(ctx, { sessionId: randomUUID(), agent, model: ctx.model }), cwd);
+  try {
+    await runTurn(child, `Use the Write tool to create allowed.txt containing "ok". Do nothing else. Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs);
+    await finish(child);
+  } finally {
+    child.kill("SIGKILL");
+  }
+  if (outDir) writeCaptures(outDir, "S6b", { [name]: child.capture() }, ctx.scrub);
+  return existsSync(path.join(cwd, "allowed.txt"));
+}
+
+// S6b comparisons when the control's allow did not apply: (1) the worktree with an absolute //path
+// allow, (2) the main checkout (ctx.repo) as the cwd with a relative allow and no --agent. The main
+// checkout's settings.local.json, allowed.txt and the deny target are each put back byte for byte if they
+// existed (the probe may overwrite them), or deleted if they did not, so `git status` stays as it was.
+async function compareS6bAllow(ctx, wt, outDir) {
+  const lines = [];
+  const absRule = `Write(/${realpathSync(wt)}/allowed.txt)`;
+  writeFileSync(path.join(wt, ".claude", "settings.local.json"), JSON.stringify({ permissions: { allow: [absRule] } }));
+  const absWritten = await s6bAllowProbe(ctx, wt, "compare-abs", outDir, { agent: "probe" });
+  lines.push(`comparison 1 (worktree cwd, allow ${absRule}): allowed.txt ${absWritten ? "WAS written" : "was NOT written"}`);
+
+  const local = path.join(ctx.repo, ".claude", "settings.local.json");
+  const before = existsSync(local) ? readFileSync(local) : null;
+  // Every probe output in the checkout is backed up first (bytes, or null when absent) and put back in the finally.
+  const outputs = ["allowed.txt", S6B_DENY_TARGET].map((n) => path.join(ctx.repo, n));
+  const backups = outputs.map((f) => [f, existsSync(f) ? readFileSync(f) : null]);
+  let repoWritten = false;
+  try {
+    let base = {};
+    try {
+      base = before ? JSON.parse(before.toString("utf8")) : {};
+    } catch {
+      base = {};
+    }
+    const allow = [...(Array.isArray(base.permissions?.allow) ? base.permissions.allow : []), "Write(allowed.txt)"];
+    mkdirSync(path.dirname(local), { recursive: true });
+    writeFileSync(local, JSON.stringify({ ...base, permissions: { ...base.permissions, allow } }));
+    repoWritten = await s6bAllowProbe(ctx, ctx.repo, "compare-repo", outDir);
+  } finally {
+    // Each restore is guarded on its own, so one that fails does not skip the others. Failures are reported after all ran.
+    const failed = [];
+    const restore = (f, bytes) => {
+      try {
+        if (bytes) writeFileSync(f, bytes);
+        else rmSync(f, { force: true });
+      } catch (e) {
+        failed.push(`${f}: ${e.message}`);
+      }
+    };
+    restore(local, before);
+    for (const [f, bytes] of backups) restore(f, bytes);
+    if (failed.length) throw new Error(`S6b could not restore the main checkout: ${failed.join("; ")}`);
+  }
+  lines.push(`comparison 2 (main checkout ${ctx.repo} as cwd, allow Write(allowed.txt), no --agent): allowed.txt ${repoWritten ? "WAS written" : "was NOT written"}`);
+  return lines;
+}
+
+async function runS6b(ctx, outDir) {
   const notRun = (why) => ({ result: { spike: "S6b", verdict: "unconfirmed", evidence: [why] }, captures: {} });
   if (!ctx.repo) return notRun("no --repo given: S6b needs the path of a git repository to add a throwaway worktree to");
   const gitIn = (...a) => execFileSync("git", ["-C", ctx.repo, ...a], { stdio: "pipe", encoding: "utf8" });
@@ -1062,8 +1184,15 @@ async function runS6b(ctx) {
     await finish(child);
     const capture = child.capture();
     const deniedExists = existsSync(path.join(wt, S6B_DENY_TARGET));
-    const result = evaluateS6b(capture, { allowedExists: existsSync(path.join(wt, "allowed.txt")), deniedExists });
+    const allowedExists = existsSync(path.join(wt, "allowed.txt"));
+    const result = evaluateS6b(capture, { allowedExists, deniedExists });
     if (ctx.control) result.evidence.unshift(`control run (no --settings): ${S6B_DENY_TARGET} ${deniedExists ? "WAS written, so in the spike run only our inline deny stopped it" : "was NOT written even without our deny: the CLI's own rules refused it"}`);
+    if (ctx.control && !allowedExists) {
+      // The control's own project allow did not apply, so the spike cannot show our deny outranking it.
+      if (outDir) writeFileSync(path.join(outDir, "S6b-control.stderr.txt"), scrubText(capture.stderr ?? "", ctx.scrub));
+      result.controlAllowAbsent = true;
+      result.comparisons = await compareS6bAllow(ctx, wt, outDir);
+    }
     return { result, captures: { main: capture } };
   } finally {
     try {
@@ -1171,17 +1300,34 @@ async function runControl(id, ctx, out, scrub) {
     return { spike: id, verdict: "unconfirmed", evidence: [`could not run the control: ${e.message}`] };
   }
   writeCaptures(out, `${id}-control`, run.captures, scrub);
-  const setup = setupProblems(run.captures);
+  const setup = setupProblems(run.captures, { spike: id });
   if (setup.length) return { spike: id, verdict: "setup-invalid", evidence: setup.map((l) => `setup-invalid: ${l}`) };
-  const evidence = [`control run without --settings: ${run.result.verdict}`, ...run.result.evidence];
-  return { spike: id, verdict: run.result.verdict, evidence };
+  const evidence = [`control run without --settings: ${run.result.verdict}`, ...run.result.evidence, ...(run.result.comparisons ?? [])];
+  return { spike: id, verdict: run.result.verdict, evidence, allowAbsent: Boolean(run.result.controlAllowAbsent), comparisons: run.result.comparisons ?? [] };
+}
+
+// S6b only: the control (no --settings) did not write allowed.txt either, so the project allow never
+// applied and the spike's result cannot speak to our deny outranking it.
+function s6bControlInvalid(result) {
+  return {
+    spike: result.spike,
+    verdict: "setup-invalid",
+    evidence: [
+      "setup-invalid: project allow did not apply in the control: the control run (no --settings) did not write allowed.txt either",
+      "decision 6.10 (our .claude/** deny outranks a project allow) stays unverified until the control's allow applies",
+      ...result.control.comparisons,
+      "the control child's stderr is saved as S6b-control.stderr.txt",
+      ...result.evidence.map((l) => `spike run (not scored): ${l}`),
+    ],
+    control: result.control,
+  };
 }
 
 export async function runSpikes(opts) {
   const { spikes, out, log = console.log } = opts;
   mkdirSync(out, { recursive: true });
   const ctx = makeCtx(opts);
-  const scrub = { homes: [opts.env?.HOME, homedir()], username: userInfo().username };
+  const scrub = ctx.scrub;
   const results = [];
   for (const id of spikes) {
     log(`running ${id}: ${SPIKES[id].title}`);
@@ -1192,7 +1338,7 @@ export async function runSpikes(opts) {
       run = { result: { spike: id, verdict: "no-go", evidence: [`could not run the spike: ${e.message}`] }, captures: {} };
     }
     let { result, captures } = run;
-    const setup = setupProblems(captures);
+    const setup = setupProblems(captures, { spike: id });
     if (setup.length) {
       result = { spike: id, verdict: "setup-invalid", evidence: [...setup.map((l) => `setup-invalid: ${l}`), "not scored: this run measured the owner's setup, not the production shape; fix it and run again"] };
     }
@@ -1206,6 +1352,7 @@ export async function runSpikes(opts) {
     if (SPIKES[id].control && opts.control !== false && result.verdict !== "setup-invalid") {
       log(`running ${id} control (no --settings)`);
       result.control = await runControl(id, ctx, out, scrub);
+      if (result.control.allowAbsent) result = s6bControlInvalid(result);
     }
     results.push(result);
   }
@@ -1273,7 +1420,10 @@ export function parseCli(argv) {
 
 const HELP = `usage: node apps/bridge/cells/conformance.mjs [--spike S1,S3] [--out <dir>] [--model <m>] [--timeout <s>] [--extra-env NAME]... [--dry-run]
        [--repo <checkout>] [--s8-disable-flag <flag>]... [--s8-disable-env NAME=VALUE]... [--s3b-wait <s>] [--no-control]
-A run whose init shows a permissionMode other than default, or any MCP server, is reported SETUP-INVALID (never go or no-go). S8, S4b and S6b also run a control without --settings unless --no-control.
+A run whose init is missing, or shows a permissionMode other than default, any MCP server, a plugin outside the builtin set, or a hook_started event (not checked for S6b), is reported SETUP-INVALID (never go or no-go). S8, S4b and S6b also run a control without --settings unless --no-control.
+S4b is SETUP-INVALID unless its tool (tail -f on a hold file inside the child's cwd) is shown running, by a pid other than the child's, before each signal.
+S8 waits for a peer message until the turn's result (outcome c if it lands late) and probes two control_response shapes. It checks the socket and its directory for group and other bits and the directory's owner uid.
+S6b is SETUP-INVALID when the control's allowed.txt is also absent ("project allow did not apply in the control"): the control's stderr goes to S6b-control.stderr.txt, and two comparison probes run (a //path allow in the worktree, and --repo itself as the cwd with a temporary allow in its .claude/settings.local.json, restored afterwards).
 The default run is S1 to S7; S8, S4b, S6b and S3b run only when named (--spike S8,S4b,S6b,S3b). S6b adds its worktree to --repo (default: the repository containing this script); run \`claude\` there once so the owner has trusted it.
 Runs ADR 0016's spikes against the real \`claude\` login (DEN_CLAUDE_BIN overrides the binary).
 --dry-run prints the plan and spends nothing.`;
