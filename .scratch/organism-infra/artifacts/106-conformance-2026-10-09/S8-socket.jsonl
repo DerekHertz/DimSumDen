@@ -1,0 +1,4 @@
+{"t":2003,"dir":"sent","data":"{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"NONCEbf2f7873\"}}\n"}
+{"t":4003,"dir":"sent","data":"{\"type\":\"control_request\",\"request_id\":\"s8-int\",\"request\":{\"subtype\":\"interrupt\"}}\n"}
+{"t":6003,"dir":"sent","data":"{\"type\":\"interrupt\"}\n"}
+{"t":18897,"dir":"sent","data":"{\"type\":\"control_response\",\"response\":{\"subtype\":\"success\",\"request_id\":\"9978d1e7-3904-4b94-a589-76b3f916034e\",\"response\":{\"behavior\":\"allow\",\"updatedInput\":{\"file_path\":\"/tmp/den-conformance-E6ZErp/s8.txt\",\"content\":\"x\"}}}}\n"}

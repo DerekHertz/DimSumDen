@@ -1,0 +1,76 @@
+[
+  {
+    "spike": "S8",
+    "verdict": "unconfirmed",
+    "outcome": null,
+    "evidence": [
+      "init.messaging_socket_path: /tmp/cc-socks/1936883.sock",
+      "init.capabilities: interrupt_receipt_v1, interrupt_cancel_queued_v1, interrupt_send_now_v1, msg_lifecycle_v1, request_marker_lists_v1, sdk_mcp_tools_list_changed, sdk_mcp_manifests, mcp_read_resource_v1, mcp_tool_ui_meta_v1, ui_surface_v1",
+      "socket stat: type socket, mode 0600, uid 1000 (this process 1000), directory mode 0700",
+      "access for others: none (owner only)",
+      "connect: accepted",
+      "probe user-message: sent {\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"<nonce>\"}}; reply none (silence); effect no",
+      "probe interrupt-control-request: sent {\"type\":\"control_request\",\"request_id\":\"s8-int\",\"request\":{\"subtype\":\"interrupt\"}}; reply none (silence); effect no",
+      "probe interrupt-bare: sent {\"type\":\"interrupt\"}; reply none (silence); effect no",
+      "probe control-response: sent {\"type\":\"control_response\",\"response\":{\"subtype\":\"success\",\"request_id\":\"<id>\",\"response\":{\"behavior\":\"allow\"}}}; reply none (silence); effect no",
+      "the socket accepted a connection but stayed silent and no probe showed an effect: the shapes tried may simply be wrong"
+    ],
+    "control": {
+      "spike": "S8",
+      "verdict": "unconfirmed",
+      "evidence": [
+        "control run without --settings: unconfirmed",
+        "init.messaging_socket_path: /tmp/cc-socks/1948956.sock",
+        "init.capabilities: interrupt_receipt_v1, interrupt_cancel_queued_v1, interrupt_send_now_v1, msg_lifecycle_v1, request_marker_lists_v1, sdk_mcp_tools_list_changed, sdk_mcp_manifests, mcp_read_resource_v1, mcp_tool_ui_meta_v1, ui_surface_v1",
+        "socket stat: type socket, mode 0600, uid 1000 (this process 1000), directory mode 0700",
+        "access for others: none (owner only)",
+        "connect: accepted",
+        "probe user-message: sent {\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"<nonce>\"}}; reply none (silence); effect no",
+        "probe interrupt-control-request: sent {\"type\":\"control_request\",\"request_id\":\"s8-int\",\"request\":{\"subtype\":\"interrupt\"}}; reply none (silence); effect no",
+        "probe interrupt-bare: sent {\"type\":\"interrupt\"}; reply none (silence); effect no",
+        "probe control-response: sent {\"type\":\"control_response\",\"response\":{\"subtype\":\"success\",\"request_id\":\"<id>\",\"response\":{\"behavior\":\"allow\"}}}; reply none (silence); effect no",
+        "the socket accepted a connection but stayed silent and no probe showed an effect: the shapes tried may simply be wrong"
+      ]
+    }
+  },
+  {
+    "spike": "S4b",
+    "verdict": "go",
+    "decision": "plain",
+    "evidence": [
+      "stdin EOF mid-call: child exited, 0 tool process(es) left",
+      "SIGTERM: child exited after 753 ms, tool processes left at 2 s 0, at 10 s 0",
+      "SIGKILL: 0 tool process(es) left",
+      "no tool process outlived any child-only signal: ending the child alone is enough"
+    ],
+    "control": {
+      "spike": "S4b",
+      "verdict": "go",
+      "evidence": [
+        "control run without --settings: go",
+        "stdin EOF mid-call: child exited, 0 tool process(es) left",
+        "SIGTERM: child exited after 759 ms, tool processes left at 2 s 0, at 10 s 0",
+        "SIGKILL: 0 tool process(es) left",
+        "no tool process outlived any child-only signal: ending the child alone is enough"
+      ]
+    }
+  },
+  {
+    "spike": "S6b",
+    "verdict": "no-go",
+    "evidence": [
+      "on disk: allowed.txt false, denied.txt false",
+      "the project-local allow did not apply, so --settings replaced it or the rule did not match"
+    ],
+    "control": {
+      "spike": "S6b",
+      "verdict": "no-go",
+      "evidence": [
+        "control run without --settings: no-go",
+        "control run (no --settings): denied.txt was NOT written even without our deny: the CLI's own rules refused it",
+        "on disk: allowed.txt false, denied.txt false",
+        "the project-local allow did not apply, so --settings replaced it or the rule did not match"
+      ]
+    }
+  }
+]

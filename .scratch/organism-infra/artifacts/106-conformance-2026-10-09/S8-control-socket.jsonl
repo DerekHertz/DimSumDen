@@ -1,0 +1,4 @@
+{"t":2002,"dir":"sent","data":"{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"NONCE06fb38aa\"}}\n"}
+{"t":4003,"dir":"sent","data":"{\"type\":\"control_request\",\"request_id\":\"s8-int\",\"request\":{\"subtype\":\"interrupt\"}}\n"}
+{"t":6005,"dir":"sent","data":"{\"type\":\"interrupt\"}\n"}
+{"t":18308,"dir":"sent","data":"{\"type\":\"control_response\",\"response\":{\"subtype\":\"success\",\"request_id\":\"8fbb7389-165d-4af9-b223-acf6461691ce\",\"response\":{\"behavior\":\"allow\",\"updatedInput\":{\"file_path\":\"/tmp/den-conformance-8WJnRL/s8.txt\",\"content\":\"x\"}}}}\n"}
