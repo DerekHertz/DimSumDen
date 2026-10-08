@@ -2479,3 +2479,4 @@
 {"kind":"jev","ts":"2026-10-08T21:11:51.095Z","ticket":"den-v1/07-message-t","point":"tier","pick":"opus","actual":"sonnet","cost":0.00015451800000000003,"conf":0.64,"mode":"shadow","fallback":null,"floor":null,"ms":369,"model":"jev-1.13.0"}
 {"kind":"usage","ts":"2026-10-08T21:11:51.000Z","five_hour":29,"weekly":72,"event":"dispatch","ticket":"den-v1/07-message-t","cell":"developer"}
 {"kind":"context","ts":"2026-10-08T21:11:51.000Z","session":"dc060b27-e096-4626-af72-de98491dc6be","context_tokens":72223,"percent":7.22,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-08T21:16:09.472Z","ticket":"den-v1/07-message-t","cell":"developer","model":"claude-sonnet-5","tokens":53219,"ms":245240,"outcome":"fix round 1 complete: demo stub sendMessage plus ack, c1229c5","context":49728}
