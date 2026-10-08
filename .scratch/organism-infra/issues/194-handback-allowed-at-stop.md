@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** every relay (the context-budget partial-return path from organism-infra/119). Two architect returns on 136 (2026-10-07) delivered no report to the orchestrator, which then had to rebuild the return from board state.
 
@@ -27,3 +27,4 @@ Add the SubagentHandback tool to the wrap-up allowlist in `isWrapUpCall`. The fi
 
 - **Created (orchestrator, 2026-10-07):** The user chose to scout the hook now (environment-fix agreement on 136). Scout findings: the hook refuses at stop, SubagentHandback is missing from `isWrapUpCall`, and no SubagentStop hook is involved.
 - **qa, 2026-10-08:** QA pass (full verify). Full npm test x3 via scout: 2423/2423 each run, 0 fail, 0 skipped. Handback test file unchanged since 07ca7f2. Non-blocking: developer's earlier 2422/2423 run unexplained, not reproduced in 3 runs; no boundary test at 79,999 for architect below stop.
+- **security, 2026-10-08:** Security pass. No findings. scripts/hooks/context-budget.mjs:81 exact-match allowance for SubagentHandback (info: lookalike names tested as refused). gitleaks clean, no deps or CI changes.
