@@ -60,7 +60,7 @@ function fixture(tokens, { other = null } = {}) {
   return { home, wt };
 }
 
-const CELL = { agent_id: "agent-a", agent_type: "security" }; // organism-infra/145: 70k/80k tier (qa moved to 100k/120k)
+const CELL = { agent_id: "agent-a", agent_type: "security" }; // organism-infra/145: 70k/80k tier (208: developer and qa are 70k/80k too)
 
 function runHook(f, toolName, toolInput, who = CELL, { rawStdin = null } = {}) {
   const env = { ...process.env, HOME: f.home, ORGANISM_ROOT: path.join(f.home, "main") };
@@ -118,8 +118,9 @@ test("at exactly 70k the hook allows the call and returns a checkpoint warning",
 test("at 79,999 the hook still allows (Read, Grep, Bash) with a checkpoint warning", () => {
   const f = fixture(79_999);
   assertWarning(runHook(f, "Read", READ), "79,999 Read");
-  assertWarning(runHook(f, "Grep", { pattern: "foo" }), "79,999 Grep");
-  assertWarning(bash(f, "npm test"), "79,999 Bash");
+  // The warning is one-time (organism-infra/208): later calls in the window are allowed silently.
+  assertSilentAllow(runHook(f, "Grep", { pattern: "foo" }), "79,999 Grep");
+  assertSilentAllow(bash(f, "npm test"), "79,999 Bash");
 });
 
 test("counts input, cache creation and cache read tokens together (as context.mjs does)", () => {

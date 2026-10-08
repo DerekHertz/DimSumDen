@@ -7,7 +7,7 @@
 //
 // Config shape (architect proposal, approved by the user 2026-10-06):
 //   {"default":{"warn":70000,"stop":80000},
-//    "cells":{"developer":{"warn":100000,"stop":120000},"qa":{...}},
+//    "cells":{"developer":{"warn":70000,"stop":80000},"qa":{...}},
 //    "orchestrator":{"warn":70000,"stop":80000}}
 // Fallback rules: unknown role (or none) -> `default`; an entry whose warn/stop are not finite numbers
 // or where warn >= stop is invalid and falls back to `default`; a missing, unparseable or invalid
@@ -52,11 +52,11 @@ const FIXTURE = {
   orchestrator: { warn: 20_000, stop: 25_000 },
 };
 
-// The numbers the user approved (handoffs/145-architect.md): developer and qa 100k/120k; security,
-// architect, designer, scout 70k/80k; orchestrator 70k/80k under its own key.
-test("shipped config: developer and qa get 100k warn / 120k stop", () => {
-  assert.deepEqual(budgetFor("developer"), { warn: 100_000, stop: 120_000 });
-  assert.deepEqual(budgetFor("qa"), { warn: 100_000, stop: 120_000 });
+// organism-infra/208 (user): every cell, developer and qa included, warns at 70k and stops at 80k.
+// (145 had developer and qa at 100k/120k; seven cells still ran past 80k.)
+test("shipped config: developer and qa get 70k warn / 80k stop", () => {
+  assert.deepEqual(budgetFor("developer"), { warn: 70_000, stop: 80_000 });
+  assert.deepEqual(budgetFor("qa"), { warn: 70_000, stop: 80_000 });
 });
 
 test("shipped config: security, architect, designer, scout and the orchestrator stay at 70k / 80k", () => {

@@ -41,15 +41,16 @@ test("at 95k a Write or Edit under the session scratchpad is allowed", () => {
 
 test("at 95k a path that climbs out of the scratchpad with .. is refused", () => {
   const f = fixture(95_000);
-  const r = write(f, "Write", `${PAD}/../../../../home/someone/.bashrc`);
+  const r = write(f, "Write", `${PAD}/../../../../../home/someone/.bashrc`);
   assert.equal(r.status, 2, r.stderr);
 });
 
 test("at 95k another session's scratchpad and a look-alike prefix are refused", () => {
   const f = fixture(95_000);
-  assert.equal(write(f, "Write", "/tmp/claude-1000/-fixture-project/other-session/scratchpad/h.md").status, 2);
-  assert.equal(write(f, "Write", `${PAD}-evil/h.md`).status, 2);
-  assert.equal(write(f, "Write", `/tmp/h.md`).status, 2);
+  // /tmp itself is a wrap-up location since organism-infra/208, so the look-alikes sit under /var/tmp.
+  assert.equal(write(f, "Write", "/var/tmp/claude-1000/-fixture-project/other-session/scratchpad/h.md").status, 2);
+  assert.equal(write(f, "Write", `/var${PAD}-evil/h.md`).status, 2);
+  assert.equal(write(f, "Write", `/tmpfoo/h.md`).status, 2);
 });
 
 test("at 95k Read of a scratchpad file is still refused (only Write/Edit are wrap-up calls)", () => {

@@ -4,13 +4,13 @@
 // the orchestrator main session is never gated here (it has its own gate in cell-start).
 // Thresholds come from scripts/context-budget.json by the call's agent_type (organism-infra/145):
 //   under warn           -> allow, silent
-//   warn to under stop   -> allow, inject a checkpoint warning (hookSpecificOutput.additionalContext)
+//   warn to under stop   -> allow, inject a checkpoint warning once per cell (hookSpecificOutput.additionalContext)
 //   stop and over        -> exit 2 with wrap-up instructions, except the wrap-up calls below
 //   no reading / bad input -> allow (fails open)
 // The cell's own reading comes from `scripts/context.mjs --self`, run as a child with the session from
 // the hook input (the hook's env does not carry CLAUDE_CODE_SESSION_ID).
 import { spawnSync } from "node:child_process";
-import { readFileSync, realpathSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,7 @@ const WRAP_UP_BASH = [
   /^git (?:add|commit)(?:\s|$)/,
   /^npm run board -- (?:handoff|release|comment)(?:\s|$)/,
   /^node scripts\/context\.mjs(?:\s+--self)?$/,
+  /^node scripts\/log-cell\.mjs(?:\s|$)/,
 ];
 
 export function isCellSession(input) {
@@ -65,12 +66,23 @@ function mainCheckout(input) {
   return first ? path.resolve(first.slice("worktree ".length)) : null;
 }
 
+const inside = (abs, dir) => abs === dir || abs.startsWith(dir.endsWith(path.sep) ? dir : dir + path.sep);
+
+// A handoff draft under /tmp (organism-infra/208). Not a path inside the cell's own cwd or HOME, which could
+// sit under /tmp in a fixture or a temp checkout: those are real work, not a draft.
+function isTmpDraft(input, abs) {
+  if (!inside(abs, "/tmp") || abs === "/tmp") return false;
+  const guarded = [input.cwd, process.env.HOME].filter(Boolean).map((p) => path.resolve(String(p)));
+  return !guarded.some((g) => g !== "/tmp" && inside(abs, g));
+}
+
 export function isWrapUpWrite(input) {
   const filePath = input?.tool_input?.file_path;
   if (!filePath) return false;
   const abs = resolveFrom(input, filePath);
   const main = mainCheckout(input);
   if (main && abs.startsWith(path.join(main, ".scratch") + path.sep)) return true;
+  if (isTmpDraft(input, abs)) return true;
   return scratchpadRoots(input.session_id).some((re) => re.test(abs));
 }
 
@@ -107,7 +119,28 @@ export const warningText = (tokens, stop) =>
   `Context budget: this cell is at ${k(tokens)} of its ${k(stop)} budget. Checkpoint now: finish the current stage, start no new exploration, and plan a WIP commit, a handoff and board release. At ${k(stop)} every call except the wrap-up calls is refused.`;
 
 export const refusalText = (tokens, stop) =>
-  `context-budget: this cell is at ${k(tokens)}, over the ${k(stop)} budget (organism-infra/119), so this call is refused. Wrap up now: make a WIP commit (git add <paths>, git commit), draft the handoff (Write under .scratch/ or the session scratchpad), publish it with npm run board -- handoff, run npm run board -- release <ref> --keep-status, and end your final report with outcome: partial. Allowed now: git add, git commit, npm run board -- handoff|release|comment (one simple command, no chaining), node scripts/context.mjs, SubagentHandback (your final report), and Write/Edit under .scratch/ or the session scratchpad.`;
+  `context-budget: this cell is at ${k(tokens)}, over the ${k(stop)} budget (organism-infra/119), so this call is refused. Wrap up now: make a WIP commit (git add <paths>, git commit), draft the handoff (Write under .scratch/ or the session scratchpad), publish it with npm run board -- handoff, run npm run board -- release <ref> --keep-status, and end your final report with outcome: partial. Allowed now: git add, git commit, npm run board -- handoff|release|comment and node scripts/log-cell.mjs (one simple command, no chaining), node scripts/context.mjs, SubagentHandback (your final report), and Write/Edit under .scratch/, /tmp or the session scratchpad.`;
+
+// The 70k-80k warning is sent once per cell (organism-infra/208). The marker is a file keyed by session and agent
+// under ~/.claude (HOME is the test seam). If it cannot be read or written, the warning is sent (a repeat beats a silent miss).
+function warnedBefore(input) {
+  const key = `${input.session_id ?? "nosession"}-${input.agent_id}`.replace(/[^\w.-]/g, "_");
+  const dir = path.join(os.homedir(), ".claude", "context-budget-warned");
+  const marker = path.join(dir, key);
+  try {
+    readFileSync(marker);
+    return true;
+  } catch {
+    // not warned yet
+  }
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(marker, "1");
+  } catch {
+    // fall through: warn anyway
+  }
+  return false;
+}
 
 // Returns {code, stdout, stderr}.
 export function decide(input) {
@@ -117,6 +150,7 @@ export function decide(input) {
   const { warn, stop } = budgetFor(input.agent_type);
   if (tokens === null || tokens < warn) return allow;
   if (tokens < stop) {
+    if (warnedBefore(input)) return allow;
     const out = { hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: warningText(tokens, stop) } };
     return { code: 0, stdout: JSON.stringify(out) + "\n", stderr: "" };
   }
