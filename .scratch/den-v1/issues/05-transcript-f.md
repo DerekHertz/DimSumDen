@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately; build and test on fixture events, live stream checked when organism-infra/106 lands)
 
-**Status:** in-review
+**Status:** ready-for-human
 
 **Serves:** Den loop step 3 (F opens the live transcript).
 
@@ -32,3 +32,5 @@ The live store in `apps/ui/src/state/` keeps a bounded per-agent ring buffer of 
 - **orchestrator, 2026-10-08:** The first designer spec cell returned partial (80k context budget); its draft spec is in `handoffs/05-designer-spec.md`. The user settled its six open questions (2026-10-08): (1) right side panel, with a bottom sheet under 600px; (2) buffer cap of 200 events per agent; (3) the panel stays pinned to its agent when the user walks away; (4) tool calls collapsed by default; (5) `Jump to latest (n)`, with no pause toggle; (6) walk mode only. Still to do: a fresh designer makes the static mockups for the user to sign off, then writes the final spec. Do not run qa specify until then.
 - **designer, 2026-10-08:** Designer spec: mockup published https://claude.ai/artifact/TrxWBn9H1igYsiybKEctDa; six questions settled and folded in (handoffs/05-designer-spec-2.md). Awaiting the user's sign-off on the mockup; do not dispatch qa specify until then.
 - **orchestrator, 2026-10-08:** The user signed off the mockup (https://claude.ai/artifact/TrxWBn9H1igYsiybKEctDa) with no notes. They also approved three details as drawn: the role beside the state in the header, a 32px Close on desktop (44px on phone), and the `Jump to latest (n)` pill at the bottom centre. The final spec is `handoffs/05-designer-spec.md` plus the changes in `05-designer-spec-2.md`. At qa specify, add story 23: opening, streaming and closing the transcript makes no network request.
+- **qa, 2026-10-08:** QA pass (full verify, 5c3267f). Saved suite 2786 pass, 0 fail, 0 skipped; specify files unchanged; all 76 named blocks ok. Non-blocking: transcript-wiring.test.mjs:14 story-23 scan omits TranscriptPanel.jsx; transcript-panel.test.mjs:50 Esc consumption not tested at App level. Details in handoffs/05-qa-verify.md.
+- **orchestrator, 2026-10-08:** Orchestrator: qa verify passed (5c3267f; 2786 pass; vite build clean). Held at ready-for-human for the user's visual critique; the user's findings go to one developer fix round, and the user's yes unlocks the risk-check. qa test-gap notes 1 (the story 23 scan skips TranscriptPanel.jsx) and 2 (the App Esc capture listener has no test) go into that fix round.

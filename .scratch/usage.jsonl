@@ -2386,3 +2386,16 @@
 {"kind":"cell","ts":"2026-10-08T17:25:52.288Z","ticket":"den-v1/05-transcript-f","cell":"developer","model":"sonnet","tokens":107059,"ms":562618,"outcome":"done: 2786 pass; vite build unrun (scout refused by budget hook)","context":106000}
 {"kind":"usage","ts":"2026-10-08T17:25:57Z","five_hour":67,"weekly":67,"event":"return","ticket":"den-v1/05","cell":"developer"}
 {"kind":"context","ts":"2026-10-08T17:25:57Z","session":"8669dd52-ab36-4452-ae1c-b468cc1bea7b","context_tokens":80334,"percent":8.03,"event":"return"}
+{"kind":"jev","ts":"2026-10-08T17:48:14.254Z","ticket":"den-v1/05-transcript-f","point":"verify","pick":"light","actual":"light","cost":0.00023318400000000002,"conf":0.65,"mode":"shadow","fallback":null,"floor":null,"ms":444,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-10-08T17:48:19Z","five_hour":68,"weekly":67,"event":"dispatch","ticket":"organism-infra/157,den-v1/05","cell":"qa"}
+{"kind":"context","ts":"2026-10-08T17:48:19Z","session":"8669dd52-ab36-4452-ae1c-b468cc1bea7b","context_tokens":28222,"percent":2.82,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-08T17:49:55.056Z","ticket":"organism-infra/157-usage-reset-local-time","cell":"qa","mode":"verify","model":"claude-haiku-5-5","tokens":48122,"ms":78761,"outcome":"pass (light)","context":31975}
+{"kind":"cell","ts":"2026-10-08T17:50:13.715Z","ticket":"organism-infra/157-usage-reset-local-time","cell":"scout","model":"claude-haiku-5-5","tokens":9862,"ms":5264,"outcome":"risk-check: 2 hits (.claude/ skill, test shells out); merge-tree clean"}
+{"kind":"usage","ts":"2026-10-08T17:50:13Z","five_hour":69,"weekly":68,"event":"dispatch","ticket":"organism-infra/157","cell":"security"}
+{"kind":"cell","ts":"2026-10-08T17:51:05.356Z","ticket":"organism-infra/157-usage-reset-local-time","cell":"security","model":"sonnet","tokens":28989,"ms":35982,"outcome":"pass; low process note on gated skill edit (user-applied)","context":27838}
+{"kind":"cell","ts":"2026-10-08T17:51:20.782Z","ticket":"den-v1/05-transcript-f","cell":"qa","mode":"verify","model":"claude-haiku-5-5","tokens":92422,"ms":156169,"outcome":"pass (ran full verify: specify came from another qa session); 2 test-gap notes","context":83651}
+{"kind":"incident","ts":"2026-10-08T17:51:26Z","ticket":"den-v1/05-transcript-f","cell":"qa","tool":"verify-mode","what":"Dispatched as light verify on haiku; qa ran full verify because specify came from another qa session (it read 'you ran specify' as the same session). Ended at 83.6k context.","cost":"~92k tokens vs ~48k for 157's light verify","fix":"none yet; bring to pipeline-retro (light verify means qa specified this ticket, not this session)","rule_change":null}
+{"kind":"resolved","ts":"2026-10-08T17:56:34.541Z","ticket":"organism-infra/157-usage-reset-local-time","pr":197,"bounces":0}
+{"kind":"jev-advisory-outcome","ts":"2026-10-08T17:56:34.599Z","ticket":"organism-infra/157-usage-reset-local-time","orchestratorPick":"qa-specify","jevPick":"qa-specify","userChoice":"qa-specify","bounced":false}
+{"kind":"usage","ts":"2026-10-08T17:57:27Z","five_hour":70,"weekly":68,"event":"merge","ticket":"organism-infra/157","cell":"orchestrator"}
+{"kind":"context","ts":"2026-10-08T17:57:27Z","session":"8669dd52-ab36-4452-ae1c-b468cc1bea7b","context_tokens":51782,"percent":5.18,"event":"merge"}

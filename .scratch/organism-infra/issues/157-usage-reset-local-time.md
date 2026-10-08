@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** The orchestrator tells the user when the 5-hour window resets in the user's own time, not UTC.
 
@@ -25,3 +25,5 @@ User request 2026-10-06 (system time zone is US Pacific). User decision: add a f
 
 ## Comments
 - **qa, 2026-10-08:** qa specify: 13 tests in scripts/usage-reset-local.test.mjs (12 red); existing keychain/provider tests extended. AC4 (skill edit) human-verified. See handoffs/157-qa-specify.md
+- **qa, 2026-10-08:** qa light verify: pass. Saved suite 2734 pass, 0 fail, 0 skipped; specify tests unchanged; all ACs mapped. Out-of-scope: commit 9b04b41 edits .claude/skills/usage-watch/SKILL.md directly (ticket asked for a handoff patch). See handoffs/157-qa-verify.md.
+- **security, 2026-10-08:** Security pass. No findings medium+; gitleaks clean; no dep/CI changes. Low (process): .claude/skills/usage-watch/SKILL.md edited directly in 9b04b41 (gated path), content is docs only. See handoffs/157-security.md

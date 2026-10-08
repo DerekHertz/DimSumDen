@@ -31,7 +31,7 @@
 - **Incidents logged:**
   - Designer spec hit the context budget twice.
   - Designer spec run as a background cell can't reach the user; I ran the questions and sign-off.
-  - There are 6+ `context-budget` incidents, and the 05 developer and qa both ran past 80k. Bring this to `pipeline-retro`.
+  - There are 6+ `context-budget` incidents. The 05 developer and qa passed 80k, but that is inside their 120k stop (`scripts/context-budget.json`), so neither was a breach. Designer stays at 80k and hit it twice. Bring the designer limit to `pipeline-retro`.
 - **Gated patches still pending:** `136-jev-go-live-genome.patch` and `198-orchestrator-genome.patch` in `.scratch/_handoffs/gated/`. Ask the user.
 
 ## Next
