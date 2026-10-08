@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately; den-layout/03 resolved)
 
-**Status:** claimed
+**Status:** in-review
 
 **Serves:** Den loop steps 3-4 (answer a pending permission request; the agent continues).
 
@@ -105,3 +105,4 @@ No browser-measurement tests: the layout comes from the mockup.
 - **designer, 2026-10-08:** Designer spec signed off by the user 2026-10-08 (mockup https://claude.ai/artifact/ECewj2Pr5h1bbzFQ6mojuQ). Final spec in handoffs/06-designer-spec.md; counts as acceptance criteria. Next: qa specify.
 - **orchestrator, 2026-10-08:** Copied the signed-off design spec into this ticket (Design spec section). Next: qa specify.
 - **developer, 2026-10-08:** partial: context limit; wiring left, see 06-developer handoff
+- **orchestrator, 2026-10-08:** Developer round 2 reported `proximity-card.browser.test.mjs` hangs when run alone (not caused by this ticket). User agreed fix: organism-infra/206; meanwhile run browser tests via `npm test`. Developer also edited qa's `bridge-client.test.mjs` fixture token (secret-scan trip, no assertion change) for qa verify to confirm; spec token `alarm-zone` does not exist, banner uses `--surface-200` + `--alarm` (check in visual critique).
