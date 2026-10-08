@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** Den loop steps 3-4. The S8, S4b and S6b verdicts that 143 (106-D2) builds on.
 

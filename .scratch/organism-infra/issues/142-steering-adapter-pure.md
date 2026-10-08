@@ -6,7 +6,7 @@
 
 **Blocked by:** 138, 140 (and the user's S8/S4b/S6b results recorded on 138)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** Den loop steps 3-4: talks to real `claude` children.
 
