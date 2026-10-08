@@ -11,3 +11,4 @@
 
 ## Next
 1. Fresh session (`npm run next-session`): **209 first** (the user said "do it now"), then 143 → 106 → 107 → den-v1/10, 11 (the critical path to den v1), then den-v1/09.
+2. Run pipeline-retro first: this session skipped it at the 80k gate. Candidates: the classifier blocking a developer from editing qa's test file, usage 429s before 167, and the security row logged with the wrong model (incident).
