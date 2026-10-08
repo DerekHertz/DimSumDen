@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** relay cost. Twice (den-v1/05, den-v1/06) qa light verify on Haiku ran a full verify, because it read "you ran specify" as "this session wrote the tests". Handoff 81 set this as the fix if it happened again.
 
@@ -26,3 +26,5 @@
 - **Created (orchestrator, 2026-10-08):** incident logged in usage.jsonl (den-v1/06 qa verify).
 - **Retro (orchestrator, 2026-10-08):** happened again on den-v1/07 (haiku qa ran full). The wording fix failed, so this is now P1 and the next infra ticket (user approved).
 - **orchestrator, 2026-10-08:** Before/after test (user, 2026-10-08): baseline from the last 19 resolved tickets (10-06 to 10-08): median 326k tokens/ticket, 5.4 cells/ticket, 23/80 cells ended at >=80k context, qa verify median 56k, incidents 23 context-budget / 11 verify-mode. After window: the first 10 tickets resolved once both 207 and 208 merge; pipeline-retro reruns the same query.
+- **qa, 2026-10-08:** QA pass (light verify): suite 2988 pass, 0 fail, 0 skipped (developer's saved output); specify tests unchanged; criteria 1, 2, 4 tested, 3 human-verified. Details in 207-qa-verify.md.
+- **security, 2026-10-08:** Security pass. No findings: no shell-out, ticket ref validated before path join, gitleaks clean (3 commits), no dependency or workflow change. Details in 207-security.md.

@@ -1,0 +1,22 @@
+diff --git a/.claude/agents/qa.md b/.claude/agents/qa.md
+--- a/.claude/agents/qa.md
++++ b/.claude/agents/qa.md
+@@ -31,6 +31,8 @@
+ ## verify (after the developer)
+
+-**Light verify** (you ran `specify` for this ticket). It may run on haiku, its minimum tier (ADR 0010), so follow these steps exactly and no more:
++Your dispatch prompt prints one line, `Verify mode: light` or `Verify mode: full`. Follow that line. Don't infer the mode from your own history: a light line means a qa specify handoff is published for this ticket, and it names the handoff. If the prompt has no such line, run full verify.
++
++**Light verify** (`Verify mode: light`). It may run on haiku, its minimum tier (ADR 0010), so follow these steps exactly and no more:
+ 1. Run `npm test` in the worktree. Every test passes and none are skipped; otherwise bounce with the failing names.
+ 2. Run `git diff <specify sha> HEAD -- <your test files>`. Any removed or loosened assertion is a bounce.
+ 3. For each acceptance criterion, name the test that covers it, or mark it human-verified if specify marked it so. A criterion with neither is a bounce.
+@@ -37,7 +39,7 @@
+ 4. List any files the diff touches outside the ticket's scope. List them, don't judge them; security and the orchestrator decide.
+ If any step needs judgment beyond these rules, don't guess: say "escalate to full verify" in your report.
+
+-**Full verify** (you didn't write the tests): the steps below.
++**Full verify** (`Verify mode: full`, or no mode line): the steps below.
+
+ 1. Check out the developer's branch named by the orchestrator. Have `scout` run the full test suite and report.
+ 2. Bounce the branch if any of these hold:
