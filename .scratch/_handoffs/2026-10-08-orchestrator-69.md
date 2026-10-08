@@ -9,10 +9,9 @@ These notes record state only. Where they conflict with the genome, the genome w
 
 ## In flight
 - **141 qa full verify** (genome model, detached at 6efaaa1, handoff name `141-qa-verify-2.md`). On return: log-cell, remove worktree, risk-check via scout (expect security: new routes; security should also judge the runtime-built fake secrets in host-approvals.test.mjs:45, :414), PR, merge on green, resolve, advisory-outcome row (orchestrator qa-specify, Jev qa-specify, user qa-specify).
-- **194**: lock stuck. The first haiku verify ended without verdict; `board release --keep-status` is blocked (no handoff), and `board reclaim ... qa --mode verify` re-locked it under a fresh qa claim, so `cell-start --ticket` refuses. Needs the user's yes for `npm run board -- release organism-infra/194-handback-allowed-at-stop --keep-status --force --reason "dead qa verify, no handoff"`, then re-dispatch qa light verify at 95eb3b0 with --continue. Tests 2423/2423 in /tmp/194-tests.txt.
+- **194**: QA PASS (95eb3b0, handoff 194-qa-verify.md, 2423/2423 x3). The first qa cell resumed when its scout returned and adopted the reclaimed lock; no force release needed. Next: remove worktree agent-ad42a4a932b87c7c9, risk-check via scout, PR, merge on green, resolve, advisory-outcome row.
 
 ## Waiting on the user
-- Yes for the 194 force release.
 - Merge PR #185 (docs only) once green.
 - Whether to file a ticket for the corrected conformance.mjs (setup-invalid guard, non-blocked long command for S4b, non-.claude deny target for S6b, control run without --settings), then the user re-runs the spikes.
 - PR #183 (draft, Codex config).

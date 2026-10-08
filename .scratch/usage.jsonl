@@ -2154,3 +2154,4 @@
 {"kind":"cell","ts":"2026-10-08T02:24:08.935Z","ticket":"organism-infra/194-handback-allowed-at-stop","cell":"qa","mode":"verify","model":"claude-haiku-5-5","tokens":26892,"ms":26938,"outcome":"claim refused: stale qa lock","allow_no_handoff":"stopped at refused claim"}
 {"kind":"usage","ts":"2026-10-08T02:24:16Z","five_hour":22,"weekly":50,"event":"dispatch","ticket":"organism-infra/141-steering-approvals","cell":"qa"}
 {"kind":"context","ts":"2026-10-08T02:24:16Z","session":"4397e7ec-da88-46c7-9084-9c8ce51b9672","context_tokens":72994,"percent":7.3,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-08T02:26:48.417Z","ticket":"organism-infra/194-handback-allowed-at-stop","cell":"qa","mode":"verify","model":"claude-haiku-5-5","tokens":48355,"ms":1383093,"outcome":"pass (resumed after its scout returned; adopted the reclaimed lock)","context":45264}
