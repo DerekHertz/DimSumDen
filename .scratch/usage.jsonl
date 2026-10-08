@@ -2399,3 +2399,12 @@
 {"kind":"jev-advisory-outcome","ts":"2026-10-08T17:56:34.599Z","ticket":"organism-infra/157-usage-reset-local-time","orchestratorPick":"qa-specify","jevPick":"qa-specify","userChoice":"qa-specify","bounced":false}
 {"kind":"usage","ts":"2026-10-08T17:57:27Z","five_hour":70,"weekly":68,"event":"merge","ticket":"organism-infra/157","cell":"orchestrator"}
 {"kind":"context","ts":"2026-10-08T17:57:27Z","session":"8669dd52-ab36-4452-ae1c-b468cc1bea7b","context_tokens":51782,"percent":5.18,"event":"merge"}
+{"kind":"cell","ts":"2026-10-08T18:04:39.574Z","ticket":"den-v1/05-transcript-f","cell":"scout","model":"claude-haiku-5-5","tokens":9924,"ms":5555,"outcome":"risk-check: 1 hit (network/server code in transcript-wiring.test.mjs); merge-tree clean"}
+{"kind":"usage","ts":"2026-10-08T18:04:52Z","five_hour":71,"weekly":68,"event":"dispatch","ticket":"den-v1/05","cell":"security"}
+{"kind":"cell","ts":"2026-10-08T18:06:19.211Z","ticket":"den-v1/05-transcript-f","cell":"security","model":"sonnet","tokens":41470,"ms":76953,"outcome":"pass; 2 low notes (prototype-key bug to den-v1/12)","context":40157}
+{"kind":"resolved","ts":"2026-10-08T18:11:37.861Z","ticket":"den-v1/05-transcript-f","pr":198,"bounces":0}
+{"kind":"jev-advisory-outcome","ts":"2026-10-08T18:11:37.915Z","ticket":"den-v1/05-transcript-f","orchestratorPick":"designer","jevPick":"qa-specify","userChoice":"designer","bounced":false}
+{"kind":"incident","ts":"2026-10-08T18:12:46Z","ticket":"den-v1/05-transcript-f","cell":"orchestrator","tool":"other","what":"Handoff 80 called the 05 developer and qa passing 80k a budget breach; their stop is 120k per scripts/context-budget.json. Corrected after the user asked.","cost":"one wrong retro item, caught before retro","fix":"check scripts/context-budget.json before calling a breach","rule_change":null}
+{"kind":"retro","ts":"2026-10-08T18:21:13Z","window_from":"2026-10-08T16:48:00Z","items":6,"fixes":[{"cause":"designer spec dispatched as background cell cannot reach the user","tool":"other","kind":"dispatch","ref":"PR #199 4c667a0"},{"cause":"designer hit 80k before asking the user anything","tool":"other","kind":"code","ref":"organism-infra/205"}]}
+{"kind":"usage","ts":"2026-10-08T18:21:32Z","five_hour":74,"weekly":68,"event":"merge","ticket":"den-v1/05","cell":"orchestrator"}
+{"kind":"context","ts":"2026-10-08T18:21:32Z","session":"8669dd52-ab36-4452-ae1c-b468cc1bea7b","context_tokens":80308,"percent":8.03,"event":"merge"}
