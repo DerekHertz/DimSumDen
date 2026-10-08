@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately; den-layout/03 resolved)
 
-**Status:** in-review
+**Status:** ready-for-human
 
 **Serves:** Den loop steps 3-4 (answer a pending permission request; the agent continues).
 
@@ -106,3 +106,5 @@ No browser-measurement tests: the layout comes from the mockup.
 - **orchestrator, 2026-10-08:** Copied the signed-off design spec into this ticket (Design spec section). Next: qa specify.
 - **developer, 2026-10-08:** partial: context limit; wiring left, see 06-developer handoff
 - **orchestrator, 2026-10-08:** Developer round 2 reported `proximity-card.browser.test.mjs` hangs when run alone (not caused by this ticket). User agreed fix: organism-infra/206; meanwhile run browser tests via `npm test`. Developer also edited qa's `bridge-client.test.mjs` fixture token (secret-scan trip, no assertion change) for qa verify to confirm; spec token `alarm-zone` does not exist, banner uses `--surface-200` + `--alarm` (check in visual critique).
+- **qa, 2026-10-08:** QA pass (full verify, fc53171): npm test 2876 pass, 0 fail, 0 skipped (saved suite output /tmp/06-tests.txt, after the commit). Specify tests unchanged except bridge-client.test.mjs:19 (TOKEN built at runtime, same value, no assertion change). Finding for security: that edit gets the fixture past scripts/root-secret-scan.test.mjs. See handoff 06-qa-verify.
+- **qa, 2026-10-08:** human-verified (qa): panel layout and 420px width, phone bottom sheet, header and footer styling, lantern and spinner, motion, reduced-motion behaviour, contrast in light and dark, focus rings, live-region announce, transcript closing on open, pointer-lock release, and the alarm banner colour (spec's alarm-zone token is not defined; banner uses --surface-200 with --alarm).
