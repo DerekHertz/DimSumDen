@@ -1,7 +1,7 @@
 # Orchestrator handoff 84 (2026-10-08)
 
 ## State
-- **In flight: den-v1/07** at `ready-for-human`, waiting on the user's visual critique. Branch `feat/07-message-t` @ c1229c5 (qa specify 5b46f9d, developer ceffa71, fix round 1 c1229c5). Developer worktree `.claude/worktrees/agent-a6924e0561e1422c2` holds the branch, clean; `~/den-07` symlinks to it. Earlier dev worktree `agent-aaf430e96d36846dd` is detached and clean (gc later).
+- **In flight: den-v1/07** in-review: user critique PASSED ("looks fine", 2026-10-08). Next is risk-check via scout, then PR. Branch `feat/07-message-t` @ c1229c5 (qa specify 5b46f9d, developer ceffa71, fix round 1 c1229c5). Developer worktree `.claude/worktrees/agent-a6924e0561e1422c2` holds the branch, clean; `~/den-07` symlinks to it. Earlier dev worktree `agent-aaf430e96d36846dd` is detached and clean (gc later).
 - Critique: `cd ~/den-07 && npm run ui:dev`, open `localhost:5173/?demo=approval`, walk to a panda, T, Enter. `noack` in text = stalled line at 20 s; `&refuse=429` / `&refuse=409` = refusal banners.
 - qa verify passed (ran full on haiku, should have been light; incident logged). Suite 2963/2963 after fix round. Non-blocking qa notes are in `07-qa-verify.md` (whitespace on bridge-client.mjs:5; 401 after close dropped silently).
 - **Next relay steps for 07:** user findings go to one developer fix round (handoff `07-developer-3.md`). On the user's yes: risk-check via scout, then PR, CI, merge, `board resolve`, worktree-gc. Then log `advisory-outcome --ticket den-v1/07-message-t --orchestrator designer --jev qa-specify --user designer --bounced false`.
