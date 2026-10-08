@@ -98,5 +98,8 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "sleep-guard@dimsumden-mods": true
   }
 }
