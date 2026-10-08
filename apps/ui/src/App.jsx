@@ -6,6 +6,7 @@ import { PandaCard } from "./scene/procedural/PandaCard.jsx";
 import { ProximityCard } from "./overlay/ProximityCard.jsx";
 import { TranscriptPanel, useTranscript } from "./overlay/TranscriptPanel.jsx";
 import { ApprovalPanel, useApprovalReview } from "./overlay/ApprovalPanel.jsx";
+import { MessageComposer, useMessageComposer } from "./overlay/MessageComposer.jsx";
 import { createBridgeClient } from "./state/bridge-client.mjs";
 import { approvalDemoParams, createApprovalDemo } from "./scene/approval-fixture.mjs";
 import { createDenCameraStore } from "./scene/procedural/camera.mjs";
@@ -72,13 +73,19 @@ export function App() {
   const onNearby = useCallback(card => setNearby(previous => JSON.stringify(previous) === JSON.stringify(card) ? previous : card), []);
   const releaseCursor = useCallback(() => stage.explorer?.freeCursor?.(), [stage]);
   const reviewOpen = useRef(false);
+  const approvalOpen = useRef(false);
   const transcriptClose = useRef(null);
+  const messageClose = useRef(null);
   const transcript = useTranscript({ card: nearby, exploring, onOpen: releaseCursor, blocked: reviewOpen });
   transcriptClose.current = transcript.close;
   const bridge = useMemo(() => approvalDemo?.client ?? createBridgeClient({ fetch: steering.session.fetch }), [steering.session, approvalDemo]);
-  const onReviewOpen = useCallback(() => { transcriptClose.current?.(); releaseCursor(); }, [releaseCursor]);
+  const onReviewOpen = useCallback(() => { transcriptClose.current?.(); messageClose.current?.(); releaseCursor(); }, [releaseCursor]);
   const approval = useApprovalReview({ client: bridge, card: nearby, exploring, cursorFree, demo, snapshot, onOpen: onReviewOpen });
-  reviewOpen.current = approval.state.open;
+  // den-v1/07: T opens the message composer. Message acknowledgements reach it as composer.observe(event) once the live runtime feeds the event stream (den-v1/11).
+  const message = useMessageComposer({ client: bridge, card: nearby, exploring, cursorFree, demo, snapshot, onOpen: releaseCursor, blocked: approvalOpen });
+  messageClose.current = message.composer.close;
+  approvalOpen.current = approval.state.open;
+  reviewOpen.current = approval.state.open || message.state.open; // the transcript keys stand down while either panel is open
   const [exploreHint,setExploreHint]=useState('WASD / arrows to walk · drag to look · Esc to leave');
   const onDenReady=useCallback(value=>setDen(value),[]);
   const sceneEvents=useMemo(()=>state=>denEvents(defaultEvents(state),stage),[stage]);
@@ -126,7 +133,11 @@ export function App() {
         <ChipLayer cells={sceneChips} labelsOverride={STATION_LABELS} hearts={hearts} onToggleTally={toggleTally} tallyOpen={tallyOpen} tally={tally} tickets={snapshot?.tickets} selected={selected} onSelect={selectTicket} stage={stage} />
         {tallyOpen ? <TallyCard tally={tally} metrics={metrics} failed={metricsFailed} onRetry={retryMetrics} onClose={closeTally} stage={stage} /> : null}
         {selected?<PandaCard snapshot={snapshot} selected={selected} onClose={closeTicket} />:null}
-        {exploring ? <ProximityCard card={nearby} onTranscript={(c) => { if (!reviewOpen.current) transcript.toggle(c); }} onAnswer={approval.openFrom} demo={demo} transcriptOpen={!!transcript.panel.agentId} /> : null}
+        <div className="proximity-dock">
+          {exploring ? <ProximityCard card={nearby} onTranscript={(c) => { if (!reviewOpen.current) transcript.toggle(c); }} onAnswer={approval.openFrom}
+            onMessage={(c) => { if (!approvalOpen.current) message.openFrom(c); }} status={message.composer.statusFor(nearby)} demo={demo} transcriptOpen={!!transcript.panel.agentId} /> : null}
+          <MessageComposer composer={message.composer} state={message.state} />
+        </div>
         <ApprovalPanel review={approval.review} state={approval.state} />
         <TranscriptPanel tx={transcript} transcripts={live.transcripts} agents={snapshot?.agents} connection={connection} />
         <div className="den-crosshair" aria-hidden="true" hidden={!exploring || cursorFree}>+</div>
