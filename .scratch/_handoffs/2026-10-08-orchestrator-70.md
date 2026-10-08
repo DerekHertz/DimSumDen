@@ -12,7 +12,7 @@ These notes record state only. Where they conflict with the genome, the genome w
   - The developer fix round rebuilt the work on a **new branch, `feat/141-steering-approvals-2`** (head f176d3c, from main f0e294c, 4 commits). The literal is never committed whole, and gitleaks is clean.
   - The same round fixed the medium (masking now covers only the matched span) and one low (zero-width characters are escaped). Still open as an optional low: `decide()` ignores expiry once a decision is claimed.
   - qa light verify (Haiku) passed, 2475/2475. Risk-check found 3 secrets-handling hits, so full security is required.
-  - **Security round 2 is running** (handoff `141-security-2.md`, detached at f176d3c). On a pass: push the `-2` branch, open the PR, merge on green, `board resolve organism-infra/141-steering-approvals --pr <n>`.
+  - **Security round 2 passed** (`141-security-2.md`). **PR #187 is open** on the `-2` branch. Next: merge on green, `board resolve organism-infra/141-steering-approvals --pr <n>`.
   - Advisory outcome: `--orchestrator qa-specify --jev qa-specify --user qa-specify --bounced true`. The specify commit drew the bounce.
   - Bounce-hop advisory: orchestrator `developer`, Jev `user` (0.69), user `developer`.
   - Then delete the old remote branch `feat/141-steering-approvals` (6efaaa1), and only with the user's yes, since it's a remote delete.
