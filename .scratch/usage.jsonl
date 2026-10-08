@@ -2572,3 +2572,7 @@
 {"kind":"cell","ts":"2026-10-08T23:11:43.857Z","ticket":"organism-infra/167-usage-429-backoff","cell":"scout","model":"claude-haiku-5-5","tokens":10745,"ms":10184,"outcome":"risk-check: 3 hits, escalate to security"}
 {"kind":"usage","ts":"2026-10-08T23:11:43Z","five_hour":null,"weekly":null,"event":"dispatch","ticket":"organism-infra/167-usage-429-backoff","cell":"security","note":"HTTP 429; last good 60%"}
 {"kind":"context","ts":"2026-10-08T23:11:43Z","session":"2734297a-ccd1-47c5-aa4a-c812f66d55d7","context_tokens":76502,"percent":7.65,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-08T23:12:51.424Z","ticket":"organism-infra/167-usage-429-backoff","cell":"security","model":"claude-opus-5-5","tokens":34094,"ms":44772,"outcome":"pass: 2 low non-blocking","context":32461}
+{"kind":"incident","ts":"2026-10-08T23:17:30Z","ticket":"organism-infra/167-usage-429-backoff","cell":"orchestrator","tool":"log-cell.mjs","what":"Security cell row logged with --model claude-opus-5-5; the security genome model is sonnet","cost":"one mis-weighted cell row","fix":"Read the genome model before log-cell","rule_change":null}
+{"kind":"resolved","ts":"2026-10-08T23:17:34.668Z","ticket":"organism-infra/167-usage-429-backoff","pr":204,"bounces":0}
+{"kind":"jev-advisory-outcome","ts":"2026-10-08T23:17:34.721Z","ticket":"organism-infra/167-usage-429-backoff","orchestratorPick":"qa-specify","jevPick":"qa-specify","userChoice":"qa-specify","bounced":false}

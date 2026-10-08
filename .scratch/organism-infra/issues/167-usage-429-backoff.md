@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Usage gates (usage-watch skill). Retro 2026-10-06: `node scripts/usage.mjs --provider claude` returned `HTTP 429` at the 147 merge and again at session start. The user reports 429s "semi-regularly" and asked to scale back usage reads (2026-10-06).
 
@@ -40,3 +40,4 @@ Files: `scripts/usage-claude.mjs`, `scripts/statusline.mjs`, `scripts/hook-io.mj
 - **Retro (orchestrator, 2026-10-08):** 429 hit 5 times across 207 and 208 (session start and several dispatches), so this is the next recommended infra ticket.
 - **developer, 2026-10-08:** qa test scripts/usage-cache.test.mjs line 26 has a literal token that trips root-secret-scan; needs a runtime-built value (details in 167-developer handoff).
 - **qa, 2026-10-08:** QA pass (light verify): suite 3010 pass, 0 fail, 0 skipped. Test diff since dc1faa8 is the TOKEN line only. All 7 criteria mapped to passing tests; see handoff 167-qa-verify.
+- **security, 2026-10-08:** Security pass. gitleaks clean, npm audit 0, no dep/workflow change. Low: usage-claude.mjs:209 stale-lock unlink race (extra call at worst); usage-claude.mjs:40-51 cache windows unvalidated (user-owned 0600 file). See 167-security.
