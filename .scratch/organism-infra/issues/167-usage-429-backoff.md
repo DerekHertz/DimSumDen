@@ -37,3 +37,4 @@ Files: `scripts/usage-claude.mjs`, `scripts/statusline.mjs`, `scripts/hook-io.mj
 
 ## Comments
 - **orchestrator, 2026-10-08:** User 2026-10-08: raised to P1. usage.mjs returned HTTP 429 at every read tonight, so dispatch and merge gates fell back on the session-start reading.
+- **Retro (orchestrator, 2026-10-08):** 429 hit 5 times across 207 and 208 (session start and several dispatches), so this is the next recommended infra ticket.
