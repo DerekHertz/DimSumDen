@@ -6,7 +6,7 @@
 
 **Blocked by:** 141, 142, 195
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 **Serves:** Den loop steps 3-4: the real runtime behind the host.
 
@@ -25,3 +25,4 @@ Child wrapper over real pipes (a stub script speaks the stream), kill and proces
 
 ## Comments
 - **orchestrator, 2026-10-08:** Added acceptance criterion from security finding 3 on PR #177 (bounded shutdown wait on pending spawns, killAllSync fallback). host.mjs lows 1, 2 and 4 stay optional follow-ups. User approved 2026-10-07.
+- **security, 2026-10-08:** Security bounce on ADR 0016 round 3 verdicts. HIGH: S4b go/plain is invalid; in all six S4b fixtures the tail -f call was blocked by the CLI (permission_denied) and the evaluator matched the child's own argv, so no tool was ever in flight. 143 should keep detached group kill until a valid re-run. S8 (c) residual acceptable with conditions (medium), S6b setup-invalid agreed, 195 low still open. Detail in 143-security.md.

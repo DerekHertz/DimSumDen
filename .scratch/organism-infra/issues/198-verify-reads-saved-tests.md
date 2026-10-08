@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** Relay hygiene (pipeline-retro 2026-10-08).
 
