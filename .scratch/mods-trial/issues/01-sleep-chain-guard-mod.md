@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** claimed
+**Status:** in-review
 
 **Serves:** Testbed friction: cells poll with `sleep N; cmd` chains, wasting wall time and tokens; the rule exists only as memory. First **mod** and its **mod trial** (spec: `.scratch/mods-trial/spec.md`).
 
@@ -39,3 +39,5 @@ Prior art: `scripts/hooks/context-budget.mjs` and its tests. Load `plugin-author
 - **product, 2026-10-07:** Handoff: `.scratch/mods-trial/handoffs/01-product.md`. Research that came out of the grill: `docs/research/agent-bridge-landscape-2026-10-07.md` (parked candidates, not part of this ticket).
 - **product, 2026-10-07:** Filed from the mods grill. After merge the orchestrator opens the standing `mods-trial` ticket and starts the 3-orchestrator-handoff clock (spec: Implementation Decisions).
 - **orchestrator, 2026-10-08:** User 2026-10-08: mods tickets skip qa specify and qa verify; the developer writes the tests. Risk-check and PR on green CI stay. Developer (Sonnet) dispatched on feat/mods-01-sleep-chain-guard from ea999bd.
+- **developer, 2026-10-08:** Coverage spike (developer): guard fired under claude --plugin-dir -p for the headless main session and for an Agent-tool subagent (exact deny text returned). Interactive main session and interactive subagent not yet run; need the project-scope install (user step in handoff 01-developer). No gap seen.
+- **security, 2026-10-08:** Security pass (eb78b20). No critical/high. gitleaks clean, no deps, 57/57 tests. sleep-guard.mjs:170-187 medium: first 200 chars of a blocked command are logged to the committed board; a secret in the command would reach git history, suggest redaction. sleep-guard.mjs:143-157 low: runs first board.mjs found walking up from project dir. sleep-guard.mjs header low: string check, bash -c/eval bypass accepted. Handoff 01-security.md.
