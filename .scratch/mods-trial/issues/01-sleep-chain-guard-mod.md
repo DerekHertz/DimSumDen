@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** in-review
+**Status:** claimed
 
 **Serves:** Testbed friction: cells poll with `sleep N; cmd` chains, wasting wall time and tokens; the rule exists only as memory. First **mod** and its **mod trial** (spec: `.scratch/mods-trial/spec.md`).
 

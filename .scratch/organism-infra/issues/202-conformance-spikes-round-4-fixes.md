@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Den loop steps 3-4. The S4b, S8 and S6b verdicts that 143 (106-D2) builds on; 143 keeps its detached process-group kill until a valid S4b re-run says otherwise.
 
@@ -42,3 +42,4 @@ Fix `apps/bridge/cells/conformance.mjs` so the next user run gives valid S4b, S8
 - **orchestrator, 2026-10-08:** Bounce 1 from qa light verify (5fbe6cf): (a) no test covers S6b's exclusion from the hook_started guard (conformance.mjs:485); (b) the S6b comparison probe in the main checkout can overwrite a pre-existing allowed.txt or deny target (made[] at :1124 only removes files it created), and conformance-s6b-restore.test.mjs covers only the happy path (not the absent-file or throw paths, and would pass with the comparison deleted). Fix both, test-first.
 - **qa, 2026-10-08:** QA bounce (re-verify). Check 1 and 2 pass. Check 3: the 'throw mid-probe' tests never throw: conformance-s6b-restore.test.mjs:95-115 hangs the checkout child, but waitFor resolves null on timeout (conformance.mjs:558) and finish() closes stdin, so compareS6bAllow returns normally. The finally's throw path is untested. Detail in 202-qa-verify-2.md.
 - **qa, 2026-10-08:** QA pass on fix round 3 (c60e449). Bounce-2 findings resolved: throw-mid-probe restore tests now throw for real (restore test l.132, l.156), per-restore guard tested (l.167). Suite from /tmp/202-tests.txt: 2639 pass, 0 fail, 0 skipped. Details in handoff 202-qa-verify-3.
+- **security, 2026-10-08:** Security pass at c60e449. No critical or high findings. Medium-low: conformance.mjs:1113 S6b comparison edits the main checkout settings.local.json, restored in finally, an aborted run leaves it. Low: :969 wildcard tail allow, :1192 stderr scrub covers paths only. Secret scan clean, no dependency or CI change, audit 0. Detail in 202-security.md.
