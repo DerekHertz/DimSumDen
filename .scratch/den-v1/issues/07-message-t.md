@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately; den-layout/03 resolved)
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 **Serves:** Den loop steps 3-4 (T sends a message; the agent receives it).
 
@@ -105,3 +105,5 @@ This ticket builds `sendMessage`, the composer and the card status line; den-v1/
 - **orchestrator, 2026-10-07:** Design relay changed (user, 2026-10-07). Before qa specify: `designer` in `spec` mode works *with the user* on a very detailed spec, plus low-cost visuals (static mockups) the user signs off on or annotates. No designer `review` cell. After qa verify the ticket goes `ready-for-human` for the user's own visual critique; findings go to one developer fix round; the user's yes unlocks risk-check and the PR. Genome edit: organism-infra/182.
 - **orchestrator, 2026-10-08:** User 2026-10-08: split. This ticket now builds and tests the UI against a stub bridge and fixture events, unblocked; the live wiring moved to den-v1/11.
 - **orchestrator, 2026-10-08:** Designer spec signed off by the user; spec copied above. Next: qa specify on `feat/07-message-t`.
+- **qa, 2026-10-08:** QA pass: 2955/2955 green, 0 skipped (saved run); specify tests unchanged since 5b46f9d; all 5 criteria mapped to tests; visual items human-verified. Notes in handoff.
+- **orchestrator, 2026-10-08:** qa verify passed (ceffa71, 2955/2955). Held at ready-for-human for the user's visual critique; their findings go to one developer fix round, their yes unlocks risk-check. qa note: under `?demo=approval` T sends to a demo client with no `sendMessage` and shows a refusal.
