@@ -25,3 +25,9 @@ State, not rules; the genome wins.
 - Jev route and verify still fall back on "http". Have a scout look into it before tickets 184–193.
 - Draft PR #183 (codex/wsl-agent-config) is still open, and `/tmp/dimsumden-codex-config` is prunable.
 - Context was 86k at this handoff.
+
+## Addendum: 202 qa specify returned (partial)
+- Tests are committed at `3c3c1fc` on `feat/202-conformance-spikes-round-4-fixes`, in the new file `apps/bridge/cells/conformance-round4.test.mjs` (38 tests: 34 fail, 4 pass as regression guards). The handoff is `202-qa-specify.md`. The ticket is released as ready-for-agent. Worktree `agent-a8c6159f49fd2fcf1` is clean.
+- **Partial:** the cell hit 120k before checking that each failure comes from the missing feature and not from a setup or import error. Before the developer: run the file and check the failure reasons (a scout, or a fresh qa specify with `--continue`, the same round).
+- **Open points (architect or user):** (1) the ticket's "ppid chain does not include the child" would reject every valid run read literally, so qa tested "the matched pid is never the child itself"; please confirm. (2) S6b runs in a repo worktree whose SessionStart hooks could make the `hook_started` guard always setup-invalid, so qa left S6b out of the hook case.
+- Not logged yet: `log-cell` for this cell waits on its task notification (tokens and ms).
