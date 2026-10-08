@@ -1,0 +1,12 @@
+{
+  "name": "dimsumden-mods",
+  "owner": { "name": "Dim Sum Den" },
+  "metadata": { "description": "Dim Sum Den's own mods (project-scope Claude Code plugins). Mods trial: see .scratch/mods-trial/spec.md." },
+  "plugins": [
+    {
+      "name": "sleep-guard",
+      "source": "./mods/sleep-guard",
+      "description": "Blocks sleep-chain Bash commands and points to gh pr checks --watch or Monitor."
+    }
+  ]
+}
