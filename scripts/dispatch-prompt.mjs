@@ -9,6 +9,8 @@
 // release flag for this hop. With --tests <file> (qa verify only; organism-infra/198) it also prints one line naming the saved
 // developer suite output, which qa uses as the suite result instead of re-running it; the file must pass the same exposure
 // check as `jev.mjs verify --tests` (regular non-symlink file, not denied, at most 1 MB). The only side effect is that dispatch-context may write its own context file and usage row.
+// qa verify also prints one "Verify mode: light|full" line (organism-infra/207): light when a published <NN>-qa-specify[-k].md handoff
+// exists for the ticket, full otherwise, so the verifier follows the line instead of inferring the mode.
 // Bad arguments exit 2 with the reason on stderr and nothing on stdout.
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
@@ -74,8 +76,8 @@ function parseArgs(argv) {
   return { ...opts, spec };
 }
 
-// The next free handoff name: <NN>-<cell>[-<mode>].md, then -2, -3 (board handoff refuses to overwrite an earlier claim's file).
-function handoffName(dir, stem) {
+// The highest published handoff number for a stem (<NN>-<cell>[-<mode>].md is 1, -2.md is 2, ...); 0 when none.
+function maxHandoff(dir, stem) {
   let max = 0;
   let names = [];
   try {
@@ -87,7 +89,22 @@ function handoffName(dir, stem) {
     const m = new RegExp(`^${stem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:-(\\d+))?\\.md$`).exec(n);
     if (m) max = Math.max(max, m[1] ? Number(m[1]) : 1);
   }
+  return max;
+}
+
+// The next free handoff name: <NN>-<cell>[-<mode>].md, then -2, -3 (board handoff refuses to overwrite an earlier claim's file).
+function handoffName(dir, stem) {
+  const max = maxHandoff(dir, stem);
   return max === 0 ? `${stem}.md` : `${stem}-${max + 1}.md`;
+}
+
+// organism-infra/207: the qa verify mode. Light when a qa specify handoff is published for this ticket, full otherwise.
+function verifyModeLine(dir, num) {
+  const stem = `${num}-qa-specify`;
+  const max = maxHandoff(dir, stem);
+  if (max === 0) return "Verify mode: full (no qa specify handoff for this ticket)";
+  const file = path.join(dir, max === 1 ? `${stem}.md` : `${stem}-${max}.md`);
+  return `Verify mode: light (qa specify ran for this ticket: ${file})`;
 }
 
 // dispatch-context prints one JSON line {path, ...}; any failure or a null path means no context line.
@@ -155,6 +172,7 @@ function main(argv) {
     const ctx = contextPath(opts.ticket, process.env);
     if (ctx) lines.push(`Start-here context: ${ctx} (jg output; read before searching; may be incomplete or stale)`);
   }
+  if (opts.cell === "qa" && opts.mode === "verify") lines.push(verifyModeLine(handoffsDir, num));
   if (testsFile) lines.push(`Suite result: the developer's full npm test output is saved at ${testsFile}. Use it as the suite result; do not re-run the suite.`);
   lines.push(
     `Write your handoff to ${path.join(handoffsDir, name)} with the handoff skill: draft it under /tmp, then publish it with \`npm run board -- handoff ${opts.ticket} --from <draft> --name ${name}\`, before release.`,
