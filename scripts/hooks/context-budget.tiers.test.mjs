@@ -2,8 +2,8 @@
 // cell's agent_type, instead of the fixed 70k/80k.
 //
 // Seam: the hook CLI, as in context-budget.test.mjs (PreToolUse JSON on stdin, HOME=<fixture>).
-// With the shipped config (CONTEXT_BUDGET_CONFIG unset): developer and qa warn at 100k and refuse at
-// 120k; security, architect, designer, scout and any other agent_type stay at 70k / 80k.
+// With the shipped config (CONTEXT_BUDGET_CONFIG unset): every cell warns at 70k and refuses at 80k
+// (organism-infra/208 moved developer and qa down from 145's 100k / 120k).
 // With CONTEXT_BUDGET_CONFIG=<fixture file> the numbers come from that file, so none is hard-coded.
 // The warning and refusal texts name the cell's own limits, not "80k".
 //
@@ -67,24 +67,7 @@ const refuses = (r, label) => {
   return r.stderr;
 };
 
-for (const role of ["developer", "qa"]) {
-  test(`${role}: silent below 100k, even at 99,999`, () => {
-    silent(run(80_000, role), `${role} 80k`);
-    silent(run(99_999, role), `${role} 99,999`);
-  });
-
-  test(`${role}: warns from 100k to 119,999 and still allows the call`, () => {
-    warns(run(100_000, role), `${role} 100k`);
-    warns(run(119_999, role), `${role} 119,999`);
-  });
-
-  test(`${role}: refuses at exactly 120k and beyond`, () => {
-    refuses(run(120_000, role), `${role} 120k`);
-    refuses(run(150_000, role, { tool: "Grep", toolInput: { pattern: "x" } }), `${role} 150k Grep`);
-  });
-}
-
-for (const role of ["security", "architect", "designer", "scout"]) {
+for (const role of ["developer", "qa", "security", "architect", "designer", "scout"]) {
   test(`${role}: keeps 70k warn / 80k stop`, () => {
     silent(run(69_999, role), `${role} 69,999`);
     warns(run(70_000, role), `${role} 70k`);
@@ -99,14 +82,16 @@ test("an agent_type with no config entry gets the default 70k / 80k", () => {
 });
 
 test("warning text names the cell's own limit, not 80k", () => {
-  const text = warns(run(105_000, "developer"), "developer 105k");
+  const config = writeConfig({ default: { warn: 70_000, stop: 80_000 }, cells: { developer: { warn: 100_000, stop: 120_000 } } });
+  const text = warns(run(105_000, "developer", { config }), "developer 105k");
   assert.match(text, /105k/);
   assert.match(text, /120k/, "the warning names the developer's stop limit");
   assert.doesNotMatch(text, /80k/);
 });
 
 test("refusal text names the cell's own limit and still tells it how to wrap up", () => {
-  const text = refuses(run(125_000, "qa"), "qa 125k");
+  const config = writeConfig({ default: { warn: 70_000, stop: 80_000 }, cells: { qa: { warn: 100_000, stop: 120_000 } } });
+  const text = refuses(run(125_000, "qa", { config }), "qa 125k");
   assert.match(text, /125k/);
   assert.match(text, /120k/);
   assert.doesNotMatch(text, /80k/);
@@ -114,7 +99,7 @@ test("refusal text names the cell's own limit and still tells it how to wrap up"
   assert.match(text, /outcome: partial/);
 });
 
-test("the wrap-up calls stay allowed at and above the developer's 120k stop", () => {
+test("the wrap-up calls stay allowed at and above the developer's 80k stop", () => {
   for (const command of ["git add scripts/a.mjs", 'git commit -m "WIP: budget"', "npm run board -- release organism-infra/145-cell-context-hook --keep-status", "node scripts/context.mjs --self"]) {
     const r = run(130_000, "developer", { tool: "Bash", toolInput: { command } });
     assert.equal(r.status, 0, `${command}: exit ${r.status}\n${r.stderr}`);

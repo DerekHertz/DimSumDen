@@ -68,7 +68,7 @@ test("SubagentHandback is allowed at and above the stop threshold (architect: 80
   silent(run(95_000, "architect"), "architect 95k");
 });
 
-test("SubagentHandback is allowed at and above the stop threshold of the 120k roles (developer, qa)", () => {
+test("SubagentHandback is allowed at and above the stop threshold of developer and qa", () => {
   for (const role of ["developer", "qa"]) {
     silent(run(120_000, role), `${role} 120k`);
     silent(run(150_000, role), `${role} 150k`);
@@ -107,13 +107,13 @@ test("the existing wrap-up calls and refusals still hold alongside the new allow
 test("below the warn threshold, SubagentHandback and other calls pass silently", () => {
   silent(run(60_000, "architect"), "architect handback 60k");
   silent(run(60_000, "architect", { tool: "Read", toolInput: { file_path: "/repo/a.mjs" } }), "architect Read 60k");
-  silent(run(99_999, "qa"), "qa handback 99,999");
+  silent(run(69_999, "qa"), "qa handback 69,999");
 });
 
 test("between warn and stop, calls (SubagentHandback included) are allowed with the checkpoint warning", () => {
   warnsAndAllows(run(75_000, "architect"), "architect handback 75k");
   warnsAndAllows(run(75_000, "architect", { tool: "Read", toolInput: { file_path: "/repo/a.mjs" } }), "architect Read 75k");
-  warnsAndAllows(run(110_000, "developer"), "developer handback 110k");
+  warnsAndAllows(run(75_000, "developer"), "developer handback 75k");
 });
 
 test("the orchestrator session is never gated, at any token count", () => {

@@ -74,7 +74,7 @@ Give every long-running command an explicit timeout: test runs, dev servers, bro
 
 ## Context budget (organism-infra/119)
 
-Every call re-reads your whole context, so a smaller one costs less. Thresholds live in `scripts/context-budget.json`: `developer` and `qa` warn at 100k and stop at 120k; `security`, `architect`, `designer`, `scout` and the orchestrator warn at 70k and stop at 80k. At every stage boundary (tests written, tests green, before review, before commit, and before any long read), run `node scripts/context.mjs --self --cell <your cell type>`. It prints `{"session","context_tokens","percent","warn","stop","state","scope":"self"}` for your own transcript; `context_tokens: null` means no reading, so carry on. Follow `state`:
+Every call re-reads your whole context, so a smaller one costs less. Thresholds live in `scripts/context-budget.json`: every cell (`developer`, `qa`, `security`, `architect`, `designer`, `scout`) and the orchestrator warns at 70k and stops at 80k (organism-infra/208). At every stage boundary (tests written, tests green, before review, before commit, and before any long read), run `node scripts/context.mjs --self --cell <your cell type>`. It prints `{"session","context_tokens","percent","warn","stop","state","scope":"self"}` for your own transcript; `context_tokens: null` means no reading, so carry on. Follow `state`:
 
 - **`ok`:** carry on.
 - **`warn`:** finish the current stage. Start no new exploration and no new stage you can leave to a fresh cell.

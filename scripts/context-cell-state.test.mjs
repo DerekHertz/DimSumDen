@@ -54,20 +54,20 @@ function run(f, args, env = {}) {
 
 const self = (tokens, cell, env) => run(fixture({ subagentTokens: tokens }), ["--self", "--cell", cell], env);
 
-test("developer: 95k is ok, with the shipped 100k / 120k numbers in the output", () => {
-  const j = self(95_000, "developer");
-  assert.equal(j.context_tokens, 95_000);
-  assert.equal(j.warn, 100_000);
-  assert.equal(j.stop, 120_000);
+test("developer: 65k is ok, with the shipped 70k / 80k numbers in the output", () => {
+  const j = self(65_000, "developer");
+  assert.equal(j.context_tokens, 65_000);
+  assert.equal(j.warn, 70_000);
+  assert.equal(j.stop, 80_000);
   assert.equal(j.state, "ok");
   assert.equal(j.scope, "self");
 });
 
-test("developer: warn from 100k, stop from 120k", () => {
-  assert.equal(self(99_999, "developer").state, "ok");
-  assert.equal(self(100_000, "developer").state, "warn");
-  assert.equal(self(119_999, "developer").state, "warn");
-  assert.equal(self(120_000, "developer").state, "stop");
+test("developer: warn from 70k, stop from 80k", () => {
+  assert.equal(self(69_999, "developer").state, "ok");
+  assert.equal(self(70_000, "developer").state, "warn");
+  assert.equal(self(79_999, "developer").state, "warn");
+  assert.equal(self(80_000, "developer").state, "stop");
 });
 
 test("security: 70k / 80k, so 75k warns and 80k stops", () => {
@@ -101,8 +101,8 @@ test("null reading: state is null, the thresholds are still reported, exit 0", (
   const j = run(fixture(), ["--self", "--cell", "developer"]);
   assert.equal(j.context_tokens, null);
   assert.equal(j.state, null);
-  assert.equal(j.warn, 100_000);
-  assert.equal(j.stop, 120_000);
+  assert.equal(j.warn, 70_000);
+  assert.equal(j.stop, 80_000);
 });
 
 test("a fixture config sets warn, stop and state", () => {
