@@ -2262,3 +2262,6 @@
 {"seq":1613,"ts":"2026-10-08T18:05:54.417Z","feature":"den-v1","ticket":"05-transcript-f","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":1614,"ts":"2026-10-08T18:11:37.833Z","feature":"den-v1","ticket":"05-transcript-f","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":1615,"ts":"2026-10-08T18:11:37.853Z","feature":"den-v1","ticket":"05-transcript-f","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":1616,"ts":"2026-10-08T18:31:28.921Z","feature":"den-v1","ticket":"06-approve-deny","cell":"designer","mode":"spec","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":1617,"ts":"2026-10-08T18:39:10.671Z","feature":"den-v1","ticket":"06-approve-deny","cell":"designer","op":"comment","text":"Designer spec signed off by the user 2026-10-08 (mockup https://claude.ai/artifact/ECewj2Pr5h1bbzFQ6mojuQ). Final spec in handoffs/06-designer-spec.md; counts as acceptance criteria. Next: qa specify."}
+{"seq":1618,"ts":"2026-10-08T18:39:10.880Z","feature":"den-v1","ticket":"06-approve-deny","cell":"designer","op":"release","from_status":"claimed","to_status":"ready-for-agent","force":false}

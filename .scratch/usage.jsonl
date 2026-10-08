@@ -2408,3 +2408,8 @@
 {"kind":"retro","ts":"2026-10-08T18:21:13Z","window_from":"2026-10-08T16:48:00Z","items":6,"fixes":[{"cause":"designer spec dispatched as background cell cannot reach the user","tool":"other","kind":"dispatch","ref":"PR #199 4c667a0"},{"cause":"designer hit 80k before asking the user anything","tool":"other","kind":"code","ref":"organism-infra/205"}]}
 {"kind":"usage","ts":"2026-10-08T18:21:32Z","five_hour":74,"weekly":68,"event":"merge","ticket":"den-v1/05","cell":"orchestrator"}
 {"kind":"context","ts":"2026-10-08T18:21:32Z","session":"8669dd52-ab36-4452-ae1c-b468cc1bea7b","context_tokens":80308,"percent":8.03,"event":"merge"}
+{"kind":"jev-order","ts":"2026-10-08T18:26:24.451Z","actual":["den-v1/06-approve-deny","den-v1/07-message-t","den-v1/09-demo-mode"],"wouldHave":["den-v1/06-approve-deny","den-v1/07-message-t","den-v1/09-demo-mode"],"same":true}
+{"kind":"jev","ts":"2026-10-08T18:26:24.496Z","ticket":"den-v1/06-approve-deny","point":"route","pick":"qa-specify","actual":"orchestrator","cost":0.000046074000000000006,"conf":0.73,"mode":"advisory","fallback":null,"floor":null,"ms":419,"model":"jev-1.13.0","variant":"new"}
+{"kind":"usage","ts":"2026-10-08T18:26:24Z","five_hour":75,"weekly":68,"event":"dispatch","ticket":"den-v1/06","cell":"designer"}
+{"kind":"context","ts":"2026-10-08T18:26:24Z","session":"2403e63b-dc80-477b-81fa-8a629f102518","context_tokens":27004,"percent":2.7,"event":"dispatch"}
+{"kind":"jg","ts":"2026-10-08T18:41:15.215Z","ticket":"den-v1/06-approve-deny","bytes":0,"files":0,"ms":2382,"skipped":null,"fallback":"jg-exit-13"}

@@ -1,33 +1,38 @@
-# 06: A/D: approve or deny from the card (UI against a stub bridge)
+```json
+{
+  "ticket": "den-v1/06-approve-deny",
+  "cell": "designer",
+  "mode": "spec",
+  "current_step": "Spec final and signed off by the user (2026-10-08, mockup and four defaults). Copy the spec below into the ticket, then qa specify.",
+  "artifacts": [
+    {
+      "path": "https://claude.ai/artifact/ECewj2Pr5h1bbzFQ6mojuQ",
+      "note": "Static mockup: ready (dark), loading and sending (light), retryable and final refusal (dark), phone sheet dark and light."
+    }
+  ],
+  "decisions": [
+    "Placement: review panel in the right-hand slot, phone bottom sheet under 600px (user)",
+    "Confirm: A or D opens a review; explicit Allow and Deny buttons send; focus starts on Deny (user)",
+    "Refusal: panel stays open with the bridge's reason; nothing else changes (user)",
+    "Optional one-line note sent as `note` on either decision (user)",
+    "Panel shares the transcript slot (user)",
+    "Allow enabled once the full input is rendered (user)",
+    "A/D ignored 400ms after open and on key repeat (user)",
+    "Terminal refusals (401, 404, 409) lock both buttons; 400, 429, 5xx, network keep them live (user)"
+  ],
+  "failures": [],
+  "pending": [
+    {
+      "item": "Copy the spec into the ticket; qa specify maps each criterion and state to tests against a stub bridge client and fixture events",
+      "owner": "orchestrator"
+    }
+  ]
+}
+```
 
-**Type:** feature
+State: spec complete, user signed off. Ready for qa specify.
 
-**Priority:** P1
-
-**Blocked by:** None (can start immediately; den-layout/03 resolved)
-
-**Status:** ready-for-agent
-
-**Serves:** Den loop steps 3-4 (answer a pending permission request; the agent continues).
-
-## What to build
-
-When the card's agent has a pending approval, **A** and **D** first show the full tool input (`GET /approvals/:id`, token required), then send `POST /approvals/:id` with `allow` or `deny` through the bridge client in `apps/ui/src/state/`. The card shows the refusal reason if the bridge refuses.
-
-This ticket builds and tests the UI against a stub bridge client and fixture events; den-v1/10 wires it to the live runtime (organism-infra/106) and checks the panda continues.
-
-## Acceptance criteria
-
-- [ ] A then confirm sends exactly one allow request to the right route with the token; D sends deny.
-- [ ] The tool input is shown before any decision is sent.
-- [ ] A refused request shows the bridge's reason and changes nothing.
-- [ ] Tests run against a stub bridge client and fixture events; no live runtime is needed.
-- [ ] `npm test` is green.
-
-## Design spec (user sign-off 2026-10-08)
-
-Copied from handoffs/06-designer-spec.md; mockup https://claude.ai/artifact/ECewj2Pr5h1bbzFQ6mojuQ.
-
+## Spec
 
 ### Flow
 1. Card shows a pending approval (existing `cardFor` `approval`, `actions.A/D` enabled). Pressing **A** or **D** (key or card button) opens the **review panel** and sends nothing. The card's `pending` line becomes lantern icon + `Waiting on you · <tool>`.
@@ -94,13 +99,5 @@ WCAG 2.1 AA. 2px `focus-ring` at 2px offset. 44px targets on phone. Lantern mean
 7. `npm test` green.
 No browser-measurement tests: the layout comes from the mockup.
 
-
-## Comments
-
-- **Created (orchestrator, 2026-10-03):** From `.scratch/den-v1/spec.md` (ADR 0019). Keep under ~120k tokens; split rather than stretch.
-- **orchestrator, 2026-10-04:** Dropped the `Blocked by` edge to den-v1/04 (user, 2026-10-04); 04 stays parked.
-- **orchestrator, 2026-10-06:** Now blocked by den-layout (approved breakdown, user 2026-10-06): builds on PR #162's scene once real agents drive it.
-- **orchestrator, 2026-10-07:** Design relay changed (user, 2026-10-07). Before qa specify: `designer` in `spec` mode works *with the user* on a very detailed spec, plus low-cost visuals (static mockups) the user signs off on or annotates. No designer `review` cell. After qa verify the ticket goes `ready-for-human` for the user's own visual critique; findings go to one developer fix round; the user's yes unlocks risk-check and the PR. Genome edit: organism-infra/182.
-- **orchestrator, 2026-10-08:** User 2026-10-08: split. This ticket now builds and tests the UI against a stub bridge and fixture events, unblocked; the live wiring moved to den-v1/10.
-- **designer, 2026-10-08:** Designer spec signed off by the user 2026-10-08 (mockup https://claude.ai/artifact/ECewj2Pr5h1bbzFQ6mojuQ). Final spec in handoffs/06-designer-spec.md; counts as acceptance criteria. Next: qa specify.
-- **orchestrator, 2026-10-08:** Copied the signed-off design spec into this ticket (Design spec section). Next: qa specify.
+## Hand-off notes
+This ticket builds the bridge client in `apps/ui/src/state/` and the panel; den-v1/10 wires the live runtime. Token acquisition (launch code, `POST /session`, sessionStorage) is not in this ticket: the client reads a session token from an injected getter.
