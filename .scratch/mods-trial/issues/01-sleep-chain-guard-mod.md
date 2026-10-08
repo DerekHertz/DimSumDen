@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** claimed
+**Status:** resolved
 
 **Serves:** Testbed friction: cells poll with `sleep N; cmd` chains, wasting wall time and tokens; the rule exists only as memory. First **mod** and its **mod trial** (spec: `.scratch/mods-trial/spec.md`).
 
@@ -41,3 +41,5 @@ Prior art: `scripts/hooks/context-budget.mjs` and its tests. Load `plugin-author
 - **orchestrator, 2026-10-08:** User 2026-10-08: mods tickets skip qa specify and qa verify; the developer writes the tests. Risk-check and PR on green CI stay. Developer (Sonnet) dispatched on feat/mods-01-sleep-chain-guard from ea999bd.
 - **developer, 2026-10-08:** Coverage spike (developer): guard fired under claude --plugin-dir -p for the headless main session and for an Agent-tool subagent (exact deny text returned). Interactive main session and interactive subagent not yet run; need the project-scope install (user step in handoff 01-developer). No gap seen.
 - **security, 2026-10-08:** Security pass (eb78b20). No critical/high. gitleaks clean, no deps, 57/57 tests. sleep-guard.mjs:170-187 medium: first 200 chars of a blocked command are logged to the committed board; a secret in the command would reach git history, suggest redaction. sleep-guard.mjs:143-157 low: runs first board.mjs found walking up from project dir. sleep-guard.mjs header low: string check, bash -c/eval bypass accepted. Handoff 01-security.md.
+- **security, 2026-10-08:** Security bounce on 5f488ae. scripts/mods-sleep-guard.test.mjs:191 high: gitleaks curl-auth-header flags the fake fixture, so the CI secret scan goes red; allowlist the file in .gitleaks.toml (risk-check.test.mjs precedent) and re-scan. Redaction fix itself is sound. sleep-guard.mjs:172 low: quadratic regex on long dash runs. See handoff 01-security-2.
+- **security, 2026-10-08:** Security pass on 549636a. gitleaks origin/main..549636a clean, 68/68 tests, no dependency or CI change. Low (accepted): redaction is best effort for a bare high-entropy string. See handoffs/01-security-3.md.
