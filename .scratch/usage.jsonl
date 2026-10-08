@@ -2353,3 +2353,4 @@
 {"kind":"resolved","ts":"2026-10-08T16:39:42.514Z","ticket":"mods-trial/01-sleep-chain-guard-mod","pr":194,"bounces":1}
 {"kind":"usage","ts":"2026-10-08T16:39:42Z","five_hour":47,"weekly":65,"event":"merge","ticket":"mods-trial/01","cell":"orchestrator"}
 {"kind":"context","ts":"2026-10-08T16:39:42Z","session":"ee952bf5-40e0-426f-a1fb-46609781cc5c","context_tokens":64001,"percent":6.4,"event":"merge"}
+{"kind":"retro","ts":"2026-10-08T16:48:00Z","window_from":"2026-10-08T04:35:56Z","items":14,"fixes":[{"cause":"status block listed future approvals as waiting on user","tool":"other","kind":"wording","ref":"PR #196 f6573fb"},{"cause":"fixture leak caught only by security gitleaks","tool":"ci","kind":"code","ref":"organism-infra/204"},{"cause":"143 orphan-pending handoff item","tool":"other","kind":"board","ref":"143 comment"}]}
