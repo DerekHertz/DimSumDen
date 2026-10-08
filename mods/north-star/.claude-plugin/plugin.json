@@ -1,0 +1,7 @@
+{
+  "name": "north-star",
+  "version": "0.1.0",
+  "description": "A thin band above the prompt that counts down to den v1: bar, done/total and the next critical-path ticket, read from the board.",
+  "author": { "name": "Dim Sum Den" },
+  "types": "./types/index.d.ts"
+}

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // organism-infra/109: Claude Code `statusLine` command. One line, no model or network call:
-//   5h 11% → 19:59Z · wk 51% · ctx 64k/80k · 123: qa verify · gates 2
+//   5h 11% → 19:59Z · wk 51% · ctx 64k/80k · v1 ████░░ 8/12 · 4 to go · 123: qa verify · gates 2
 // Input: the status-line JSON on stdin (Claude Code docs, statusline page:
 // session_id, transcript_path, context_window.current_usage). Plan usage comes from
 // scripts/usage.mjs through a 60 s on-disk cache (it only saves a spawn: the 5 minute shared cache
@@ -13,12 +13,14 @@ import path from "node:path";
 import { readStdinJson, boardRoot, runUsage, usageWindow, defaultUsageScript } from "./hook-io.mjs";
 import { saveContextTokens } from "./context-state.mjs";
 import { readRequestRows, foldRequests } from "../apps/bridge/requests-log.mjs";
+import { readNorthStar } from "./north-star.mjs";
 
 const CTX_LIMIT = 80_000;
 const CTX_YELLOW = 70_000;
 const PCT_YELLOW = 80;
 const PCT_RED = 90;
 const CACHE_TTL_MS = 60_000;
+const V1_BAR = 6;
 const YELLOW = "\x1b[33m";
 const RED = "\x1b[31m";
 const RESET = "\x1b[0m";
@@ -136,6 +138,18 @@ async function pendingGates(root) {
   }
 }
 
+// organism-infra/209: den v1 progress, board files only; omitted when the set is empty.
+function v1Segment(root) {
+  try {
+    const { done, total, remaining } = readNorthStar(root);
+    if (!total) return null;
+    const fill = done >= total ? V1_BAR : Math.min(V1_BAR - 1, Math.round((done / total) * V1_BAR));
+    return `v1 ${"█".repeat(fill)}${"░".repeat(V1_BAR - fill)} ${done}/${total} · ${remaining} to go`;
+  } catch {
+    return null;
+  }
+}
+
 const root = boardRoot();
 const usage = usageData();
 const segs = [];
@@ -159,6 +173,9 @@ if (tokens === null) {
   const label = `ctx ${Math.round(tokens / 1000)}k/${CTX_LIMIT / 1000}k`;
   segs.push(tokens >= CTX_LIMIT ? paint(RED, `${label} → /compact`) : paint(tokens >= CTX_YELLOW ? YELLOW : null, label));
 }
+
+const v1 = v1Segment(root);
+if (v1) segs.push(v1);
 
 const flight = relay(root);
 if (flight.length) segs.push(flight.join(", "));
