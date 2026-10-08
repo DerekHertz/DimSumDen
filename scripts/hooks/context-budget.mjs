@@ -78,6 +78,7 @@ export function isWrapUpCall(input) {
   const tool = input?.tool_name;
   if (tool === "Bash") return isWrapUpBash(input.tool_input?.command);
   if (tool === "Write" || tool === "Edit") return isWrapUpWrite(input);
+  if (tool === "SubagentHandback") return true;
   return false;
 }
 
@@ -106,7 +107,7 @@ export const warningText = (tokens, stop) =>
   `Context budget: this cell is at ${k(tokens)} of its ${k(stop)} budget. Checkpoint now: finish the current stage, start no new exploration, and plan a WIP commit, a handoff and board release. At ${k(stop)} every call except the wrap-up calls is refused.`;
 
 export const refusalText = (tokens, stop) =>
-  `context-budget: this cell is at ${k(tokens)}, over the ${k(stop)} budget (organism-infra/119), so this call is refused. Wrap up now: make a WIP commit (git add <paths>, git commit), draft the handoff (Write under .scratch/ or the session scratchpad), publish it with npm run board -- handoff, run npm run board -- release <ref> --keep-status, and end your final report with outcome: partial. Allowed now: git add, git commit, npm run board -- handoff|release|comment (one simple command, no chaining), node scripts/context.mjs, and Write/Edit under .scratch/ or the session scratchpad.`;
+  `context-budget: this cell is at ${k(tokens)}, over the ${k(stop)} budget (organism-infra/119), so this call is refused. Wrap up now: make a WIP commit (git add <paths>, git commit), draft the handoff (Write under .scratch/ or the session scratchpad), publish it with npm run board -- handoff, run npm run board -- release <ref> --keep-status, and end your final report with outcome: partial. Allowed now: git add, git commit, npm run board -- handoff|release|comment (one simple command, no chaining), node scripts/context.mjs, SubagentHandback (your final report), and Write/Edit under .scratch/ or the session scratchpad.`;
 
 // Returns {code, stdout, stderr}.
 export function decide(input) {
