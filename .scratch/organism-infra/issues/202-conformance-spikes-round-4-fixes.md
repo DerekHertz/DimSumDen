@@ -37,3 +37,4 @@ Fix `apps/bridge/cells/conformance.mjs` so the next user run gives valid S4b, S8
 
 ## Comments
 - **architect, 2026-10-08:** Filed from the security bounce on ADR 0016 round 3 (`143-security.md`) and the user's ruling. 143's Blocked by lists this ticket; 143 keeps the detached process-group kill until the S4b re-run is valid.
+- **orchestrator, 2026-10-08:** User 2026-10-08: spikes are capped at this round. If round 4 leaves S4b or S8 inconclusive, ADR 0016 keeps its safe choices (detached group kill; no unattended widening) permanently and no round 5 is filed. No longer blocks 143.

@@ -2,7 +2,7 @@
 
 **Type:** bug
 
-**Priority:** P2
+**Priority:** P1
 
 **Blocked by:** None (can start immediately)
 
@@ -36,3 +36,4 @@ Files: `scripts/usage-claude.mjs`, `scripts/statusline.mjs`, `scripts/hook-io.mj
 - [ ] Existing usage, statusline and hook tests still pass
 
 ## Comments
+- **orchestrator, 2026-10-08:** User 2026-10-08: raised to P1. usage.mjs returned HTTP 429 at every read tonight, so dispatch and merge gates fell back on the session-start reading.
