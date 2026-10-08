@@ -7,7 +7,8 @@
 // Usage: node apps/bridge/cells/conformance.mjs [--spike S1,S3] [--out <dir>] [--model <m>]
 //          [--timeout <seconds>] [--extra-env NAME]... [--dry-run] [--help]
 //
-// Every child runs in a throwaway temp directory (never this repo) with a generated role file
+// Every child runs in a throwaway temp directory (S6b: a throwaway worktree of --repo; its comparison
+// probe also runs once in --repo itself, restoring .claude/settings.local.json) with a generated role file
 // `probe` (agents are chosen with `--agent <role>`), on a cheap model by default. The child's
 // environment is the adapter's allowlist (decision 6.6), never a copy of this process's.
 //
@@ -16,7 +17,7 @@ import { spawn, execFile, execFileSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { randomUUID, randomBytes } from "node:crypto";
 import net from "node:net";
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, statSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, statSync, rmSync, readFileSync, realpathSync } from "node:fs";
 import { tmpdir, homedir, userInfo } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -641,6 +642,7 @@ function makeCtx(opts) {
     s8DisableFlags: opts.s8DisableFlags ?? [],
     s8DisableEnv: opts.s8DisableEnv ?? {},
     repo: opts.repo ?? null,
+    scrub: { homes: [opts.env?.HOME, homedir()], username: userInfo().username },
     s3bWaitMs: opts.s3bWaitMs ?? 90_000,
     timing: { settleMs: 1500, eofPollMs: 15_000, termCheckMs: [2000, 10_000], ...opts.timing },
     start(args, cwd, extraEnv = {}, { detached = false } = {}) {
@@ -1090,7 +1092,56 @@ async function runS4b(ctx) {
 
 // ---- S6b: setting sources in a real worktree -------------------------------------------------
 
-async function runS6b(ctx) {
+// One Write probe for allowed.txt, run in `cwd`; returns whether the file appeared. The capture is
+// saved to <outDir>/S6b-<name>.jsonl as evidence only (it is not scored or setup-checked).
+async function s6bAllowProbe(ctx, cwd, name, outDir, { agent } = {}) {
+  const child = ctx.start(argsFor(ctx, { sessionId: randomUUID(), agent, model: ctx.model }), cwd);
+  try {
+    await runTurn(child, `Use the Write tool to create allowed.txt containing "ok". Do nothing else. Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs);
+    await finish(child);
+  } finally {
+    child.kill("SIGKILL");
+  }
+  if (outDir) writeCaptures(outDir, "S6b", { [name]: child.capture() }, ctx.scrub);
+  return existsSync(path.join(cwd, "allowed.txt"));
+}
+
+// S6b comparisons when the control's allow did not apply: (1) the worktree with an absolute //path
+// allow, (2) the main checkout (ctx.repo) as the cwd with a relative allow and no --agent. The main
+// checkout's settings.local.json is restored byte for byte (or removed) and any file the probe made
+// there is deleted, so `git status` stays as it was.
+async function compareS6bAllow(ctx, wt, outDir) {
+  const lines = [];
+  const absRule = `Write(/${realpathSync(wt)}/allowed.txt)`;
+  writeFileSync(path.join(wt, ".claude", "settings.local.json"), JSON.stringify({ permissions: { allow: [absRule] } }));
+  const absWritten = await s6bAllowProbe(ctx, wt, "compare-abs", outDir, { agent: "probe" });
+  lines.push(`comparison 1 (worktree cwd, allow ${absRule}): allowed.txt ${absWritten ? "WAS written" : "was NOT written"}`);
+
+  const local = path.join(ctx.repo, ".claude", "settings.local.json");
+  const before = existsSync(local) ? readFileSync(local) : null;
+  const made = ["allowed.txt", S6B_DENY_TARGET].map((n) => path.join(ctx.repo, n)).filter((f) => !existsSync(f));
+  let repoWritten = false;
+  try {
+    let base = {};
+    try {
+      base = before ? JSON.parse(before.toString("utf8")) : {};
+    } catch {
+      base = {};
+    }
+    const allow = [...(Array.isArray(base.permissions?.allow) ? base.permissions.allow : []), "Write(allowed.txt)"];
+    mkdirSync(path.dirname(local), { recursive: true });
+    writeFileSync(local, JSON.stringify({ ...base, permissions: { ...base.permissions, allow } }));
+    repoWritten = await s6bAllowProbe(ctx, ctx.repo, "compare-repo", outDir);
+  } finally {
+    if (before) writeFileSync(local, before);
+    else rmSync(local, { force: true });
+    for (const f of made) rmSync(f, { force: true });
+  }
+  lines.push(`comparison 2 (main checkout ${ctx.repo} as cwd, allow Write(allowed.txt), no --agent): allowed.txt ${repoWritten ? "WAS written" : "was NOT written"}`);
+  return lines;
+}
+
+async function runS6b(ctx, outDir) {
   const notRun = (why) => ({ result: { spike: "S6b", verdict: "unconfirmed", evidence: [why] }, captures: {} });
   if (!ctx.repo) return notRun("no --repo given: S6b needs the path of a git repository to add a throwaway worktree to");
   const gitIn = (...a) => execFileSync("git", ["-C", ctx.repo, ...a], { stdio: "pipe", encoding: "utf8" });
@@ -1121,8 +1172,15 @@ async function runS6b(ctx) {
     await finish(child);
     const capture = child.capture();
     const deniedExists = existsSync(path.join(wt, S6B_DENY_TARGET));
-    const result = evaluateS6b(capture, { allowedExists: existsSync(path.join(wt, "allowed.txt")), deniedExists });
+    const allowedExists = existsSync(path.join(wt, "allowed.txt"));
+    const result = evaluateS6b(capture, { allowedExists, deniedExists });
     if (ctx.control) result.evidence.unshift(`control run (no --settings): ${S6B_DENY_TARGET} ${deniedExists ? "WAS written, so in the spike run only our inline deny stopped it" : "was NOT written even without our deny: the CLI's own rules refused it"}`);
+    if (ctx.control && !allowedExists) {
+      // The control's own project allow did not apply, so the spike cannot show our deny outranking it.
+      if (outDir) writeFileSync(path.join(outDir, "S6b-control.stderr.txt"), scrubText(capture.stderr ?? "", ctx.scrub));
+      result.controlAllowAbsent = true;
+      result.comparisons = await compareS6bAllow(ctx, wt, outDir);
+    }
     return { result, captures: { main: capture } };
   } finally {
     try {
@@ -1232,15 +1290,32 @@ async function runControl(id, ctx, out, scrub) {
   writeCaptures(out, `${id}-control`, run.captures, scrub);
   const setup = setupProblems(run.captures, { spike: id });
   if (setup.length) return { spike: id, verdict: "setup-invalid", evidence: setup.map((l) => `setup-invalid: ${l}`) };
-  const evidence = [`control run without --settings: ${run.result.verdict}`, ...run.result.evidence];
-  return { spike: id, verdict: run.result.verdict, evidence };
+  const evidence = [`control run without --settings: ${run.result.verdict}`, ...run.result.evidence, ...(run.result.comparisons ?? [])];
+  return { spike: id, verdict: run.result.verdict, evidence, allowAbsent: Boolean(run.result.controlAllowAbsent), comparisons: run.result.comparisons ?? [] };
+}
+
+// S6b only: the control (no --settings) did not write allowed.txt either, so the project allow never
+// applied and the spike's result cannot speak to our deny outranking it.
+function s6bControlInvalid(result) {
+  return {
+    spike: result.spike,
+    verdict: "setup-invalid",
+    evidence: [
+      "setup-invalid: project allow did not apply in the control: the control run (no --settings) did not write allowed.txt either",
+      "decision 6.10 (our .claude/** deny outranks a project allow) stays unverified until the control's allow applies",
+      ...result.control.comparisons,
+      "the control child's stderr is saved as S6b-control.stderr.txt",
+      ...result.evidence.map((l) => `spike run (not scored): ${l}`),
+    ],
+    control: result.control,
+  };
 }
 
 export async function runSpikes(opts) {
   const { spikes, out, log = console.log } = opts;
   mkdirSync(out, { recursive: true });
   const ctx = makeCtx(opts);
-  const scrub = { homes: [opts.env?.HOME, homedir()], username: userInfo().username };
+  const scrub = ctx.scrub;
   const results = [];
   for (const id of spikes) {
     log(`running ${id}: ${SPIKES[id].title}`);
@@ -1265,6 +1340,7 @@ export async function runSpikes(opts) {
     if (SPIKES[id].control && opts.control !== false && result.verdict !== "setup-invalid") {
       log(`running ${id} control (no --settings)`);
       result.control = await runControl(id, ctx, out, scrub);
+      if (result.control.allowAbsent) result = s6bControlInvalid(result);
     }
     results.push(result);
   }
@@ -1332,7 +1408,10 @@ export function parseCli(argv) {
 
 const HELP = `usage: node apps/bridge/cells/conformance.mjs [--spike S1,S3] [--out <dir>] [--model <m>] [--timeout <s>] [--extra-env NAME]... [--dry-run]
        [--repo <checkout>] [--s8-disable-flag <flag>]... [--s8-disable-env NAME=VALUE]... [--s3b-wait <s>] [--no-control]
-A run whose init shows a permissionMode other than default, or any MCP server, is reported SETUP-INVALID (never go or no-go). S8, S4b and S6b also run a control without --settings unless --no-control.
+A run whose init is missing, or shows a permissionMode other than default, any MCP server, a plugin outside the builtin set, or a hook_started event (not checked for S6b), is reported SETUP-INVALID (never go or no-go). S8, S4b and S6b also run a control without --settings unless --no-control.
+S4b is SETUP-INVALID unless its tool (tail -f on a hold file inside the child's cwd) is shown running, by a pid other than the child's, before each signal.
+S8 waits for a peer message until the turn's result (outcome c if it lands late) and probes two control_response shapes. It checks the socket and its directory for group and other bits and the directory's owner uid.
+S6b is SETUP-INVALID when the control's allowed.txt is also absent ("project allow did not apply in the control"): the control's stderr goes to S6b-control.stderr.txt, and two comparison probes run (a //path allow in the worktree, and --repo itself as the cwd with a temporary allow in its .claude/settings.local.json, restored afterwards).
 The default run is S1 to S7; S8, S4b, S6b and S3b run only when named (--spike S8,S4b,S6b,S3b). S6b adds its worktree to --repo (default: the repository containing this script); run \`claude\` there once so the owner has trusted it.
 Runs ADR 0016's spikes against the real \`claude\` login (DEN_CLAUDE_BIN overrides the binary).
 --dry-run prints the plan and spends nothing.`;
