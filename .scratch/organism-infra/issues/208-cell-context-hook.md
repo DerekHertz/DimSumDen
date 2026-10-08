@@ -27,3 +27,4 @@ A `PreToolUse` hook in `.claude/settings.json` that runs for subagent cells. It 
 ## Comments
 
 - **Created (orchestrator, 2026-10-08, pipeline retro):** cause "cell runs past 80k", tool other/context-budget, 7th occurrence; the wording fix failed, so this moves it to code (user approved).
+- **orchestrator, 2026-10-08:** Before/after test (user, 2026-10-08): baseline from the last 19 resolved tickets (10-06 to 10-08): median 326k tokens/ticket, 5.4 cells/ticket, 23/80 cells ended at >=80k context, qa verify median 56k, incidents 23 context-budget / 11 verify-mode. After window: the first 10 tickets resolved once both 207 and 208 merge; pipeline-retro reruns the same query.
