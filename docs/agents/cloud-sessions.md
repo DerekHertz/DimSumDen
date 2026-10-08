@@ -62,3 +62,12 @@ Cells did not inherit the writable npm cache automatically; cell-start must rece
 Parallel 02/81 verification confirmed that a narrow added filesystem grant creates a `.git` marker in the granted temporary root. A test that requires no Git ancestor then fails even outside `/workspace`. The user approved supported unsandboxed verification with fresh, unmarked per-ticket temporary directories under `/home/agent`; full suites passed 1320/1320 and 1344/1344. Keep this temporary binding local to the test command, retain platform guards, and do not weaken the ancestry assertion.
 
 The user requested cheaper Codex cells after inherited-model dispatch exhausted the window quickly. Dispatch now explicitly selects `gpt-6.1-sol` at medium effort for developer, QA, designer and security, and `gpt-6-luna` at low effort for scout. Use focused prompts without conversation forks and capture test output to files. Exact per-cell quota attribution remains unavailable. The live Codex quota probe reached initialization but returned a sanitized RPC authentication failure; user-reported readings remain the source.
+
+## Mods (sleep-guard, mods trial)
+
+`sleep-guard` is our first mod: a project-scope plugin (`mods/sleep-guard`, marketplace `.claude-plugin/marketplace.json`) whose Bash hook blocks `sleep N; cmd` chains and poll loops. Spec: `.scratch/mods-trial/spec.md`.
+
+- **Install once per machine** (the committed `.claude/settings.json` then carries only `enabledPlugins`): `claude plugin marketplace add <main checkout path> && claude plugin install sleep-guard@dimsumden-mods --scope project`. Remove with `claude plugin uninstall sleep-guard@dimsumden-mods --scope project`.
+- **Warning:** an orchestrator session prints one install line from `scripts/session-start.mjs` when the mod is not enabled. Other session types get no warning.
+- **Cloud and headless:** hooks run in subagents, `claude -p` and cloud sessions only if the plugin is installed there; a cloud container needs the same two commands in its setup script. Nothing draws there. The mod draws nothing anyway (hook only).
+- **WSL desktop** (Code tab) loads no plugins, so the guard does not run there; use terminal `claude`.

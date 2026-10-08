@@ -5,7 +5,8 @@
 // otherwise gathers by hand: the latest orchestrator handoff, open PRs with their check
 // state, pending gate requests and plan usage. Capped at 1600 chars (about 400 tokens).
 // Any failed read degrades to "unknown"; the hook always exits 0 and never blocks.
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { readStdinJson, boardRoot, runUsage, usageWindow, defaultUsageScript } from "./hook-io.mjs";
@@ -59,6 +60,24 @@ function openPrs(timeout) {
   }
 }
 
+// mods-trial/01: the sleep-guard mod is enabled when any settings layer (project, local, user)
+// lists it under enabledPlugins. Unreadable or malformed settings count as not enabled.
+const MOD_KEY = "sleep-guard@dimsumden-mods";
+const modInstallLine = (root) => `Mod sleep-guard is not enabled. Install once per machine: claude plugin marketplace add ${/\s/.test(root) ? JSON.stringify(root) : root} && claude plugin install ${MOD_KEY} --scope project`;
+
+function modEnabled() {
+  const project = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const files = [path.join(project, ".claude", "settings.json"), path.join(project, ".claude", "settings.local.json"), path.join(os.homedir(), ".claude", "settings.json")];
+  for (const file of files) {
+    try {
+      if (JSON.parse(readFileSync(file, "utf8"))?.enabledPlugins?.[MOD_KEY] === true) return true;
+    } catch {
+      // missing or unreadable layer
+    }
+  }
+  return false;
+}
+
 function usageLine(timeout) {
   const u = runUsage(process.env.SESSION_START_USAGE_SCRIPT || defaultUsageScript, timeout);
   const five = usageWindow(u, "5-hour");
@@ -74,6 +93,7 @@ if (input.agent_type === "orchestrator") {
 
   const handoff = latestHandoff(root);
   const must = [handoff ? `Latest orchestrator handoff: .scratch/_handoffs/${handoff}` : "Latest orchestrator handoff: none", usageLine(timeout)];
+  const modLine = modEnabled() ? null : modInstallLine(root);
 
   const prs = openPrs(timeout);
   let requests = [];
@@ -87,7 +107,7 @@ if (input.agent_type === "orchestrator") {
 
   // Budget: the two required lines are never cut; the list lines fill what is left, with a
   // marker for what was dropped.
-  const used = must.reduce((n, l) => n + l.length + 1, 0);
+  const used = must.reduce((n, l) => n + l.length + 1, 0) + (modLine ? modLine.length + 1 : 0);
   const marker = (n) => `... ${n} more lines omitted`;
   let room = CAP - used - marker(999).length - 1;
   const kept = [];
@@ -97,6 +117,6 @@ if (input.agent_type === "orchestrator") {
     room -= line.length + 1;
   }
   const dropped = optional.length - kept.length;
-  const lines = [must[0], ...kept, ...(dropped ? [marker(dropped)] : []), must[1]];
+  const lines = [must[0], ...kept, ...(dropped ? [marker(dropped)] : []), must[1], ...(modLine ? [modLine] : [])];
   process.stdout.write(lines.join("\n") + "\n");
 }

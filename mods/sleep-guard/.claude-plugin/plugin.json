@@ -1,0 +1,6 @@
+{
+  "name": "sleep-guard",
+  "version": "0.1.0",
+  "description": "Blocks sleep-chain Bash commands (sleep N; cmd, poll loops) and points to gh pr checks --watch or Monitor. First mod of the mods trial.",
+  "author": { "name": "Dim Sum Den" }
+}
