@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately; den-layout/03 resolved)
 
-**Status:** ready-for-human
+**Status:** resolved
 
 **Serves:** Den loop steps 3-4 (answer a pending permission request; the agent continues).
 
@@ -111,3 +111,5 @@ No browser-measurement tests: the layout comes from the mockup.
 - **orchestrator, 2026-10-08:** qa verify pass (fc53171). No way to show a pending approval in `npm run ui` yet (scout: no fixture; bridge has GET/POST /approvals/:id). User decision: one developer round on feat/06-approve-deny adds a dev-only `?demo=approval` mode that seeds one pending approval through the stub bridge, then qa light verify, then the user's visual critique. Note: the spec's den-v1/09 demo mode disables A/D; the fixture mode must not collide with it.
 - **qa, 2026-10-08:** QA bounce (light verify, round 2). Suite: 1 fail, proximity-card.browser.test.mjs:55 (test 662, nearby card not hidden). Specify tests unchanged except bridge-client.test.mjs:19 (same TOKEN value). See handoff 06-qa-verify-2.
 - **orchestrator, 2026-10-08:** orchestrator 2026-10-08: qa verify-2 bounced only on criterion 5 (browser test 662 failed in the saved run /tmp/06-tests.txt). Scout re-ran npm test at 3e16e6f: 2888/2888 pass, and the App.jsx change is inert without ?demo=approval. Treated as the organism-infra/206 flake; the bounce does not count toward fails-twice. Held at ready-for-human for the user's visual critique via npm run ui:dev at /?demo=approval (port 5173; npm run ui is a production build, DEV is false there).
+- **orchestrator, 2026-10-08:** 2026-10-08: user visual critique of /?demo=approval: ship it (alarm banner substitute accepted). Proceeding to risk-check.
+- **security, 2026-10-08:** Security pass (3e16e6f): no critical/high. gitleaks clean; no dep/CI change. 2 low notes (homoglyphs not escaped; DEV gate relies on Vite build) in handoff 06-security.
