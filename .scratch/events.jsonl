@@ -2265,3 +2265,7 @@
 {"seq":1616,"ts":"2026-10-08T18:31:28.921Z","feature":"den-v1","ticket":"06-approve-deny","cell":"designer","mode":"spec","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
 {"seq":1617,"ts":"2026-10-08T18:39:10.671Z","feature":"den-v1","ticket":"06-approve-deny","cell":"designer","op":"comment","text":"Designer spec signed off by the user 2026-10-08 (mockup https://claude.ai/artifact/ECewj2Pr5h1bbzFQ6mojuQ). Final spec in handoffs/06-designer-spec.md; counts as acceptance criteria. Next: qa specify."}
 {"seq":1618,"ts":"2026-10-08T18:39:10.880Z","feature":"den-v1","ticket":"06-approve-deny","cell":"designer","op":"release","from_status":"claimed","to_status":"ready-for-agent","force":false}
+{"seq":1619,"ts":"2026-10-08T18:41:48.437Z","feature":"den-v1","ticket":"06-approve-deny","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":1620,"ts":"2026-10-08T18:48:59.903Z","feature":"den-v1","ticket":"06-approve-deny","cell":"qa","op":"release","from_status":"claimed","to_status":"ready-for-agent","force":false}
+{"seq":1621,"ts":"2026-10-08T18:49:38.302Z","feature":"den-v1","ticket":"06-approve-deny","cell":"developer","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":1622,"ts":"2026-10-08T18:54:36.646Z","feature":"den-v1","ticket":"06-approve-deny","cell":"developer","op":"release","from_status":"claimed","to_status":"claimed","force":false}

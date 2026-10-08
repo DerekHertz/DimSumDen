@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately; den-layout/03 resolved)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 **Serves:** Den loop steps 3-4 (answer a pending permission request; the agent continues).
 
@@ -104,3 +104,4 @@ No browser-measurement tests: the layout comes from the mockup.
 - **orchestrator, 2026-10-08:** User 2026-10-08: split. This ticket now builds and tests the UI against a stub bridge and fixture events, unblocked; the live wiring moved to den-v1/10.
 - **designer, 2026-10-08:** Designer spec signed off by the user 2026-10-08 (mockup https://claude.ai/artifact/ECewj2Pr5h1bbzFQ6mojuQ). Final spec in handoffs/06-designer-spec.md; counts as acceptance criteria. Next: qa specify.
 - **orchestrator, 2026-10-08:** Copied the signed-off design spec into this ticket (Design spec section). Next: qa specify.
+- **developer, 2026-10-08:** partial: context limit; wiring left, see 06-developer handoff

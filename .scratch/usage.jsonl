@@ -2413,3 +2413,16 @@
 {"kind":"usage","ts":"2026-10-08T18:26:24Z","five_hour":75,"weekly":68,"event":"dispatch","ticket":"den-v1/06","cell":"designer"}
 {"kind":"context","ts":"2026-10-08T18:26:24Z","session":"2403e63b-dc80-477b-81fa-8a629f102518","context_tokens":27004,"percent":2.7,"event":"dispatch"}
 {"kind":"jg","ts":"2026-10-08T18:41:15.215Z","ticket":"den-v1/06-approve-deny","bytes":0,"files":0,"ms":2382,"skipped":null,"fallback":"jg-exit-13"}
+{"kind":"jg","ts":"2026-10-08T18:41:33.959Z","ticket":"den-v1/06-approve-deny","bytes":0,"files":0,"ms":1989,"skipped":null,"fallback":"jg-exit-1"}
+{"kind":"usage","ts":"2026-10-08T18:41:35Z","five_hour":79,"weekly":69,"event":"dispatch","ticket":"den-v1/06","cell":"qa"}
+{"kind":"context","ts":"2026-10-08T18:41:35Z","session":"2403e63b-dc80-477b-81fa-8a629f102518","context_tokens":38904,"percent":3.89,"event":"dispatch"}
+{"kind":"jev","ts":"2026-10-08T18:49:19.692Z","ticket":"den-v1/06-approve-deny","point":"tier","pick":"opus","actual":"sonnet","cost":0.00013797,"conf":0.7,"mode":"shadow","fallback":null,"floor":null,"ms":505,"model":"jev-1.13.0"}
+{"kind":"cell","ts":"2026-10-08T18:49:26.428Z","ticket":"den-v1/06-approve-deny","cell":"qa","mode":"specify","model":"sonnet","tokens":103073,"ms":449810,"outcome":"done: 3 failing test files, 23f45be","context":101000}
+{"kind":"usage","ts":"2026-10-08T18:49:26Z","five_hour":84,"weekly":70,"event":"return","ticket":"den-v1/06","cell":"qa"}
+{"kind":"context","ts":"2026-10-08T18:49:26Z","session":"2403e63b-dc80-477b-81fa-8a629f102518","context_tokens":49329,"percent":4.93,"event":"return"}
+{"kind":"jg","ts":"2026-10-08T18:49:26.499Z","ticket":"den-v1/06-approve-deny","bytes":0,"files":0,"ms":1969,"skipped":null,"fallback":"jg-exit-13"}
+{"kind":"cell","ts":"2026-10-08T18:54:59.072Z","ticket":"den-v1/06-approve-deny","cell":"developer","model":"claude-sonnet-5","tokens":118287,"ms":312240,"outcome":"partial: ProximityCard A/D, App.jsx mount, transcript blocked option, den.css, full npm test + code-review","context":116000}
+{"kind":"usage","ts":"2026-10-08T18:54:59Z","five_hour":88,"weekly":70,"event":"return","ticket":"den-v1/06","cell":"developer"}
+{"kind":"context","ts":"2026-10-08T18:54:59Z","session":"2403e63b-dc80-477b-81fa-8a629f102518","context_tokens":54711,"percent":5.47,"event":"return"}
+{"kind":"incident","ts":"2026-10-08T18:54:59Z","ticket":"den-v1/06-approve-deny","cell":"developer","tool":"Write","what":"Write turned \\u escapes (incl. U+2028) into raw characters, breaking a regex literal","cost":"a few calls; replaced regex with code-point table","fix":"avoid \\u escapes in Write content","rule_change":null}
+{"kind":"incident","ts":"2026-10-08T18:54:59Z","ticket":"den-v1/06-approve-deny","cell":"developer","tool":"Bash","what":"multi-file heredoc edit script refused by worktree isolation guard as too complex","cost":"1 call","fix":"write scripts with Write, run with node","rule_change":null}
