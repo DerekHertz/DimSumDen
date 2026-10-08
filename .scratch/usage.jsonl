@@ -2179,3 +2179,4 @@
 {"kind":"cell","ts":"2026-10-08T02:50:36.940Z","ticket":"organism-infra/141-steering-approvals","cell":"qa","mode":"verify","model":"haiku","tokens":53212,"ms":187414,"outcome":"pass: 2475/2475, criteria mapped incl. span masking tests","context":51363}
 {"kind":"usage","ts":"2026-10-08T02:51:18Z","five_hour":null,"weekly":null,"event":"dispatch","ticket":"organism-infra/141-steering-approvals","cell":"security","note":"live reading HTTP 429; last good 31%/51%"}
 {"kind":"context","ts":"2026-10-08T02:51:18Z","session":"4397e7ec-da88-46c7-9084-9c8ce51b9672","context_tokens":78305,"percent":7.83,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-08T02:52:25.490Z","ticket":"organism-infra/141-steering-approvals","cell":"security","model":"sonnet","tokens":47575,"ms":56931,"outcome":"pass round 2: gitleaks clean, medium fixed, 3 lows accepted","context":45991}
