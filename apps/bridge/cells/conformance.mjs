@@ -1108,8 +1108,8 @@ async function s6bAllowProbe(ctx, cwd, name, outDir, { agent } = {}) {
 
 // S6b comparisons when the control's allow did not apply: (1) the worktree with an absolute //path
 // allow, (2) the main checkout (ctx.repo) as the cwd with a relative allow and no --agent. The main
-// checkout's settings.local.json is restored byte for byte (or removed) and any file the probe made
-// there is deleted, so `git status` stays as it was.
+// checkout's settings.local.json, allowed.txt and the deny target are each put back byte for byte if they
+// existed (the probe may overwrite them), or deleted if they did not, so `git status` stays as it was.
 async function compareS6bAllow(ctx, wt, outDir) {
   const lines = [];
   const absRule = `Write(/${realpathSync(wt)}/allowed.txt)`;
@@ -1119,7 +1119,9 @@ async function compareS6bAllow(ctx, wt, outDir) {
 
   const local = path.join(ctx.repo, ".claude", "settings.local.json");
   const before = existsSync(local) ? readFileSync(local) : null;
-  const made = ["allowed.txt", S6B_DENY_TARGET].map((n) => path.join(ctx.repo, n)).filter((f) => !existsSync(f));
+  // Every probe output in the checkout is backed up first (bytes, or null when absent) and put back in the finally.
+  const outputs = ["allowed.txt", S6B_DENY_TARGET].map((n) => path.join(ctx.repo, n));
+  const backups = outputs.map((f) => [f, existsSync(f) ? readFileSync(f) : null]);
   let repoWritten = false;
   try {
     let base = {};
@@ -1135,7 +1137,10 @@ async function compareS6bAllow(ctx, wt, outDir) {
   } finally {
     if (before) writeFileSync(local, before);
     else rmSync(local, { force: true });
-    for (const f of made) rmSync(f, { force: true });
+    for (const [f, bytes] of backups) {
+      if (bytes) writeFileSync(f, bytes);
+      else rmSync(f, { force: true });
+    }
   }
   lines.push(`comparison 2 (main checkout ${ctx.repo} as cwd, allow Write(allowed.txt), no --agent): allowed.txt ${repoWritten ? "WAS written" : "was NOT written"}`);
   return lines;

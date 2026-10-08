@@ -476,6 +476,13 @@ for (const id of ["S1", "S4b", "S8"]) {
   });
 }
 
+test("setup guard, S6b: a hook_started event is not a setup failure (the S6b worktree has its own hooks)", async () => {
+  const r = await runSetup("S6b", { hook: true });
+  // The fake never writes allowed.txt, so S6b may still be setup-invalid for the control's allow; what must not
+  // appear is the hook_started guard.
+  assert.doesNotMatch(evidence(r), /hook_started/, evidence(r));
+});
+
 test("setup guard: builtin plugins only, and an init with no plugins field, are not setup-invalid", async () => {
   const builtin = await runSetup("S1", { plugins: [{ name: "cc", path: "builtin", source: "cc@builtin" }] });
   assert.notEqual(builtin.verdict, "setup-invalid", evidence(builtin));
