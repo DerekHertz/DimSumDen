@@ -1,33 +1,36 @@
-# 07: T: send an agent a message from the card (UI against a stub bridge)
+```json
+{
+  "ticket": "den-v1/07-message-t",
+  "cell": "designer",
+  "mode": "spec",
+  "current_step": "Spec final and signed off by the user (2026-10-08, mockup and defaults). Copy the spec below into the ticket, then qa specify.",
+  "artifacts": [
+    {
+      "path": "https://claude.ai/artifact/1UZtso2ouLTLkhhQMvPUGR",
+      "note": "Static mockup, 10 states: ready, typed, over 2 KB, sent, received, sent-not-yet-received, retryable refusal, sending and final refusal, disabled with reason, phone sheet."
+    }
+  ],
+  "decisions": [
+    "Placement: composer docks under the left card; right slot untouched (user)",
+    "After send: composer closes, card shows a status line, latest message only (user)",
+    "Enter sends, Shift+Enter adds a line (user)",
+    "20s with no ack: card says 'Sent, not yet received' in lantern, no retry (user)",
+    "2 KB counted in UTF-8 bytes; empty or whitespace-only is not sent; text trimmed; one in flight (user, defaults accepted)",
+    "Esc closes the composer, a second Esc leaves walk mode; draft kept per agent until reload (user)"
+  ],
+  "failures": [],
+  "pending": [
+    {
+      "item": "Copy the spec into the ticket; qa specify maps each criterion and state to tests against a stub bridge client and a fixture acknowledgement event",
+      "owner": "orchestrator"
+    }
+  ]
+}
+```
 
-**Type:** feature
+State: spec complete, user signed off. Ready for qa specify.
 
-**Priority:** P1
-
-**Blocked by:** None (can start immediately; den-layout/03 resolved)
-
-**Status:** ready-for-agent
-
-**Serves:** Den loop steps 3-4 (T sends a message; the agent receives it).
-
-## What to build
-
-**T** on the card opens a text box; Enter sends the text (at most 2 KB) with `POST /agents/:id/message` (ADR 0016's message route, named `/agents` under ADR 0019 decision 10) through the bridge client. The card shows the message as sent, then received once the agent's event stream acknowledges it. Disabled with the reason when the runtime cannot send.
-
-This ticket builds and tests the UI against a stub bridge client and a fixture acknowledgement event; den-v1/11 wires it to the live runtime (organism-infra/107).
-
-## Acceptance criteria
-
-- [ ] Enter sends exactly one request with the text and the token; Esc cancels without sending.
-- [ ] Text over 2 KB is refused in the UI before sending.
-- [ ] The card shows sent, then received when the acknowledgement event arrives.
-- [ ] Tests run against a stub bridge client and a fixture acknowledgement event; no live runtime is needed.
-- [ ] `npm test` is green.
-
-## Design spec (designer spec, user signed off 2026-10-08)
-
-Mockup: https://claude.ai/artifact/1UZtso2ouLTLkhhQMvPUGR. Full handoff: `handoffs/07-designer-spec.md`.
-
+## Spec
 
 ### Flow
 1. Card shows `T Message` enabled when the agent is live and `capabilities.send` is true (existing `cardFor` `actions.T`). Pressing **T** (key or card button) opens the **composer** docked under the card and focuses the text box. Nothing is sent.
@@ -95,13 +98,5 @@ WCAG 2.1 AA. 2px `focus-ring` at 2px offset. 44px targets on phone. Lantern mean
 7. `npm test` green.
 No browser-measurement tests: the layout comes from the mockup.
 
-### Hand-off notes
+## Hand-off notes
 This ticket builds `sendMessage`, the composer and the card status line; den-v1/11 wires the live runtime (organism-infra/107). Token acquisition is not in this ticket; the client uses the injected fetch. The ProximityCard's `NEXT.T` text (`Messaging coming next`) and its "T stays read-only" comment need updating.
-## Comments
-
-- **Created (orchestrator, 2026-10-03):** From `.scratch/den-v1/spec.md` (ADR 0019). Keep under ~120k tokens; split rather than stretch.
-- **orchestrator, 2026-10-04:** Dropped the `Blocked by` edge to den-v1/04 (user, 2026-10-04); 04 stays parked.
-- **orchestrator, 2026-10-06:** Now blocked by den-layout (approved breakdown, user 2026-10-06): builds on PR #162's scene once real agents drive it.
-- **orchestrator, 2026-10-07:** Design relay changed (user, 2026-10-07). Before qa specify: `designer` in `spec` mode works *with the user* on a very detailed spec, plus low-cost visuals (static mockups) the user signs off on or annotates. No designer `review` cell. After qa verify the ticket goes `ready-for-human` for the user's own visual critique; findings go to one developer fix round; the user's yes unlocks risk-check and the PR. Genome edit: organism-infra/182.
-- **orchestrator, 2026-10-08:** User 2026-10-08: split. This ticket now builds and tests the UI against a stub bridge and fixture events, unblocked; the live wiring moved to den-v1/11.
-- **orchestrator, 2026-10-08:** Designer spec signed off by the user; spec copied above. Next: qa specify on `feat/07-message-t`.

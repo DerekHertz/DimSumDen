@@ -2456,3 +2456,7 @@
 {"kind":"jev-advisory-outcome","ts":"2026-10-08T20:28:46.224Z","ticket":"den-v1/06-approve-deny","orchestratorPick":"designer","jevPick":"qa-specify","userChoice":"designer","bounced":false}
 {"kind":"usage","ts":"2026-10-08T20:28:46Z","five_hour":15,"weekly":71,"event":"merge","ticket":"den-v1/06-approve-deny","cell":"orchestrator"}
 {"kind":"incident","ts":"2026-10-08T20:29:39Z","ticket":"den-v1/06-approve-deny","cell":"orchestrator","tool":"git branch -D","what":"cleanup deleted every local worktree-agent-* branch via a glob, not only den-v1/06's; old branches were unchecked","cost":"unknown; all 48 dangling commits pinned under refs/backup/","fix":"pinned dangling commits; delete only branches worktree-gc names","rule_change":null}
+{"kind":"jev-order","ts":"2026-10-08T20:32:58.577Z","actual":["den-v1/07-message-t","den-v1/09-demo-mode"],"wouldHave":["den-v1/07-message-t","den-v1/09-demo-mode"],"same":true}
+{"kind":"jev","ts":"2026-10-08T20:32:58.625Z","ticket":"den-v1/07-message-t","point":"route","pick":"qa-specify","actual":"orchestrator","cost":0.000046704000000000005,"conf":0.73,"mode":"advisory","fallback":null,"floor":null,"ms":418,"model":"jev-1.13.0","variant":"new"}
+{"kind":"usage","ts":"2026-10-08T20:33:02.000Z","five_hour":16,"weekly":72,"event":"dispatch","ticket":"den-v1/07-message-t","cell":"designer"}
+{"kind":"context","ts":"2026-10-08T20:33:02.000Z","session":"dc060b27-e096-4626-af72-de98491dc6be","context_tokens":27006,"percent":2.7,"event":"dispatch"}
