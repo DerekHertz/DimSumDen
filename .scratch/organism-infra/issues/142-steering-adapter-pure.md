@@ -6,7 +6,7 @@
 
 **Blocked by:** 138, 140 (and the user's S8/S4b/S6b results recorded on 138)
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Den loop steps 3-4: talks to real `claude` children.
 
@@ -25,3 +25,5 @@ Scope source: ADR 0016 (as amended in PR #157) and the split table in `.scratch/
 
 ## Comments
 - **orchestrator, 2026-10-08:** ADR 0016 spike verdicts and amendment 5 merged (PR #185). Spikes round 2 were setup-invalid, but D1 (142) proceeds per the ADR; back to ready-for-agent for qa specify. 143 (D2) waits on a spike re-run.
+- **qa, 2026-10-08:** QA bounce (full verify). npm test: 2557 pass, 1 fail: scripts/jev-hardening.test.mjs:230 Low-80, pre-existing on base and out of scope (branch does not touch scripts/). Adapter 74/74 pass; criteria 1-4 covered. Orchestrator to waive or fix on main. Details in handoff 142-qa-verify.
+- **orchestrator, 2026-10-08:** User waived the qa bounce. Low-80 in scripts/jev-hardening.test.mjs is red on main locally but green in CI, and it is out of scope (filed as 197). Next: risk-check, then PR.
