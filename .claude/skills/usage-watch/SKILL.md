@@ -7,7 +7,7 @@ Select the provider from the active session, never from installed CLIs, credenti
 
 For Claude, `mcp__ccd_session_mgmt__get_usage` (main session only; the `5-hour limit` window's `percentUsed`) is also supported when available. The Claude CLI adapter reads the OAuth token from `~/.claude/.credentials.json` (WSL, Linux) or, on macOS, from the Keychain item `Claude Code-credentials`; native Windows is not supported and exits 1. It keeps the cloud estimate behavior. A weighted-token estimate is a trend estimate, never a live account quota reading.
 
-The Codex adapter uses the supported app-server `account/rateLimits/read` exchange. It selects Codex account limits, maps 300-minute and 10080-minute windows to `5-hour` and `weekly`, and converts reset times to ISO. It does not read Claude credentials or substitute Claude estimates. Both providers retain the canonical `{"5-hour":{"percent","resets_at"},"weekly":{...}}` window fields. Missing or invalid Codex limits and CLI, auth, network, or timeout failures exit nonzero with a sanitized diagnostic.
+The Codex adapter uses the supported app-server `account/rateLimits/read` exchange. It selects Codex account limits, maps 300-minute and 10080-minute windows to `5-hour` and `weekly`, and converts reset times to ISO. It does not read Claude credentials or substitute Claude estimates. Both providers retain the canonical `{"5-hour":{"percent","resets_at"},"weekly":{...}}` window fields. Each window also carries `resets_local`: the same instant in the system time zone with its abbreviation (for example `2026-10-06 00:00 PDT`), or `null` when the reset time is unknown. `resets_at` stays the canonical UTC value for machine readers. Missing or invalid Codex limits and CLI, auth, network, or timeout failures exit nonzero with a sanitized diagnostic.
 
 Attribute every reading to its provider and source: live account, user-reported, or estimate. If live usage is unavailable, say so and ask the user for the active provider's usage report. Log unavailable windows and reset times as unknown; never invent them. If the user reports a percentage remaining, convert it to percent used (`100 - remaining`). Subagents ask the orchestrator for usage instead of reading a different account.
 
@@ -18,7 +18,7 @@ The recorded **Pro** plan assumption applies to Claude only. If Claude reports a
 | 5-hour usage | Action |
 |---|---|
 | under 90% | Carry on. Check again at the next dispatch or cell return. |
-| 90–94% | **Wrap up.** Start no new cells. Let a running cell finish or reach a clean stopping point, then stop. Record the agreed next steps in each open ticket's `## Comments`, write handoffs, stop any dev servers you started, and commit and push finished work (pushing is still a pass gate). Tell the user the percentage and when it resets. |
+| 90–94% | **Wrap up.** Start no new cells. Let a running cell finish or reach a clean stopping point, then stop. Record the agreed next steps in each open ticket's `## Comments`, write handoffs, stop any dev servers you started, and commit and push finished work (pushing is still a pass gate). Tell the user the percentage and when it resets, quoting `resets_local` (their own time zone), not the UTC `resets_at`. |
 | 95% or more | **Stop now.** Nothing new at all. Write a one-paragraph handoff with what is in flight and where, and end. |
 
 Also check the weekly window. At 80% or more, tell the user before dispatching anything expensive (Opus cells, the full relay).
