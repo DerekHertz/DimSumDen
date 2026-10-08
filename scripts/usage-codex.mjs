@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
+import { toLocalReset } from "./usage-local-time.mjs";
 
 function normalize(result) {
   const limits = result?.rateLimitsByLimitId?.codex ?? result?.rateLimits;
@@ -19,7 +20,7 @@ function normalize(result) {
     }
     const reset = new Date(window.resetsAt * 1000);
     if (!Number.isFinite(reset.getTime())) throw new Error("response has invalid reset time");
-    out[label] = { percent: Math.round(window.usedPercent), resets_at: reset.toISOString() };
+    out[label] = { percent: Math.round(window.usedPercent), resets_at: reset.toISOString(), resets_local: toLocalReset(reset) };
   }
   if (!out["5-hour"] || !out.weekly) throw new Error("response is missing usage windows");
   return out;

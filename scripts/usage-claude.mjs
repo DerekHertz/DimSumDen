@@ -5,6 +5,7 @@
 // Never prints the token. The endpoint is undocumented; on any failure it
 // exits 1 so usage-watch falls back to asking the user.
 import { findToken, describeFailure } from "./usage-token.mjs";
+import { toLocalReset } from "./usage-local-time.mjs";
 
 function fail(msg) {
   console.error(`usage: ${msg}`);
@@ -48,7 +49,7 @@ const out = {};
 for (const [key, label] of Object.entries(windows)) {
   const w = body?.[key];
   if (w && typeof w.utilization === "number") {
-    out[label] = { percent: Math.round(w.utilization), resets_at: w.resets_at ?? null };
+    out[label] = { percent: Math.round(w.utilization), resets_at: w.resets_at ?? null, resets_local: toLocalReset(w.resets_at) };
   }
 }
 if (!Object.keys(out).length) fail("response had no usage windows");
