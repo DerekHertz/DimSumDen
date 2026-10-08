@@ -2172,3 +2172,7 @@
 {"kind":"context","ts":"2026-10-08T02:40:43Z","session":"4397e7ec-da88-46c7-9084-9c8ce51b9672","context_tokens":52527,"percent":5.25,"event":"dispatch"}
 {"kind":"resolved","ts":"2026-10-08T02:42:46.167Z","ticket":"organism-infra/194-handback-allowed-at-stop","pr":186,"bounces":0}
 {"kind":"jev-advisory-outcome","ts":"2026-10-08T02:42:47.522Z","ticket":"organism-infra/194-handback-allowed-at-stop","orchestratorPick":"qa-specify","jevPick":"qa-specify","userChoice":"qa-specify","bounced":false}
+{"kind":"cell","ts":"2026-10-08T02:45:02.349Z","ticket":"organism-infra/141-steering-approvals","cell":"developer","model":"sonnet","tokens":59702,"ms":255990,"outcome":"fix round after security bounce: fresh branch -2 f176d3c, gitleaks clean, medium+1 low fixed, 2475/2475","context":55441}
+{"kind":"jev","ts":"2026-10-08T02:47:03.275Z","ticket":"organism-infra/141-steering-approvals","point":"verify","pick":"light","actual":"light","cost":0.00023293200000000004,"conf":0.69,"mode":"shadow","fallback":null,"floor":null,"ms":855,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-10-08T02:47:17Z","five_hour":31,"weekly":51,"event":"dispatch","ticket":"organism-infra/141-steering-approvals","cell":"qa"}
+{"kind":"context","ts":"2026-10-08T02:47:17Z","session":"4397e7ec-da88-46c7-9084-9c8ce51b9672","context_tokens":62871,"percent":6.29,"event":"dispatch"}

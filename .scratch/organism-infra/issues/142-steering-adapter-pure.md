@@ -6,7 +6,7 @@
 
 **Blocked by:** 138, 140 (and the user's S8/S4b/S6b results recorded on 138)
 
-**Status:** in-review
+**Status:** ready-for-agent
 
 **Serves:** Den loop steps 3-4: talks to real `claude` children.
 
@@ -24,3 +24,4 @@ Scope source: ADR 0016 (as amended in PR #157) and the split table in `.scratch/
 - [ ] Committed fixtures contain no home paths or usernames.
 
 ## Comments
+- **orchestrator, 2026-10-08:** ADR 0016 spike verdicts and amendment 5 merged (PR #185). Spikes round 2 were setup-invalid, but D1 (142) proceeds per the ADR; back to ready-for-agent for qa specify. 143 (D2) waits on a spike re-run.

@@ -2121,3 +2121,5 @@
 {"seq":1472,"ts":"2026-10-08T02:40:44.340Z","feature":"organism-infra","ticket":"141-steering-approvals","cell":"developer","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":1473,"ts":"2026-10-08T02:42:46.086Z","feature":"organism-infra","ticket":"194-handback-allowed-at-stop","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":1474,"ts":"2026-10-08T02:42:46.151Z","feature":"organism-infra","ticket":"194-handback-allowed-at-stop","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":1475,"ts":"2026-10-08T02:44:48.190Z","feature":"organism-infra","ticket":"141-steering-approvals","cell":"developer","op":"release","from_status":"claimed","to_status":"in-review","force":false}
+{"seq":1476,"ts":"2026-10-08T02:47:17.763Z","feature":"organism-infra","ticket":"141-steering-approvals","cell":"qa","mode":"verify","op":"claim","from_status":"in-review","to_status":"in-review"}
