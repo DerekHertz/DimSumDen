@@ -4,7 +4,7 @@
 
 **Priority:** P1
 
-**Blocked by:** organism-infra/106, den-layout/03
+**Blocked by:** None (can start immediately; build and test on fixture events, live stream checked when organism-infra/106 lands)
 
 **Status:** ready-for-agent
 
@@ -27,3 +27,4 @@ The live store in `apps/ui/src/state/` keeps a bounded per-agent ring buffer of 
 - **orchestrator, 2026-10-04:** Dropped the `Blocked by` edge to den-v1/04 (user, 2026-10-04); 04 stays parked.
 - **orchestrator, 2026-10-06:** Now blocked by den-layout (approved breakdown, user 2026-10-06): builds on PR #162's scene once real agents drive it.
 - **orchestrator, 2026-10-07:** Design relay changed (user, 2026-10-07). Before qa specify: `designer` in `spec` mode works *with the user* on a very detailed spec, plus low-cost visuals (static mockups) the user signs off on or annotates. No designer `review` cell. After qa verify the ticket goes `ready-for-human` for the user's own visual critique; findings go to one developer fix round; the user's yes unlocks risk-check and the PR. Genome edit: organism-infra/182.
+- **orchestrator, 2026-10-08:** User 2026-10-08: unblocked. All four criteria build and test on fixture events (feeds Demo mode, den-v1/09); the live stream is checked when organism-infra/106 lands. Add story 23 (token) to the criteria at qa specify.

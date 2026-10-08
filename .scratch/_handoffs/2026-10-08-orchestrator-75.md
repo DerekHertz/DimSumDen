@@ -61,3 +61,9 @@ State, not rules; the genome wins.
 - **Gaps to check when writing specs:**
   - Story 8 (a waiting panda stands out from the far view) and story 24 (the card usable by keyboard alone) are not in any ticket's acceptance criteria.
   - Story 23 (token) is missing from 05's criteria.
+- **Later user answers (2026-10-08):**
+  - 05 unblocked (fixture-built; story 23 to be added at qa specify).
+  - Branch protection: keep the bypass for board pushes, but limit it to `.scratch/`; recorded on 159.
+  - 142's four interpretations confirmed (comment on 142).
+  - 198 gated patch: applied in its worktree, but the user's commit was split by line-wrapping. Check `git -C .claude/worktrees/agent-ac2a2afb00afb7d31 log -1` shows "198: orchestrator genome --tests (gated)"; if it doesn't, give the one-line commit command again.
+  - `/tmp/.git`: created 2026-10-07 20:47 PDT with no Codex activity then. It is most likely made by a sandbox: the 2026-10-08 retro had already called it a "synthetic sandbox /tmp/.git", and it came back after an earlier removal. Treat `rm` as temporary; 197 is the fix.

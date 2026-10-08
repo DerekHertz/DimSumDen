@@ -26,3 +26,4 @@
 ## Comments
 
 - **orchestrator, 2026-10-06:** Filed from 158's security pass (1 medium, 3 low; the fourth low, push of the cwd's branch, was judged sound). Not approved for dispatch yet.
+- **orchestrator, 2026-10-08:** User 2026-10-08: keep the main bypass for board-only pushes but limit it to .scratch/: a direct push to main touching any path outside .scratch/ must fail. Fold into this ticket's scope.
