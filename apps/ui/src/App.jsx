@@ -1,10 +1,13 @@
-import { Component, Suspense, useCallback, useMemo, useState } from "react";
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Canvas, events as defaultEvents } from "@react-three/fiber";
 import { CameraRig } from "./scene/procedural/CameraRig.jsx";
 import { RestaurantDen } from "./scene/procedural/RestaurantDen.jsx";
 import { PandaCard } from "./scene/procedural/PandaCard.jsx";
 import { ProximityCard } from "./overlay/ProximityCard.jsx";
 import { TranscriptPanel, useTranscript } from "./overlay/TranscriptPanel.jsx";
+import { ApprovalPanel, useApprovalReview } from "./overlay/ApprovalPanel.jsx";
+import { createBridgeClient } from "./state/bridge-client.mjs";
+import { approvalDemoParams, createApprovalDemo } from "./scene/approval-fixture.mjs";
 import { createDenCameraStore } from "./scene/procedural/camera.mjs";
 import { STATION_LABELS, TALLY_ANCHOR } from "./scene/procedural/bindings.mjs";
 import { denEvents } from "./scene/procedural/events.mjs";
@@ -30,6 +33,9 @@ class SceneBoundary extends Component {
   render(){return this.state.error?<p className="den-error" role="alert">The 3D den could not load. Your board controls are still available. Reload to try again.</p>:this.props.children;}
 }
 
+const noSubscribe = () => () => {};
+const noSnapshot = () => null;
+
 function activeCount(snapshot) {
   const active = new Set(["claimed", "in-review", "blocked", "ready-for-human"]);
   const refs = new Set(snapshot.tickets.filter((t) => active.has(t.status)).map((t) => t.ref));
@@ -43,8 +49,19 @@ export function App() {
   const [demo] = useState(demoRequested);
   const demoSnapshot = useDemoSnapshot(demo);
   const { connection, metricsRevision } = live;
-  const snapshot = demoSnapshot ?? live.snapshot;
-  const placeholder = demo ? null : panelPlaceholder(connection);
+  // Dev-only approval demo (den-v1/06, scene/approval-fixture.mjs): one pending approval answered by a stub bridge. Never in a production build.
+  const [approvalDemo] = useState(() => {
+    const params = approvalDemoParams(location.search, import.meta.env.DEV);
+    return params ? createApprovalDemo(params) : null;
+  });
+  const approvalDemoSnapshot = useSyncExternalStore(approvalDemo?.subscribe ?? noSubscribe, approvalDemo?.getSnapshot ?? noSnapshot);
+  useEffect(() => {
+    if (!approvalDemo || approvalDemoSnapshot.approvals.some((a) => a.status === "pending")) return undefined;
+    const timer = setTimeout(() => approvalDemo.rearm(), 6000);
+    return () => clearTimeout(timer);
+  }, [approvalDemo, approvalDemoSnapshot]);
+  const snapshot = demoSnapshot ?? approvalDemoSnapshot ?? live.snapshot;
+  const placeholder = demo || approvalDemo ? null : panelPlaceholder(connection);
   const [selected, setSelected] = useState(null);
   const stage = useMemo(() => ({ anchors: new Map(), camera: null, size: null, explorer: null, tallyAnchor: TALLY_ANCHOR }), []);
   const camera = useMemo(() => createDenCameraStore(createCameraStore(),()=>stage.explorer?.exit()), [stage]);
@@ -54,7 +71,14 @@ export function App() {
   const [nearby, setNearby] = useState(null);
   const onNearby = useCallback(card => setNearby(previous => JSON.stringify(previous) === JSON.stringify(card) ? previous : card), []);
   const releaseCursor = useCallback(() => stage.explorer?.freeCursor?.(), [stage]);
-  const transcript = useTranscript({ card: nearby, exploring, onOpen: releaseCursor });
+  const reviewOpen = useRef(false);
+  const transcriptClose = useRef(null);
+  const transcript = useTranscript({ card: nearby, exploring, onOpen: releaseCursor, blocked: reviewOpen });
+  transcriptClose.current = transcript.close;
+  const bridge = useMemo(() => approvalDemo?.client ?? createBridgeClient({ fetch: steering.session.fetch }), [steering.session, approvalDemo]);
+  const onReviewOpen = useCallback(() => { transcriptClose.current?.(); releaseCursor(); }, [releaseCursor]);
+  const approval = useApprovalReview({ client: bridge, card: nearby, exploring, cursorFree, demo, snapshot, onOpen: onReviewOpen });
+  reviewOpen.current = approval.state.open;
   const [exploreHint,setExploreHint]=useState('WASD / arrows to walk · drag to look · Esc to leave');
   const onDenReady=useCallback(value=>setDen(value),[]);
   const sceneEvents=useMemo(()=>state=>denEvents(defaultEvents(state),stage),[stage]);
@@ -102,7 +126,8 @@ export function App() {
         <ChipLayer cells={sceneChips} labelsOverride={STATION_LABELS} hearts={hearts} onToggleTally={toggleTally} tallyOpen={tallyOpen} tally={tally} tickets={snapshot?.tickets} selected={selected} onSelect={selectTicket} stage={stage} />
         {tallyOpen ? <TallyCard tally={tally} metrics={metrics} failed={metricsFailed} onRetry={retryMetrics} onClose={closeTally} stage={stage} /> : null}
         {selected?<PandaCard snapshot={snapshot} selected={selected} onClose={closeTicket} />:null}
-        {exploring ? <ProximityCard card={nearby} onTranscript={transcript.toggle} transcriptOpen={!!transcript.panel.agentId} /> : null}
+        {exploring ? <ProximityCard card={nearby} onTranscript={(c) => { if (!reviewOpen.current) transcript.toggle(c); }} onAnswer={approval.openFrom} demo={demo} transcriptOpen={!!transcript.panel.agentId} /> : null}
+        <ApprovalPanel review={approval.review} state={approval.state} />
         <TranscriptPanel tx={transcript} transcripts={live.transcripts} agents={snapshot?.agents} connection={connection} />
         <div className="den-crosshair" aria-hidden="true" hidden={!exploring || cursorFree}>+</div>
         {snapshot && cells.length === 0 ? <p className="scene-caption scene-empty">The den is quiet. No active tickets.</p> : null}

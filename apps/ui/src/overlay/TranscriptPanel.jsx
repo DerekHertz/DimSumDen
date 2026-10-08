@@ -12,11 +12,11 @@ const timeOf = (at) => {
 
 // Panel state lives in App so the nearby card's F button and the F key share one rule (transcript-panel.mjs).
 // The panel is pinned to its agent: identity is kept from the card it opened from.
-export function useTranscript({ card, exploring, onOpen }) {
+export function useTranscript({ card, exploring, onOpen, blocked }) {
   const [panel, setPanel] = useState(initialTranscriptState);
   const [identity, setIdentity] = useState(null);
   const latest = useRef({});
-  latest.current = { panel, card, exploring, onOpen };
+  latest.current = { panel, card, exploring, onOpen, blocked };
 
   const commit = useCallback((next) => {
     const { panel: previous, card: current } = latest.current;
@@ -38,6 +38,7 @@ export function useTranscript({ card, exploring, onOpen }) {
   useEffect(() => {
     const onKey = (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (latest.current.blocked?.current) return; // den-v1/06: the permission review owns the keys while it is open
       if (e.key !== "Escape" && e.target?.closest?.("input,select,textarea,[contenteditable]")) return;
       const { panel: current, card: nearby, exploring: walking } = latest.current;
       const { state, handled } = transcriptKey(current, { key: e.key, card: nearby, mode: walking ? "walk" : "diorama" });
