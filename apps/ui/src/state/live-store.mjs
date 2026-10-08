@@ -1,9 +1,10 @@
 // State holder a React component subscribes to. The EventSource and fetch are injected.
 import { applyEvent } from "./apply-event.mjs";
 import { initialConnection, connectionReducer } from "./connection.mjs";
+import { appendTranscript, entryFromFrame } from "./transcript-buffer.mjs";
 
 export function createLiveStore({ connect, fetchState, now }) {
-  let state = { snapshot: null, connection: initialConnection(now()), metricsRevision: 0 };
+  let state = { snapshot: null, connection: initialConnection(now()), metricsRevision: 0, transcripts: {} };
   const listeners = new Set();
   let handle = null;
   let closed = false;
@@ -40,9 +41,14 @@ export function createLiveStore({ connect, fetchState, now }) {
         onSnapshot: (snapshot) => set({ snapshot, connection: conn("snapshot") }),
         onChange: (event) => {
           if (!state.snapshot) return;
+          // Transcript entries ride the normal seq sequence; buffer a frame once (a replayed seq is skipped).
+          const line = event.seq > state.snapshot.seq ? entryFromFrame(event) : null;
+          if (line) state = { ...state, transcripts: appendTranscript(state.transcripts, line.agentId, line.entry) };
           const next = applyEvent(state.snapshot, event);
           if (!next) {
             refetch();
+            // refetch() does not notify until the snapshot arrives, so publish a buffered line now.
+            if (line) set({});
             return;
           }
           const patch = { snapshot: next };
