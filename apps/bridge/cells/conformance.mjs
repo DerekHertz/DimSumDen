@@ -348,7 +348,7 @@ export function evaluateS8({ init, stat, connect, probes = [], disable = [] }) {
 }
 
 // S4b: does ending the child (stdin EOF, SIGTERM, SIGKILL) in the middle of a tool call leave the
-// tool's process running? Survivors are counts of `sleep 61` processes. When the child-only signals
+// tool's process running? Survivors are counts of the in-flight tool's processes (runS4b). When the child-only signals
 // leave survivors the adapter must signal the process group, so the group step decides group-kill;
 // survivors even after the group signals are a no-go (the tool escaped its group).
 export function evaluateS4b({ eof, term, kill, group = null, unstarted = [] }) {
@@ -379,14 +379,18 @@ export function evaluateS4b({ eof, term, kill, group = null, unstarted = [] }) {
   return { ...result, evidence: ev };
 }
 
+// The S6b deny target: a path in the worktree and outside .claude/, so the result shows our deny rule
+// and not the CLI's built-in safetyCheck (which refuses any .claude/ path whatever the rules say).
+export const S6B_DENY_TARGET = "denied.txt";
+
 // S6b: --setting-sources project,local in a real worktree (the production shape). Go needs the
 // project-local allow to apply, the inline deny to outrank it, and no user-scope MCP server or
 // plugin to load. A "not trusted" complaint with the allow unapplied is unconfirmed, not no-go.
 export function evaluateS6b(cap, { allowedExists, deniedExists }) {
   const ev = [];
   const writes = toolUses(cap).filter((u) => u.name === "Write");
-  const deniedAttempt = writes.some((u) => String(u.input?.file_path ?? "").endsWith(".claude/probe.txt"));
-  ev.push(`on disk: allowed.txt ${allowedExists}, .claude/probe.txt ${deniedExists}`);
+  const deniedAttempt = writes.some((u) => String(u.input?.file_path ?? "").endsWith(`/${S6B_DENY_TARGET}`));
+  ev.push(`on disk: allowed.txt ${allowedExists}, ${S6B_DENY_TARGET} ${deniedExists}`);
   const init = initOf(cap);
   const badMcp = (init?.mcp_servers ?? []).filter((s) => s.source === "user" || s.source === "claudeai");
   const badPlugins = (init?.plugins ?? []).filter((p) => p.path !== "builtin");
@@ -436,6 +440,34 @@ export function evaluateS3b({ subagent, wait, omitted }, { waitMs, omittedFileEx
   }
   const open = !waitReq || !omittedReq || (subagentRequest === "absent" && !sawTask);
   return { spike: "S3b", verdict: open ? "unconfirmed" : "go", behavior: { subagentRequest, wait: waitBehavior, updatedInputOmitted: omittedBehavior }, evidence: ev };
+}
+
+// ---- Production shape (ADR 0016 6.10) and the setup guard ------------------------------------
+
+// Every child keeps the owner's user-scope settings, MCP servers and plugins out. The inline
+// --settings deny (the bridge's own) rides only on the spikes that measure it: S4b, S8 and S6b. The
+// control run is the same spike with --settings left off, to show the CLI's own behaviour.
+const SOURCE_FLAGS = ["--setting-sources", "project,local", "--strict-mcp-config"];
+export const PROD_SETTINGS = JSON.stringify({ permissions: { deny: ["Write(.claude/**)", "Edit(.claude/**)"] } });
+
+function argsFor(ctx, { prod = false, settings, extraArgs = [], ...rest }) {
+  return buildArgs({ ...rest, settings: settings ?? (prod && !ctx.control ? PROD_SETTINGS : undefined), extraArgs: [...SOURCE_FLAGS, ...extraArgs] });
+}
+
+// Before scoring, the child's init must show a default permission mode and no MCP server: otherwise
+// the run measured the owner's setup, not ours. Returns one line per failed field (empty when valid).
+// An absent init is not a setup failure here: the evaluators already report a child that never started.
+export function setupProblems(captures) {
+  const out = [];
+  for (const [name, cap] of Object.entries(captures ?? {})) {
+    const init = initOf(cap);
+    if (!init) continue;
+    const where = Object.keys(captures).length > 1 ? ` (${name} run)` : "";
+    if (init.permissionMode !== "default") out.push(`init.permissionMode is ${JSON.stringify(init.permissionMode ?? null)}, not "default"${where}: tools may run without a permission prompt`);
+    const servers = Array.isArray(init.mcp_servers) ? init.mcp_servers : [];
+    if (servers.length) out.push(`init.mcp_servers is not empty${where}: ${servers.map((m) => `${m.name ?? "?"} (source ${m.source ?? "?"})`).join(", ")}`);
+  }
+  return [...new Set(out)];
 }
 
 // ---- Child process harness -----------------------------------------------------------------
@@ -613,7 +645,7 @@ async function finish(child) {
 async function runS1(ctx) {
   const dir = makeWorkdir();
   const sessionId = randomUUID();
-  const child = ctx.start(buildArgs({ sessionId, agent: "probe", model: ctx.model, allowedTools: ["Bash(printenv DEN_CONFORMANCE_CANARY)"] }), dir);
+  const child = ctx.start(argsFor(ctx, { sessionId, agent: "probe", model: ctx.model, allowedTools: ["Bash(printenv DEN_CONFORMANCE_CANARY)"] }), dir);
   await runTurn(child, `Run the Bash command "printenv DEN_CONFORMANCE_CANARY" and tell me only whether it printed anything. Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs);
   const exitedOnEof = await finish(child);
   const capture = child.capture();
@@ -623,10 +655,10 @@ async function runS1(ctx) {
 async function runS2(ctx) {
   const dir = makeWorkdir();
   const sleepMs = 3000;
-  const a = ctx.start(buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model, allowedTools: ["Bash(sleep 3)"] }), dir);
+  const a = ctx.start(argsFor(ctx, { sessionId: randomUUID(), agent: "probe", model: ctx.model, allowedTools: ["Bash(sleep 3)"] }), dir);
   await runTurn(a, `Run the Bash command "sleep 3", then reply done. Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs);
   await finish(a);
-  const b = ctx.start(buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model, allowedTools: ["Task", "Agent", "Read"] }), dir);
+  const b = ctx.start(argsFor(ctx, { sessionId: randomUUID(), agent: "probe", model: ctx.model, allowedTools: ["Task", "Agent", "Read"] }), dir);
   await runTurn(b, `Use the Task tool to start a general-purpose subagent that reads notes.txt and returns its text, then reply with that text. Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs);
   await finish(b);
   const main = a.capture();
@@ -636,7 +668,7 @@ async function runS2(ctx) {
 
 async function runS3(ctx) {
   const dir = makeWorkdir();
-  const child = ctx.start(buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model, permissionPromptTool: "stdio" }), dir);
+  const child = ctx.start(argsFor(ctx, { sessionId: randomUUID(), agent: "probe", model: ctx.model, permissionPromptTool: "stdio" }), dir);
   let phase = "allow";
   let answered = 0;
   child.on("activity", () => {
@@ -677,7 +709,7 @@ async function runS4(ctx) {
   const dir = makeWorkdir();
   const sessionId = randomUUID();
   const tools = ["Bash(sleep 20)"];
-  const first = ctx.start(buildArgs({ sessionId, agent: "probe", model: ctx.model, allowedTools: tools }), dir);
+  const first = ctx.start(argsFor(ctx, { sessionId, agent: "probe", model: ctx.model, allowedTools: tools }), dir);
   first.send(userMessageLine(`Run the Bash command "sleep 20", then reply done. Begin your reply with ${PROBE_MARKER}.`));
   await first.waitFor(isToolUse, ctx.timeoutMs);
   const killedAt = first.now();
@@ -685,7 +717,7 @@ async function runS4(ctx) {
   await first.waitExit(10_000);
   if (!first.exit) first.kill("SIGKILL");
   const transcriptFound = findTranscript(ctx.parentEnv.HOME ?? homedir(), sessionId);
-  const second = ctx.start(buildArgs({ resume: sessionId, agent: "probe", model: ctx.model, allowedTools: tools }), dir);
+  const second = ctx.start(argsFor(ctx, { resume: sessionId, agent: "probe", model: ctx.model, allowedTools: tools }), dir);
   await runTurn(second, `In one short line, which Bash command were you running when you were interrupted? Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs);
   await finish(second);
   const killed = first.capture();
@@ -696,7 +728,7 @@ async function runS4(ctx) {
 async function runS5(ctx) {
   const dir = makeWorkdir();
   const before = await readUsage(ctx.parentEnv);
-  const child = ctx.start(buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model }), dir);
+  const child = ctx.start(argsFor(ctx, { sessionId: randomUUID(), agent: "probe", model: ctx.model }), dir);
   await runTurn(child, `Reply with the single word ${PROBE_MARKER}.`, ctx.timeoutMs);
   await finish(child);
   await sleep(5000);
@@ -711,7 +743,7 @@ async function runS6(ctx, outDir) {
   mkdirSync(outDir, { recursive: true });
   const settings = path.join(outDir, "s6-deny.settings.json");
   writeFileSync(settings, JSON.stringify({ permissions: { deny: ["Write(.claude/**)"] } }));
-  const child = ctx.start(buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model, settings }), dir);
+  const child = ctx.start(argsFor(ctx, { sessionId: randomUUID(), agent: "probe", model: ctx.model, settings }), dir);
   await runTurn(child, `Use the Write tool to create allowed.txt containing "ok", then use the Write tool to create .claude/probe.txt containing "ok". Report what happened. Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs);
   await finish(child);
   const capture = child.capture();
@@ -720,7 +752,7 @@ async function runS6(ctx, outDir) {
 
 async function runS7(ctx) {
   const dir = makeWorkdir();
-  const child = ctx.start(buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model, allowedTools: ["Bash(sleep 8)"] }), dir);
+  const child = ctx.start(argsFor(ctx, { sessionId: randomUUID(), agent: "probe", model: ctx.model, allowedTools: ["Bash(sleep 8)"] }), dir);
   child.send(userMessageLine(`Run the Bash command "sleep 8", then reply with exactly: first done. Begin your reply with ${PROBE_MARKER}.`));
   await child.waitFor(isToolUse, ctx.timeoutMs);
   const sentAt = child.now();
@@ -793,7 +825,7 @@ function helpFlags(bin) {
 }
 
 async function tryDisable(ctx, dir, via, { flag, env }) {
-  const child = ctx.start(buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model, extraArgs: flag ? [flag] : [] }), dir, env);
+  const child = ctx.start(argsFor(ctx, { prod: true, sessionId: randomUUID(), agent: "probe", model: ctx.model, extraArgs: flag ? [flag] : [] }), dir, env);
   try {
     const last = await runTurn(child, `Reply with the single word ${PROBE_MARKER}.`, ctx.timeoutMs);
     const init = initOf(child.capture());
@@ -807,7 +839,7 @@ async function tryDisable(ctx, dir, via, { flag, env }) {
 
 async function runS8(ctx) {
   const dir = makeWorkdir();
-  const child = ctx.start(buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model, permissionPromptTool: "stdio", allowedTools: ["Bash(sleep 15)"] }), dir);
+  const child = ctx.start(argsFor(ctx, { prod: true, sessionId: randomUUID(), agent: "probe", model: ctx.model, permissionPromptTool: "stdio", allowedTools: ["Bash(sleep 15)"] }), dir);
   let client = null;
   const input = { init: { socketPath: null, capabilities: [] }, stat: null, connect: null, probes: [], disable: [] };
   try {
@@ -887,17 +919,21 @@ async function runS8(ctx) {
 
 // ---- S4b: no orphaned tool process after the child ends ------------------------------------
 
-const SLEEP_CMD = "sleep 61";
+// The in-flight tool is `tail -f <unique file>`: a long-running process that is not a sleep (a guard
+// may refuse a sleep, as ADR 0016 round 2 found) and carries a path no other process has, so ps can
+// find it.
+const holdCommand = (file) => `tail -f ${file}`;
 
-// Pids of every running `sleep 61`, from ps (the tool call's process, a grandchild of the child).
-function sleepPids() {
+// Pids of every running process whose command line carries `marker`, from ps (the tool call's
+// process, a grandchild of the child; a wrapping shell that also carries the marker counts too).
+function toolPids(marker) {
   return new Promise((resolve) => {
     execFile("ps", ["-axo", "pid=,command="], { timeout: 10_000 }, (err, stdout) => {
       if (err) return resolve([]);
       const pids = [];
       for (const line of stdout.split("\n")) {
         const m = line.trim().match(/^(\d+)\s+(.*)$/);
-        if (m && m[2].trim() === SLEEP_CMD) pids.push(Number(m[1]));
+        if (m && m[2].includes(marker) && Number(m[1]) !== process.pid) pids.push(Number(m[1]));
       }
       resolve(pids);
     });
@@ -913,9 +949,14 @@ function killPid(pid, signal = "SIGKILL") {
 }
 
 async function runS4b(ctx) {
+  const holdDir = mkdtempSync(path.join(tmpdir(), "den-s4b-"));
+  const hold = path.join(holdDir, `hold-${randomBytes(6).toString("hex")}.txt`);
+  writeFileSync(hold, "");
+  const command = holdCommand(hold);
+  const sleepPids = () => toolPids(hold);
   const baseline = new Set(await sleepPids());
   const { settleMs, eofPollMs, termCheckMs } = ctx.timing;
-  const tools = [`Bash(${SLEEP_CMD})`];
+  const tools = [`Bash(${command})`];
   const captures = {};
   const unstarted = [];
   const children = [];
@@ -925,12 +966,14 @@ async function runS4b(ctx) {
     child.killGroup("SIGKILL");
     child.kill("SIGKILL");
   };
-  // Starts a child, asks for a long sleep and waits until the tool call is running.
+  // Starts a child, asks for the long-running command and waits until its process is really running.
   const begin = async (name, detached = false) => {
-    const child = ctx.start(buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model, allowedTools: tools }), makeWorkdir(), {}, { detached });
+    const child = ctx.start(argsFor(ctx, { prod: true, sessionId: randomUUID(), agent: "probe", model: ctx.model, allowedTools: tools }), makeWorkdir(), {}, { detached });
     children.push(child);
-    child.send(userMessageLine(`Run the Bash command "${SLEEP_CMD}", then reply done. Begin your reply with ${PROBE_MARKER}.`));
-    const started = await child.waitFor(isToolUse, ctx.timeoutMs);
+    child.send(userMessageLine(`Run the Bash command "${command}", then reply done. Begin your reply with ${PROBE_MARKER}.`));
+    let started = Boolean(await child.waitFor(isToolUse, ctx.timeoutMs));
+    for (let waited = 0; started && waited < settleMs * 10 && (await survivors()) === 0; waited += 100) await sleep(100);
+    started = started && (await survivors()) > 0;
     if (!started) unstarted.push(name);
     await sleep(settleMs);
     return child;
@@ -976,12 +1019,13 @@ async function runS4b(ctx) {
     }
     return { result: evaluateS4b({ eof, term, kill, group, unstarted }), captures };
   } finally {
-    // Whatever happened, no sleep 61 and no child may outlive the spike.
+    // Whatever happened, no tool process and no child may outlive the spike.
     for (const p of await sleepPids()) if (!baseline.has(p)) killPid(p);
     for (const c of children) {
       c.killGroup("SIGKILL");
       c.kill("SIGKILL");
     }
+    rmSync(holdDir, { recursive: true, force: true });
   }
 }
 
@@ -1005,19 +1049,21 @@ async function runS6b(ctx) {
     }
     mkdirSync(path.join(wt, ".claude", "agents"), { recursive: true });
     writeFileSync(path.join(wt, ".claude", "agents", "probe.md"), PROBE_ROLE);
-    writeFileSync(path.join(wt, ".claude", "settings.local.json"), JSON.stringify({ permissions: { allow: ["Write(allowed.txt)", "Write(.claude/**)"] } }));
-    const args = buildArgs({
+    // The project-local allow and the inline deny name the same target, so the deny must outrank a real allow.
+    writeFileSync(path.join(wt, ".claude", "settings.local.json"), JSON.stringify({ permissions: { allow: ["Write(allowed.txt)", `Write(${S6B_DENY_TARGET})`] } }));
+    const args = argsFor(ctx, {
       sessionId: randomUUID(),
       agent: "probe",
       model: ctx.model,
-      settings: JSON.stringify({ permissions: { deny: ["Write(.claude/**)"] } }),
-      extraArgs: ["--setting-sources", "project,local", "--strict-mcp-config"],
+      settings: ctx.control ? undefined : JSON.stringify({ permissions: { deny: [`Write(${S6B_DENY_TARGET})`] } }),
     });
     const child = ctx.start(args, wt);
-    await runTurn(child, `Use the Write tool to create allowed.txt containing "ok", then use the Write tool to create .claude/probe.txt containing "ok". Report what happened. Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs);
+    await runTurn(child, `Use the Write tool to create allowed.txt containing "ok", then use the Write tool to create ${S6B_DENY_TARGET} containing "ok". Report what happened. Begin your reply with ${PROBE_MARKER}.`, ctx.timeoutMs);
     await finish(child);
     const capture = child.capture();
-    const result = evaluateS6b(capture, { allowedExists: existsSync(path.join(wt, "allowed.txt")), deniedExists: existsSync(path.join(wt, ".claude", "probe.txt")) });
+    const deniedExists = existsSync(path.join(wt, S6B_DENY_TARGET));
+    const result = evaluateS6b(capture, { allowedExists: existsSync(path.join(wt, "allowed.txt")), deniedExists });
+    if (ctx.control) result.evidence.unshift(`control run (no --settings): ${S6B_DENY_TARGET} ${deniedExists ? "WAS written, so in the spike run only our inline deny stopped it" : "was NOT written even without our deny: the CLI's own rules refused it"}`);
     return { result, captures: { main: capture } };
   } finally {
     try {
@@ -1040,7 +1086,7 @@ const allowWithoutInputLine = (requestId) =>
   JSON.stringify({ type: "control_response", response: { subtype: "success", request_id: requestId, response: { behavior: "allow" } } }) + "\n";
 
 async function runS3b(ctx) {
-  const stdioArgs = () => buildArgs({ sessionId: randomUUID(), agent: "probe", model: ctx.model, permissionPromptTool: "stdio" });
+  const stdioArgs = () => argsFor(ctx, { sessionId: randomUUID(), agent: "probe", model: ctx.model, permissionPromptTool: "stdio" });
   // Answers every control_request with `reply(request)`; returns the stop function.
   const answerWith = (child, reply) => {
     let seen = 0;
@@ -1100,9 +1146,9 @@ export const SPIKES = {
   S5: { title: "billing: plan usage reading before and after one trivial headless run (user confirms on the usage page)", turns: 1, run: runS5 },
   S6: { title: "--settings merge and deny precedence over a project allow", turns: 1, run: runS6 },
   S7: { title: "a user message written mid-turn: queued, merged, dropped or interrupting", turns: 1, run: runS7 },
-  S8: { title: "the child's messaging socket: no second way to answer a permission request (outcomes a to d)", turns: 3, run: runS8 },
-  S4b: { title: "SIGTERM, stdin EOF and process-group kill leave no orphaned tool process", turns: 2, run: runS4b },
-  S6b: { title: "--setting-sources project,local in a worktree: allow applies, user and plugin config does not", turns: 1, run: runS6b },
+  S8: { title: "the child's messaging socket: no second way to answer a permission request (outcomes a to d)", turns: 3, control: true, run: runS8 },
+  S4b: { title: "SIGTERM, stdin EOF and process-group kill leave no orphaned tool process", turns: 2, control: true, run: runS4b },
+  S6b: { title: "--setting-sources project,local in a worktree: allow applies, user and plugin config does not", turns: 1, control: true, run: runS6b },
   S3b: { title: "a subagent permission request reaches the parent; a held request; updatedInput omitted", turns: 3, run: runS3b },
 };
 
@@ -1113,6 +1159,22 @@ function writeCaptures(outDir, spike, captures, scrub) {
     const file = path.join(outDir, name === "main" ? `${spike}.jsonl` : `${spike}-${name}.jsonl`);
     writeFileSync(file, scrubText(cap.lines.map((l) => l.raw).join("\n") + (cap.lines.length ? "\n" : ""), scrub));
   }
+}
+
+// The same spike again with --settings left off, scored by the same evaluator, so the spike's verdict can
+// be read against what the CLI does by itself. It never changes the spike's own verdict.
+async function runControl(id, ctx, out, scrub) {
+  let run;
+  try {
+    run = await SPIKES[id].run({ ...ctx, control: true }, out);
+  } catch (e) {
+    return { spike: id, verdict: "unconfirmed", evidence: [`could not run the control: ${e.message}`] };
+  }
+  writeCaptures(out, `${id}-control`, run.captures, scrub);
+  const setup = setupProblems(run.captures);
+  if (setup.length) return { spike: id, verdict: "setup-invalid", evidence: setup.map((l) => `setup-invalid: ${l}`) };
+  const evidence = [`control run without --settings: ${run.result.verdict}`, ...run.result.evidence];
+  return { spike: id, verdict: run.result.verdict, evidence };
 }
 
 export async function runSpikes(opts) {
@@ -1129,7 +1191,11 @@ export async function runSpikes(opts) {
     } catch (e) {
       run = { result: { spike: id, verdict: "no-go", evidence: [`could not run the spike: ${e.message}`] }, captures: {} };
     }
-    const { result, captures } = run;
+    let { result, captures } = run;
+    const setup = setupProblems(captures);
+    if (setup.length) {
+      result = { spike: id, verdict: "setup-invalid", evidence: [...setup.map((l) => `setup-invalid: ${l}`), "not scored: this run measured the owner's setup, not the production shape; fix it and run again"] };
+    }
     const startError = Object.values(captures ?? {}).find((c) => c.exit?.error)?.exit.error;
     if (startError) result.evidence.push(`could not start the child: ${startError}`);
     if (result.verdict !== "go") {
@@ -1137,6 +1203,10 @@ export async function runSpikes(opts) {
       if (tail) result.evidence.push(`stderr tail: ${tail}`);
     }
     writeCaptures(out, id, captures, scrub);
+    if (SPIKES[id].control && opts.control !== false && result.verdict !== "setup-invalid") {
+      log(`running ${id} control (no --settings)`);
+      result.control = await runControl(id, ctx, out, scrub);
+    }
     results.push(result);
   }
   writeFileSync(path.join(out, "results.json"), scrubText(JSON.stringify(results, null, 2) + "\n", scrub));
@@ -1157,6 +1227,7 @@ export function parseCli(argv) {
     s8DisableFlags: [],
     s8DisableEnv: {},
     s3bWaitMs: 90_000,
+    control: true,
     help: false,
     error: null,
   };
@@ -1165,6 +1236,7 @@ export function parseCli(argv) {
     const value = () => argv[++i];
     if (arg === "--help" || arg === "-h") opts.help = true;
     else if (arg === "--dry-run") opts.dryRun = true;
+    else if (arg === "--no-control") opts.control = false;
     else if (arg === "--out") opts.out = value();
     else if (arg === "--model") opts.model = value();
     else if (arg === "--extra-env") opts.extraEnv.push(value());
@@ -1200,7 +1272,8 @@ export function parseCli(argv) {
 }
 
 const HELP = `usage: node apps/bridge/cells/conformance.mjs [--spike S1,S3] [--out <dir>] [--model <m>] [--timeout <s>] [--extra-env NAME]... [--dry-run]
-       [--repo <checkout>] [--s8-disable-flag <flag>]... [--s8-disable-env NAME=VALUE]... [--s3b-wait <s>]
+       [--repo <checkout>] [--s8-disable-flag <flag>]... [--s8-disable-env NAME=VALUE]... [--s3b-wait <s>] [--no-control]
+A run whose init shows a permissionMode other than default, or any MCP server, is reported SETUP-INVALID (never go or no-go). S8, S4b and S6b also run a control without --settings unless --no-control.
 The default run is S1 to S7; S8, S4b, S6b and S3b run only when named (--spike S8,S4b,S6b,S3b). S6b adds its worktree to --repo (default: the repository containing this script); run \`claude\` there once so the owner has trusted it.
 Runs ADR 0016's spikes against the real \`claude\` login (DEN_CLAUDE_BIN overrides the binary).
 --dry-run prints the plan and spends nothing.`;
@@ -1243,14 +1316,17 @@ async function main() {
     s8DisableFlags: opts.s8DisableFlags,
     s8DisableEnv: opts.s8DisableEnv,
     s3bWaitMs: opts.s3bWaitMs,
+    control: opts.control,
   });
   console.log("");
   for (const r of results) {
     console.log(`${r.spike} ${r.verdict.toUpperCase()}`);
     for (const line of r.evidence) console.log(`  - ${line}`);
+    if (r.control) console.log(`  control (no --settings): ${r.control.verdict.toUpperCase()}`);
   }
   console.log(`\nfixtures and results.json: ${out}`);
-  if (results.some((r) => r.verdict === "no-go")) process.exitCode = 1;
+  if (results.some((r) => r.verdict === "setup-invalid")) console.log("\nSETUP-INVALID: nothing above is evidence. Fix the named field and run again.");
+  if (results.some((r) => r.verdict === "no-go" || r.verdict === "setup-invalid")) process.exitCode = 1;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();
