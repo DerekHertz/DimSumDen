@@ -125,3 +125,74 @@ describe("through the review controller", () => {
     assert.equal(cardOf(demo.getSnapshot()).approval, null);
   });
 });
+
+// den-v1/07 fix round 1 (user's choice): the same dev-only demo can send a message, so every composer state is visible.
+describe("the stub bridge's sendMessage", () => {
+  const manual = () => { const queue = []; return { schedule: (fn, ms) => { queue.push({ fn, ms }); return queue.length; }, queue }; };
+  test("the demo agent can send, so T is enabled on its card", () => {
+    const demo = createApprovalDemo({ now: clock().now });
+    assert.equal(demo.getSnapshot().agents[0].capabilities.send, true);
+    assert.equal(cardOf(demo.getSnapshot()).actions.T.enabled, true);
+  });
+  test("resolves { ok, messageId } with no network and a fresh id each time", async () => {
+    const demo = createApprovalDemo({ now: clock().now, schedule: manual().schedule });
+    const a = await demo.client.sendMessage("demo-agent-1", { text: "hello" });
+    const b = await demo.client.sendMessage("demo-agent-1", { text: "again" });
+    assert.equal(a.ok, true);
+    assert.equal(typeof a.messageId, "string");
+    assert.notEqual(a.messageId, b.messageId);
+  });
+  test("about 2 s later a message-ack event for that id reaches onEvent listeners", async () => {
+    const m = manual();
+    const demo = createApprovalDemo({ now: clock().now, schedule: m.schedule });
+    const events = [];
+    demo.onEvent((e) => events.push(e));
+    const { messageId } = await demo.client.sendMessage("demo-agent-1", { text: "hello" });
+    assert.deepEqual(events, [], "no ack yet");
+    assert.equal(m.queue.length, 1);
+    assert.equal(m.queue[0].ms, 2000);
+    m.queue[0].fn();
+    assert.deepEqual(events, [{ type: "message-ack", agentId: "demo-agent-1", messageId }]);
+  });
+  test("a message containing noack gets no ack, so 'Sent, not yet received' is reachable", async () => {
+    const m = manual();
+    const demo = createApprovalDemo({ now: clock().now, schedule: m.schedule });
+    const res = await demo.client.sendMessage("demo-agent-1", { text: "please NoAck this" });
+    assert.equal(res.ok, true);
+    assert.equal(m.queue.length, 0);
+  });
+  test("onEvent returns an unsubscribe", async () => {
+    const m = manual();
+    const demo = createApprovalDemo({ now: clock().now, schedule: m.schedule });
+    const events = [];
+    const off = demo.onEvent((e) => events.push(e));
+    await demo.client.sendMessage("demo-agent-1", { text: "hi" });
+    off();
+    m.queue[0].fn();
+    assert.deepEqual(events, []);
+  });
+  test("an unknown agent is refused 404; refuse=<status> refuses sends too", async () => {
+    await assert.rejects(createApprovalDemo({ now: clock().now }).client.sendMessage("nope", { text: "hi" }), (e) => e.status === 404 && typeof e.reason === "string");
+    await assert.rejects(createApprovalDemo({ now: clock().now, refuse: 429 }).client.sendMessage("demo-agent-1", { text: "hi" }), (e) => e.status === 429 && e.reason.length > 0);
+  });
+  test("through the composer: sent, then received once the demo's ack is observed; noack stays sent", async () => {
+    const { createMessageComposer } = await import("../overlay/message-composer.mjs");
+    const m = manual();
+    const demo = createApprovalDemo({ now: clock().now, schedule: m.schedule });
+    const composer = createMessageComposer({ client: demo.client, hooks: {} });
+    demo.onEvent((e) => composer.observe(e));
+    const card = { ...cardOf(demo.getSnapshot()), mode: "walk" };
+    for (const [text, expected] of [["hello", "received"], ["please noack", "sent"]]) {
+      assert.equal(composer.open(card, { mode: "walk" }).opened, true);
+      composer.setText(text);
+      await composer.send();
+      assert.equal(composer.statusFor(card).kind, "sent");
+      m.queue.splice(0).forEach((q) => q.fn());
+      assert.equal(composer.statusFor(card).kind, expected);
+    }
+  });
+  test("App.jsx feeds the demo's events into composer.observe", () => {
+    const app = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
+    assert.match(app, /approvalDemo[^;\n]*onEvent[^;\n]*observe|onEvent\([^)]*observe/);
+  });
+});
