@@ -53,7 +53,7 @@ export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=(
     if(e.code==='Tab'&&document.pointerLockElement===canvas){
       e.preventDefault();freeCursor();return;
     }
-    if(e.target.closest?.('input,select,textarea,button,a,[contenteditable],[role="dialog"],.transcript-panel'))return;
+    if(e.target.closest?.('input,select,textarea,button,a,[contenteditable],[role="dialog"],.transcript-panel,.approval-panel'))return;
     if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'].includes(e.code)){
       e.preventDefault();keys.add(e.code);
     }

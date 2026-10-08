@@ -45,7 +45,7 @@ export function ApprovalPanel({ review, state }) {
   useEffect(() => {
     if (state.open || !state.focusReturn) return;
     const target = state.focusReturn === "card-button"
-      ? document.querySelector(".proximity-card button[data-key=F]:not(:disabled)")
+      ? document.querySelector(".proximity-card button[data-key=A]:not(:disabled)") ?? document.querySelector(".proximity-card button[data-key=F]:not(:disabled)")
       : null;
     (target ?? document.querySelector('main[aria-label="Den scene"]'))?.focus({ preventScroll: true });
   }, [state.focusSeq, state.open, state.focusReturn]);

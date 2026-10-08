@@ -1,10 +1,12 @@
-import { Component, Suspense, useCallback, useMemo, useState } from "react";
+import { Component, Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { Canvas, events as defaultEvents } from "@react-three/fiber";
 import { CameraRig } from "./scene/procedural/CameraRig.jsx";
 import { RestaurantDen } from "./scene/procedural/RestaurantDen.jsx";
 import { PandaCard } from "./scene/procedural/PandaCard.jsx";
 import { ProximityCard } from "./overlay/ProximityCard.jsx";
 import { TranscriptPanel, useTranscript } from "./overlay/TranscriptPanel.jsx";
+import { ApprovalPanel, useApprovalReview } from "./overlay/ApprovalPanel.jsx";
+import { createBridgeClient } from "./state/bridge-client.mjs";
 import { createDenCameraStore } from "./scene/procedural/camera.mjs";
 import { STATION_LABELS, TALLY_ANCHOR } from "./scene/procedural/bindings.mjs";
 import { denEvents } from "./scene/procedural/events.mjs";
@@ -54,7 +56,14 @@ export function App() {
   const [nearby, setNearby] = useState(null);
   const onNearby = useCallback(card => setNearby(previous => JSON.stringify(previous) === JSON.stringify(card) ? previous : card), []);
   const releaseCursor = useCallback(() => stage.explorer?.freeCursor?.(), [stage]);
-  const transcript = useTranscript({ card: nearby, exploring, onOpen: releaseCursor });
+  const reviewOpen = useRef(false);
+  const transcriptClose = useRef(null);
+  const transcript = useTranscript({ card: nearby, exploring, onOpen: releaseCursor, blocked: reviewOpen });
+  transcriptClose.current = transcript.close;
+  const bridge = useMemo(() => createBridgeClient({ fetch: steering.session.fetch }), [steering.session]);
+  const onReviewOpen = useCallback(() => { transcriptClose.current?.(); releaseCursor(); }, [releaseCursor]);
+  const approval = useApprovalReview({ client: bridge, card: nearby, exploring, cursorFree, demo, snapshot, onOpen: onReviewOpen });
+  reviewOpen.current = approval.state.open;
   const [exploreHint,setExploreHint]=useState('WASD / arrows to walk · drag to look · Esc to leave');
   const onDenReady=useCallback(value=>setDen(value),[]);
   const sceneEvents=useMemo(()=>state=>denEvents(defaultEvents(state),stage),[stage]);
@@ -102,7 +111,8 @@ export function App() {
         <ChipLayer cells={sceneChips} labelsOverride={STATION_LABELS} hearts={hearts} onToggleTally={toggleTally} tallyOpen={tallyOpen} tally={tally} tickets={snapshot?.tickets} selected={selected} onSelect={selectTicket} stage={stage} />
         {tallyOpen ? <TallyCard tally={tally} metrics={metrics} failed={metricsFailed} onRetry={retryMetrics} onClose={closeTally} stage={stage} /> : null}
         {selected?<PandaCard snapshot={snapshot} selected={selected} onClose={closeTicket} />:null}
-        {exploring ? <ProximityCard card={nearby} onTranscript={transcript.toggle} transcriptOpen={!!transcript.panel.agentId} /> : null}
+        {exploring ? <ProximityCard card={nearby} onTranscript={(c) => { if (!reviewOpen.current) transcript.toggle(c); }} onAnswer={approval.openFrom} demo={demo} transcriptOpen={!!transcript.panel.agentId} /> : null}
+        <ApprovalPanel review={approval.review} state={approval.state} />
         <TranscriptPanel tx={transcript} transcripts={live.transcripts} agents={snapshot?.agents} connection={connection} />
         <div className="den-crosshair" aria-hidden="true" hidden={!exploring || cursorFree}>+</div>
         {snapshot && cells.length === 0 ? <p className="scene-caption scene-empty">The den is quiet. No active tickets.</p> : null}

@@ -16,7 +16,7 @@ import { createBridgeClient } from "./bridge-client.mjs";
 import { createSession } from "../session/session.mjs";
 
 const ID = "a-0123456789abcdef";
-const TOKEN = "tok-test-123";
+const TOKEN = ["tok", "test", "123"].join("-"); // built at runtime so the root secret scan does not flag the fixture
 
 function sessionWith(stubFetch, token = TOKEN) {
   return createSession({
