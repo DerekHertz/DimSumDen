@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** claimed
+**Status:** in-review
 
 **Serves:** Den loop steps 3-4. The S4b, S8 and S6b verdicts that 143 (106-D2) builds on; 143 keeps its detached process-group kill until a valid S4b re-run says otherwise.
 
