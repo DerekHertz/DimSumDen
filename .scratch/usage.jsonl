@@ -2480,3 +2480,13 @@
 {"kind":"usage","ts":"2026-10-08T21:11:51.000Z","five_hour":29,"weekly":72,"event":"dispatch","ticket":"den-v1/07-message-t","cell":"developer"}
 {"kind":"context","ts":"2026-10-08T21:11:51.000Z","session":"dc060b27-e096-4626-af72-de98491dc6be","context_tokens":72223,"percent":7.22,"event":"dispatch"}
 {"kind":"cell","ts":"2026-10-08T21:16:09.472Z","ticket":"den-v1/07-message-t","cell":"developer","model":"claude-sonnet-5","tokens":53219,"ms":245240,"outcome":"fix round 1 complete: demo stub sendMessage plus ack, c1229c5","context":49728}
+{"kind":"usage","ts":"2026-10-08T21:23:31Z","five_hour":31,"weekly":74,"event":"dispatch","ticket":"den-v1/07-message-t","cell":"scout"}
+{"kind":"context","ts":"2026-10-08T21:23:31Z","session":"dc060b27-e096-4626-af72-de98491dc6be","context_tokens":25513,"percent":2.55,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-08T21:26:21.625Z","ticket":"den-v1/07-message-t","cell":"scout","model":"claude-haiku-5-5","tokens":12632,"ms":146338,"outcome":"risk-check exit 1 (2 hits in test files); npm test 2963/2963"}
+{"kind":"usage","ts":"2026-10-08T21:26:21Z","five_hour":32,"weekly":74,"event":"dispatch","ticket":"den-v1/07-message-t","cell":"security"}
+{"kind":"context","ts":"2026-10-08T21:26:21Z","session":"dc060b27-e096-4626-af72-de98491dc6be","context_tokens":28598,"percent":2.86,"event":"dispatch"}
+{"kind":"incident","ts":"2026-10-08T21:26:21Z","ticket":"den-v1/07-message-t","cell":"scout","tool":"Bash","what":"npm test exceeded 120s default Bash timeout, backgrounded; sleep-guard blocked poll loop","cost":"extra tool calls","fix":"scout read output file directly","rule_change":null}
+{"kind":"cell","ts":"2026-10-08T21:27:20.853Z","ticket":"den-v1/07-message-t","cell":"security","model":"claude-sonnet-5","tokens":43076,"ms":45047,"outcome":"pass; 1 low cosmetic; server-side checks deferred to den-v1/11","context":41415}
+{"kind":"resolved","ts":"2026-10-08T21:32:44.277Z","ticket":"den-v1/07-message-t","pr":201,"bounces":0}
+{"kind":"jev-advisory-outcome","ts":"2026-10-08T21:32:44.331Z","ticket":"den-v1/07-message-t","orchestratorPick":"designer","jevPick":"qa-specify","userChoice":"designer","bounced":false}
+{"kind":"usage","ts":"2026-10-08T21:32:44Z","five_hour":32,"weekly":74,"event":"merge","ticket":"den-v1/07-message-t","cell":"orchestrator","note":"live read HTTP 429; last reading"}

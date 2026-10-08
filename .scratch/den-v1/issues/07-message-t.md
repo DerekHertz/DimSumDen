@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately; den-layout/03 resolved)
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Den loop steps 3-4 (T sends a message; the agent receives it).
 
@@ -110,3 +110,4 @@ This ticket builds `sendMessage`, the composer and the card status line; den-v1/
 - **orchestrator, 2026-10-08 (fix round 1, user's choice):** Before the user's critique, make every composer state visible in the dev-only demo. Give the `?demo=approval` demo client (dev server only, like den-v1/06's fixture) a stubbed `sendMessage` that resolves `{ok, messageId}` with no network, and feed a fixture `message-ack` for that id into `composer.observe` about 2 s later. Make 'Sent, not yet received' reachable too (for example, a message containing `noack` gets no ack). Add a test for the stub; production builds are unchanged. No other scope.
 - **orchestrator, 2026-10-08:** Fix round 1 done (c1229c5, 2963/2963): demo stub sendMessage plus ack. Held at ready-for-human for the user's critique.
 - **orchestrator, 2026-10-08:** User critique: "looks fine" (ship it). Next: risk-check, then PR.
+- **security, 2026-10-08:** Security pass (c1229c5). No critical/high/medium. gitleaks clean, no dep/CI changes, text rendered as plain React text, demo stub gated by import.meta.env.DEV. Low: bridge-client.mjs FALLBACK spacing (cosmetic). Bridge-side limits to re-review in den-v1/11.
