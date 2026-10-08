@@ -138,6 +138,7 @@ export function check(command) {
 
 const CELLS = new Set(["developer", "qa", "security", "architect", "designer", "herald", "product", "orchestrator", "scout"]);
 const HEAD_MAX = 200;
+const REDACT_INPUT_MAX = 2000; // cap before redact() so a huge command cannot stall the regexes
 const STEP_TIMEOUT_MS = 3000;
 
 function findBoard(cwd) {
@@ -167,6 +168,24 @@ function board(boardPath, cwd, args) {
   return r.error || r.status !== 0 ? null : r.stdout;
 }
 
+// The board is committed and pushed, so a secret in a blocked command must not reach the comment.
+// Best effort by shape (assignments, auth headers, secret-named flags, url credentials, known token
+// formats); it errs towards over-redacting. A bare high-entropy string with no marker slips through.
+const VALUE = String.raw`(?:'[^']*'|"[^"]*"|\S+)`;
+const REDACTIONS = [
+  [/(\b[a-z][a-z0-9+.-]*:\/\/)[^\s/@'"]+@/gi, "$1[redacted]@"],
+  [/\b(bearer|basic)\s+[^\s'"]+/gi, "$1 [redacted]"],
+  [/(\bauthorization\s*[:=]\s*)(?!bearer\b|basic\b)[^\s'"]+/gi, "$1[redacted]"],
+  [new RegExp(String.raw`(--?[\w-]*(?:token|secret|passw|pwd|api[-_]?key|auth|cred)[\w-]*)(=|\s+)${VALUE}`, "gi"), "$1$2[redacted]"],
+  [new RegExp(String.raw`((?<![\w-])[A-Za-z_][A-Za-z0-9_]*=)${VALUE}`, "g"), "$1[redacted]"],
+  [/\b(?:gh[pousr]_|github_pat_|sk-|xox[abprs]-|AKIA)[A-Za-z0-9_-]{8,}/g, "[redacted]"],
+  [/\beyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]*/g, "[redacted]"],
+];
+
+function redact(text) {
+  return REDACTIONS.reduce((t, [re, to]) => t.replace(re, to), text);
+}
+
 function logBlock(input, command) {
   try {
     const cwd = typeof input.cwd === "string" && input.cwd ? input.cwd : process.cwd();
@@ -183,7 +202,7 @@ function logBlock(input, command) {
     const agent = typeof input.agent_type === "string" ? input.agent_type.replace(/[^\w-]/g, "").slice(0, 40) : "";
     const as = CELLS.has(agent) ? agent : "orchestrator";
     const source = agent || "main session";
-    const head = command.replace(/\s+/g, " ").replace(/`/g, "'").trim().slice(0, HEAD_MAX);
+    const head = redact(command.slice(0, REDACT_INPUT_MAX).replace(/\s+/g, " ").replace(/`/g, "'").trim()).slice(0, HEAD_MAX);
     board(boardPath, cwd, ["comment", ref, "--as", as, `sleep-guard blocked (${source}): \`${head}\``]);
   } catch {
     // the log never affects the decision

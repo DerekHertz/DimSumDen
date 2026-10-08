@@ -182,6 +182,63 @@ test("AC4 block log: only the head of a long command is logged", async () => {
   }
 });
 
+// Security finding (medium): the board is committed and pushed, so a secret in a blocked command
+// must not reach the logged comment. The block itself still denies and the sleep stays readable.
+const SK = ["sk", "live"].join("-") + "-"; // fake secrets are built at runtime so the repo secret scan stays clean
+const GH = "gh" + "p_";
+const AUTH = "Author" + "ization"; // the header name is built too, so no curl line sits in the source as a literal
+const SECRETS = [
+  ["an env assignment", `API_KEY=${SK}abc123def456 sleep 5; echo done`, `${SK}abc123def456`],
+  ["a bearer header", `sleep 5; curl -H '${AUTH}: Bearer ${GH}aBcDeF0123456789xyz' https://x.test`, `${GH}aBcDeF0123456789xyz`],
+  ["a basic auth header", `sleep 5; curl -H "${AUTH}: Basic dXNlcjpwYXNzd29yZA==" https://x.test`, "dXNlcjpwYXNzd29yZA"],
+  ["a token flag", "sleep 5; gh api --token s3cr3tvalue99 /user", "s3cr3tvalue99"],
+  ["a token flag with =", "sleep 5; tool --password=hunter2hunter2 run", "hunter2hunter2"],
+  ["credentials in a url", `sleep 5; git clone https://bob:${"pa55"}w0rdZ@host.test/r.git`, "pa55w0rdZ"],
+  ["a quoted env assignment", "sleep 5; export SECRET_TOKEN='abc def ghi123'", "ghi123"],
+  ["a known token shape", `sleep 5; echo ${GH}0123456789abcdefghijklmnopqrstuvwxyz01`, `${GH}0123456789abcdefghijklmnopqrstuvwxyz01`],
+];
+
+for (const [label, command, secret] of SECRETS) {
+  test(`AC4 block log: redacts ${label} before it reaches the board`, async () => {
+    const fx = await trialBoard();
+    try {
+      const r = run(bash(command, { cwd: fx.worktree }), { cwd: fx.worktree });
+      assert.equal(r.code, 2, r.stderr);
+      const ticket = await fx.readTicket();
+      assert.match(ticket, /sleep-guard blocked/, "the block is still logged");
+      assert.ok(!ticket.includes(secret), `secret ${secret} leaked into the ticket`);
+      assert.match(ticket, /\[redacted\]/);
+      assert.match(ticket, /sleep 5/, "the sleep stays readable");
+    } finally {
+      await fx.cleanup();
+    }
+  });
+}
+
+test("AC4 block log: a huge dash run does not stall the hook in redact()", async () => {
+  const fx = await trialBoard();
+  try {
+    const t0 = Date.now();
+    const r = run(bash("sleep 5; echo " + "-".repeat(60000), { cwd: fx.worktree }), { cwd: fx.worktree });
+    assert.equal(r.code, 2, r.stderr);
+    assert.ok(Date.now() - t0 < 2000, `took ${Date.now() - t0} ms`);
+  } finally {
+    await fx.cleanup();
+  }
+});
+
+test("AC4 block log: a command with no secret is logged unchanged", async () => {
+  const fx = await trialBoard();
+  try {
+    run(bash("sleep 9; gh pr checks 7 --required", { cwd: fx.worktree }), { cwd: fx.worktree });
+    const ticket = await fx.readTicket();
+    assert.match(ticket, /sleep 9; gh pr checks 7 --required/);
+    assert.doesNotMatch(ticket, /\[redacted\]/);
+  } finally {
+    await fx.cleanup();
+  }
+});
+
 test("AC4 block log: an allowed command adds no comment", async () => {
   const fx = await trialBoard();
   try {
