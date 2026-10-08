@@ -6,7 +6,7 @@
 
 **Blocked by:** organism-infra/167 (both edit `scripts/statusline.mjs`)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** Drift guardrail from the refocus (ADR 0019): keep the v1 den loop in view. The user asked for a countdown to the north star (2026-10-08) and settled the choices below in a grilling the same day.
 
@@ -39,3 +39,4 @@ Files: `scripts/north-star.mjs` (new), `scripts/statusline.mjs`, `mods/north-sta
 
 ## Comments
 - **orchestrator, 2026-10-08:** User decisions: the countdown is to den v1 done; shown in the statusline and as a band mod (not the den UI); the ticket set is derived; resolved or closed counts as done; priority "do it now", so it goes first in the next session, after 167 merges. Mods draw only in terminal `claude` in WSL (not the desktop app in WSL).
+- **orchestrator, 2026-10-08:** Environment: the plugin-authoring skill says ~/.claude/dev-mods/; the user ruled the repo convention mods/<name>/ (as sleep-guard) wins. Gated .claude/settings.json edit is pending; qa verify waits on it.
