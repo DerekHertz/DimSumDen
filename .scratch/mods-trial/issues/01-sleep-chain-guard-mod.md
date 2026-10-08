@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 **Serves:** Testbed friction: cells poll with `sleep N; cmd` chains, wasting wall time and tokens; the rule exists only as memory. First **mod** and its **mod trial** (spec: `.scratch/mods-trial/spec.md`).
 
@@ -38,3 +38,4 @@ Prior art: `scripts/hooks/context-budget.mjs` and its tests. Load `plugin-author
 ## Comments
 - **product, 2026-10-07:** Handoff: `.scratch/mods-trial/handoffs/01-product.md`. Research that came out of the grill: `docs/research/agent-bridge-landscape-2026-10-07.md` (parked candidates, not part of this ticket).
 - **product, 2026-10-07:** Filed from the mods grill. After merge the orchestrator opens the standing `mods-trial` ticket and starts the 3-orchestrator-handoff clock (spec: Implementation Decisions).
+- **orchestrator, 2026-10-08:** User 2026-10-08: mods tickets skip qa specify and qa verify; the developer writes the tests. Risk-check and PR on green CI stay. Developer (Sonnet) dispatched on feat/mods-01-sleep-chain-guard from ea999bd.
