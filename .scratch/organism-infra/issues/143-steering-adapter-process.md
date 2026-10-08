@@ -21,5 +21,7 @@ Child wrapper over real pipes (a stub script speaks the stream), kill and proces
 - [ ] A stub-script test dispatches, streams, holds and answers a permission request, and kills through the real-pipe wrapper.
 - [ ] No grandchild survives a kill (per the S4b verdict).
 - [ ] `capabilities` reflects the S8 outcome; with (d) the inbox is off.
+- [ ] Shutdown's wait on pending spawns is bounded; past the bound it falls back to `killAllSync`, tested (security finding 3, PR #177).
 
 ## Comments
+- **orchestrator, 2026-10-08:** Added acceptance criterion from security finding 3 on PR #177 (bounded shutdown wait on pending spawns, killAllSync fallback). host.mjs lows 1, 2 and 4 stay optional follow-ups. User approved 2026-10-07.
