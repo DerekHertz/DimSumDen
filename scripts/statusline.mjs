@@ -3,7 +3,9 @@
 //   5h 11% → 19:59Z · wk 51% · ctx 64k/80k · 123: qa verify · gates 2
 // Input: the status-line JSON on stdin (Claude Code docs, statusline page:
 // session_id, transcript_path, context_window.current_usage). Plan usage comes from
-// scripts/usage.mjs through a 60 s on-disk cache; everything else is local files.
+// scripts/usage.mjs through a 60 s on-disk cache (it only saves a spawn: the 5 minute shared cache
+// and the 429 cooldown live in usage-claude.mjs, so a refresh never adds a network call);
+// everything else is local files.
 // Always prints one line and exits 0.
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, openSync, readSync, closeSync } from "node:fs";
 import os from "node:os";

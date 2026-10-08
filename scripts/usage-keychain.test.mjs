@@ -50,6 +50,9 @@ const API = {
   seven_day: { utilization: 21.7, resets_at: "2026-10-05T11:33:20.000Z" },
 };
 const EXPECTED = {
+  // organism-infra/167 (ticket criterion 3): a live reading also carries source and age_s.
+  source: "live",
+  age_s: 0,
   "5-hour": { percent: 53, resets_at: "2026-09-30T20:26:40.000Z", resets_local: "2026-09-30 13:26 PDT" },
   weekly: { percent: 22, resets_at: "2026-10-05T11:33:20.000Z", resets_local: "2026-10-05 04:33 PDT" },
 };
