@@ -47,3 +47,17 @@ State, not rules; the genome wins.
 ## Readings
 - 5-hour 77%, weekly 57%. These come from the session-start hook; `usage.mjs` returned HTTP 429 on every read.
 - Context about 60k at wrap-up.
+
+## Addendum (after the wrap-up)
+- **Product's mods-trial work committed:** the board files on main; `CONTEXT.md` (Mod, Mod trial) and `docs/research/agent-bridge-landscape-2026-10-07.md` via PR #191, merged with the user's yes. The identical pre-merge copies are in this session's scratchpad.
+- **North star re-plan (user yes):**
+  - Filed **den-v1/09 Demo mode** (story 25, the showcase; P1, unblocked). It's a UI ticket, so a designer spec session with the user comes first.
+  - **Split 06 and 07.** They now build the UI against a stub bridge and are unblocked. The live wiring moved to **den-v1/10** (blocked by 106 and 06) and **den-v1/11** (blocked by 107 and 07).
+  - **05 is unchanged:** still blocked by 106 on paper, though all its criteria can be built on fixtures. Ask the user whether to unblock it too.
+- **Two tracks for the next session:**
+  - Runtime: 202 and 143, then 106, then 107, then den-v1/10 and 11.
+  - Den: designer spec for 09 with the user, then 09's relay, then 06 and 07 (each with a design session).
+  - Proposal: one runtime cell plus the 09 designer session in parallel.
+- **Gaps to check when writing specs:**
+  - Story 8 (a waiting panda stands out from the far view) and story 24 (the card usable by keyboard alone) are not in any ticket's acceptance criteria.
+  - Story 23 (token) is missing from 05's criteria.
