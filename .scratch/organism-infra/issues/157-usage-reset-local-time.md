@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** The orchestrator tells the user when the 5-hour window resets in the user's own time, not UTC.
 
@@ -24,3 +24,4 @@ User request 2026-10-06 (system time zone is US Pacific). User decision: add a f
 - [ ] The usage-watch skill edit is written in the handoff for the user to apply.
 
 ## Comments
+- **qa, 2026-10-08:** qa specify: 13 tests in scripts/usage-reset-local.test.mjs (12 red); existing keychain/provider tests extended. AC4 (skill edit) human-verified. See handoffs/157-qa-specify.md

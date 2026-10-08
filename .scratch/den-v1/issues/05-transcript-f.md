@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately; build and test on fixture events, live stream checked when organism-infra/106 lands)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** Den loop step 3 (F opens the live transcript).
 
@@ -28,3 +28,7 @@ The live store in `apps/ui/src/state/` keeps a bounded per-agent ring buffer of 
 - **orchestrator, 2026-10-06:** Now blocked by den-layout (approved breakdown, user 2026-10-06): builds on PR #162's scene once real agents drive it.
 - **orchestrator, 2026-10-07:** Design relay changed (user, 2026-10-07). Before qa specify: `designer` in `spec` mode works *with the user* on a very detailed spec, plus low-cost visuals (static mockups) the user signs off on or annotates. No designer `review` cell. After qa verify the ticket goes `ready-for-human` for the user's own visual critique; findings go to one developer fix round; the user's yes unlocks risk-check and the PR. Genome edit: organism-infra/182.
 - **orchestrator, 2026-10-08:** User 2026-10-08: unblocked. All four criteria build and test on fixture events (feeds Demo mode, den-v1/09); the live stream is checked when organism-infra/106 lands. Add story 23 (token) to the criteria at qa specify.
+- **designer, 2026-10-08:** Designer spec: DRAFT only, user has not signed off. See handoffs/05-designer-spec.md (6 open questions, ASCII sketch, no HTML mockup yet). Do not dispatch qa specify until the user signs off.
+- **orchestrator, 2026-10-08:** The first designer spec cell returned partial (80k context budget); its draft spec is in `handoffs/05-designer-spec.md`. The user settled its six open questions (2026-10-08): (1) right side panel, with a bottom sheet under 600px; (2) buffer cap of 200 events per agent; (3) the panel stays pinned to its agent when the user walks away; (4) tool calls collapsed by default; (5) `Jump to latest (n)`, with no pause toggle; (6) walk mode only. Still to do: a fresh designer makes the static mockups for the user to sign off, then writes the final spec. Do not run qa specify until then.
+- **designer, 2026-10-08:** Designer spec: mockup published https://claude.ai/artifact/TrxWBn9H1igYsiybKEctDa; six questions settled and folded in (handoffs/05-designer-spec-2.md). Awaiting the user's sign-off on the mockup; do not dispatch qa specify until then.
+- **orchestrator, 2026-10-08:** The user signed off the mockup (https://claude.ai/artifact/TrxWBn9H1igYsiybKEctDa) with no notes. They also approved three details as drawn: the role beside the state in the header, a 32px Close on desktop (44px on phone), and the `Jump to latest (n)` pill at the bottom centre. The final spec is `handoffs/05-designer-spec.md` plus the changes in `05-designer-spec-2.md`. At qa specify, add story 23: opening, streaming and closing the transcript makes no network request.
