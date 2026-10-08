@@ -1,4 +1,4 @@
-import { Component, Suspense, useCallback, useMemo, useRef, useState } from "react";
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Canvas, events as defaultEvents } from "@react-three/fiber";
 import { CameraRig } from "./scene/procedural/CameraRig.jsx";
 import { RestaurantDen } from "./scene/procedural/RestaurantDen.jsx";
@@ -7,6 +7,7 @@ import { ProximityCard } from "./overlay/ProximityCard.jsx";
 import { TranscriptPanel, useTranscript } from "./overlay/TranscriptPanel.jsx";
 import { ApprovalPanel, useApprovalReview } from "./overlay/ApprovalPanel.jsx";
 import { createBridgeClient } from "./state/bridge-client.mjs";
+import { approvalDemoParams, createApprovalDemo } from "./scene/approval-fixture.mjs";
 import { createDenCameraStore } from "./scene/procedural/camera.mjs";
 import { STATION_LABELS, TALLY_ANCHOR } from "./scene/procedural/bindings.mjs";
 import { denEvents } from "./scene/procedural/events.mjs";
@@ -32,6 +33,9 @@ class SceneBoundary extends Component {
   render(){return this.state.error?<p className="den-error" role="alert">The 3D den could not load. Your board controls are still available. Reload to try again.</p>:this.props.children;}
 }
 
+const noSubscribe = () => () => {};
+const noSnapshot = () => null;
+
 function activeCount(snapshot) {
   const active = new Set(["claimed", "in-review", "blocked", "ready-for-human"]);
   const refs = new Set(snapshot.tickets.filter((t) => active.has(t.status)).map((t) => t.ref));
@@ -45,8 +49,19 @@ export function App() {
   const [demo] = useState(demoRequested);
   const demoSnapshot = useDemoSnapshot(demo);
   const { connection, metricsRevision } = live;
-  const snapshot = demoSnapshot ?? live.snapshot;
-  const placeholder = demo ? null : panelPlaceholder(connection);
+  // Dev-only approval demo (den-v1/06, scene/approval-fixture.mjs): one pending approval answered by a stub bridge. Never in a production build.
+  const [approvalDemo] = useState(() => {
+    const params = approvalDemoParams(location.search, import.meta.env.DEV);
+    return params ? createApprovalDemo(params) : null;
+  });
+  const approvalDemoSnapshot = useSyncExternalStore(approvalDemo?.subscribe ?? noSubscribe, approvalDemo?.getSnapshot ?? noSnapshot);
+  useEffect(() => {
+    if (!approvalDemo || approvalDemoSnapshot.approvals.some((a) => a.status === "pending")) return undefined;
+    const timer = setTimeout(() => approvalDemo.rearm(), 6000);
+    return () => clearTimeout(timer);
+  }, [approvalDemo, approvalDemoSnapshot]);
+  const snapshot = demoSnapshot ?? approvalDemoSnapshot ?? live.snapshot;
+  const placeholder = demo || approvalDemo ? null : panelPlaceholder(connection);
   const [selected, setSelected] = useState(null);
   const stage = useMemo(() => ({ anchors: new Map(), camera: null, size: null, explorer: null, tallyAnchor: TALLY_ANCHOR }), []);
   const camera = useMemo(() => createDenCameraStore(createCameraStore(),()=>stage.explorer?.exit()), [stage]);
@@ -60,7 +75,7 @@ export function App() {
   const transcriptClose = useRef(null);
   const transcript = useTranscript({ card: nearby, exploring, onOpen: releaseCursor, blocked: reviewOpen });
   transcriptClose.current = transcript.close;
-  const bridge = useMemo(() => createBridgeClient({ fetch: steering.session.fetch }), [steering.session]);
+  const bridge = useMemo(() => approvalDemo?.client ?? createBridgeClient({ fetch: steering.session.fetch }), [steering.session, approvalDemo]);
   const onReviewOpen = useCallback(() => { transcriptClose.current?.(); releaseCursor(); }, [releaseCursor]);
   const approval = useApprovalReview({ client: bridge, card: nearby, exploring, cursorFree, demo, snapshot, onOpen: onReviewOpen });
   reviewOpen.current = approval.state.open;
