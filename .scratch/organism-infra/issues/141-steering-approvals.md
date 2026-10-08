@@ -6,7 +6,7 @@
 
 **Blocked by:** 140
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Den loop step 4 (A/D): the user approves or denies a held permission request.
 

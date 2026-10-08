@@ -2180,3 +2180,9 @@
 {"kind":"usage","ts":"2026-10-08T02:51:18Z","five_hour":null,"weekly":null,"event":"dispatch","ticket":"organism-infra/141-steering-approvals","cell":"security","note":"live reading HTTP 429; last good 31%/51%"}
 {"kind":"context","ts":"2026-10-08T02:51:18Z","session":"4397e7ec-da88-46c7-9084-9c8ce51b9672","context_tokens":78305,"percent":7.83,"event":"dispatch"}
 {"kind":"cell","ts":"2026-10-08T02:52:25.490Z","ticket":"organism-infra/141-steering-approvals","cell":"security","model":"sonnet","tokens":47575,"ms":56931,"outcome":"pass round 2: gitleaks clean, medium fixed, 3 lows accepted","context":45991}
+{"kind":"resolved","ts":"2026-10-08T02:56:40.385Z","ticket":"organism-infra/141-steering-approvals","pr":187,"bounces":1}
+{"kind":"jev-advisory-outcome","ts":"2026-10-08T02:56:44.192Z","ticket":"organism-infra/141-steering-approvals","orchestratorPick":"qa-specify","jevPick":"qa-specify","userChoice":"qa-specify","bounced":true}
+{"kind":"jev-advisory-outcome","ts":"2026-10-08T02:56:44.236Z","ticket":"organism-infra/141-steering-approvals","orchestratorPick":"developer","jevPick":"user","userChoice":"developer","bounced":false}
+{"kind":"usage","ts":"2026-10-08T02:57:14.272Z","five_hour":null,"weekly":null,"event":"merge","ticket":"organism-infra/141-steering-approvals","cell":"orchestrator","note":"usage.mjs HTTP 429; hook reading 35%/51%"}
+{"kind":"context","ts":"2026-10-08T02:57:14.272Z","session":"4397e7ec-da88-46c7-9084-9c8ce51b9672","context_tokens":37402,"percent":3.74,"event":"merge"}
+{"kind":"incident","ts":"2026-10-08T02:57:14.272Z","ticket":"organism-infra/141-steering-approvals","cell":"orchestrator","tool":"Bash","what":"worktree-gc leaves superseded unmerged worktrees from a rebuilt branch (old feat/141, 18c30d4, 4108cbf); force-remove plus branch -D was denied by the permission classifier","cost":"3 stale worktrees left for the user","fix":"user removes them or approves a force remove","rule_change":null}
