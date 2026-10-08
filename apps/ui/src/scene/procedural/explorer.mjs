@@ -20,6 +20,11 @@ export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=(
       if(pending?.catch)pending.catch(fallback);
     }catch{fallback();}
   }
+  // Release the pointer lock without leaving the den (Tab does this too), so cards and panels can be clicked.
+  function freeCursor(){
+    if(!active||document.pointerLockElement!==canvas)return;
+    freeCursorRequested=true;keys.clear();drag=null;look={dx:0,dy:0};document.exitPointerLock();
+  }
   function enter(){
     if(active)return;
     active=true;freeCursorRequested=false;keys.clear();look={dx:0,dy:0};state=startWalk();
@@ -46,9 +51,9 @@ export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=(
     if(!active)return;
     if(e.code==='Escape'){e.preventDefault();exit();return;}
     if(e.code==='Tab'&&document.pointerLockElement===canvas){
-      e.preventDefault();freeCursorRequested=true;keys.clear();drag=null;look={dx:0,dy:0};document.exitPointerLock();return;
+      e.preventDefault();freeCursor();return;
     }
-    if(e.target.closest?.('input,select,textarea,button,a,[contenteditable],[role="dialog"]'))return;
+    if(e.target.closest?.('input,select,textarea,button,a,[contenteditable],[role="dialog"],.transcript-panel'))return;
     if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'].includes(e.code)){
       e.preventDefault();keys.add(e.code);
     }
@@ -101,5 +106,5 @@ export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=(
   }
   function resize(aspect){camera.aspect=aspect;camera.updateProjectionMatrix();}
   function dispose(){exit();for(const remove of listeners)remove();}
-  return {camera,enter,exit,capture,update,resize,bindButton,dispose,blocked,get active(){return active;}};
+  return {camera,enter,exit,capture,freeCursor,update,resize,bindButton,dispose,blocked,get active(){return active;}};
 }
