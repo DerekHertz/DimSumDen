@@ -84,6 +84,7 @@ export function App() {
   // den-v1/07: T opens the message composer. Message acknowledgements reach it as composer.observe(event) once the live runtime feeds the event stream (den-v1/11).
   const message = useMessageComposer({ client: bridge, card: nearby, exploring, cursorFree, demo, snapshot, onOpen: releaseCursor, blocked: approvalOpen });
   messageClose.current = message.composer.close;
+  useEffect(() => approvalDemo?.onEvent((event) => message.composer.observe(event)), [approvalDemo, message.composer]); // dev-only demo acks (scene/approval-fixture.mjs)
   approvalOpen.current = approval.state.open;
   reviewOpen.current = approval.state.open || message.state.open; // the transcript keys stand down while either panel is open
   const [exploreHint,setExploreHint]=useState('WASD / arrows to walk · drag to look · Esc to leave');
