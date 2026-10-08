@@ -72,3 +72,15 @@ Adopt mods as a project-scope plugin path, proven first with one own guardrail m
 - Hook-based enforcement of the sleep-chain rule currently relies on memory/instructions; the mod makes it mechanical.
 - Facts from the scout: plugin hooks run inside subagents; `-p` is unconfirmed (hence the spike). A timed-out hook does not block. Deny is either exit 2 with stderr, or exit 0 with a JSON `permissionDecision: deny`. `scripts/hooks/context-budget.mjs` and its tests are the prior art.
 - The seam (hook entry) is confirmed by the user.
+
+## Candidate mods (parked; user, 2026-10-08)
+
+From a video tour of Claude Mods, sorted with the orchestrator. They queue behind the sleep-guard trial; the next one is picked at its verdict, one at a time (refocus guardrail). Each still needs its own spec and grill.
+
+- **Blast Radius**: our own guard that stops risky commands (`rm -rf`, force-push, edits on `main`) for a human yes. Related: 203 (isolation guard).
+- **You Should Know (cheap)**: a hook that scans output for risk lines (failed, skipped, `Environment issues`, bypassed) without an LLM. No background agent, because of the Pro plan.
+- **Cache Tax**: warns before a prompt forces an expensive cache reload. Check overlap with `context-budget` first; `/keepwarm` would cost tokens, so it needs its own case.
+- **File Tree**: a pane showing files read, edited and committed in the session.
+- **PR visualizer** (user's own idea): two views of a branch or PR. A *map* shows changed files grouped by module, edits highlighted, plus their importers. A *story* shows the edits in order (tests → code → wiring). Mechanical only (git diff, paths, imports; no LLM). It renders as an HTML page per PR (the mod pane shows a summary and the link), and later moves into the den.
+- Dropped: Savvy Progress (the den's job), Reflect (memory, context-store and retro cover it), Terminal Browser (browser preview MCP), Replay Theater (Code tab diff, den later), Skins.
+- Display: the user will run orchestrator sessions from terminal `claude` in WSL, so panes and bands draw. The Code tab on WSL desktop runs hooks only.
