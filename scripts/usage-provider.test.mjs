@@ -14,8 +14,8 @@ const five = { usedPercent: 53.4, windowDurationMins: 300, resetsAt: 1790800000 
 const week = { usedPercent: 21.7, windowDurationMins: 10080, resetsAt: 1791200000 };
 const codex = (primary = five, secondary = week) => ({ limitId: "codex", limitName: "Codex", primary, secondary });
 const EXPECTED = {
-  "5-hour": { percent: 53, resets_at: "2026-09-30T20:26:40.000Z" },
-  weekly: { percent: 22, resets_at: "2026-10-05T11:33:20.000Z" },
+  "5-hour": { percent: 53, resets_at: "2026-09-30T20:26:40.000Z", resets_local: "2026-09-30 13:26 PDT" },
+  weekly: { percent: 22, resets_at: "2026-10-05T11:33:20.000Z", resets_local: "2026-10-05 04:33 PDT" },
 };
 
 const FAKE_CLI = `#!${process.execPath}
@@ -83,7 +83,7 @@ globalThis.fetch=async(url)=>{appendFileSync(${JSON.stringify(fetched)},String(u
 if(!${JSON.stringify(claude)}) throw new Error('network forbidden in Codex fixture');
 return new Response(JSON.stringify({five_hour:{utilization:53.4,resets_at:'2026-09-30T20:26:40.000Z'},seven_day:{utilization:21.7,resets_at:'2026-10-05T11:33:20.000Z'}}));};`);
   // Only the fixture bin is searched: a missing CLI must never find the real Codex.
-  const env = { ...process.env, HOME: root, USERPROFILE: root, PATH: bin, TMPDIR: runtime,
+  const env = { ...process.env, TZ: "America/Los_Angeles", HOME: root, USERPROFILE: root, PATH: bin, TMPDIR: runtime,
     FAKE_TRACE: trace, FAKE_PID: pidfile, FAKE_RESPONSE: JSON.stringify(response), FAKE_MODE: mode, USAGE_CODEX_TIMEOUT_MS: timeout };
   delete env.CLAUDE_CODE_REMOTE;
   delete env.CODEX_HOME;
