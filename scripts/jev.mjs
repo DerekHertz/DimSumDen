@@ -436,7 +436,7 @@ function logPointRow(point, opts, root, usageRows, now) {
 
 // organism-infra/77: --tests must be a regular, non-symlink file of at most 1 MB, and neither its path
 // nor its realpath may be denied. Returns the text, or an error message.
-function readTests(p) {
+export function readTests(p) {
   let fd;
   try {
     if (lstatSync(p).isSymbolicLink()) return { error: "--tests must not be a symlink" };
