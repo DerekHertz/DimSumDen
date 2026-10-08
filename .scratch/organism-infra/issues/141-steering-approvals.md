@@ -6,7 +6,7 @@
 
 **Blocked by:** 140
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 **Serves:** Den loop step 4 (A/D): the user approves or denies a held permission request.
 
@@ -24,3 +24,4 @@ Approval store (minted ids, bound to agent, 10-minute expiry, 20 per agent cap);
 - [ ] Secrets are masked and bidi characters escaped in served input, `tool.summary` and notes.
 
 ## Comments
+- **developer, 2026-10-08:** Dev correction: full npm test on 4108cbf shows 2 failures of 2467 (names unknown; scout output at /tmp/claude-1000/npmtest.out lacks them). host-approvals 32/32 green. Rerun npm test 2>&1 | grep '^not ok' in the worktree and fix. Suspects: onChange signature, approvals in snapshot, Content-Type skipped for GET. Not a clean in-review.

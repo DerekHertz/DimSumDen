@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** every relay (the context-budget partial-return path from organism-infra/119). Two architect returns on 136 (2026-10-07) delivered no report to the orchestrator, which then had to rebuild the return from board state.
 
