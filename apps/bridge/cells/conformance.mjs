@@ -1135,12 +1135,19 @@ async function compareS6bAllow(ctx, wt, outDir) {
     writeFileSync(local, JSON.stringify({ ...base, permissions: { ...base.permissions, allow } }));
     repoWritten = await s6bAllowProbe(ctx, ctx.repo, "compare-repo", outDir);
   } finally {
-    if (before) writeFileSync(local, before);
-    else rmSync(local, { force: true });
-    for (const [f, bytes] of backups) {
-      if (bytes) writeFileSync(f, bytes);
-      else rmSync(f, { force: true });
-    }
+    // Each restore is guarded on its own, so one that fails does not skip the others. Failures are reported after all ran.
+    const failed = [];
+    const restore = (f, bytes) => {
+      try {
+        if (bytes) writeFileSync(f, bytes);
+        else rmSync(f, { force: true });
+      } catch (e) {
+        failed.push(`${f}: ${e.message}`);
+      }
+    };
+    restore(local, before);
+    for (const [f, bytes] of backups) restore(f, bytes);
+    if (failed.length) throw new Error(`S6b could not restore the main checkout: ${failed.join("; ")}`);
   }
   lines.push(`comparison 2 (main checkout ${ctx.repo} as cwd, allow Write(allowed.txt), no --agent): allowed.txt ${repoWritten ? "WAS written" : "was NOT written"}`);
   return lines;
