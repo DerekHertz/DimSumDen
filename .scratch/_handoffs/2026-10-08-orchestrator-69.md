@@ -8,7 +8,7 @@ These notes record state only. Where they conflict with the genome, the genome w
 - 141 fix round: 6efaaa1, my run 2468/2468 (/tmp/141-tests.txt). Light verify (haiku) saw 4 browser/smoke timeouts under contention, criteria all pass, escalated to full verify.
 
 ## In flight
-- **141 qa full verify** (genome model, detached at 6efaaa1, handoff name `141-qa-verify-2.md`). On return: log-cell, remove worktree, risk-check via scout (expect security: new routes; security should also judge the runtime-built fake secrets in host-approvals.test.mjs:45, :414), PR, merge on green, resolve, advisory-outcome row (orchestrator qa-specify, Jev qa-specify, user qa-specify).
+- **141 QA PASS (full verify, 6efaaa1, 2468/2468, handoff 141-qa-verify-2.md).** log-cell still owed (take tokens/ms from its task notification; context 37313). Open point: over the cap the store denies the oldest pending approval (cap-exceeded), not the new one; check the ADR intends it. Next: remove worktree agent-a88fda6c2eeabb3e2, risk-check via scout (expect security: new routes; security should also judge the runtime-built fake secrets in host-approvals.test.mjs:45, :414), PR, merge on green, resolve, advisory-outcome row (orchestrator qa-specify, Jev qa-specify, user qa-specify).
 - **194**: QA PASS (95eb3b0, handoff 194-qa-verify.md, 2423/2423 x3). The first qa cell resumed when its scout returned and adopted the reclaimed lock; no force release needed. Next: remove worktree agent-ad42a4a932b87c7c9, risk-check via scout, PR, merge on green, resolve, advisory-outcome row.
 
 ## Waiting on the user

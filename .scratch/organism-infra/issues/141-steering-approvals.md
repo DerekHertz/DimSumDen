@@ -25,3 +25,4 @@ Approval store (minted ids, bound to agent, 10-minute expiry, 20 per agent cap);
 
 ## Comments
 - **developer, 2026-10-08:** Dev correction: full npm test on 4108cbf shows 2 failures of 2467 (names unknown; scout output at /tmp/claude-1000/npmtest.out lacks them). host-approvals 32/32 green. Rerun npm test 2>&1 | grep '^not ok' in the worktree and fix. Suspects: onChange signature, approvals in snapshot, Content-Type skipped for GET. Not a clean in-review.
+- **qa, 2026-10-08:** QA pass (full verify, 6efaaa1): npm test 2468/2468, no skips. Test edits in bridge-auth.test.mjs:332-333 and host-approvals.test.mjs:45,:414 do not weaken assertions. All 4 criteria map to passing tests. See 141-qa-verify-2.
