@@ -41,7 +41,7 @@ function diff(prev, next) {
 
 // agents: () => the live and replayed agents for the snapshot (organism-infra/140); they come from the steering host,
 // not from .scratch, and reach clients through publish() as soon as they change.
-export function createHub(root, { agents = () => [] } = {}) {
+export function createHub(root, { agents = () => [], approvals = () => [] } = {}) {
   const scratch = path.join(root, ".scratch");
   const clients = new Set();
   let seq = 0;
@@ -116,7 +116,7 @@ export function createHub(root, { agents = () => [] } = {}) {
     ready: refresh(),
     async snapshot() {
       await refresh();
-      return { ...current, agents: agents(), seq };
+      return { ...current, agents: agents(), approvals: approvals(), seq };
     },
     // An agent change goes out at once (no debounce, no 2 s net): { type: "agent", agent: object | null }.
     publish(change) {

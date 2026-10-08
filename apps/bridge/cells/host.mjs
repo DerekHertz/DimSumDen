@@ -9,9 +9,10 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { hasSecret } from "../../../scripts/exposure.mjs";
 import {
   AGENT_ID_RE, KILL_GRACE_MS, LIVE_STATES, MAX_CONCURRENT_AGENTS, MODES, REF_RE, RELAY_HOP_ROLES, ROLES, SESSION_CAP,
-  USAGE_REFUSE_AT,
+  USAGE_REFUSE_AT, APPROVAL_TTL_MS,
 } from "./policy.mjs";
 import { createSessions } from "./sessions.mjs";
+import { createApprovalStore } from "./approvals.mjs";
 
 const HISTORY_CAP = 200; // ended agents kept in the snapshot, oldest dropped first
 const EVENT_DRAIN_MS = 250; // how long to wait for the event stream to end after the process exits
@@ -44,7 +45,29 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     startedAt: a.startedAt, lastEventAt: a.lastEventAt, tool: a.tool, tokens: a.tokens, capabilities: a.capabilities,
     resume: a.resume, reason: a.reason,
   });
-  const publish = (a) => onChange(view(a));
+  const publish = (a) => onChange({ type: "agent", agent: view(a) });
+  // Held permission requests (organism-infra/141). The store knows no process; these callbacks are its only way out.
+  const approvals = createApprovalStore({
+    ttlMs: Math.min(policy.approvalTtlMs ?? APPROVAL_TTL_MS, APPROVAL_TTL_MS),
+    canAnswer: (id) => !!agents.get(id)?.proc && !agents.get(id).exited,
+    isLive: (id) => { const a = agents.get(id); return !!a?.proc && !a.exited && !a.stopRequested; },
+    answer: (id, requestId, verdict) => agents.get(id).proc.decide(requestId, verdict),
+    audit: ({ approval, decision, note }) =>
+      sessions.append({ event: "decision", agentId: approval.agentId, ref: agents.get(approval.agentId)?.ref, approvalId: approval.id, decision, route: "POST /approvals/:id", ...(note ? { note } : {}) }),
+    onChange: (approval) => {
+      onChange({ type: "approval", approval });
+      syncWaiting(agents.get(approval.agentId));
+    },
+  });
+  // An agent with a pending approval waits on the user; once none is pending it shows the state its runtime reported.
+  function syncWaiting(agent) {
+    if (!agent || agent.exited || agent.stopRequested || !agent.proc) return;
+    const want = approvals.pending(agent.id) > 0 ? "waiting_on_user" : agent.reportedState;
+    if (agent.state === want) return;
+    agent.state = want;
+    agent.lastEventAt = new Date().toISOString();
+    publish(agent);
+  }
   const resumeFor = (sessionId) => (runtime ? runtime.resumeCommand(sessionId) : null);
 
   async function replay() {
@@ -105,7 +128,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
         stop: runtime.capabilities?.stop === true, approve: runtime.capabilities?.approve === true,
         send: runtime.capabilities?.send === true, handover: runtime.capabilities?.handover === true,
       },
-      resume: null, reason: null, proc: null, exited: false, killing: null, stopRequested: false, doneOk: null,
+      resume: null, reason: null, proc: null, reportedState: "working", exited: false, killing: null, stopRequested: false, doneOk: null,
     };
     agent.lastEventAt = agent.startedAt;
     liveByRef.set(ref, agent);
@@ -181,9 +204,14 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     else if (event.type === "usage") {
       if (!nonNegative(event.input) || !nonNegative(event.output)) return;
       agent.tokens = { input: event.input, output: event.output };
+    } else if (event.type === "permission-request") {
+      if (!agent.capabilities.approve) return;
+      approvals.hold(agent.id, event, { accepting: !agent.stopRequested && !shuttingDown });
+      return;
     } else if (event.type === "state") {
       if (!LIVE_STATES.includes(event.state) || agent.stopRequested) return;
-      agent.state = event.state;
+      agent.reportedState = event.state;
+      agent.state = approvals.pending(agent.id) > 0 ? "waiting_on_user" : event.state;
     } else if (event.type === "done") agent.doneOk = event.ok === true;
     else changed = false;
     if (!changed) return;
@@ -197,6 +225,8 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     const ok = agent.doneOk ?? agent.exitCode === 0;
     agent.state = agent.stopRequested ? "terminated" : ok ? "done" : "failed";
     agent.tool = null;
+    approvals.settleAgent(agent.id, "agent-exited");
+    approvals.release(agent.id);
     agent.resume = resumeFor(agent.sessionId);
     agent.lastEventAt = new Date().toISOString();
     if (liveByRef.get(agent.ref) === agent) liveByRef.delete(agent.ref);
@@ -221,6 +251,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       }
     };
     agent.killing = (async () => {
+      approvals.settleAgent(agent.id, reason === "bridge-shutdown" ? "bridge-shutdown" : "agent-stopped"); // answers deny while the child can hear
       step(() => agent.proc.closeInput());
       if (await exitedWithin(graceMs)) return;
       step(() => agent.proc.signal("SIGTERM"));
@@ -273,5 +304,8 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     shutdown,
     killAllSync,
     snapshot: () => [...agents.values()].map(view),
+    approvals: () => approvals.list(),
+    approval: (id) => approvals.read(id),
+    decide: (id, body) => approvals.decide(id, body),
   };
 }

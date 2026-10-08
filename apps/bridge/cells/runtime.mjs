@@ -13,8 +13,10 @@
 //   }
 //   CellEvent = { type: "tool-start", name, summary } | { type: "tool-end" } | { type: "usage", input, output }
 //             | { type: "state", state } | { type: "done", ok }
+//             | { type: "permission-request", requestId, tool, input }   (organism-infra/141; requestId is the child's opaque key)
+//   CellProcess also has decide(requestId, { allow, reason? }) -> Promise   (answers a held permission request)
 
-const CAPABILITIES = { spawn: true, stop: true, approve: false, send: false, handover: true };
+const CAPABILITIES = { spawn: true, stop: true, approve: true, send: false, handover: true };
 
 // A fake runtime with test controls: see the contract at the top of host-core.test.mjs.
 //   config: spawnDelayMs, stdinCloseEnds, sigtermEnds, sigkillEnds, failSpawn (all mutable at runtime.config)
@@ -57,6 +59,7 @@ function makeRecord(args, handle, config, onExit) {
     handle,
     calls: [],
     exited: false,
+    decisions: [], // every decide() call, in order (organism-infra/141)
     emit(event) {
       if (record.exited) return;
       const w = waiting.shift();
@@ -91,6 +94,10 @@ function makeRecord(args, handle, config, onExit) {
       },
     },
     closeInput: () => call("closeInput", config.stdinCloseEnds),
+    decide: (requestId, { allow, reason } = {}) => {
+      record.decisions.push({ requestId, allow, reason });
+      return Promise.resolve();
+    },
     signal: (sig) => call(sig, sig === "SIGTERM" ? config.sigtermEnds : config.sigkillEnds, sig),
     exited,
   };
