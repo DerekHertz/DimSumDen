@@ -2490,3 +2490,4 @@
 {"kind":"resolved","ts":"2026-10-08T21:32:44.277Z","ticket":"den-v1/07-message-t","pr":201,"bounces":0}
 {"kind":"jev-advisory-outcome","ts":"2026-10-08T21:32:44.331Z","ticket":"den-v1/07-message-t","orchestratorPick":"designer","jevPick":"qa-specify","userChoice":"designer","bounced":false}
 {"kind":"usage","ts":"2026-10-08T21:32:44Z","five_hour":32,"weekly":74,"event":"merge","ticket":"den-v1/07-message-t","cell":"orchestrator","note":"live read HTTP 429; last reading"}
+{"kind":"retro","ts":"2026-10-08T21:42:11Z","window_from":"2026-10-08T18:21:13Z","items":11,"fixes":[{"cause":"cell runs past 80k context","tool":"other","kind":"code","ref":"organism-infra/208"},{"cause":"haiku qa runs full verify instead of light","tool":"other","kind":"code","ref":"organism-infra/207"},{"cause":"browser test hang/flake","tool":"npm","kind":"code","ref":"organism-infra/206"}]}

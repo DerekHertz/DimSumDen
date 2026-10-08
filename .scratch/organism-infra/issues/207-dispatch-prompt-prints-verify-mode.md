@@ -2,7 +2,7 @@
 
 **Type:** chore
 
-**Priority:** P2
+**Priority:** P1
 
 **Blocked by:** None (can start immediately)
 
@@ -24,3 +24,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-10-08):** incident logged in usage.jsonl (den-v1/06 qa verify).
+- **Retro (orchestrator, 2026-10-08):** happened again on den-v1/07 (haiku qa ran full). The wording fix failed, so this is now P1 and the next infra ticket (user approved).

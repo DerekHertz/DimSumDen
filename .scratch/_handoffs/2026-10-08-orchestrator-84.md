@@ -1,14 +1,17 @@
 # Orchestrator handoff 84 (2026-10-08)
 
 ## State
-- **In flight: den-v1/07** in-review: user critique PASSED ("looks fine", 2026-10-08). Next is risk-check via scout, then PR. Branch `feat/07-message-t` @ c1229c5 (qa specify 5b46f9d, developer ceffa71, fix round 1 c1229c5). Developer worktree `.claude/worktrees/agent-a6924e0561e1422c2` holds the branch, clean; `~/den-07` symlinks to it. Earlier dev worktree `agent-aaf430e96d36846dd` is detached and clean (gc later).
-- Critique: `cd ~/den-07 && npm run ui:dev`, open `localhost:5173/?demo=approval`, walk to a panda, T, Enter. `noack` in text = stalled line at 20 s; `&refuse=429` / `&refuse=409` = refusal banners.
-- qa verify passed (ran full on haiku, should have been light; incident logged). Suite 2963/2963 after fix round. Non-blocking qa notes are in `07-qa-verify.md` (whitespace on bridge-client.mjs:5; 401 after close dropped silently).
-- **Next relay steps for 07:** user findings go to one developer fix round (handoff `07-developer-3.md`). On the user's yes: risk-check via scout, then PR, CI, merge, `board resolve`, worktree-gc. Then log `advisory-outcome --ticket den-v1/07-message-t --orchestrator designer --jev qa-specify --user designer --bounced false`.
-- **Incidents:** the developer ran to about 110k context and skipped /code-review instead of returning partial (7th context-budget incident, so it's due for the retro). qa haiku ran full verify instead of light (see organism-infra/207).
-- **Done this session:** dropped all 48 `refs/backup` pins (user's yes). Designer spec for 07 is copied into the ticket.
+- **Resolved: den-v1/07** (message composer). PR #201 merged at d09e37f on green CI. Relay: designer spec → qa specify → developer → qa verify → one fix round for the demo stub → user critique ("looks fine") → risk-check hit (2 test files) → security pass. The advisory-outcome row is logged. Worktrees gc'd, `~/den-07` symlink removed.
+- **Security note for den-v1/11:** re-review the bridge's server-side enforcement for `POST /agents/:id/message` (the 2 KB limit, the agent-id check, the localhost bind). Low cosmetic finding: whitespace at `FALLBACK =(status)` in bridge-client.mjs.
+- **Retro done (11 items, user approved 3 fixes):**
+  - Filed organism-infra/208 (P1): a hook that stops a cell's work at 80k context.
+  - organism-infra/207 is raised to P1 (dispatch-prompt prints the verify mode) and is the next infra ticket.
+  - organism-infra/206 is raised to P2 (the browser test flake).
+- **Incidents this session:** the developer ran to ~110k; qa on Haiku ran full verify instead of light; scout's `npm test` passed the 120 s Bash timeout. When scouts run the suite, tell them to use a 600000 ms timeout.
+- **Usage API:** returned HTTP 429 twice this session; a retry worked.
 - **Gated:** `136-jev-go-live-genome.patch` is stale and needs regenerating.
-- **Retro:** not run; due at the end of this session or after the next resolve.
 
 ## Next
-1. Finish den-v1/07 (above). 2. Fresh session: den-v1/09 (designer spec with the user first).
+1. Fresh session. Frontier picks:
+   - den-v1/09: a designer spec with the user first, in a terminal: `claude --agent designer`.
+   - Or infra 207 / 208, which are cheap code fixes for repeat incidents.
