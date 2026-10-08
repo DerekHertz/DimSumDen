@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Relay hygiene (pipeline-retro 2026-10-08).
 
@@ -25,3 +25,4 @@ Three cells (141 developer, 194 qa, 142 qa) sent the full `npm test` run to a ba
 - **orchestrator, 2026-10-08:** Filed from the pipeline-retro on the user's yes.
 - **qa, 2026-10-08:** reclaim: haiku qa verify returned partial without handoff; re-dispatching verify
 - **qa, 2026-10-08:** QA pass (full verify, a3ead5a). Criteria 1, 2 and 4 covered by passing specify tests; saved suite 2605 pass, 0 fail, 0 skipped. Criterion 3 human-verified. Gate note: .claude/agents/orchestrator.md:41,52 changed on the branch; the same change is also in the gated patch. Details in handoff.
+- **security, 2026-10-08:** Security pass (a3ead5a). No critical/high. Low: dispatch-prompt.mjs:158 path unescaped in prompt line (orchestrator-chosen, no fix); :119-127 check-then-use gap, negligible. gitleaks clean; no deps/CI changes. See 198-security.md.
