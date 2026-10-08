@@ -2176,3 +2176,4 @@
 {"kind":"jev","ts":"2026-10-08T02:47:03.275Z","ticket":"organism-infra/141-steering-approvals","point":"verify","pick":"light","actual":"light","cost":0.00023293200000000004,"conf":0.69,"mode":"shadow","fallback":null,"floor":null,"ms":855,"model":"jev-1.13.0"}
 {"kind":"usage","ts":"2026-10-08T02:47:17Z","five_hour":31,"weekly":51,"event":"dispatch","ticket":"organism-infra/141-steering-approvals","cell":"qa"}
 {"kind":"context","ts":"2026-10-08T02:47:17Z","session":"4397e7ec-da88-46c7-9084-9c8ce51b9672","context_tokens":62871,"percent":6.29,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-08T02:50:36.940Z","ticket":"organism-infra/141-steering-approvals","cell":"qa","mode":"verify","model":"haiku","tokens":53212,"ms":187414,"outcome":"pass: 2475/2475, criteria mapped incl. span masking tests","context":51363}
