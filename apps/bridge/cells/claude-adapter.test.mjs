@@ -434,7 +434,8 @@ describe("parseClaudeLine: hostile input never throws and never yields an event 
       { type: "assistant", message: null },
       { type: "assistant", message: { content: "text, not blocks" } },
       { type: "assistant", message: { content: [null, 1, "x", [], {}] } },
-      { type: "user", message: { content: [{ type: "tool_result" }, null] } === undefined ? 0 : { content: 5 } },
+      { type: "user", message: { content: 5 } },
+      { type: "user", message: { content: [{ type: "tool_result" }, null, 3] } },
       { type: "result", subtype: 5, is_error: "yes" },
     ]) {
       const events = parse(JSON.stringify(o));
@@ -604,7 +605,8 @@ describe("encodeControlResponse: only ever a bare decision (ADR 0016 6.5)", () =
 
   test("allow is the shape the CLI honoured in S3: the same line as the conformance script's, updatedInput equal to the request input", () => {
     const line = need("encodeControlResponse")({ requestId: id, allow: true, input });
-    assert.equal(line, controlResponseLine(id, "allow", input));
+    assert.ok(line.endsWith("\n"), "one stdin line, newline-terminated");
+    assert.deepEqual(JSON.parse(line), JSON.parse(controlResponseLine(id, "allow", input)));
     assert.deepEqual(parse(line), {
       type: "control_response",
       response: { subtype: "success", request_id: id, response: { behavior: "allow", updatedInput: input } },
@@ -668,16 +670,18 @@ describe("encodeControlResponse: only ever a bare decision (ADR 0016 6.5)", () =
   });
 
   test("a request id that is not a string of at most 128 characters is refused rather than echoed", () => {
+    const encode = need("encodeControlResponse");
     for (const requestId of [undefined, null, 7, {}, ["a"], "k".repeat(129)]) {
-      assert.throws(() => need("encodeControlResponse")({ requestId, allow: false, input: {} }), `requestId ${JSON.stringify(requestId)?.slice(0, 20)}`);
+      assert.throws(() => encode({ requestId, allow: false, input: {} }), `requestId ${JSON.stringify(requestId)?.slice(0, 20)}`);
     }
     const ok = parse(need("encodeControlResponse")({ requestId: "k".repeat(128), allow: false, input: {} }));
     assert.equal(ok.response.request_id, "k".repeat(128));
   });
 
   test("an allow without a plain-object input is refused: the encoder will not invent or widen the input", () => {
+    const encode = need("encodeControlResponse");
     for (const input of [undefined, null, [], "ls", 5]) {
-      assert.throws(() => need("encodeControlResponse")({ requestId: "r-8", allow: true, input }), `input ${JSON.stringify(input)}`);
+      assert.throws(() => encode({ requestId: "r-8", allow: true, input }), `input ${JSON.stringify(input)}`);
     }
   });
 
