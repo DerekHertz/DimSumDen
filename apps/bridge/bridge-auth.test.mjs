@@ -37,6 +37,23 @@ const BODIES = {
     bogus: {},
     prepare: async () => (await bridge.host.start({ ref: `${FEATURE}/31-auth-stop`, role: "scout" })).agent.id,
   },
+  // organism-infra/141: an approval needs a live agent holding a permission request; `prepare` makes one and returns
+  // its minted id. A deny needs no prior GET, so the authenticated happy path is a plain 200.
+  "POST /approvals/:id": {
+    real: { decision: "deny" },
+    bogus: { decision: "deny" },
+    prepare: async () => {
+      const { agent } = await bridge.host.start({ ref: `${FEATURE}/32-auth-approve`, role: "scout" });
+      fake.spawns.at(-1).emit({ type: "permission-request", requestId: "auth-r1", tool: "Bash", input: { command: "ls" } });
+      for (let i = 0; i < 100; i += 1) {
+        const state = await send(bridge, { path: "/state" });
+        const found = state.body?.approvals?.find((a) => a.agentId === agent.id);
+        if (found) return found.id;
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      throw new Error("the fake runtime's permission request never became an approval");
+    },
+  },
 };
 // Path parameters: a registry path like "/cells/:id/stop" is exercised with each value.
 const fill = (pattern, value) => pattern.replace(/:\w+/g, value);
