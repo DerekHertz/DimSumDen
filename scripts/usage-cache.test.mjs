@@ -23,7 +23,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const USAGE = path.join(ROOT, "scripts", "usage.mjs");
 const STATUSLINE = path.join(ROOT, "scripts", "statusline.mjs");
-const TOKEN = "SECRET-TOKEN-167-abcdef";
+const TOKEN = ["synthetic", "usage", "cache", "167", "marker"].join("-");
 const OK_BODY = {
   five_hour: { utilization: 42, resets_at: "2026-10-09T00:00:00.000Z" },
   seven_day: { utilization: 10, resets_at: "2026-10-12T00:00:00.000Z" },
