@@ -2,20 +2,23 @@
 // organism-infra/147: print the mandatory lines of a relay dispatch prompt, so the orchestrator pastes them instead of
 // writing them by hand (wrong ticket paths and cell-start run from the main checkout cost cells retries).
 // Usage: node scripts/dispatch-prompt.mjs --ticket <feature>/<NN-slug> --cell <type> [--mode <m>]
-//                                         [--base <sha> | --branch <b>] [--continue] [--batch <name>]
+//                                         [--base <sha> | --branch <b>] [--continue] [--batch <name>] [--tests <file>]
 // Prints: the ticket path (with issues/, checked to exist), the cell-start line with the flags for this cell and mode, a note
 // that it runs inside the cell's worktree, the handoff path to write (a new name when an earlier one is already published),
 // the context line (architect, qa specify and developer only, and only when dispatch-context.mjs gives a path), and the
-// release flag for this hop. The only side effect is that dispatch-context may write its own context file and usage row.
+// release flag for this hop. With --tests <file> (qa verify only; organism-infra/198) it also prints one line naming the saved
+// developer suite output, which qa uses as the suite result instead of re-running it; the file must pass the same exposure
+// check as `jev.mjs verify --tests` (regular non-symlink file, not denied, at most 1 MB). The only side effect is that dispatch-context may write its own context file and usage row.
 // Bad arguments exit 2 with the reason on stderr and nothing on stdout.
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveRoot } from "../apps/organism-infra/board-service.mjs";
+import { readTests } from "./jev.mjs";
 
 const USAGE =
-  "usage: node scripts/dispatch-prompt.mjs --ticket <feature>/<NN-slug> --cell <type> [--mode <m>] [--base <sha> | --branch <b>] [--continue] [--batch <name>]";
+  "usage: node scripts/dispatch-prompt.mjs --ticket <feature>/<NN-slug> --cell <type> [--mode <m>] [--base <sha> | --branch <b>] [--continue] [--batch <name>] [--tests <file>]";
 
 // style: "branch" starts on a branch (writes code or tests), "detach" starts detached (a reviewer), "either" uses --branch when given.
 // release: "keep" = --keep-status, otherwise the --status value.
@@ -39,7 +42,7 @@ const SPECS = {
   },
 };
 
-const VALUE_FLAGS = new Set(["--ticket", "--cell", "--mode", "--base", "--branch", "--batch"]);
+const VALUE_FLAGS = new Set(["--ticket", "--cell", "--mode", "--base", "--branch", "--batch", "--tests"]);
 
 function parseArgs(argv) {
   const opts = { continue: false };
@@ -65,6 +68,7 @@ function parseArgs(argv) {
     spec = cell.modes[opts.mode];
     if (!spec) return { error: `unknown ${opts.cell} mode ${opts.mode} (one of ${Object.keys(cell.modes).join(", ")})` };
   } else if (opts.mode) return { error: `${opts.cell} takes no --mode` };
+  if (opts.tests !== undefined && !(opts.cell === "qa" && opts.mode === "verify")) return { error: "--tests applies to qa verify only" };
   if (!opts.base) return { error: "--base <sha> is required (cell-start needs it)" };
   if (spec.style === "branch" && !opts.branch) return { error: `${opts.cell}${opts.mode ? ` ${opts.mode}` : ""} needs --branch <name>` };
   return { ...opts, spec };
@@ -112,6 +116,15 @@ function main(argv) {
     process.stderr.write(`dispatch-prompt: ${e.message}\n`);
     return 2;
   }
+  let testsFile;
+  if (opts.tests !== undefined) {
+    const t = readTests(opts.tests);
+    if (t.error) {
+      process.stderr.write(`dispatch-prompt: ${t.error}\n${USAGE}\n`);
+      return 2;
+    }
+    testsFile = path.resolve(opts.tests);
+  }
   const [feature, slug] = opts.ticket.split("/");
   const ticketFile = path.join(root, ".scratch", feature, "issues", `${slug}.md`);
   if (!existsSync(ticketFile)) {
@@ -142,6 +155,7 @@ function main(argv) {
     const ctx = contextPath(opts.ticket, process.env);
     if (ctx) lines.push(`Start-here context: ${ctx} (jg output; read before searching; may be incomplete or stale)`);
   }
+  if (testsFile) lines.push(`Suite result: the developer's full npm test output is saved at ${testsFile}. Use it as the suite result; do not re-run the suite.`);
   lines.push(
     `Write your handoff to ${path.join(handoffsDir, name)} with the handoff skill: draft it under /tmp, then publish it with \`npm run board -- handoff ${opts.ticket} --from <draft> --name ${name}\`, before release.`,
     `Release with \`npm run board -- release ${opts.ticket} ${release}\`.`,
