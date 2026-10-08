@@ -51,12 +51,12 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
   let actualPort = port;
   const auth = createAuth(authOptions);
   let host;
-  const hub = createHub(root, { agents: () => host.snapshot() });
+  const hub = createHub(root, { agents: () => host.snapshot(), approvals: () => host.approvals() });
   host = createHost({
     root,
     runtime,
     policy,
-    onChange: (agent) => hub.publish({ type: "agent", agent }),
+    onChange: (change) => hub.publish(change),
     readUsage: async () => (await hub.snapshot()).usage?.fiveHour ?? null,
     checkGate: async (ref) => {
       const ticket = (await hub.snapshot()).tickets.find((t) => t.ref === ref);
@@ -106,11 +106,12 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
   // unauthenticated caller learns nothing about ids or validation.
   function passesGate(req, res, route) {
     const origin = req.headers.origin;
-    if (origin !== `http://127.0.0.1:${actualPort}` && origin !== `http://localhost:${actualPort}`) {
+    // A browser sends no Origin on a same-origin GET, so a token-gated read checks it only when present.
+    if (!(req.method === "GET" && origin === undefined) && origin !== `http://127.0.0.1:${actualPort}` && origin !== `http://localhost:${actualPort}`) {
       reply(res, 403, { error: "foreign or missing origin" });
       return false;
     }
-    if (!/^application\/json\s*(;|$)/i.test(req.headers["content-type"] ?? "")) {
+    if (req.method !== "GET" && !/^application\/json\s*(;|$)/i.test(req.headers["content-type"] ?? "")) {
       reply(res, 403, { error: "content-type must be application/json" });
       return false;
     }
@@ -136,6 +137,17 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     },
     "POST /agents": (req, res) => postAgent(req, res),
     "POST /agents/:id/stop": (req, res) => stopAgent(req, res),
+    "GET /approvals/:id": (req, res) => {
+      const approval = host.approval(new URL(req.url, "http://x").pathname.split("/")[2]);
+      reply(res, approval ? 200 : 404, approval ?? { error: "no such approval" });
+    },
+    "POST /approvals/:id": async (req, res) => {
+      const body = await readJsonObject(req, res);
+      if (!body) return;
+      const result = await host.decide(new URL(req.url, "http://x").pathname.split("/")[2], body);
+      if (!result.ok) return reply(res, result.status, { error: result.error });
+      reply(res, 200, { approval: result.approval });
+    },
   };
   const readRows = (file) => readFile(file, "utf8").then(parseJsonl, () => []);
   const reply = (res, status, obj, extra = {}) => {

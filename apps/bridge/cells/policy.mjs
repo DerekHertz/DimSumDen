@@ -21,3 +21,13 @@ export const LIVE_STATES = ["working", "waiting_on_user", "blocked", "throttled"
 export const REF_RE = /^[a-z0-9][a-z0-9-]*\/\d{2,}-[a-z0-9][a-z0-9-]*$/;
 export const AGENT_ID_RE = /^c-[0-9a-f]{16}$/; // approval ids are a-
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// organism-infra/141 (ADR 0016 decision 4 and 6.5, 6.7): held permission requests.
+export const APPROVAL_TTL_MS = 10 * 60 * 1000; // an undecided approval expires, and the child is answered deny
+export const APPROVAL_CAP_PER_AGENT = 20; // pending approvals per agent; the 21st expires the oldest
+export const APPROVAL_ID_RE = /^a-[0-9a-f]{16}$/;
+export const APPROVAL_NOTE_MAX = 500; // characters in a decision note
+export const APPROVAL_INPUT_MAX = 256 * 1024; // serialised tool input; a bigger request is answered deny, never held
+export const APPROVAL_HISTORY_CAP = 200; // settled approvals kept for the snapshot, oldest dropped first
+export const REQUEST_ID_MAX = 128; // the child's opaque request id (ADR 0016 6.5)
+export const REQUEST_IDS_PER_AGENT = 1000; // request ids remembered per agent; past it every request is answered deny
