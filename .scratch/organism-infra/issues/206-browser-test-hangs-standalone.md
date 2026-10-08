@@ -23,3 +23,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-10-08):** User agreed fix for the environment issue in handoffs den-v1/06-developer-2.md. Until this lands, cells run browser tests only through `npm test`.
+- **orchestrator, 2026-10-08:** 2026-10-08: proximity-card browser test also timed out (30.7s) inside the full npm test on den-v1/06 at 3e16e6f; the developer's own full run passed it. So it is flaky in the suite too, not only standalone.

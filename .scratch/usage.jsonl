@@ -2439,3 +2439,13 @@
 {"kind":"incident","ts":"2026-10-08T19:47:18Z","ticket":"den-v1/06-approve-deny","cell":"qa","tool":"dispatch-prompt","what":"qa light verify on haiku ran full verify again: read 'you ran specify' as 'this session wrote the tests' (second occurrence, after den-v1/05)","cost":"full verify on haiku instead of light; ~68k tokens","fix":"dispatch-prompt prints the verify mode (light|full) for qa verify","rule_change":"organism-infra/207"}
 {"kind":"usage","ts":"2026-10-08T19:48:10Z","five_hour":7,"weekly":71,"event":"return","ticket":"den-v1/06","cell":"qa"}
 {"kind":"context","ts":"2026-10-08T19:48:10Z","session":"2403e63b-dc80-477b-81fa-8a629f102518","context_tokens":78316,"percent":7.83,"event":"return"}
+{"kind":"jev","ts":"2026-10-08T19:55:03.694Z","ticket":"den-v1/06-approve-deny","point":"tier","pick":"opus","actual":"sonnet","cost":0.00015964200000000001,"conf":0.76,"mode":"shadow","fallback":null,"floor":null,"ms":511,"model":"jev-1.13.0"}
+{"kind":"jg","ts":"2026-10-08T19:55:08.650Z","ticket":"den-v1/06-approve-deny","bytes":0,"files":0,"ms":4623,"skipped":null,"fallback":"jg-exit-1"}
+{"kind":"usage","ts":"2026-10-08T19:55:13Z","five_hour":8,"weekly":71,"event":"dispatch","ticket":"den-v1/06-approve-deny","cell":"developer"}
+{"kind":"context","ts":"2026-10-08T19:55:13Z","session":"2403e63b","context_tokens":33840,"percent":3.38,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-08T20:09:11.791Z","ticket":"den-v1/06-approve-deny","cell":"developer","model":"claude-sonnet-5","tokens":81004,"ms":582844,"outcome":"done: ?demo=approval fixture, 3e16e6f","context":79295}
+{"kind":"jev","ts":"2026-10-08T20:09:11.850Z","ticket":"den-v1/06-approve-deny","point":"verify","pick":"full","actual":"light","cost":0.00023331000000000003,"conf":1,"mode":"shadow","fallback":null,"floor":null,"ms":397,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-10-08T20:09:33Z","five_hour":12,"weekly":71,"event":"dispatch","ticket":"den-v1/06-approve-deny","cell":"qa"}
+{"kind":"context","ts":"2026-10-08T20:09:33Z","session":"2403e63b","context_tokens":41590,"percent":4.16,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-08T20:11:18.001Z","ticket":"den-v1/06-approve-deny","cell":"qa","mode":"verify","model":"claude-haiku-5-5","tokens":54593,"ms":87164,"outcome":"bounce: proximity-card browser test 662 failed in saved run (light verify)","context":25000}
+{"kind":"incident","ts":"2026-10-08T20:16:30Z","ticket":"den-v1/06-approve-deny","cell":"qa","tool":"npm test","what":"qa light verify bounced on browser test 662, which failed once in the saved suite run; a rerun was 2888/2888 green","cost":"54.6k qa tokens + 12.2k scout","fix":"scout rerun; bounce not counted","rule_change":null}
