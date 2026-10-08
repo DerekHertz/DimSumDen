@@ -172,6 +172,14 @@ _Avoid_: Wake filter, prelude
 The per-session API spend ceiling for Jev calls, split among use cases (ADR 0015 decision 7).
 _Avoid_: Quota, cap (the cap is the limit; the reserved budget is the split)
 
+**Mod**:
+A Claude Code plugin of function hooks that draws a band, status line or toast, or guards a tool call, inside a `claude` session. Ours are project-scope; third-party mods are reviewed first and may only be read-only bands.
+_Avoid_: Extension, add-on
+
+**Mod trial**:
+A mod's first live run: 3 orchestrator sessions, then one keep-or-drop verdict from the user, recorded as one board line (what it caught, what it got wrong, its token and latency cost). Not a Jev **Trial**.
+_Avoid_: Pilot
+
 ## Observation
 
 **Telemetry**:
