@@ -38,3 +38,4 @@ Fix `apps/bridge/cells/conformance.mjs` so the next user run gives valid S4b, S8
 ## Comments
 - **architect, 2026-10-08:** Filed from the security bounce on ADR 0016 round 3 (`143-security.md`) and the user's ruling. 143's Blocked by lists this ticket; 143 keeps the detached process-group kill until the S4b re-run is valid.
 - **orchestrator, 2026-10-08:** User 2026-10-08: spikes are capped at this round. If round 4 leaves S4b or S8 inconclusive, ADR 0016 keeps its safe choices (detached group kill; no unattended widening) permanently and no round 5 is filed. No longer blocks 143.
+- **orchestrator, 2026-10-08:** User confirmed qa's two readings: (1) S4b's "ppid chain does not include the child" means the matched pid is never the child itself (a real tool always runs under the child); (2) S6b is excluded from the `hook_started` guard because the worktree's own SessionStart hooks would always trip it. Developer builds to the tests at 3c3c1fc as written.
