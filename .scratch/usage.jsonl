@@ -2475,3 +2475,7 @@
 {"kind":"context","ts":"2026-10-08T21:06:22.000Z","session":"dc060b27-e096-4626-af72-de98491dc6be","context_tokens":63645,"percent":6.36,"event":"dispatch"}
 {"kind":"cell","ts":"2026-10-08T21:08:24.366Z","ticket":"den-v1/07-message-t","cell":"qa","mode":"verify","model":"claude-haiku-5-5","tokens":68520,"ms":110812,"outcome":"pass (ran full, not light): 5 non-blocking notes","context":33420}
 {"kind":"incident","ts":"2026-10-08T21:08:24.000Z","ticket":"den-v1/07-message-t","cell":"qa","tool":"verify-mode","what":"haiku qa verify ran full instead of light, reasoning that this cell did not write the specify tests; the rule is light if qa ran specify for the ticket","cost":"68k tokens, slightly over a light run","fix":"none needed this round; see organism-infra/207","rule_change":null}
+{"kind":"jg","ts":"2026-10-08T21:11:37.764Z","ticket":"den-v1/07-message-t","bytes":0,"files":0,"ms":4686,"skipped":null,"fallback":"jg-exit-13"}
+{"kind":"jev","ts":"2026-10-08T21:11:51.095Z","ticket":"den-v1/07-message-t","point":"tier","pick":"opus","actual":"sonnet","cost":0.00015451800000000003,"conf":0.64,"mode":"shadow","fallback":null,"floor":null,"ms":369,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-10-08T21:11:51.000Z","five_hour":29,"weekly":72,"event":"dispatch","ticket":"den-v1/07-message-t","cell":"developer"}
+{"kind":"context","ts":"2026-10-08T21:11:51.000Z","session":"dc060b27-e096-4626-af72-de98491dc6be","context_tokens":72223,"percent":7.22,"event":"dispatch"}
