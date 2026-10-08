@@ -29,3 +29,8 @@ export function cardFor(scenePandas, approvals, viewer) {
     state, tool: agent ? agent.tool ?? null : nearest.agent ? null : nearest.tool ?? null, approval, actions,
   };
 }
+
+// den-v1/06: the card's pending line. The card follows the snapshot, so the line goes when the approval leaves pending.
+export function pendingLine(card) {
+  return card?.approval ? `Waiting on you · ${card.approval.tool ?? 'a tool'}` : null;
+}
