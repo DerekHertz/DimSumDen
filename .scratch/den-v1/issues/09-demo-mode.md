@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately; den-v1/01-04 resolved)
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 **Serves:** Den v1 user story 25 (Demo mode), the showcase: a den you can show others with no live agents and no steering runtime.
 
@@ -82,3 +82,6 @@ No browser-measurement tests: layout comes from the mockup.
 ## Comments
 - **orchestrator, 2026-10-08:** Filed on the user's yes. Story 25 had no ticket; this is the shortest path to a showable den, independent of the runtime chain (202, 143, 106, 107). UI ticket: designer spec with the user first; never batched.
 - **orchestrator, 2026-10-08:** Designer spec signed off; copied above. F/T/A/D criterion amended per the user's choice (F live when the fixture has transcript lines; reason text "Demo mode: actions are off"). Next: qa specify.
+- **qa, 2026-10-09:** qa specify: tests at 852b0fd on feat/09-demo-mode. human-verified: AC6 user sign-off, badge/strip/button look, focus, reduced motion, responsive, contrast. See handoffs/09-qa-specify.md.
+- **qa, 2026-10-09:** QA pass (light verify) at 1168db0. Suite 3170 pass, 0 fail, 0 skipped (developer's saved run). Specify test files unchanged since 852b0fd. Every AC maps to a test or is human-verified (AC6). Out-of-scope edits listed in handoff 09-qa-verify.md, including a one-path exemption in apps/ui/reachability.test.mjs.
+- **orchestrator, 2026-10-09:** orchestrator, 2026-10-08: qa light verify passed (3170/3170). Held at ready-for-human for the user's visual critique before risk-check. Check also: .den-entry moved 88px to 120px; reachability.test.mjs exemption for demo/README.md.
