@@ -89,6 +89,16 @@ test("AC1 the set is recomputed from the board on every read", async () => {
   assert.equal(p.done, 1);
 });
 
+test("AC1 the walk continues through a parked blocker: its own blockers join the set, it stays out of the total", async () => {
+  const root = boardRoot();
+  ticket(root, "den-v1/01-d", { blockedBy: "other/02", status: "ready-for-agent" });
+  ticket(root, "other/02-p", { blockedBy: "other/03", status: "parked" });
+  ticket(root, "other/03-q", { status: "ready-for-agent" });
+  const p = await read(root);
+  assert.equal(p.total, 2, "D and Q count; parked P does not");
+  assert.equal(p.next, "other/03-q", "P still blocks D, so Q is the unblocked ticket");
+});
+
 test("AC1 an empty board reports zero and no next ticket", async () => {
   const p = await read(boardRoot());
   assert.deepEqual({ done: p.done, total: p.total, remaining: p.remaining, next: p.next }, { done: 0, total: 0, remaining: 0, next: null });

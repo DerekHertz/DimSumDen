@@ -76,14 +76,13 @@ export function readNorthStar(root) {
   const blockers = new Map(); // ref -> refs
   for (const t of tickets.values()) blockers.set(t.ref, blockerRefs(t, byKey));
 
-  // The set: den-v1 tickets, then blockers through the chain (a parked ticket's blockers do not join).
+  // The set: den-v1 tickets, then blockers through the chain (the walk continues through parked tickets, which stay out of the total).
   const set = new Set();
   const queue = [...tickets.values()].filter((t) => t.feature === FEATURE).map((t) => t.ref);
   while (queue.length) {
     const ref = queue.pop();
     if (set.has(ref)) continue;
     set.add(ref);
-    if (tickets.get(ref).status === "parked") continue;
     queue.push(...blockers.get(ref));
   }
 

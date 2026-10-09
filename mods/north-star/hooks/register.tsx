@@ -8,17 +8,17 @@ const progress = atom({ plugin: 'north-star', key: 'progress' } as const, null)
 
 // The band's numbers come from scripts/north-star.mjs (board files only, no network). The mod
 // shells out to it in the session's directory; ORGANISM_ROOT, when set, points it at the main checkout.
-export const register: Register = on => {
-  const refresh = async ($: any) => {
-    try {
-      const root = await $.env.get('ORGANISM_ROOT')
-      const r = await $.process.run(['node', 'scripts/north-star.mjs', '--json'], root ? { env: { ORGANISM_ROOT: root } } : undefined)
-      if (r.exitCode === 0) await update($, progress, () => JSON.parse(r.stdout) as Progress)
-    } catch {
-      // keep the last reading
-    }
+async function refresh($: any) {
+  try {
+    const root = await $.env.get('ORGANISM_ROOT')
+    const r = await $.process.run(['node', 'scripts/north-star.mjs', '--json'], root ? { env: { ORGANISM_ROOT: root } } : undefined)
+    if (r.exitCode === 0) await update($, progress, () => JSON.parse(r.stdout) as Progress)
+  } catch {
+    // keep the last reading
   }
+}
 
+export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await refresh($)
     return next(e)
