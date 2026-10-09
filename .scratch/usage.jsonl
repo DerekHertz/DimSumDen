@@ -2750,3 +2750,7 @@
 {"kind":"spend","ts":"2026-10-09T03:10:36.389Z","session":"agent-a3c2ff0251c2b9ab3","role":"security","ticket":"den-v1/09-demo-mode","input_tokens":26,"cache_creation_input_tokens":45717,"cache_read_input_tokens":448294,"output_tokens":644}
 {"kind":"resolved","ts":"2026-10-09T03:15:45.137Z","ticket":"den-v1/09-demo-mode","pr":211,"bounces":0}
 {"kind":"jev-advisory-outcome","ts":"2026-10-09T03:15:45.235Z","ticket":"den-v1/09-demo-mode","orchestratorPick":"designer","jevPick":"designer","userChoice":"designer","bounced":false}
+{"kind":"usage","ts":"2026-10-09T03:22:11Z","five_hour":73,"weekly":90,"event":"merge","ticket":"docs/00-readme","cell":"orchestrator"}
+{"kind":"context","ts":"2026-10-09T03:22:11Z","session":"26c01b15-a7ea-428c-a884-b8c4d7775578","context_tokens":63515,"percent":6.35,"event":"merge"}
+{"kind":"incident","ts":"2026-10-09T03:22:11Z","ticket":null,"cell":"orchestrator","tool":"log-cell","what":"log-cell rejects --ticket none for ticketless scout runs; placeholder refs also refused (ticket not found); 2 haiku scout runs (57.9k tokens) left unlogged","cost":"1 call","fix":"none yet; log-cell needs a ticketless mode","rule_change":null}
+{"kind":"spend","ts":"2026-10-09T03:22:11.653Z","session":"26c01b15-a7ea-428c-a884-b8c4d7775578","role":"orchestrator","input_tokens":58,"cache_creation_input_tokens":38757,"cache_read_input_tokens":1105819,"output_tokens":20257}
