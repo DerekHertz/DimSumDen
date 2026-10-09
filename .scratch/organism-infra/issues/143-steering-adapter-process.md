@@ -6,7 +6,7 @@
 
 **Blocked by:** 141, 142, 195
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 **Serves:** Den loop steps 3-4: the real runtime behind the host.
 
