@@ -9,7 +9,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { hasSecret } from "../../../scripts/exposure.mjs";
 import {
   AGENT_ID_RE, KILL_GRACE_MS, LIVE_STATES, MAX_CONCURRENT_AGENTS, MODES, REF_RE, RELAY_HOP_ROLES, ROLES, SESSION_CAP,
-  USAGE_REFUSE_AT, APPROVAL_TTL_MS,
+  USAGE_REFUSE_AT, APPROVAL_TTL_MS, SHUTDOWN_SPAWN_WAIT_MS,
 } from "./policy.mjs";
 import { createSessions } from "./sessions.mjs";
 import { createApprovalStore } from "./approvals.mjs";
@@ -33,6 +33,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
   const maxConcurrent = Math.min(policy.maxConcurrent ?? MAX_CONCURRENT_AGENTS, SESSION_CAP);
   const sessionCap = Math.min(policy.sessionCap ?? SESSION_CAP, SESSION_CAP);
   const graceMs = policy.killGraceMs ?? KILL_GRACE_MS;
+  const spawnWaitMs = Math.min(policy.spawnWaitMs ?? SHUTDOWN_SPAWN_WAIT_MS, SHUTDOWN_SPAWN_WAIT_MS);
   const sessions = createSessions(root);
   const agents = new Map(); // id -> record; insertion order is snapshot order
   const liveByRef = new Map(); // ref -> record, for every reserved or running agent
@@ -274,12 +275,23 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
   }
 
   // Runs the kill sequence on every live agent and resolves once each has exited and been recorded. Idempotent.
+  // The wait for spawns in flight is bounded (security finding 3, PR #177): past the bound the live agents are killed
+  // synchronously, and a spawn that lands late is terminated by spawnAgent itself.
   function shutdown() {
     shuttingDown = true;
     return (shutdownPromise ??= (async () => {
-      await Promise.allSettled([...pending]);
+      let timer;
+      const inBound = await Promise.race([
+        Promise.allSettled([...pending]).then(() => true),
+        new Promise((resolve) => (timer = setTimeout(() => resolve(false), spawnWaitMs))),
+      ]);
+      clearTimeout(timer);
       const live = [...agents.values()].filter((a) => a.proc && !a.exited);
-      await Promise.all(live.map((a) => terminate(a, "bridge-shutdown")));
+      if (inBound) await Promise.all(live.map((a) => terminate(a, "bridge-shutdown")));
+      else {
+        for (const a of live) a.reason ??= "bridge-shutdown";
+        killAllSync();
+      }
       await Promise.all(live.map((a) => a.finished));
     })());
   }

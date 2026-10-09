@@ -297,7 +297,9 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const { resolveRoot } = await import("../organism-infra/board-service.mjs");
   const root = resolveRoot(process.cwd(), process.env);
-  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317 });
+  // The default runtime (organism-infra/143): the binary is DEN_CLAUDE_BIN, else `claude` on PATH.
+  const { createClaudeRuntime } = await import("./cells/claude-runtime.mjs");
+  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env }) });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
   console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);
