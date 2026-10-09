@@ -45,9 +45,11 @@ const out = (o) => process.stdout.write(JSON.stringify(o) + "\\n");
 log({ kind: "start", pid: process.pid, argv: process.argv.slice(2), cwd: process.cwd(), envKeys: Object.keys(process.env).sort() });
 if (O.ignoreTerm) process.on("SIGTERM", () => {});
 if (O.grandchild) {
-  const src = O.grandchild === "ignoreTerm" ? "process.on('SIGTERM',()=>{});setInterval(()=>{},1000)" : "setInterval(()=>{},1000)";
-  const gc = spawn(process.execPath, ["-e", src], { stdio: "ignore" });
-  writeFileSync(O.pidFile, String(gc.pid));
+  // The grandchild writes its own pid file once its SIGTERM disposition is in place, so a test that waits for
+  // the pid file never signals a grandchild that has not yet installed its handler.
+  const ready = "require('fs').writeFileSync(process.argv[1],String(process.pid));setInterval(()=>{},1000)";
+  const src = O.grandchild === "ignoreTerm" ? "process.on('SIGTERM',()=>{});" + ready : ready;
+  spawn(process.execPath, ["-e", src, O.pidFile], { stdio: "ignore" });
 }
 const toolUse = (command) => ({ type: "assistant", message: { content: [{ type: "tool_use", id: "tu1", name: "Bash", input: { command } }], usage: { input_tokens: 10, output_tokens: 20 } } });
 const request = (id, subtype) => ({ type: "control_request", request_id: id, request: subtype === "can_use_tool" ? { subtype, tool_name: "Bash", input: { command: "npm test" } } : { subtype } });

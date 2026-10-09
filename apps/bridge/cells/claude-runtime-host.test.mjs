@@ -88,7 +88,7 @@ describe("startBridge over the real Claude runtime", () => {
     const gc = await until(() => t.stub.grandchildPid(), { ms: 5000, what: "the grandchild pid" });
     const { pid } = await until(() => t.stub.start(), { what: "the child to start" });
     const stopped = await t.post(`/agents/${id}/stop`, {});
-    assert.equal(stopped.status, 200);
+    assert.equal(stopped.status, 202, "ADR 0016 status table: the kill sequence has started");
     await until(async () => (await t.agent(id)).state === "terminated", { ms: 6000, what: "the agent to be terminated" });
     await until(() => !alive(pid) && !alive(gc), { ms: 3000, what: "the child and grandchild to be gone" });
   });
