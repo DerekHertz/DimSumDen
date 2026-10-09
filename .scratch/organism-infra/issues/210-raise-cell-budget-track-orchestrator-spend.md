@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** Testbed friction: partial returns at the 80k cell cap cost runs with no measured benefit (26 partials, ~2.7M tokens; 143 qa specify used two cells without finishing). Orchestrator spend has never been measured, which the user has asked for more than once.
 
