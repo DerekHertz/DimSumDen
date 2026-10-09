@@ -27,6 +27,8 @@ import { createCameraStore } from "./scene/camera-store.mjs";
 import { LogoPill, Cards } from "./overlay/Cards.jsx";
 import { useSession } from "./session/useSession.js";
 import { ZoomSwitcher, IntentBar, Timeline } from "./overlay/Bottom.jsx";
+import { DemoAnnouncer, DemoButton, DemoStrip, useDemoMode } from "./demo/DemoControls.jsx";
+import { demoCard } from "./demo/demo-card.mjs";
 
 class SceneBoundary extends Component {
   state={error:null};
@@ -49,6 +51,10 @@ export function App() {
   const steering = useSession();
   const [demo] = useState(demoRequested);
   const demoSnapshot = useDemoSnapshot(demo);
+  // den-v1/09: Demo mode replays recorded events into the den (demo/). It reads no session and makes no request.
+  const onDemoChange = useRef(() => {});
+  const [denDemo, denDemoMode] = useDemoMode((active) => onDemoChange.current(active));
+  const demoButton = useRef(null);
   const { connection, metricsRevision } = live;
   // Dev-only approval demo (den-v1/06, scene/approval-fixture.mjs): one pending approval answered by a stub bridge. Never in a production build.
   const [approvalDemo] = useState(() => {
@@ -61,8 +67,9 @@ export function App() {
     const timer = setTimeout(() => approvalDemo.rearm(), 6000);
     return () => clearTimeout(timer);
   }, [approvalDemo, approvalDemoSnapshot]);
-  const snapshot = demoSnapshot ?? approvalDemoSnapshot ?? live.snapshot;
-  const placeholder = demo || approvalDemo ? null : panelPlaceholder(connection);
+  const snapshot = denDemo.snapshot ?? demoSnapshot ?? approvalDemoSnapshot ?? live.snapshot;
+  const inDemo = demo || denDemo.active;
+  const placeholder = inDemo || approvalDemo ? null : panelPlaceholder(connection);
   const [selected, setSelected] = useState(null);
   const stage = useMemo(() => ({ anchors: new Map(), camera: null, size: null, explorer: null, tallyAnchor: TALLY_ANCHOR }), []);
   const camera = useMemo(() => createDenCameraStore(createCameraStore(),()=>stage.explorer?.exit()), [stage]);
@@ -76,17 +83,26 @@ export function App() {
   const approvalOpen = useRef(false);
   const transcriptClose = useRef(null);
   const messageClose = useRef(null);
-  const transcript = useTranscript({ card: nearby, exploring, onOpen: releaseCursor, blocked: reviewOpen });
+  // In Demo mode the card is routed through demoCard: T, A and D greyed, F on only when a transcript line was recorded.
+  const shownCard = useMemo(() => (denDemo.active ? demoCard(nearby, { transcripts: denDemo.transcripts }) : nearby), [nearby, denDemo.active, denDemo.transcripts]);
+  const transcript = useTranscript({ card: shownCard, exploring, onOpen: releaseCursor, blocked: reviewOpen });
   transcriptClose.current = transcript.close;
   const bridge = useMemo(() => approvalDemo?.client ?? createBridgeClient({ fetch: steering.session.fetch }), [steering.session, approvalDemo]);
   const onReviewOpen = useCallback(() => { transcriptClose.current?.(); messageClose.current?.(); releaseCursor(); }, [releaseCursor]);
-  const approval = useApprovalReview({ client: bridge, card: nearby, exploring, cursorFree, demo, snapshot, onOpen: onReviewOpen });
+  const approval = useApprovalReview({ client: bridge, card: nearby, exploring, cursorFree, demo: inDemo, snapshot, onOpen: onReviewOpen });
   // den-v1/07: T opens the message composer. Message acknowledgements reach it as composer.observe(event) once the live runtime feeds the event stream (den-v1/11).
-  const message = useMessageComposer({ client: bridge, card: nearby, exploring, cursorFree, demo, snapshot, onOpen: releaseCursor, blocked: approvalOpen });
+  const message = useMessageComposer({ client: bridge, card: nearby, exploring, cursorFree, demo: inDemo, snapshot, onOpen: releaseCursor, blocked: approvalOpen });
   messageClose.current = message.composer.close;
   useEffect(() => approvalDemo?.onEvent((event) => message.composer.observe(event)), [approvalDemo, message.composer]); // dev-only demo acks (scene/approval-fixture.mjs)
   approvalOpen.current = approval.state.open;
   reviewOpen.current = approval.state.open || message.state.open; // the transcript keys stand down while either panel is open
+  // Entering or leaving Demo mode: walk mode exits, the panels close, the nearby card clears, and focus stays on the button.
+  onDemoChange.current = () => {
+    stage.explorer?.exit();
+    transcript.close(); message.composer.close(); approval.review.close();
+    setNearby(null); setSelected(null);
+    setTimeout(() => demoButton.current?.focus({ preventScroll: true }), 0);
+  };
   const [exploreHint,setExploreHint]=useState('WASD / arrows to walk · drag to look · Esc to leave');
   const onDenReady=useCallback(value=>setDen(value),[]);
   const sceneEvents=useMemo(()=>state=>denEvents(defaultEvents(state),stage),[stage]);
@@ -135,17 +151,20 @@ export function App() {
         {tallyOpen ? <TallyCard tally={tally} metrics={metrics} failed={metricsFailed} onRetry={retryMetrics} onClose={closeTally} stage={stage} /> : null}
         {selected?<PandaCard snapshot={snapshot} selected={selected} onClose={closeTicket} />:null}
         <div className="proximity-dock">
-          {exploring ? <ProximityCard card={nearby} onTranscript={(c) => { if (!reviewOpen.current) transcript.toggle(c); }} onAnswer={approval.openFrom}
-            onMessage={(c) => { if (!approvalOpen.current) message.openFrom(c); }} status={message.composer.statusFor(nearby)} demo={demo} transcriptOpen={!!transcript.panel.agentId} /> : null}
+          {exploring ? <ProximityCard card={shownCard} onTranscript={(c) => { if (!reviewOpen.current) transcript.toggle(c); }} onAnswer={approval.openFrom}
+            onMessage={(c) => { if (!approvalOpen.current) message.openFrom(c); }} status={denDemo.active ? denDemoMode.statusFor(nearby) : message.composer.statusFor(nearby)} demo={inDemo} transcriptOpen={!!transcript.panel.agentId} /> : null}
           <MessageComposer composer={message.composer} state={message.state} />
         </div>
         <ApprovalPanel review={approval.review} state={approval.state} />
-        <TranscriptPanel tx={transcript} transcripts={live.transcripts} agents={snapshot?.agents} connection={connection} />
+        <TranscriptPanel tx={transcript} transcripts={denDemo.transcripts ?? live.transcripts} agents={snapshot?.agents} connection={denDemo.active ? { phase: "live" } : connection} />
         <div className="den-crosshair" aria-hidden="true" hidden={!exploring || cursorFree}>+</div>
         {snapshot && cells.length === 0 ? <p className="scene-caption scene-empty">The den is quiet. No active tickets.</p> : null}
         {overflow > 0 ? <p className="scene-caption scene-more">+{overflow} more in queue</p> : null}
       </main>
-      <LogoPill connection={connection} />
+      <LogoPill connection={connection} demo={denDemo.active} />
+      <DemoButton ref={demoButton} state={denDemo} onToggle={denDemoMode.toggle} />
+      {denDemo.active ? <DemoStrip loops={denDemo.loops} /> : null}
+      <DemoAnnouncer text={denDemo.announcement} />
       <Cards snapshot={snapshot} now={now} connection={connection} placeholder={placeholder} camera={camera} steering={steering} />
       <div className="den-entry">
         <button type="button" className="btn btn-solid" aria-pressed={exploring} aria-disabled={!den || undefined}

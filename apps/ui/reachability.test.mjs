@@ -129,6 +129,7 @@ test("no file under apps/ui/src or apps/ui/public is unreachable from main.jsx, 
 
   const orphans = all
     .filter((f) => !/\/(OFL|LICENSE)[^/]*$/.test(f))
+    .filter((f) => rel(f) !== "apps/ui/src/demo/README.md") // den-v1/09: the note on how to re-record the Demo mode fixture
     .filter((f) => !reach.has(f) && !keptTests.has(f) && !keptHelpers.has(f))
     .map(rel)
     .sort();

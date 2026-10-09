@@ -3,6 +3,7 @@
 // Agent text (ticket titles) is untrusted: everything renders as React text nodes, never as HTML.
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react";
 import { noteCounter, submitGate } from "../panel/gates-model.mjs";
+import { DemoBadge } from "../demo/DemoControls.jsx";
 import { STATION_HUE, badgeModel, needsYouModel, stationsModel, stepRequest } from "./overlay-model.mjs";
 
 const isPhone = () => typeof matchMedia === "function" && matchMedia("(max-width: 599px)").matches;
@@ -29,17 +30,17 @@ function PandaFace() {
   );
 }
 
-export function LogoPill({ connection }) {
+export function LogoPill({ connection, demo = false }) {
   const badge = badgeModel(connection);
   return (
     <header className="logo-pill" data-overlay="logo">
       <span className="logo-face" aria-hidden="true"><PandaFace /></span>
       <h1>Dim Sum Den</h1>
-      <span className={`live-badge live-${badge.tone}`} aria-live={badge.ariaLive ?? undefined}>
+      {demo ? <DemoBadge /> : <span className={`live-badge live-${badge.tone}`} aria-live={badge.ariaLive ?? undefined}>
         <span className="live-dot" aria-hidden="true" />
         <span>{badge.label}</span>
         {badge.hint ? <span className="visually-hidden">{`. ${badge.hint}`}</span> : null}
-      </span>
+      </span>}
     </header>
   );
 }
