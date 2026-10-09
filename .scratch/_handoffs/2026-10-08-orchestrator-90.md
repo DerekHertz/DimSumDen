@@ -17,3 +17,9 @@
 2. Retro candidates: dispatch-prompt --continue base default; board handoff printed name; partial-return cost.
 3. After 143 resolves, fresh session: 210 → den-v1/09 → 106 → 107 → den-v1/10 → den-v1/11.
 4. Weekly usage 81%: warn the user before expensive cells.
+
+## Update (same session, after the user switched to accept-edits)
+- **User executive decision:** the orchestrator may make small edits itself when the user decides. I made the 210 budget edit: worktree `.claude/worktrees/orch-210`, branch `feat/210-cell-budget`, commit 6157220. It changes `scripts/context-budget.json` (developer, qa and designer go to 100k/130k) and the organism-protocol "Context budget" sentence. Not pushed. **Next: dispatch a developer on feat/210-cell-budget (base 6157220, --continue not needed) to fix tests pinning the old numbers** (context-budget*.test.mjs, cell-start-context-config, statusline, docs/agents), then light relay → PR.
+- **210 split:** spend tracking is now **211** (`211-track-orchestrator-and-cell-spend.md`, P1). 210 is budget only.
+- **143 developer returned partial** (82k, Sonnet, 100k tokens, no report sent): WIP 578c82e on feat/143-steering-adapter-process, code written, tests not run. Ticket file says `Status: claimed` with no lock; check `board audit` and fix before re-dispatch. Re-dispatch developer `--continue --base 578c82e` (branch tip!) with 143-developer.md named; new handoff name from dispatch-prompt.
+- 210's new budget only reaches cells after it merges, so a 143 re-dispatch before then still runs at 80k.

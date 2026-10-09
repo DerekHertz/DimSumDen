@@ -2626,3 +2626,4 @@
 {"kind":"cell","ts":"2026-10-09T00:39:07.231Z","ticket":"organism-infra/143-steering-adapter-process","cell":"qa","mode":"specify","model":"claude-opus-5-5","tokens":47490,"ms":54907,"outcome":"complete: red check done, 26/27 red for missing feature, 1 guard passes","context":43721}
 {"kind":"usage","ts":"2026-10-09T00:39:07Z","five_hour":5,"weekly":81,"event":"dispatch","ticket":"organism-infra/143","cell":"developer"}
 {"kind":"context","ts":"2026-10-09T00:39:07Z","session":"30df5da3-c3cc-4a15-a78b-bb3b59654e1f","context_tokens":73517,"percent":7.35,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-09T00:44:39.023Z","ticket":"organism-infra/143-steering-adapter-process","cell":"developer","model":"claude-sonnet-4-5","tokens":100576,"ms":289394,"outcome":"partial: code in WIP 578c82e, tests not run; no SubagentHandback report; ticket status left 'claimed' with no lock","context":82000}
