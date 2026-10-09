@@ -12,6 +12,11 @@
       "name": "north-star",
       "source": "./mods/north-star",
       "description": "A band above the prompt counting down to den v1: bar, done/total and the next critical-path ticket."
+    },
+    {
+      "name": "queue",
+      "source": "./mods/queue",
+      "description": "A band above the prompt showing what is in flight and the next 3 queued tickets (proposed order, else top of ready)."
     }
   ]
 }

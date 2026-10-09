@@ -101,6 +101,7 @@
   },
   "enabledPlugins": {
     "sleep-guard@dimsumden-mods": true,
-    "north-star@dimsumden-mods": true
+    "north-star@dimsumden-mods": true,
+    "queue@dimsumden-mods": true
   }
 }

@@ -15,6 +15,7 @@
     "risk-check": "node scripts/risk-check.mjs",
     "check:bom": "node scripts/bom-check.mjs",
     "board": "node apps/organism-infra/board.mjs",
+    "queue": "node scripts/queue.mjs",
     "apply-gated": "node scripts/apply-gated.mjs",
     "next-session": "node scripts/next-session.mjs",
     "session-check": "node scripts/session-check.mjs",
