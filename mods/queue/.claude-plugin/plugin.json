@@ -1,0 +1,7 @@
+{
+  "name": "queue",
+  "version": "0.1.0",
+  "description": "A thin band above the prompt showing what is in flight and the next 3 queued tickets (the orchestrator's proposed order, else the top of ready), read from the board.",
+  "author": { "name": "Dim Sum Den" },
+  "types": "./types/index.d.ts"
+}
