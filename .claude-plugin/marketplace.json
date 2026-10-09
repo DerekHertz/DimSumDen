@@ -7,6 +7,11 @@
       "name": "sleep-guard",
       "source": "./mods/sleep-guard",
       "description": "Blocks sleep-chain Bash commands and points to gh pr checks --watch or Monitor."
+    },
+    {
+      "name": "north-star",
+      "source": "./mods/north-star",
+      "description": "A band above the prompt counting down to den v1: bar, done/total and the next critical-path ticket."
     }
   ]
 }
