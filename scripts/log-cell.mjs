@@ -3,6 +3,7 @@
 // Usage: node scripts/log-cell.mjs --ticket <feature>/<NN-slug> --cell <type> [--mode <m>] [--model <id>]
 //          --tokens <int> --ms <int> --outcome "<text>"
 //          [--context <int>]                 (the cell's final `context.mjs --self` reading; organism-infra/119)
+//          [--transcript <file.jsonl>]       (the cell's subagent transcript: adds the four billed totals to the row and appends a spend row; organism-infra/211)
 //          [--allow-no-handoff "<reason>"]   (skip the recent-handoff check; reason is logged in the row)
 // Root is $ORGANISM_ROOT, else the main checkout (git worktree list, as board does), else the current directory.
 // A short --ticket <feature>/<NN> resolves to the full slug ref (organism-infra/126).
@@ -10,11 +11,12 @@
 // Any rejection exits 1 and writes nothing.
 import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, writeSync } from "node:fs";
 import path from "node:path";
+import { sessionOf, spendDelta, spendRow, transcriptTotals } from "./spend-lib.mjs";
 import { resolveRoot, resolveShortRef } from "../apps/organism-infra/board-service.mjs";
 
 const CELLS = ["product", "architect", "orchestrator", "developer", "scout", "qa", "security", "designer"];
 const REF_RE = /^([a-z0-9-]+)\/([A-Za-z0-9][A-Za-z0-9._-]*)$/;
-const FLAGS = ["ticket", "cell", "mode", "model", "tokens", "ms", "outcome", "failures", "allow-no-handoff", "context"];
+const FLAGS = ["ticket", "cell", "mode", "model", "tokens", "ms", "outcome", "failures", "allow-no-handoff", "context", "transcript"];
 const TOOLS = ["bash-guard", "board-claim", "board-release", "board-comment", "board-handoff", "handoff-state", "git", "npm", "write", "ci", "other"];
 
 function fail(msg) {
@@ -110,6 +112,16 @@ if (f["allow-no-handoff"] !== undefined) {
   }
 }
 
+// organism-infra/211: billed totals from the subagent transcript, read before anything is written.
+let billed;
+if (f.transcript !== undefined) {
+  try {
+    billed = transcriptTotals(f.transcript);
+  } catch (err) {
+    fail(`--transcript unreadable: ${err.message}`);
+  }
+}
+
 const row = {
   kind: "cell",
   ts: new Date().toISOString(),
@@ -121,6 +133,7 @@ const row = {
   ms: Number(f.ms),
   outcome: f.outcome,
   ...(f.context !== undefined ? { context: Number(f.context) } : {}),
+  ...(billed ?? {}),
   ...(f["allow-no-handoff"] !== undefined ? { allow_no_handoff: f["allow-no-handoff"] } : {}),
 };
 const scratch = path.join(root, ".scratch");
@@ -129,6 +142,8 @@ mkdirSync(scratch, { recursive: true });
 const incidentRows = incidents.map(({ tool, what }) => ({
   kind: "incident", ts: row.ts, ticket: f.ticket, cell: f.cell, tool, what, cost: null, fix: null, rule_change: null, source: "cell-report",
 }));
+const session = f.transcript !== undefined ? sessionOf(f.transcript) : null;
+const spend = billed ? spendRow({ ts: row.ts, session, role: f.cell, ticket: f.ticket, delta: spendDelta(root, session, billed) }) : null;
 // O_NOFOLLOW: a symlinked usage.jsonl is refused (organism-infra/49).
 let fd;
 try {
@@ -137,7 +152,7 @@ try {
   fail(`cannot open usage.jsonl (${err.code}); symlinks are refused`);
 }
 try {
-  writeSync(fd, [row, ...incidentRows].map((r) => JSON.stringify(r) + "\n").join(""));
+  writeSync(fd, [row, ...(spend ? [spend] : []), ...incidentRows].map((r) => JSON.stringify(r) + "\n").join(""));
 } finally {
   closeSync(fd);
 }
