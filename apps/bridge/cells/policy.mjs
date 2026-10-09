@@ -4,6 +4,7 @@
 export const MAX_CONCURRENT_AGENTS = 2; // max_concurrent_cells (CLAUDE.md, ADR 0002)
 export const SESSION_CAP = 8; // hard ceiling on live daemon-spawned sessions; a policy override can only lower it
 export const KILL_GRACE_MS = 5000; // between stdin close, SIGTERM and SIGKILL
+export const SHUTDOWN_SPAWN_WAIT_MS = 3000; // organism-infra/143: how long shutdown waits for spawns in flight before it kills synchronously
 export const USAGE_REFUSE_AT = 90; // five-hour usage percent at which dispatch is refused (ADR 0002 auto-pause)
 
 // The nine known cells (CLAUDE.md).
