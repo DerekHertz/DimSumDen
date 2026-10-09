@@ -2757,3 +2757,8 @@
 {"kind":"spend","ts":"2026-10-09T03:37:59.899Z","session":"26c01b15-a7ea-428c-a884-b8c4d7775578","role":"orchestrator","input_tokens":34,"cache_creation_input_tokens":14832,"cache_read_input_tokens":1214565,"output_tokens":9480}
 {"kind":"usage","ts":"2026-10-09T03:37:59Z","five_hour":75,"weekly":90,"event":"merge","ticket":null,"cell":"orchestrator"}
 {"kind":"context","ts":"2026-10-09T03:37:59Z","session":"26c01b15-a7ea-428c-a884-b8c4d7775578","context_tokens":77783,"percent":7.78,"event":"merge"}
+{"kind":"usage","ts":"2026-10-09T03:40:15Z","five_hour":75,"weekly":91,"event":"dispatch","ticket":null,"cell":null}
+{"kind":"context","ts":"2026-10-09T03:40:15Z","session":"8f8ee44d-9e73-4359-8db7-236ec72e7c3f","context_tokens":27274,"percent":2.73,"event":"dispatch"}
+{"kind":"jev-order","ts":"2026-10-09T03:40:50.901Z","actual":["organism-infra/106-steering-slice-1","organism-infra/107-steering-slice-2","den-v1/10-approve-deny-live","den-v1/11-message-live"],"wouldHave":["organism-infra/106-steering-slice-1","den-v1/10-approve-deny-live","den-v1/11-message-live","organism-infra/107-steering-slice-2"],"same":false}
+{"kind":"jev","ts":"2026-10-09T03:40:50.959Z","ticket":"organism-infra/107-steering-slice-2","point":"route","pick":"other","actual":"orchestrator","cost":0.000029736000000000005,"conf":0.51,"mode":"advisory","fallback":null,"floor":null,"ms":363,"model":"jev-1.13.0","variant":"new"}
+{"kind":"retro","ts":"2026-10-09T03:42:19Z","window_from":"2026-10-09T02:27:19.267Z","items":2,"fixes":[{"cause":"board claim --cell flag guessed","tool":"board-claim","kind":"code","ref":"organism-infra/217"},{"cause":"log-cell refuses ticketless runs","tool":"other","kind":"code","ref":"organism-infra/218"}]}
