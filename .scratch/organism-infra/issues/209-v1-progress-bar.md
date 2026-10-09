@@ -6,7 +6,7 @@
 
 **Blocked by:** organism-infra/167 (both edit `scripts/statusline.mjs`)
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Drift guardrail from the refocus (ADR 0019): keep the v1 den loop in view. The user asked for a countdown to the north star (2026-10-08) and settled the choices below in a grilling the same day.
 
@@ -40,3 +40,6 @@ Files: `scripts/north-star.mjs` (new), `scripts/statusline.mjs`, `mods/north-sta
 ## Comments
 - **orchestrator, 2026-10-08:** User decisions: the countdown is to den v1 done; shown in the statusline and as a band mod (not the den UI); the ticket set is derived; resolved or closed counts as done; priority "do it now", so it goes first in the next session, after 167 merges. Mods draw only in terminal `claude` in WSL (not the desktop app in WSL).
 - **orchestrator, 2026-10-08:** Environment: the plugin-authoring skill says ~/.claude/dev-mods/; the user ruled the repo convention mods/<name>/ (as sleep-guard) wins. Gated .claude/settings.json edit is pending; qa verify waits on it.
+- **qa, 2026-10-08:** qa verify (light): escalated to full verify. Suite 3042/3043, the one failure is the bridge timing flake outside scope. Judgement (b), parked tickets' blockers left out of the set (scripts/north-star.mjs:86), is not acceptable as written against AC1. Call (a), parked blocker blocks next, is acceptable. Detail in 209-qa-verify.md.
+- **qa, 2026-10-09:** QA pass, round 2 full verify. Suite 3044 of 3044 from the saved developer run, not re-run. Judgement b fixed with the parked chain test, qa assertions unchanged, additions only. Judgement a accepted. Plugin validate passes. tsc not run, no TypeScript toolchain. Band in a live WSL terminal is human-verified.
+- **security, 2026-10-09:** Security pass at e409539. No critical or high findings; gitleaks clean, no new deps. Low: scripts/north-star.mjs:99 recursive walk could overflow on a very deep Blocked-by chain (caught by callers); mods/north-star/hooks/register.tsx:14 consider timeoutMs 5000 on the turn.complete spawn (default 30 s). See 209-security.md.
