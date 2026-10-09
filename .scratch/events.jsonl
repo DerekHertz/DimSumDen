@@ -2368,3 +2368,7 @@
 {"seq":1719,"ts":"2026-10-09T00:10:06.344Z","feature":"organism-infra","ticket":"209-v1-progress-bar","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":1720,"ts":"2026-10-09T00:14:55.168Z","feature":"organism-infra","ticket":"209-v1-progress-bar","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":1721,"ts":"2026-10-09T00:14:55.202Z","feature":"organism-infra","ticket":"209-v1-progress-bar","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":1722,"ts":"2026-10-09T00:19:47.351Z","feature":"organism-infra","ticket":"143-steering-adapter-process","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":1723,"ts":"2026-10-09T00:22:13.168Z","feature":"organism-infra","ticket":"143-steering-adapter-process","cell":"qa","op":"release","from_status":"claimed","to_status":"ready-for-agent","force":false}
+{"seq":1724,"ts":"2026-10-09T00:22:56.707Z","feature":"organism-infra","ticket":"143-steering-adapter-process","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":1725,"ts":"2026-10-09T00:26:08.485Z","feature":"organism-infra","ticket":"143-steering-adapter-process","cell":"qa","op":"release","from_status":"claimed","to_status":"ready-for-agent","force":false}
