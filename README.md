@@ -24,9 +24,9 @@ and perch on Bao, a big plush panda, in a 3D den that shows who is doing what at
 npm ci && npm run ui    # then open http://127.0.0.1:4317/?demo=den
 ```
 
-![Bao with agents perched on the body](design/3d/renders/l1-hero-3d-v3.jpg)
+![The den in Demo mode: Bao at the center, agents at their stations](docs/images/den-demo.jpg)
 
-*A design render from `design/3d/renders/`, not a capture of the running app.*
+*The den in Demo mode (`?demo=den`), captured from the running app.*
 
 </div>
 
