@@ -2,8 +2,8 @@
 // cell's agent_type, instead of the fixed 70k/80k.
 //
 // Seam: the hook CLI, as in context-budget.test.mjs (PreToolUse JSON on stdin, HOME=<fixture>).
-// With the shipped config (CONTEXT_BUDGET_CONFIG unset): every cell warns at 70k and refuses at 80k
-// (organism-infra/208 moved developer and qa down from 145's 100k / 120k).
+// With the shipped config (CONTEXT_BUDGET_CONFIG unset): developer, qa and designer warn at 100k and
+// refuse at 130k (organism-infra/210); every other cell warns at 70k and refuses at 80k.
 // With CONTEXT_BUDGET_CONFIG=<fixture file> the numbers come from that file, so none is hard-coded.
 // The warning and refusal texts name the cell's own limits, not "80k".
 //
@@ -67,7 +67,16 @@ const refuses = (r, label) => {
   return r.stderr;
 };
 
-for (const role of ["developer", "qa", "security", "architect", "designer", "scout"]) {
+for (const role of ["developer", "qa", "designer"]) {
+  test(`${role}: 100k warn / 130k stop`, () => {
+    silent(run(99_999, role), `${role} 99,999`);
+    warns(run(100_000, role), `${role} 100k`);
+    warns(run(129_999, role), `${role} 129,999`);
+    refuses(run(130_000, role), `${role} 130k`);
+  });
+}
+
+for (const role of ["security", "architect", "scout"]) {
   test(`${role}: keeps 70k warn / 80k stop`, () => {
     silent(run(69_999, role), `${role} 69,999`);
     warns(run(70_000, role), `${role} 70k`);
@@ -99,9 +108,9 @@ test("refusal text names the cell's own limit and still tells it how to wrap up"
   assert.match(text, /outcome: partial/);
 });
 
-test("the wrap-up calls stay allowed at and above the developer's 80k stop", () => {
+test("the wrap-up calls stay allowed at and above the developer's 130k stop", () => {
   for (const command of ["git add scripts/a.mjs", 'git commit -m "WIP: budget"', "npm run board -- release organism-infra/145-cell-context-hook --keep-status", "node scripts/context.mjs --self"]) {
-    const r = run(130_000, "developer", { tool: "Bash", toolInput: { command } });
+    const r = run(140_000, "developer", { tool: "Bash", toolInput: { command } });
     assert.equal(r.status, 0, `${command}: exit ${r.status}\n${r.stderr}`);
   }
 });
