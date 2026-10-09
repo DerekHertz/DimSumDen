@@ -59,8 +59,24 @@ async function main() {
 
   switch (command) {
     case "claim": {
-      const { positional, flags } = parseFlags(rest, { allowed: ["mode"] });
-      const [rawRef, cellType] = positional;
+      // organism-infra/217: `--cell <type>` is the flag form of the positional
+      // cell; any other flag is refused with the usage line.
+      const claimUsage = "usage: board claim <ref> <cell-type> [--mode <mode>]  (or: board claim <ref> --cell <cell-type> [--mode <mode>])";
+      let parsed;
+      try {
+        parsed = parseFlags(rest, { allowed: ["mode", "cell"] });
+      } catch (err) {
+        if (err instanceof BoardError) throw new BoardError(`${err.message}\n${claimUsage}`);
+        throw err;
+      }
+      const { positional, flags } = parsed;
+      const [rawRef, positionalCell] = positional;
+      if (positionalCell !== undefined && flags.cell !== undefined && positionalCell !== flags.cell) {
+        throw new BoardError(
+          `conflicting cell types: positional "${positionalCell}" vs --cell "${flags.cell}"\n${claimUsage}`
+        );
+      }
+      const cellType = positionalCell ?? flags.cell;
       const ref = full(rawRef);
       const result = await claim(root, ref, cellType, { mode: flags.mode });
       console.log(`claimed ${ref}: ${result.status}`);
