@@ -2656,3 +2656,6 @@
 {"kind":"cell","ts":"2026-10-09T01:13:13.557Z","ticket":"organism-infra/143-steering-adapter-process","cell":"security","model":"claude-sonnet-5-5","tokens":45422,"ms":55042,"outcome":"pass; 2 low notes (pid recycle, late spawn on exit)","context":43946}
 {"kind":"resolved","ts":"2026-10-09T01:17:24.926Z","ticket":"organism-infra/143-steering-adapter-process","pr":207,"bounces":1}
 {"kind":"jev-advisory-outcome","ts":"2026-10-09T01:17:24.986Z","ticket":"organism-infra/143-steering-adapter-process","orchestratorPick":"qa-specify","jevPick":"qa-specify","userChoice":"qa-specify","bounced":false}
+{"kind":"retro","ts":"2026-10-09T01:18:54Z","window_from":"2026-10-08T23:25:46Z","items":8,"fixes":[{"cause":"cells hit 80k context stop (partials)","tool":"other","kind":"code","ref":"PR #206 (organism-infra/210)"},{"cause":"isolation guard refuses board comment with punctuation","tool":"bash-guard","kind":"code","ref":"organism-infra/213"}]}
+{"kind":"usage","ts":"2026-10-09T01:19:07Z","five_hour":30,"weekly":85,"event":"merge","ticket":"organism-infra/143","cell":"orchestrator"}
+{"kind":"context","ts":"2026-10-09T01:19:07Z","session":"30df5da3-c3cc-4a15-a78b-bb3b59654e1f","context_tokens":65122,"percent":6.51,"event":"merge"}
