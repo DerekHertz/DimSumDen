@@ -1,0 +1,24 @@
+diff --git a/.claude/commands/queue.md b/.claude/commands/queue.md
+new file mode 100644
+index 0000000..5f20422
+--- /dev/null
++++ b/.claude/commands/queue.md
+@@ -0,0 +1,5 @@
++---
++description: Show the board queue as a kanban (ready, in flight, waiting on you, blocked)
++---
++
++Run `npm run queue` and show its output as-is, in a code block. Do not summarise or reorder it. Tickets marked with a circled number (①②③) are the orchestrator's proposed order.
+diff --git a/.claude/settings.json b/.claude/settings.json
+index d348c1b..9c892f8 100644
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -101,6 +101,7 @@
+   },
+   "enabledPlugins": {
+     "sleep-guard@dimsumden-mods": true,
+-    "north-star@dimsumden-mods": true
++    "north-star@dimsumden-mods": true,
++    "queue@dimsumden-mods": true
+   }
+ }

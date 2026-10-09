@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Serves:** User visibility (user, 2026-10-08): ticket numbers alone don't say what is queued. The user wants to see the queue in the terminal, with the orchestrator's proposed order highlighted.
 
@@ -32,3 +32,5 @@
 
 ## Comments
 - **orchestrator, 2026-10-09:** User 2026-10-08: published with the user's yes. Order: board priority, with the orchestrator's proposed order highlighted. Runs next after 143 and 210. Follow-on: new 'dashboard' feature (Den kanban + mod version; efficiency, quality, token economics) goes to product + designer for a spec; token economics needs 211.
+- **qa, 2026-10-09:** QA pass (light verify, 72ff959): suite 3102 pass, 0 fail, 0 skipped (developer output /tmp/212-tests.txt, not re-run). Specify tests unchanged since 66f838b. AC1-AC5 mapped to passing tests; band live draw and /queue file human-verified. Details in handoff 212-qa-verify.md.
+- **security, 2026-10-09:** Security pass (72ff959). gitleaks clean, npm audit 0, no new deps. Low: scripts/queue.mjs:57,124 unfiltered control chars from ticket title/lock reach terminal; mods/queue/hooks/register.tsx:15 cwd-relative script (same as north-star). Details in 212-security.md.
