@@ -6,7 +6,7 @@
 
 **Blocked by:** 141, 142, 195
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Den loop steps 3-4: the real runtime behind the host.
 
@@ -30,3 +30,4 @@ Child wrapper over real pipes (a stub script speaks the stream), kill and proces
 - **orchestrator, 2026-10-08:** Retro 2026-10-08: the pending item in handoffs/143-architect-2.md (open the PR for docs/143-adr0016-spike-verdicts) is obsolete. That branch does not exist, and the ADR 0016 verdict work goes ahead under ticket 202, merged in PR 193.
 - **developer, 2026-10-09:** developer 2: implementation passes 25/27 qa tests; 2 look wrong, not edited. (1) claude-runtime-host.test.mjs:91 expects stop 200 but ADR 0016 status table and host-core.test.mjs:224 say 202. (2) claude-process.test.mjs:207 SIGTERMs the ignoreTerm grandchild right after its pid file appears, before its node -e handler is installed (stub spawns it at claude-stub.mjs:47-49); passes with a 500 ms wait before the signal. qa should fix both tests, then verify.
 - **qa, 2026-10-09:** QA pass (light verify). Two qa tests fixed at 17daee6 (stop 202 per ADR 0016; stub grandchild ready signal). 27/27 of the four 143 files pass. See 143-qa-verify.md.
+- **security, 2026-10-09:** Security pass at 17daee6. No critical or high. Low: claude-runtime.mjs:109 group SIGKILL after leader exit (pid reuse, negligible); host.mjs:289 late spawn not reaped if bridge exits on the timeout path. gitleaks clean, no dependency changes. See 143-security-2.md.

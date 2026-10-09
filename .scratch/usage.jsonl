@@ -2653,3 +2653,6 @@
 {"kind":"resolved","ts":"2026-10-09T01:11:34.479Z","ticket":"organism-infra/210-raise-cell-budget-track-orchestrator-spend","pr":206,"bounces":0}
 {"kind":"jev-advisory-outcome","ts":"2026-10-09T01:11:34.543Z","ticket":"organism-infra/210-raise-cell-budget-track-orchestrator-spend","orchestratorPick":"developer-direct","jevPick":"qa-specify","userChoice":"developer-direct","bounced":false}
 {"kind":"cell","ts":"2026-10-09T01:11:49.414Z","ticket":"organism-infra/143-steering-adapter-process","cell":"scout","model":"claude-haiku-5-5","tokens":11003,"ms":9290,"outcome":"risk-check exit 1 (7 hits: shell, network, secrets), no conflicts"}
+{"kind":"cell","ts":"2026-10-09T01:13:13.557Z","ticket":"organism-infra/143-steering-adapter-process","cell":"security","model":"claude-sonnet-5-5","tokens":45422,"ms":55042,"outcome":"pass; 2 low notes (pid recycle, late spawn on exit)","context":43946}
+{"kind":"resolved","ts":"2026-10-09T01:17:24.926Z","ticket":"organism-infra/143-steering-adapter-process","pr":207,"bounces":1}
+{"kind":"jev-advisory-outcome","ts":"2026-10-09T01:17:24.986Z","ticket":"organism-infra/143-steering-adapter-process","orchestratorPick":"qa-specify","jevPick":"qa-specify","userChoice":"qa-specify","bounced":false}
