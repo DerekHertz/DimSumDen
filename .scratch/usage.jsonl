@@ -2754,3 +2754,6 @@
 {"kind":"context","ts":"2026-10-09T03:22:11Z","session":"26c01b15-a7ea-428c-a884-b8c4d7775578","context_tokens":63515,"percent":6.35,"event":"merge"}
 {"kind":"incident","ts":"2026-10-09T03:22:11Z","ticket":null,"cell":"orchestrator","tool":"log-cell","what":"log-cell rejects --ticket none for ticketless scout runs; placeholder refs also refused (ticket not found); 2 haiku scout runs (57.9k tokens) left unlogged","cost":"1 call","fix":"none yet; log-cell needs a ticketless mode","rule_change":null}
 {"kind":"spend","ts":"2026-10-09T03:22:11.653Z","session":"26c01b15-a7ea-428c-a884-b8c4d7775578","role":"orchestrator","input_tokens":58,"cache_creation_input_tokens":38757,"cache_read_input_tokens":1105819,"output_tokens":20257}
+{"kind":"spend","ts":"2026-10-09T03:37:59.899Z","session":"26c01b15-a7ea-428c-a884-b8c4d7775578","role":"orchestrator","input_tokens":34,"cache_creation_input_tokens":14832,"cache_read_input_tokens":1214565,"output_tokens":9480}
+{"kind":"usage","ts":"2026-10-09T03:37:59Z","five_hour":75,"weekly":90,"event":"merge","ticket":null,"cell":"orchestrator"}
+{"kind":"context","ts":"2026-10-09T03:37:59Z","session":"26c01b15-a7ea-428c-a884-b8c4d7775578","context_tokens":77783,"percent":7.78,"event":"merge"}
