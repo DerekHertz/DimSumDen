@@ -52,15 +52,16 @@ const FIXTURE = {
   orchestrator: { warn: 20_000, stop: 25_000 },
 };
 
-// organism-infra/208 (user): every cell, developer and qa included, warns at 70k and stops at 80k.
-// (145 had developer and qa at 100k/120k; seven cells still ran past 80k.)
-test("shipped config: developer and qa get 70k warn / 80k stop", () => {
-  assert.deepEqual(budgetFor("developer"), { warn: 70_000, stop: 80_000 });
-  assert.deepEqual(budgetFor("qa"), { warn: 70_000, stop: 80_000 });
+// organism-infra/210 (user, 2026-10-09): developer, qa and designer warn at 100k and stop at 130k.
+// (208 had set every cell to 70k/80k; about 40 cell runs finished past 80k anyway.)
+test("shipped config: developer, qa and designer get 100k warn / 130k stop", () => {
+  for (const role of ["developer", "qa", "designer"]) {
+    assert.deepEqual(budgetFor(role), { warn: 100_000, stop: 130_000 }, role);
+  }
 });
 
-test("shipped config: security, architect, designer, scout and the orchestrator stay at 70k / 80k", () => {
-  for (const role of ["security", "architect", "designer", "scout", "orchestrator"]) {
+test("shipped config: security, architect, scout and the orchestrator stay at 70k / 80k", () => {
+  for (const role of ["security", "architect", "scout", "orchestrator"]) {
     assert.deepEqual(budgetFor(role), { warn: 70_000, stop: 80_000 }, role);
   }
 });
