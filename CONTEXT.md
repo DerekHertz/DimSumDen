@@ -64,7 +64,11 @@ _Avoid_: Provider, engine
 
 **Board**:
 The local-markdown issue tracker under `.scratch/` in the main checkout, and the single source of truth for work.
-_Avoid_: Backlog, queue, kanban (the kanban is a view of the board)
+_Avoid_: Backlog, queue
+
+**Kanban**:
+The Den view of the board as columns (proposed, ready, in flight, waiting on you, blocked, resolved). The user may move a card only across their own gates; a claimed card is pinned. The terminal queue band (a mod) shows the same columns in text.
+_Avoid_: Dashboard, board view
 
 **Board service**:
 The module behind the `board` CLI; the single writer of the board.
@@ -184,7 +188,11 @@ _Avoid_: Pilot
 
 **Telemetry**:
 Aggregates derived from the organism's own transcripts: tokens, tool calls, and errors, attributed to cell type and ticket. It can always be rebuilt from the transcripts.
-_Avoid_: Logs, metrics, analytics
+_Avoid_: Logs, analytics (the **Metrics** view is where telemetry is shown)
+
+**Metrics**:
+The Den view that shows telemetry and the board's usage log as charts, in tabs: Efficiency, Quality, Economics and Jev. The kanban is a separate tab in the same panel.
+_Avoid_: Dashboard (legacy slug of the crew-dashboard feature, which is the role-card **crew** view)
 
 **Error cluster**:
 A group of tool errors that share one normalized signature (paths, numbers, hashes and positions stripped), grouped by tool.
