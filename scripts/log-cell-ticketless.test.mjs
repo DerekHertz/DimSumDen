@@ -176,3 +176,25 @@ test("npm run spend counts a ticketless run under its role and leaves real ticke
     await fx.cleanup();
   }
 });
+
+test("a ticketless row from a non-scout cell is refused unless --allow-no-handoff gives a reason (organism-infra/51 guard)", async () => {
+  const fx = await makeBoardFixture();
+  try {
+    const refused = run(fx, "none", [], "developer");
+    assert.equal(refused.status, 1);
+    assert.match(refused.stderr, /allow-no-handoff/);
+    assert.equal(rows(fx.root).length, 0, "nothing written");
+
+    const ok = run(fx, "none", ["--allow-no-handoff", "no ticket to hand off on"], "developer");
+    assert.equal(ok.status, 0, ok.stderr);
+    const [row] = rows(fx.root);
+    assert.strictEqual(row.ticket, null);
+    assert.equal(row.cell, "developer");
+    assert.equal(row.allow_no_handoff, "no ticket to hand off on");
+
+    assert.equal(run(fx, "none", [], "scout").status, 0, "scout stays exempt");
+    assert.equal(rows(fx.root).length, 2);
+  } finally {
+    await fx.cleanup();
+  }
+});

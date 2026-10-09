@@ -8,6 +8,7 @@
 // Root is $ORGANISM_ROOT, else the main checkout (git worktree list, as board does), else the current directory.
 // A short --ticket <feature>/<NN> resolves to the full slug ref (organism-infra/126).
 // A scout row needs no handoff (organism-infra/177): scouts are read-only and never publish one.
+// A ticketless (--ticket none) row from any other cell must pass --allow-no-handoff "<reason>" (organism-infra/218).
 // Any rejection exits 1 and writes nothing.
 import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, writeSync } from "node:fs";
 import path from "node:path";
@@ -86,7 +87,10 @@ if (!ticketless) {
 if (f["allow-no-handoff"] !== undefined) {
   if (!f["allow-no-handoff"].trim()) fail("--allow-no-handoff needs a non-empty reason");
   if (f["allow-no-handoff"].length > 300) fail("--allow-no-handoff reason must be at most 300 characters");
-} else if (f.cell !== "scout" && !ticketless) {
+} else if (f.cell !== "scout" && ticketless) {
+  // organism-infra/218: a ticketless run has no handoffs dir to check, so a non-scout cell must say why.
+  fail(`a ticketless row from ${f.cell} needs --allow-no-handoff "<reason>" (only scout is exempt)`);
+} else if (f.cell !== "scout") {
   const dir = path.join(root, ".scratch", m[1], "handoffs");
   const nn = /^(\d{2,})-/.exec(m[2])?.[1];
   const refs = new Set([f.ticket, nn && `${m[1]}/${nn}`]);
