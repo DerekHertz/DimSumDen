@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // organism-infra/48: append one validated kind:"cell" row to .scratch/usage.jsonl (ADR 0008).
-// Usage: node scripts/log-cell.mjs --ticket <feature>/<NN-slug> --cell <type> [--mode <m>] [--model <id>]
+// Usage: node scripts/log-cell.mjs --ticket <feature>/<NN-slug>|none --cell <type> [--mode <m>] [--model <id>]
 //          --tokens <int> --ms <int> --outcome "<text>"
 //          [--context <int>]                 (the cell's final `context.mjs --self` reading; organism-infra/119)
 //          [--transcript <file.jsonl>]       (the cell's subagent transcript: adds the four billed totals to the row and appends a spend row; organism-infra/211)
@@ -33,8 +33,10 @@ for (let i = 0; i < args.length; i += 2) {
   f[name] = args[i + 1];
 }
 
-let m = REF_RE.exec(f.ticket ?? "");
-if (!m || m[2] === ".." || m[2].includes("..")) fail(`--ticket must be <feature>/<NN-slug>, got ${JSON.stringify(f.ticket)}`);
+// organism-infra/218: the exact string "none" logs a run not tied to a ticket (ticket: null).
+const ticketless = f.ticket === "none";
+let m = ticketless ? null : REF_RE.exec(f.ticket ?? "");
+if (!ticketless && (!m || m[2] === ".." || m[2].includes(".."))) fail(`--ticket must be <feature>/<NN-slug>, got ${JSON.stringify(f.ticket)}`);
 if (!CELLS.includes(f.cell)) fail(`--cell must be one of ${CELLS.join(", ")}`);
 for (const n of ["tokens", "ms"]) {
   if (!/^[0-9]{1,15}$/.test(f[n] ?? "")) fail(`--${n} must be a non-negative integer`);
@@ -69,20 +71,22 @@ try {
 } catch {
   root = process.cwd(); // not in a git checkout and no $ORGANISM_ROOT: the old default
 }
-try {
-  f.ticket = resolveShortRef(root, f.ticket);
-} catch (err) {
-  fail(err.message);
+if (!ticketless) {
+  try {
+    f.ticket = resolveShortRef(root, f.ticket);
+  } catch (err) {
+    fail(err.message);
+  }
+  m = REF_RE.exec(f.ticket);
+  if (!existsSync(path.join(root, ".scratch", m[1], "issues", `${m[2]}.md`))) fail(`ticket not found: ${f.ticket}`);
 }
-m = REF_RE.exec(f.ticket);
-if (!existsSync(path.join(root, ".scratch", m[1], "issues", `${m[2]}.md`))) fail(`ticket not found: ${f.ticket}`);
 
 // organism-infra/51: a cell row needs a recent handoff from that cell/mode, else
 // the cell finished without handing off. --allow-no-handoff "<reason>" is the logged escape.
 if (f["allow-no-handoff"] !== undefined) {
   if (!f["allow-no-handoff"].trim()) fail("--allow-no-handoff needs a non-empty reason");
   if (f["allow-no-handoff"].length > 300) fail("--allow-no-handoff reason must be at most 300 characters");
-} else if (f.cell !== "scout") {
+} else if (f.cell !== "scout" && !ticketless) {
   const dir = path.join(root, ".scratch", m[1], "handoffs");
   const nn = /^(\d{2,})-/.exec(m[2])?.[1];
   const refs = new Set([f.ticket, nn && `${m[1]}/${nn}`]);
@@ -125,7 +129,7 @@ if (f.transcript !== undefined) {
 const row = {
   kind: "cell",
   ts: new Date().toISOString(),
-  ticket: f.ticket,
+  ticket: ticketless ? null : f.ticket,
   cell: f.cell,
   ...(f.mode !== undefined ? { mode: f.mode } : {}),
   ...(f.model !== undefined ? { model: f.model } : {}),
@@ -140,10 +144,10 @@ const scratch = path.join(root, ".scratch");
 if (existsSync(scratch) && lstatSync(scratch).isSymbolicLink()) fail(".scratch is a symlink; refusing to write through it");
 mkdirSync(scratch, { recursive: true });
 const incidentRows = incidents.map(({ tool, what }) => ({
-  kind: "incident", ts: row.ts, ticket: f.ticket, cell: f.cell, tool, what, cost: null, fix: null, rule_change: null, source: "cell-report",
+  kind: "incident", ts: row.ts, ticket: row.ticket, cell: f.cell, tool, what, cost: null, fix: null, rule_change: null, source: "cell-report",
 }));
 const session = f.transcript !== undefined ? sessionOf(f.transcript) : null;
-const spend = billed ? spendRow({ ts: row.ts, session, role: f.cell, ticket: f.ticket, delta: spendDelta(root, session, billed) }) : null;
+const spend = billed ? spendRow({ ts: row.ts, session, role: f.cell, ticket: row.ticket, delta: spendDelta(root, session, billed) }) : null;
 // O_NOFOLLOW: a symlinked usage.jsonl is refused (organism-infra/49).
 let fd;
 try {
