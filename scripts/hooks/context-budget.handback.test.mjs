@@ -70,7 +70,7 @@ test("SubagentHandback is allowed at and above the stop threshold (architect: 80
 
 test("SubagentHandback is allowed at and above the stop threshold of developer and qa", () => {
   for (const role of ["developer", "qa"]) {
-    silent(run(120_000, role), `${role} 120k`);
+    silent(run(130_000, role), `${role} 130k`);
     silent(run(150_000, role), `${role} 150k`);
   }
 });
@@ -86,7 +86,7 @@ test("SubagentHandback is allowed at stop for the 80k roles beyond architect", (
 test("Read and Grep are still refused at and above the stop threshold", () => {
   refuses(run(80_000, "architect", { tool: "Read", toolInput: { file_path: "/repo/apps/ui/src/big.jsx" } }), "architect Read 80k");
   refuses(run(85_000, "architect", { tool: "Grep", toolInput: { pattern: "x" } }), "architect Grep 85k");
-  refuses(run(120_000, "qa", { tool: "Read", toolInput: { file_path: "/repo/README.md" } }), "qa Read 120k");
+  refuses(run(130_000, "qa", { tool: "Read", toolInput: { file_path: "/repo/README.md" } }), "qa Read 130k");
   refuses(run(150_000, "developer", { tool: "Grep", toolInput: { pattern: "x" } }), "developer Grep 150k");
 });
 
@@ -113,7 +113,7 @@ test("below the warn threshold, SubagentHandback and other calls pass silently",
 test("between warn and stop, calls (SubagentHandback included) are allowed with the checkpoint warning", () => {
   warnsAndAllows(run(75_000, "architect"), "architect handback 75k");
   warnsAndAllows(run(75_000, "architect", { tool: "Read", toolInput: { file_path: "/repo/a.mjs" } }), "architect Read 75k");
-  warnsAndAllows(run(75_000, "developer"), "developer handback 75k");
+  warnsAndAllows(run(110_000, "developer"), "developer handback 110k");
 });
 
 test("the orchestrator session is never gated, at any token count", () => {
