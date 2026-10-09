@@ -27,3 +27,4 @@ History: the 2026-10-07 retro closed a similar `.git`-ancestor fixture issue as 
 
 ## Comments
 - **orchestrator, 2026-10-08:** Filed on the user's yes. The user waived this red for 142.
+- **orchestrator, 2026-10-09:** Cause found 2026-10-08: empty /tmp/.git, /tmp/.agents and /tmp/.codex were all created at 21:26:32.50 within 4 ms, while Codex wrote its state DB. Those three names are the Codex Linux sandbox protected paths, so a Codex run with /tmp as a writable root most likely made empty mountpoint dirs. No repo code creates them. /tmp/.git was removed on the user's yes. The fix stays: make Low-80 hermetic (do not assume tmpdir has no .git ancestor).
