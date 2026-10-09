@@ -1,5 +1,5 @@
 /* Controls for the procedural den; existing board and approval cards retain their styles. */
-.den-entry { position:absolute; left:16px; top:88px; z-index:4; max-width:310px; }
+.den-entry { position:absolute; left:16px; top:120px; z-index:4; max-width:310px; }
 .den-entry .btn { min-height:44px; box-shadow:var(--shadow-panel); }
 .den-walk-hint { margin:8px 0; padding:8px 12px; border-radius:10px; background:var(--surface-glass); color:var(--ink); font-size:12px; }
 .den-crosshair { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:#fffdf7; text-shadow:0 1px 3px #1d2124; pointer-events:none; }
