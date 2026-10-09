@@ -2441,3 +2441,5 @@
 {"seq":1792,"ts":"2026-10-09T03:10:08.799Z","feature":"den-v1","ticket":"09-demo-mode","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":1793,"ts":"2026-10-09T03:15:41.128Z","feature":"den-v1","ticket":"09-demo-mode","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":1794,"ts":"2026-10-09T03:15:43.352Z","feature":"den-v1","ticket":"09-demo-mode","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":1795,"ts":"2026-10-09T05:27:50.697Z","feature":"organism-infra","ticket":"106-steering-slice-1","cell":"orchestrator","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":1796,"ts":"2026-10-09T05:27:50.730Z","feature":"organism-infra","ticket":"106-steering-slice-1","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
