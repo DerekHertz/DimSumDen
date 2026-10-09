@@ -2423,3 +2423,5 @@
 {"seq":1774,"ts":"2026-10-09T02:19:23.642Z","feature":"organism-infra","ticket":"211-track-orchestrator-and-cell-spend","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":1775,"ts":"2026-10-09T02:24:40.256Z","feature":"organism-infra","ticket":"211-track-orchestrator-and-cell-spend","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":1776,"ts":"2026-10-09T02:24:40.279Z","feature":"organism-infra","ticket":"211-track-orchestrator-and-cell-spend","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":1777,"ts":"2026-10-09T02:34:15.572Z","feature":"den-v1","ticket":"09-demo-mode","cell":"designer","mode":"spec","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":1778,"ts":"2026-10-09T02:38:26.680Z","feature":"den-v1","ticket":"09-demo-mode","cell":"designer","op":"release","from_status":"claimed","to_status":"ready-for-agent","force":false}
