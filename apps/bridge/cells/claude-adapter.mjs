@@ -8,6 +8,7 @@
 //   decodeControlRequest / encodeControlResponse   the can_use_tool permission channel, bare decisions only
 //   encodeUserMessage a user message as one stdin line: the prompt, or (den-v1 loop S5) a message to a running child,
 //                     whose id comes back on the child's replay of it and reads as message-applied
+import { readFileSync } from "node:fs";
 import { StringDecoder } from "node:string_decoder";
 import { COST_MAX_USD, MODEL_RE, REQUEST_ID_MAX, REQUEST_IDS_PER_AGENT, ROLES, UUID_RE } from "./policy.mjs";
 
@@ -38,7 +39,7 @@ const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArr
 // The wall (agent-os/01 spike, ADR 0021 decision 2): the CLI's own sandbox around the agent's shell commands. Strict:
 // the CLI refuses to start if the sandbox cannot run, a blocked command cannot be retried outside it, and a host that
 // is not listed is refused, not asked about. A sandboxed command then runs with no permission request. Hosts are plain
-// lower-case dotted names: no wildcard, port, scheme or path. The production runtime does not pass a wall yet.
+// lower-case dotted names: no wildcard, port, scheme or path. The runtime passes it for a role with a ceiling (agent-os/04).
 const WALL_HOST_RE = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
 const WALL_HOSTS_MAX = 20;
 function isWall(wall) {
@@ -52,26 +53,64 @@ const sandboxFor = (wall) => ({
   autoAllowBashIfSandboxed: true,
   network: { allowedDomains: [...wall.hosts], strictAllowlist: true },
 });
-const settingsFor = (ticketFile, wall) =>
-  JSON.stringify({
-    permissions: { deny: DENY_RULES, ...(ticketFile === undefined ? {} : { allow: [`Read(/${ticketFile})`] }) },
+const settingsFor = (ticketFile, wall, worktree) => {
+  const allow = [
+    ...(ticketFile === undefined ? [] : [`Read(/${ticketFile})`]),
+    ...(worktree === undefined ? [] : [`Write(/${worktree}/**)`, `Edit(/${worktree}/**)`]),
+  ];
+  return JSON.stringify({
+    permissions: { deny: DENY_RULES, ...(allow.length === 0 ? {} : { allow }) },
     ...(wall === undefined ? {} : { sandbox: sandboxFor(wall) }),
   });
+};
+
+// A worktree the write rules may name (agent-os/04): absolute, plain segments only, no "." or ".." and not the root, so the
+// rule Write(/<worktree>/**) cannot read as a glob, a separator or a wider path.
+const WORKTREE_RE = /^(?:\/[A-Za-z0-9._@+-]+)+$/;
+export function isWorktreePath(dir) {
+  return typeof dir === "string" && WORKTREE_RE.test(dir) && !dir.split("/").some((part) => part === "." || part === "..");
+}
+
+// ---- role ceilings (agent-os/04, ADR 0021 decisions 2 to 5) --------------------------------
+// ceilings.json gives scout, developer, qa and security a ceiling: { write: "none" | "worktree", hosts: [...] }. A role with
+// no key has none and starts as before. The data is checked once at load, so a bad edit stops the bridge, not a Start.
+const CEILINGS = JSON.parse(readFileSync(new URL("./ceilings.json", import.meta.url), "utf8"));
+for (const [role, ceiling] of Object.entries(CEILINGS)) {
+  const ok = ROLES.includes(role) && isPlainObject(ceiling) && Object.keys(ceiling).length === 2 && (ceiling.write === "none" || ceiling.write === "worktree") && isWall({ hosts: ceiling.hosts });
+  if (!ok) throw new Error(`ceilings.json: bad ceiling for ${JSON.stringify(role)}`);
+}
+
+/**
+ * The buildClaudeArgs options for a role's ceiling: the wall with the role's hosts, plus Write and Edit allow rules for the
+ * worktree when the role writes. null for a role with no ceiling. A role that writes and gets a worktree that is not a plain
+ * absolute path is a TypeError; worktree undefined leaves the write rules out (the wall stays, the Write request stays).
+ */
+export function compileCeiling(role, { worktree } = {}) {
+  const ceiling = Object.hasOwn(CEILINGS, role) ? CEILINGS[role] : undefined;
+  if (ceiling === undefined) return null;
+  const options = { wall: { hosts: [...ceiling.hosts] } };
+  if (ceiling.write === "worktree" && worktree !== undefined) {
+    if (!isWorktreePath(worktree)) throw new TypeError("compileCeiling: worktree must be a plain absolute path");
+    options.worktree = worktree;
+  }
+  return options;
+}
 
 // ---- argv ----------------------------------------------------------------------------------
 
 /**
  * The whole argv (no binary name) for one child. Rejects anything outside { sessionId, agent, model?, ticketFile?,
- * wall? }. No passthrough parameter exists, so no permission-broadening flag can be constructed; ticketFile adds the
- * one Read rule above and nothing else, and wall adds the sandbox block above and nothing else.
+ * wall?, worktree? }. No passthrough parameter exists, so no permission-broadening flag can be constructed; ticketFile adds
+ * the one Read rule above, wall adds the sandbox block above, and worktree adds Write and Edit rules for that one directory.
  */
 export function buildClaudeArgs(options) {
-  if (!isPlainObject(options)) throw new TypeError("buildClaudeArgs needs { sessionId, agent, model?, ticketFile?, wall? }");
+  if (!isPlainObject(options)) throw new TypeError("buildClaudeArgs needs { sessionId, agent, model?, ticketFile?, wall?, worktree? }");
   for (const key of Object.keys(options)) {
-    if (key !== "sessionId" && key !== "agent" && key !== "model" && key !== "ticketFile" && key !== "wall") throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
+    if (key !== "sessionId" && key !== "agent" && key !== "model" && key !== "ticketFile" && key !== "wall" && key !== "worktree") throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
   }
-  const { sessionId, agent, model, ticketFile, wall } = options;
+  const { sessionId, agent, model, ticketFile, wall, worktree } = options;
   if (wall !== undefined && !isWall(wall)) throw new TypeError("buildClaudeArgs: wall must be { hosts: [plain host names] }");
+  if (worktree !== undefined && !isWorktreePath(worktree)) throw new TypeError("buildClaudeArgs: worktree must be a plain absolute path");
   if (ticketFile !== undefined && !isTicketFilePath(ticketFile)) throw new TypeError("buildClaudeArgs: ticketFile must be a plain absolute path to a board ticket");
   if (typeof sessionId !== "string" || !UUID_RE.test(sessionId)) throw new TypeError("buildClaudeArgs: sessionId must be a UUID");
   if (typeof agent !== "string" || !ROLES.includes(agent)) throw new TypeError("buildClaudeArgs: agent must be a known role");
@@ -88,7 +127,7 @@ export function buildClaudeArgs(options) {
     ...(model === undefined ? [] : ["--model", model]),
     "--setting-sources", "project,local",
     "--strict-mcp-config",
-    "--settings", settingsFor(ticketFile, wall),
+    "--settings", settingsFor(ticketFile, wall, worktree),
   ];
 }
 

@@ -4,7 +4,7 @@
 // permission requests until the host decides, and signals the whole group so no grandchild outlives a kill.
 import { spawn as spawnChild } from "node:child_process";
 import {
-  MAX_LINE_BYTES, buildClaudeArgs, buildClaudeEnv, createLineSplitter, decodeControlRequest, encodeControlResponse, encodeUserMessage, isTicketFilePath,
+  MAX_LINE_BYTES, buildClaudeArgs, buildClaudeEnv, compileCeiling, createLineSplitter, decodeControlRequest, encodeControlResponse, encodeUserMessage, isTicketFilePath, isWorktreePath,
   parseClaudeLine,
 } from "./claude-adapter.mjs";
 import { UUID_RE } from "./policy.mjs";
@@ -52,7 +52,10 @@ export function createClaudeRuntime({ env = process.env } = {}) {
       if (typeof cwd !== "string" || cwd === "") throw new TypeError("claude runtime: cwd must be a path");
       if (typeof prompt !== "string") throw new TypeError("claude runtime: prompt must be a string");
       // A ticket path the adapter cannot write as a rule is left out: that agent's ticket read stays a request.
-      const args = buildClaudeArgs({ sessionId, agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}) });
+      // agent-os/04: a role with a ceiling starts behind the wall, and a role that writes may write in cwd (its worktree).
+      // A cwd the adapter cannot write as a rule keeps the wall and leaves the write rules out: the Write request stays.
+      const ceiling = compileCeiling(role, { worktree: isWorktreePath(cwd) ? cwd : undefined });
+      const args = buildClaudeArgs({ sessionId, agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}), ...(ceiling ?? {}) });
       const bin = typeof env.DEN_CLAUDE_BIN === "string" && env.DEN_CLAUDE_BIN !== "" ? env.DEN_CLAUDE_BIN : "claude";
       const child = spawnChild(bin, args, { shell: false, detached: true, cwd, env: buildClaudeEnv(env), stdio: ["pipe", "pipe", "pipe"] });
       await new Promise((resolve, reject) => {
