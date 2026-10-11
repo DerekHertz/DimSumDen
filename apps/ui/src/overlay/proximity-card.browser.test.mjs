@@ -45,9 +45,9 @@ test('entering the den shows the nearby resident card; moving away and leaving h
     await page.keyboard.press('Tab');
     await page.waitForFunction(() => document.pointerLockElement === null);
     await page.keyboard.press('KeyT');
-    await page.keyboard.press('KeyF');
-    await page.keyboard.press('KeyA');
-    await page.keyboard.press('KeyD');
+    await page.keyboard.press('KeyR');
+    await page.keyboard.press('KeyE');
+    await page.keyboard.press('KeyQ');
     assert.deepEqual(writes, [], 'the card and its advertised shortcuts are read-only');
     await page.getByRole('button', { name: 'Look around', exact: true }).click();
     await page.waitForFunction(() => document.pointerLockElement?.tagName === 'CANVAS');

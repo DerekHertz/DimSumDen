@@ -44,16 +44,75 @@ export function relativeAge(since, nowMs) {
   return `${Math.floor(minutes / (60 * 24))} d`;
 }
 
-/** Every waiting request, in board order: a ticket whose gate is merge or dispatch (gates-model.mjs). */
+const ENDED_STATES = new Set(["done", "failed", "terminated"]);
+const titled = (word) => (word ? word[0].toUpperCase() + word.slice(1) : "Agent");
+
+function expiresText(expiresAt, nowMs) {
+  const left = Date.parse(expiresAt ?? "") - nowMs;
+  if (!Number.isFinite(left)) return null;
+  // Whole minutes, rounded down: the page's clock ticks every 30 s, so rounding up could show more than the limit.
+  return left < 60_000 ? "expires in under a minute" : `expires in ${Math.floor(left / 60_000)} min`;
+}
+
+/**
+ * den-v1 loop: the permission requests the bridge holds for a live agent, oldest first. Each carries `card`, the
+ * shape the permission review opens from (approval-review.mjs); the review shows the full input and sends the answer.
+ */
+function permissionRequests(snapshot, nowMs) {
+  const agents = Array.isArray(snapshot?.agents) ? snapshot.agents : [];
+  const approvals = Array.isArray(snapshot?.approvals) ? snapshot.approvals : [];
+  const on = { enabled: true, reason: null };
+  const out = [];
+  for (const a of approvals) {
+    if (!a?.id || (a.status ?? a.state ?? "pending") !== "pending") continue;
+    if (Date.parse(a.expiresAt ?? "") <= nowMs) continue;
+    const agent = agents.find((row) => row?.id === a.agentId);
+    if (!agent || ENDED_STATES.has(agent.state) || agent.capabilities?.approve !== true) continue;
+    const role = typeof agent.role === "string" ? agent.role : "";
+    const ref = typeof agent.ref === "string" ? agent.ref : "";
+    const tool = typeof a.tool === "string" && a.tool ? a.tool : "a tool";
+    const station = stationIdOf(role);
+    const name = titled(role);
+    out.push({
+      key: `approval:${a.id}`,
+      kind: "permission",
+      ref,
+      short: shortRef(ref),
+      role,
+      station,
+      eyebrow: [name, ref].filter(Boolean).join(" · "),
+      title: `wants to ${tool}`,
+      rowText: [shortRef(ref), tool].filter(Boolean).join(" · "),
+      preview: typeof a.summary === "string" && a.summary ? [a.summary] : [],
+      expires: expiresText(a.expiresAt, nowMs),
+      age: null,
+      card: { id: null, name, role, station, ref: ref || null, agentId: agent.id, state: agent.state, approval: a, actions: { Q: on, E: on } },
+    });
+  }
+  return out;
+}
+
+/** The card E and Q answer: the panda card in view when it holds a request, else the first waiting permission request. */
+export function answerCardFor(card, requests) {
+  if (card?.approval) return card;
+  return (requests ?? []).find((r) => r.kind === "permission")?.card ?? card ?? null;
+}
+
+/**
+ * Every waiting request: the bridge's permission requests first (they expire), then the board's, in board order:
+ * a ticket whose gate is merge or dispatch (gates-model.mjs).
+ */
 export function needsYouModel(snapshot, nowMs) {
   const byRef = new Map((snapshot?.tickets ?? []).map((t) => [t.ref, t]));
-  const requests = gatesModel(snapshot).cards.map((card) => {
+  const gates = gatesModel(snapshot).cards.map((card) => {
     const t = byRef.get(card.ref);
     const gate = card.approveKind.replace(/-approve$/, "");
     const role = cellTypeOf(t);
     const station = stationIdOf(role);
     const short = shortRef(card.ref);
     return {
+      key: card.ref,
+      kind: "gate",
       ref: card.ref,
       short,
       gate,
@@ -69,15 +128,17 @@ export function needsYouModel(snapshot, nowMs) {
       pending: card.pending,
     };
   });
+  const requests = [...permissionRequests(snapshot, nowMs), ...gates];
   return { count: requests.length, requests };
 }
 
-/** The next (+1) or previous (-1) request after `ref`, wrapping; the first when `ref` is not in the list. */
-export function stepRequest(requests, ref, dir) {
+const keyOf = (r) => r.key ?? r.ref;
+/** The next (+1) or previous (-1) request after `key`, wrapping; the first when `key` is not in the list. */
+export function stepRequest(requests, key, dir) {
   if (requests.length === 0) return null;
-  const i = requests.findIndex((r) => r.ref === ref);
-  if (i < 0) return requests[0].ref;
-  return requests[(i + dir + requests.length) % requests.length].ref;
+  const i = requests.findIndex((r) => keyOf(r) === key);
+  if (i < 0) return keyOf(requests[0]);
+  return keyOf(requests[(i + dir + requests.length) % requests.length]);
 }
 
 /** Pills for the open stations and the dormant ones, the "N open · M ready" summary, and the first three queue rows. */

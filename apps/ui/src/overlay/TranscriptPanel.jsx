@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { initialTranscriptState, transcriptKey, transcriptToggle, closeTranscript } from "./transcript-panel.mjs";
 import { transcriptView } from "./transcript-view.mjs";
 
-const STATES = { working: "Working", "needs-you": "Needs your answer", blocked: "Blocked", done: "Done", failed: "Failed", terminated: "Terminated" };
+const STATES = { working: "Working", "needs-you": "Needs your answer", waiting_on_user: "Needs your answer", blocked: "Blocked", done: "Done", failed: "Failed", terminated: "Terminated" };
 const BOTTOM_SLACK = 24;
 
 const timeOf = (at) => {
@@ -10,7 +10,7 @@ const timeOf = (at) => {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
-// Panel state lives in App so the nearby card's F button and the F key share one rule (transcript-panel.mjs).
+// Panel state lives in App so the nearby card's R button and the R key share one rule (transcript-panel.mjs).
 // The panel is pinned to its agent: identity is kept from the card it opened from.
 export function useTranscript({ card, exploring, onOpen, blocked }) {
   const [panel, setPanel] = useState(initialTranscriptState);
@@ -27,7 +27,7 @@ export function useTranscript({ card, exploring, onOpen, blocked }) {
     }
     if (!next.agentId && previous.agentId) {
       queueMicrotask(() => {
-        const free = document.querySelector(".den-cursor-free .proximity-card button[data-key=F]");
+        const free = document.querySelector(".den-cursor-free .proximity-card button[data-key=R]");
         (free ?? document.querySelector('main[aria-label="Den scene"]'))?.focus({ preventScroll: true });
       });
     }
@@ -73,7 +73,7 @@ function ToolRow({ row, onToggle }) {
       <span className="transcript-tool-status">{row.status}</span>
     </button>
     {row.expanded ? <div id={id} className="transcript-tool-body">
-      <pre className="transcript-well" aria-label="Input">{row.inputText}</pre>
+      {row.inputText ? <pre className="transcript-well" aria-label="Input">{row.inputText}</pre> : null}
       {row.result ? <>
         <pre className="transcript-well" aria-label="Result">{row.result.text}</pre>
         {row.result.truncatedBytes ? <p className="transcript-truncated">Truncated, {row.result.truncatedBytes} more bytes</p> : null}
@@ -82,17 +82,27 @@ function ToolRow({ row, onToggle }) {
   </li>;
 }
 
-function Row({ row, onToggle }) {
+function Row({ row, onToggle, onAnswer }) {
   switch (row.kind) {
     case "message":
       return <li className={`transcript-row transcript-message${row.speaker === "You" ? " transcript-you" : ""}`}>
-        <p className="transcript-speaker">{row.speaker} <time>{timeOf(row.at)}</time></p>
+        <p className="transcript-speaker">{row.speaker} <time>{timeOf(row.at)}</time>{row.note ? <span className="transcript-note"> · {row.note}</span> : null}</p>
         <p className="transcript-text">{row.text}</p>
       </li>;
     case "tool":
       return <ToolRow row={row} onToggle={onToggle} />;
     case "permission":
-      return <li className="transcript-row transcript-permission"><code>{row.name}</code> <span className="transcript-waiting"><span className="transcript-glyph" aria-hidden="true" />{row.label}</span></li>;
+      // Live den run, 2026-10-10: the request the agent is held on says what is asked and can be answered from here.
+      // Both buttons open the permission review, which shows the full input and sends the answer.
+      if (row.answerable) return <li className="transcript-row transcript-permission transcript-asking">
+        <p className="transcript-waiting"><span className="transcript-glyph" aria-hidden="true" />{row.label}</p>
+        <p className="transcript-asked"><code>{row.detail}</code></p>
+        <div className="transcript-answer">
+          <button type="button" className="approval-deny" data-answer="deny" title="Opens the permission request" onClick={() => onAnswer?.()}>Deny</button>
+          <button type="button" className="approval-allow" data-answer="allow" title="Opens the permission request" onClick={() => onAnswer?.()}>Allow</button>
+        </div>
+      </li>;
+      return <li className="transcript-row transcript-permission"><code>{row.name}</code> {row.waiting ? <span className="transcript-waiting"><span className="transcript-glyph" aria-hidden="true" />{row.label}</span> : <span className="transcript-answered">{row.label}</span>}</li>;
     case "ended":
       return <li className={`transcript-row transcript-ended transcript-ended-${row.state}`}>{row.label}</li>;
     default:
@@ -100,7 +110,7 @@ function Row({ row, onToggle }) {
   }
 }
 
-export function TranscriptPanel({ tx, transcripts, agents, connection }) {
+export function TranscriptPanel({ tx, transcripts, agents, approvals, onAnswer, connection }) {
   const { panel, identity } = tx;
   const agentId = panel.agentId;
   const buffer = agentId ? transcripts?.[agentId] : undefined;
@@ -110,7 +120,8 @@ export function TranscriptPanel({ tx, transcripts, agents, connection }) {
   const log = useRef(null);
   const bottomRef = useRef(true);
   const lastN = useRef(0);
-  const view = transcriptView(buffer, { expanded, atBottom, seenThrough, connection });
+  const pending = agentId ? approvals?.find((a) => a?.agentId === agentId && (a.status ?? a.state ?? "pending") === "pending") ?? null : null;
+  const view = transcriptView(buffer, { expanded, atBottom, seenThrough, connection, pending });
   lastN.current = view.rows.at(-1)?.n ?? 0;
 
   useEffect(() => { setExpanded([]); setAtBottom(true); setSeenThrough(0); bottomRef.current = true; }, [agentId]);
@@ -164,7 +175,7 @@ export function TranscriptPanel({ tx, transcripts, agents, connection }) {
       <div className="transcript-log" role="log" aria-live="off" aria-label="Transcript entries" tabIndex={0} ref={log} onScroll={onScroll}>
         {view.empty ? <p className="transcript-empty">{view.emptyText}</p> : <>
           {view.droppedNotice ? <p className="transcript-dropped">{view.droppedText}</p> : null}
-          <ul className="transcript-list">{view.rows.map((row) => <Row key={row.n} row={row} onToggle={toggleRow} />)}</ul>
+          <ul className="transcript-list">{view.rows.map((row) => <Row key={row.n} row={row} onToggle={toggleRow} onAnswer={() => onAnswer?.(agentId)} />)}</ul>
         </>}
       </div>
       <div className="transcript-jump" aria-live="polite">

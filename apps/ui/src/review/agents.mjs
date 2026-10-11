@@ -95,7 +95,7 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
     root.attach(panda.model);panda.model.visible=true;panda.model.scale.setScalar(role==='orchestrator'?1.75:role==='stem-cub'?0.36:0.43);
     const occupied=[...actors.values()].map(a=>({type:'circle',x:a.home[0],z:a.home[1],radius:0.65}));
     const home=role==='orchestrator'?[0,-1.25]:nearestClear(ROLE_HOMES[role],[...obstacles,...occupied]);panda.model.position.set(home[0],role==='orchestrator'?0:0.04,home[1]);panda.model.rotation.set(0,0,0);
-    panda.model.userData.reviewAgent=role;panda.model.userData.reviewPart=`${name} · body`;
+    panda.model.userData.reviewAgent=role;panda.model.userData.reviewPart=`${name} · body`;panda.model.userData.actorKey=role;
     gears.push(compactReviewGear(createTraditionalGear(panda,role,direction)));
     const a={role,name,station,stationary:role==='orchestrator',concept:!!concept,index:i,panda,home,favorite:FAVORITES[i],state:'leisure',activity:role==='orchestrator'?'Hosting the den':'Getting ready for a break',bubble:'',reply:'',task:'',age:0,wave:0,path:[],destination:null};actors.set(role,a);
     if(!a.stationary){const place=PLACES[a.favorite];route(a,a.favorite,place.spots[i%place.spots.length]);}
@@ -124,13 +124,17 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
     a.bubble='The leisure spots are busy. I’ll wait here with you.';emit();return false;
   }
   function gather(){let seat=0;for(const role of ['product','architect','designer','qa']){const a=actors.get(role);if(isBusy(a))continue;if(route(a,'dining',PLACES.dining.spots[seat++]))log(a,'is joining the dim sum table.');}}
+  // The panda the user stands with (its card is showing) holds still, so a task can be typed without chasing it.
+  // One with a live agent is not held: it goes to its station and stays there anyway.
+  let heldActor=null;
+  function hold(key=null){heldActor=actors.get(key)??null;}
   function update(dt,paused=false){
     if(paused||dt<=0)return;time+=dt;
     for(const a of actors.values()){
-      a.age+=dt;a.wave=Math.max(0,a.wave-dt);const p=a.panda.model,b=a.panda.bones;
+      a.age+=dt;a.wave=Math.max(0,a.wave-dt);const p=a.panda.model,b=a.panda.bones,held=a===heldActor&&!a.live;
       if(a.state==='received'&&a.age>=0.8){a.answered=false;if(a.stationary){a.state='working';a.age=0;a.activity='Inspecting the request';a.bubble='Thinking through your request…';log(a,'is inspecting your request.');}else if(route(a,'station',a.home,'working'))log(a,`is heading to ${a.station}.`);}
       if(a.state==='walking'){
-        let budget=dt*1.65;
+        let budget=held?0:dt*1.65;
         while(a.path.length&&budget>0){
           const next=a.path[0],dx=next[0]-p.position.x,dz=next[1]-p.position.z,d=Math.hypot(dx,dz),step=Math.min(budget,d,0.1);
           const nx=p.position.x+(d?dx/d*step:0),nz=p.position.z+(d?dz/d*step:0);
@@ -165,7 +169,7 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
           if(d>0){p.position.x+=dx/d*step;p.position.z+=dz/d*step;p.rotation.y=Math.atan2(dx,dz);}budget-=step;
           if(d<=step+1e-6)a.path.shift();
         }
-        if(!a.path.length){a.state=a.arrival;a.age=0;
+        if(!a.path.length&&!held){a.state=a.arrival;a.age=0;
           a.activity=a.state==='working'?'Inspecting the request':a.state==='greeting'?'Here with you':PLACES[a.destination].name;
           const center=PLACES[a.destination]?.center;if(center)p.rotation.y=Math.atan2(center[0]-p.position.x,center[1]-p.position.z);
           a.bubble=a.state==='working'?'Thinking through your request…':a.state==='greeting'?'Hello! What shall we work on?':'';
@@ -176,7 +180,7 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
         else if(a.answered&&a.age>=2){a.state='complete';a.age=0;a.activity='Waiting for you';a.reply=`Preview complete: “${a.task}”. ${a.station} has a first draft ready for your review. This is a simulated response.`;a.bubble='Your first draft is ready!';log(a,'finished the preview and is waiting for you.');}
         else if(a.age>1.5)a.bubble=a.answered?'Preparing the first draft…':'Inspecting recipe notes…';
       }
-      if(!a.stationary&&a.state==='leisure'&&a.age>16+a.index*0.7){
+      if(!a.stationary&&!held&&a.state==='leisure'&&a.age>16+a.index*0.7){
         const ids=Object.keys(PLACES),id=ids[(ids.indexOf(a.destination)+1+a.index%2)%ids.length],place=PLACES[id];
         route(a,id,place.spots[a.index%place.spots.length]);
       }
@@ -184,7 +188,7 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
       // The same plush rig waddles; its gear stays on its head and paw bones.
       for(const name of ['Hip_L','Hip_R','Shoulder_L','Shoulder_R','Elbow_L','Elbow_R','Wrist_L','Wrist_R','Head'])b[name].rotation.set(0,0,0);
       p.position.y=a.stationary?0:0.04;
-      if(a.state==='walking'){
+      if(a.state==='walking'&&!held){
         const phase=time*7+a.index,step=Math.sin(phase);b.Hip_L.rotation.x=step*0.13;b.Hip_R.rotation.x=-step*0.13;
         b.Shoulder_L.rotation.x=-step*0.08;b.Shoulder_R.rotation.x=step*0.08;p.position.y+=0.025*(1-Math.cos(phase*2));b.Torso.rotation.z=step*0.025;
       }else{
@@ -213,7 +217,7 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
   }
   function removeSplit(key){
     const a=actors.get(key);if(!a)return;
-    actors.delete(key);splits.delete(key);
+    actors.delete(key);splits.delete(key);if(heldActor===a)heldActor=null;
     a.gear.dispose();gears.splice(gears.indexOf(a.gear),1);
     a.panda.model.removeFromParent();a.panda.model.traverse(o=>o.geometry?.dispose());a.panda.dispose();owned.splice(owned.indexOf(a.panda),1);
   }
@@ -263,7 +267,7 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
     for(const key of [...splits.keys()])if(!wanted.has(key))removeSplit(key);
     for(const [key,l] of wanted){
       let a=splits.get(key);
-      if(!a){a=addSplit(l.role);if(!a)continue;actors.set(key,a);splits.set(key,a);}
+      if(!a){a=addSplit(l.role);if(!a)continue;a.panda.model.userData.actorKey=key;actors.set(key,a);splits.set(key,a);}
       a.live=l;syncLive(a);
     }
     emit();
@@ -275,5 +279,5 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
     for(const a of actors.values())if(!owned.includes(a.panda))den.world.attach(a.panda.model);
     root.removeFromParent();
   }
-  emit();return {root,actors,obstacles,snapshot,update,wave,talk,sendTask,answer,resume,comeHere,gather,applyLive,liveFigures,setSelected,dispose};
+  emit();return {root,actors,obstacles,snapshot,update,wave,talk,sendTask,answer,resume,comeHere,gather,applyLive,hold,liveFigures,setSelected,dispose};
 }

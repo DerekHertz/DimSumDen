@@ -42,8 +42,8 @@ describe("the seeded snapshot", () => {
     assert.equal(snap.approvals.length, 1);
     assert.equal(snap.approvals[0].status, "pending");
     const card = cardOf(snap);
-    assert.equal(card.actions.A.enabled, true);
-    assert.equal(card.actions.D.enabled, true);
+    assert.equal(card.actions.E.enabled, true);
+    assert.equal(card.actions.Q.enabled, true);
     assert.equal(card.approval.id, snap.approvals[0].id);
   });
   test("expiresAt is in the future and inputLength matches the stub's input", async () => {
@@ -106,7 +106,7 @@ describe("the stub bridge", () => {
     const pending = demo.getSnapshot().approvals.filter((a) => a.status === "pending");
     assert.equal(pending.length, 1);
     assert.notEqual(pending[0].id, first);
-    assert.equal(cardOf(demo.getSnapshot()).actions.A.enabled, true);
+    assert.equal(cardOf(demo.getSnapshot()).actions.E.enabled, true);
   });
 });
 
