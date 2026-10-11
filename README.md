@@ -80,9 +80,10 @@ npm run next-session            # prints the command to resume from the latest h
 | Mouse drag | Look around; double-click to grab the pointer again |
 | Tab | Free the cursor to click a card |
 | Esc | Close the transcript, or leave walk mode |
-| F | Open the transcript of the agent you're standing near |
-| T | Message that agent |
-| A / D | Approve or deny the request it's waiting on |
+| Click a panda | In the overview, open that panda's card (the one walk mode shows when you stand near it) |
+| R | Open the transcript of the agent whose card is showing |
+| T | Message that agent, or give a resident panda a task |
+| E / Q | Open the permission request that's waiting (that panda's, or the first in Needs you), then allow or deny it |
 | J / K | Next or previous request on a card |
 | M | Jump to the note field on a card |
 | Ctrl/Cmd + Enter | Send the card's action |
@@ -103,7 +104,9 @@ npm run next-session            # prints the command to resume from the latest h
 - **Mechanical checks.** The rules agents skip most are enforced by scripts, not by asking nicely: `npm run risk-check`, `npm run check:bom`, `npm run session-check`, and a release gate that won't let an agent drop a ticket without a handoff ([ADR 0009](docs/adr/0009-mechanical-checks-for-most-skipped-rules.md)).
 - **Spend you can see.** Every agent run is logged to `.scratch/usage.jsonl` with its model, tokens and time. `npm run spend` totals them per ticket and per role.
 
-Not built yet: launching agents from the den itself, and runtimes other than Claude Code ([ADR 0004](docs/adr/0004-runtime-adapter.md) sketches the adapter).
+- **Agents from the den.** Press T beside a resident panda that has no agent and type a task. The bridge writes a ticket under `.scratch/den/` and starts that role's Claude Code agent in its own git worktree. Its tool calls, permission requests, final reply and cost show on the panda's card, and you can message it while it works. A permission request also shows in the Needs you card and in the transcript, with Deny and Allow ([ADR 0016](docs/adr/0016-ui-steering-channel.md)).
+
+Not built yet: shipping an agent's work from the den (the review, PR and merge still run from a terminal session), and runtimes other than Claude Code ([ADR 0004](docs/adr/0004-runtime-adapter.md) sketches the adapter).
 
 ## Numbers
 
