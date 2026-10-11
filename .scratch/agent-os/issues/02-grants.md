@@ -56,3 +56,4 @@ From the security review of the spike (pass, 2026-10-10; findings in agent-os/01
 
 - 2026-10-10, plain session (Opus 5.5): filed from the approved agent-os spec. Not started.
 - 2026-10-10, plain session (Opus 5.5): handoff for the design session is `.scratch/agent-os/handoffs/02-plain-session.md`. It lists what the designer and the user settle before any UI code: grants at Start and wall notices now; the Open/Closed sign, Bao's body and den art if the user wants them in the same session.
+- **designer, 2026-10-11:** UI spec signed off by the user 2026-10-10 (grants at Start: two-sided wall table, folded card; wall notices: ink until the pause, by kind, Keep refused restarts the count). Spec and qa mapping: handoffs/02-designer-spec.md. Mockup: https://claude.ai/artifact/Tk1KDW39ETgrbU8hrLG4NY. Next: qa specify. Written by a plain session acting as designer.
