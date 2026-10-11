@@ -6,7 +6,7 @@
 
 **Blocked by:** none (PR #217 merged 2026-10-11)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Serves:** agent-os step 2, first PR (ADR 0021 decisions 2 to 5). User stories 1 and 2. It is the backend half of agent-os/02 with no grants and no hosts; agent-os/02 keeps the rest.
 
@@ -44,3 +44,5 @@ Not in this ticket (all stay on agent-os/02): task grants and `POST /tasks` vali
 
 - 2026-10-11, plain session (Opus 5.5): cut from agent-os/02 at the user's choice (question tool: "No-prompt slice of 02"). The user wants agents usable from the den without the constant requests before the grants UI is built. Not started. Next: qa specify.
 - 2026-10-11, plain session (Opus 5.5): the user settled the ceiling file's path (question tool): `apps/bridge/cells/ceilings.json`, on risk-check's guardrail list. PRs #217 and #218 are merged, so nothing blocks this. The Track C items from the skill-sources spec go on agent-os/02, not here.
+- **qa, 2026-10-11:** Light verify: suite 3509/0/0 from developer's saved run; qa test files unchanged; criteria mapped. Open: gitleaks not covered, orchestrator to confirm before merge. See 04-qa-verify.md.
+- **security, 2026-10-11:** Security pass. No critical/high. Low: claude-adapter.mjs:69 isWorktreePath accepts any plain absolute path (caller passes host-made workspace.dir only; tighten if cwd ever comes from elsewhere). gitleaks clean, no dep/CI change, 35 tests green. Detail in 04-security.md.
