@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Testbed friction: unusual relay hops leave tickets in the wrong state and need a manual fix by the orchestrator.
 
@@ -23,3 +23,4 @@
 ## Comments
 
 - **orchestrator, 2026-10-05:** Filed from pipeline-retro (user yes 2026-10-05). Can be batched with 149 (same area: apps/organism-infra).
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

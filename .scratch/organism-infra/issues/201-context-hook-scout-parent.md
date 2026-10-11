@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Relay hygiene (pipeline-retro 2026-10-08).
 
@@ -22,3 +22,4 @@ A scout dispatched by a developer at 109k was refused by `scripts/hooks/context-
 
 ## Comments
 - **orchestrator, 2026-10-08:** Filed from the pipeline-retro on the user's yes.
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

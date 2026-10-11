@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** retro 2026-10-08 fix #2. The designer ran out of context before asking the user anything, on den-v1/05 (twice).
 
@@ -22,3 +22,4 @@ In `scripts/context-budget.json`, add `designer` under `cells` with `warn: 10000
 - [ ] `npm test` is green.
 
 ## Comments
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

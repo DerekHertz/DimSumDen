@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** pipeline retro 2026-10-03, cause 3. After a bounce, `board audit` flags the ticket.
 
@@ -24,3 +24,4 @@ When qa verify bounced batch D1, den-v1/01, 03 and 04 were left at `in-review` w
 ## Comments
 
 - **Created (orchestrator, 2026-10-03):** Pipeline retro. Audit output after the D1 bounce: `den-v1/01`, `03`, `04` `no-lock`.
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

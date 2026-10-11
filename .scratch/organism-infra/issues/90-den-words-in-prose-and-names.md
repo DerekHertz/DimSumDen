@@ -6,7 +6,7 @@
 
 **Blocked by:** 116 (it rewrites the role files and the protocol skill this ticket renames)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** ADR 0019 decision 10 (refocus vocabulary); runs before organism-infra/105 so the steering code is written in the new terms.
 
@@ -52,3 +52,4 @@ Split with organism-infra/116: **116** rewrites the role files (`.claude/agents/
 - **orchestrator, 2026-10-03:** Closed: renaming churn, serves no v1 step (refocus, docs/refocus/triage-2026-10-02.md)
 - **orchestrator, 2026-10-03:** Reopened: user wants the bio vocabulary gone after all; re-scoped to ADR 0019 decision 10 (SWE terms in code/prompts/docs, dim sum in the UI)
 - **orchestrator, 2026-10-08:** User 2026-10-08: lowered to P2 while 116 stays parked, so the P1 list is only the north star path.
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists
