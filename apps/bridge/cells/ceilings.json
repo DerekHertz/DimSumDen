@@ -1,0 +1,6 @@
+{
+  "scout": { "write": "none", "hosts": [] },
+  "developer": { "write": "worktree", "hosts": [] },
+  "qa": { "write": "worktree", "hosts": [] },
+  "security": { "write": "worktree", "hosts": [] }
+}
