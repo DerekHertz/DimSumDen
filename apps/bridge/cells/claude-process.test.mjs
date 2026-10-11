@@ -59,10 +59,10 @@ async function launch(stubOpts, { args = {}, env = {} } = {}) {
 }
 
 describe("the runtime's declared shape", () => {
-  test("capabilities: approve on, send off, and a resume command naming the session", async () => {
+  test("capabilities: approve and send on, and a resume command naming the session", async () => {
     const { createClaudeRuntime } = await loadRuntimeModule();
     const rt = createClaudeRuntime({ env: {} });
-    assert.deepEqual(rt.capabilities, { spawn: true, stop: true, approve: true, send: false, handover: true });
+    assert.deepEqual(rt.capabilities, { spawn: true, stop: true, approve: true, send: true, handover: true });
     assert.equal(typeof rt.id, "string");
     assert.match(rt.resumeCommand(SESSION), new RegExp(`--resume ${SESSION}`));
   });
@@ -78,6 +78,16 @@ describe("what the child is launched with", () => {
     const [first] = await stub.stdinLines();
     assert.deepEqual(first, { type: "user", message: { role: "user", content: "do the thing" } });
     assert.ok(proc.handle && typeof proc.handle === "string");
+  });
+
+  test("a ticket file reaches the argv as the adapter's allow rule; one the adapter cannot express is left out (den-v1 loop: the ticket read)", async () => {
+    const file = "/repo/.scratch/den/issues/01-architect.md";
+    const a = await launch({ mode: "hang" }, { args: { ticketFile: file } });
+    await until(async () => (await a.stub.start()) !== undefined, { what: "the child to start" });
+    assert.deepEqual((await a.stub.start()).argv, buildClaudeArgs({ sessionId: SESSION, agent: "architect", ticketFile: file }));
+    const b = await launch({ mode: "hang" }, { args: { ticketFile: "/my repo/.scratch/den/issues/01-architect.md" } });
+    await until(async () => (await b.stub.start()) !== undefined, { what: "the second child to start" });
+    assert.deepEqual((await b.stub.start()).argv, buildClaudeArgs({ sessionId: SESSION, agent: "architect" }), "the read stays a permission request");
   });
 
   test("a model reaches --model only from the fixed list", async () => {
@@ -131,7 +141,7 @@ describe("what the child says", () => {
     assert.equal(resp.response.response.behavior, "allow");
     assert.deepEqual(resp.response.response.updatedInput, { command: "npm test" });
     assert.ok(run.events.some((e) => e.type === "tool-end"));
-    assert.deepEqual(run.events.at(-1), { type: "done", ok: true });
+    assert.deepEqual(run.events.at(-1), { type: "done", ok: true, costUsd: 0.0012 }); // the stub's result line names that cost
   });
 
   test("a deny carries the owner's reason and the child still finishes", async () => {
@@ -172,7 +182,7 @@ describe("what the child says", () => {
     assert.notEqual(r, "hung", "the child blocked on a full stderr pipe");
     assert.equal(r.code, 0);
     await run.done;
-    assert.deepEqual(run.events.at(-1), { type: "done", ok: true });
+    assert.deepEqual(run.events.at(-1), { type: "done", ok: true, costUsd: 0.0012 }); // the stub's result line names that cost
   });
 
   test("multibyte characters split across stdout chunks arrive intact", async () => {
@@ -188,7 +198,7 @@ describe("what the child says", () => {
     await proc.exited;
     await run.done;
     assert.ok(run.events.some((e) => e.type === "tool-start" && e.summary === "after the big line"));
-    assert.deepEqual(run.events.at(-1), { type: "done", ok: true });
+    assert.deepEqual(run.events.at(-1), { type: "done", ok: true, costUsd: 0.0012 }); // the stub's result line names that cost
   });
 });
 
@@ -223,5 +233,48 @@ describe("stopping the child reaches its whole process group", () => {
     assert.doesNotThrow(() => proc.closeInput());
     assert.doesNotThrow(() => proc.signal("SIGTERM"));
     assert.doesNotThrow(() => proc.signal("SIGKILL"));
+  });
+});
+
+// den-v1 loop S5: a message to the running child. proc.send(messageId, text) writes one user line carrying the id;
+// the child's replay of that line (--replay-user-messages) comes back as { type: "message-applied", id }.
+describe("a message to the running child (den-v1 loop S5)", () => {
+  const MID = "7b0c2f1e-3a4d-4e5f-8a6b-9c0d1e2f3a4b";
+
+  test("send writes one user line with the message's id, and the child's replay reads as message-applied", async () => {
+    const { stub, proc, run } = await launch({ mode: "message" });
+    await until(() => run.events.some((e) => e.type === "tool-start"), { what: "the child to be mid-turn" });
+    const text = `also say second${String.fromCharCode(0x2028)}please`;
+    await proc.send(MID, text);
+    await until(() => run.events.some((e) => e.type === "done"), { what: "the turn to end" });
+    const lines = await stub.stdinLines();
+    assert.equal(lines.length, 2, "the prompt, then the message: one line each");
+    assert.deepEqual(lines[1], { type: "user", message: { role: "user", content: text }, uuid: MID });
+    assert.deepEqual(run.events.filter((e) => e.type === "message-applied"), [{ type: "message-applied", id: MID }], "the prompt's own replay is not an acknowledgement");
+    const order = run.events.map((e) => e.type);
+    assert.equal(order.indexOf("message-applied") < order.indexOf("done"), true);
+    assert.match(run.events.find((e) => e.type === "reply").text, /also say second/);
+    proc.closeInput();
+    assert.equal((await proc.exited).code, 0);
+  });
+
+  test("a replay naming an id this process never sent yields no event", async () => {
+    const { proc, run } = await launch({ mode: "message", forgeReplay: "00000000-0000-4000-8000-00000000dead" });
+    await until(() => run.events.some((e) => e.type === "tool-start"), { what: "the child to be mid-turn" });
+    await proc.send(MID, "hello");
+    await until(() => run.events.some((e) => e.type === "done"), { what: "the turn to end" });
+    assert.deepEqual(run.events.filter((e) => e.type === "message-applied"), [{ type: "message-applied", id: MID }]);
+  });
+
+  test("send refuses a bad id or text, and rejects once the child's stdin is closed", async () => {
+    const { stub, proc, run } = await launch({ mode: "message" });
+    await until(() => run.events.some((e) => e.type === "tool-start"), { what: "the child to be mid-turn" });
+    await assert.rejects(proc.send("m-1", "hello"), TypeError);
+    await assert.rejects(proc.send(MID, 7), TypeError);
+    await assert.rejects(proc.send(MID), TypeError);
+    assert.equal((await stub.stdinLines()).length, 1, "nothing but the prompt was written");
+    proc.closeInput();
+    await proc.exited;
+    await assert.rejects(proc.send(MID, "too late"));
   });
 });

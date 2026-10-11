@@ -26,6 +26,7 @@
 // Everything visual (layout, motion, contrast, focus ring, phone sheet) is human-verified.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createMessageComposer, MESSAGE_MAX_BYTES, ACK_WAIT_MS } from "./message-composer.mjs";
 import { cardFor } from "./proximity-card.mjs";
 
@@ -38,7 +39,7 @@ const deepFreeze = (o) => { Object.values(o).forEach((v) => v && typeof v === "o
 const on = { enabled: true, reason: null };
 const makeCard = (over = {}) => deepFreeze({
   id: "p-1", name: "dev-02", role: "developer", ref: "den-v1/07-message-t", agentId: "c-1", state: "working",
-  tool: null, approval: null, actions: { T: on, F: on, A: { enabled: false, reason: "no pending permission request" }, D: { enabled: false, reason: "no pending permission request" } },
+  tool: null, approval: null, actions: { T: on, R: on, E: { enabled: false, reason: "no pending permission request" }, Q: { enabled: false, reason: "no pending permission request" } },
   ...over,
 });
 const otherCard = makeCard({ id: "p-2", name: "qa-01", role: "qa", agentId: "c-2" });
@@ -367,6 +368,44 @@ describe("a successful send: sent, then received", () => {
     assert.equal(s.announcement, "Message received by dev-02.");
   });
 
+  // den-v1 loop S5: the bridge reports a taken message on the agent's transcript (the entry's status), and every
+  // snapshot and frame reaches the composer through sync().
+  test("a transcript entry saying the message was applied moves the line to received", async () => {
+    const h = harness();
+    openBox(h);
+    h.composer.setText("go");
+    await h.composer.send();
+    const agents = [{ id: "c-1", state: "working" }, { id: "c-2", state: "working" }];
+    const entry = (status, messageId = "m-1") => ({ id: 3, kind: "message", role: "user", text: "go", messageId, status });
+    const sync = (transcripts) => { h.composer.sync({ agents, transcripts }); return h.state().status.kind; };
+    assert.equal(sync({ "c-1": { entries: [entry("queued")], dropped: 0 } }), "sent");
+    assert.equal(sync({ "c-2": { entries: [entry("applied")], dropped: 0 } }), "sent", "another agent's transcript");
+    assert.equal(sync({ "c-1": { entries: [entry("applied", "m-9")], dropped: 0 } }), "sent", "another message");
+    assert.equal(sync({ "c-1": { entries: [{ ...entry("applied"), role: "agent" }], dropped: 0 } }), "sent", "not the user's own entry");
+    for (const bad of [undefined, null, {}, { "c-1": null }, { "c-1": { entries: "x" } }, { "c-1": { entries: [null, 7] } }]) assert.equal(sync(bad), "sent");
+    assert.equal(sync({ "c-1": { entries: [entry("applied")], dropped: 0 } }), "received");
+    assert.equal(h.state().announcement, "Message received by dev-02.");
+  });
+
+  test("a line that had stalled still becomes received when the transcript says so", async () => {
+    const h = harness();
+    openBox(h);
+    h.composer.setText("go");
+    await h.composer.send();
+    h.advance(ACK_WAIT_MS + 1);
+    h.composer.tick();
+    assert.equal(h.state().status.kind, "stalled");
+    h.composer.sync({ agents: [{ id: "c-1", state: "working" }], transcripts: { "c-1": { entries: [{ id: 1, kind: "message", role: "user", messageId: "m-1", status: "applied" }] } } });
+    assert.equal(h.state().status.kind, "received");
+  });
+
+  test("the live transcripts are handed to the composer", () => {
+    const hook = readFileSync(new URL("./MessageComposer.jsx", import.meta.url), "utf8");
+    const app = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
+    assert.match(hook, /composer\.sync\(\{ agents: snapshot\?\.agents \?\? \[\], transcripts \}\)/);
+    assert.match(app, /useMessageComposer\(\{[^}]*transcripts: live\.transcripts/);
+  });
+
   test("an ack for any other message id is ignored", async () => {
     const h = harness();
     openBox(h);
@@ -532,7 +571,7 @@ describe("refusals", () => {
     const s = h.state();
     assert.equal(s.open, true);
     assert.equal(s.phase, "final");
-    assert.equal(s.banner, "Session ended: restart the bridge and reload.");
+    assert.equal(s.banner, "Session ended. Restart the bridge and open the launch link it prints.");
     assert.equal(s.readOnly, true);
     assert.equal(s.sendEnabled, false);
     assert.equal(s.focus, "close");
@@ -639,10 +678,9 @@ describe("disabled and demo", () => {
   const viewer = { x: 0, z: 0, yaw: Math.PI / 2 };
   const pandaWith = (agent, state) => ({ id: "p", name: "dev-02", role: "developer", state, position: { x: -2, z: 0 }, ...(agent ? { agent } : {}) });
 
-  test("the composer does not open for a resident panda, an ended agent or a runtime that cannot send, and gives cardFor's reason", () => {
+  test("the composer does not open for a panda the bridge cannot start, a board-bound panda or a runtime that cannot send, and gives cardFor's reason", () => {
     const cases = [
-      [pandaWith(null, "resident"), "no agent running"],
-      [pandaWith({ id: "c-1", state: "done" }, "working"), "no agent running"],
+      [{ ...pandaWith(null, "resident"), role: "debugger" }, "no agent running"],
       [pandaWith(null, "working"), "agent controls unavailable"],
       [pandaWith(live({ send: false, approve: true }), "working"), "runtime cannot send messages"],
       [pandaWith(live({}), "working"), "runtime cannot send messages"],

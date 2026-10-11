@@ -9,9 +9,9 @@
 // A short --ticket <feature>/<NN> resolves to the full slug ref (organism-infra/126).
 // A scout row needs no handoff (organism-infra/177): scouts are read-only and never publish one.
 // Any rejection exits 1 and writes nothing.
-import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, writeSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { sessionOf, spendDelta, spendRow, transcriptTotals } from "./spend-lib.mjs";
+import { appendUsageRows, cellRow, sessionOf, spendDelta, spendRow, transcriptTotals } from "./spend-lib.mjs";
 import { resolveRoot, resolveShortRef } from "../apps/organism-infra/board-service.mjs";
 
 const CELLS = ["product", "architect", "orchestrator", "developer", "scout", "qa", "security", "designer"];
@@ -122,37 +122,22 @@ if (f.transcript !== undefined) {
   }
 }
 
-const row = {
-  kind: "cell",
-  ts: new Date().toISOString(),
-  ticket: f.ticket,
-  cell: f.cell,
-  ...(f.mode !== undefined ? { mode: f.mode } : {}),
-  ...(f.model !== undefined ? { model: f.model } : {}),
-  tokens: Number(f.tokens),
-  ms: Number(f.ms),
-  outcome: f.outcome,
-  ...(f.context !== undefined ? { context: Number(f.context) } : {}),
-  ...(billed ?? {}),
-  ...(f["allow-no-handoff"] !== undefined ? { allow_no_handoff: f["allow-no-handoff"] } : {}),
-};
+// den-v1 loop S4: the row's shape and the append are shared with the bridge's run ledger (spend-lib.mjs).
+const row = cellRow({
+  ts: new Date().toISOString(), ticket: f.ticket, cell: f.cell, mode: f.mode, model: f.model,
+  tokens: Number(f.tokens), ms: Number(f.ms), outcome: f.outcome,
+  context: f.context !== undefined ? Number(f.context) : undefined, billed, allowNoHandoff: f["allow-no-handoff"],
+});
 const scratch = path.join(root, ".scratch");
 if (existsSync(scratch) && lstatSync(scratch).isSymbolicLink()) fail(".scratch is a symlink; refusing to write through it");
-mkdirSync(scratch, { recursive: true });
 const incidentRows = incidents.map(({ tool, what }) => ({
   kind: "incident", ts: row.ts, ticket: f.ticket, cell: f.cell, tool, what, cost: null, fix: null, rule_change: null, source: "cell-report",
 }));
 const session = f.transcript !== undefined ? sessionOf(f.transcript) : null;
 const spend = billed ? spendRow({ ts: row.ts, session, role: f.cell, ticket: f.ticket, delta: spendDelta(root, session, billed) }) : null;
 // O_NOFOLLOW: a symlinked usage.jsonl is refused (organism-infra/49).
-let fd;
 try {
-  fd = openSync(path.join(root, ".scratch", "usage.jsonl"), constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | constants.O_NOFOLLOW, 0o644);
+  appendUsageRows(root, [row, ...(spend ? [spend] : []), ...incidentRows]);
 } catch (err) {
-  fail(`cannot open usage.jsonl (${err.code}); symlinks are refused`);
-}
-try {
-  writeSync(fd, [row, ...(spend ? [spend] : []), ...incidentRows].map((r) => JSON.stringify(r) + "\n").join(""));
-} finally {
-  closeSync(fd);
+  fail(err.message);
 }

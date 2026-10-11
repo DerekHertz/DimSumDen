@@ -38,7 +38,7 @@ describe("wiring", () => {
     for (const text of [
       'role="group"', 'role="alert"', "Message ", "Tell ", "what to do next", "Enter send", "Shift+Enter new line", "Esc cancel",
       "One message, sent to this agent only", "2,048", "Too long.", "Sending", "Not sent.", "Too late.",
-      "Nothing changed. Press Enter to try again.", "Session ended: restart the bridge and reload.",
+      "Nothing changed. Press Enter to try again.", "Session ended. Restart the bridge and open the launch link it prints.",
       "Message sent", "Message received", "Sent, not yet received", "Cancel", "Send",
     ]) assert.ok(all.includes(text), `missing in overlay sources: ${text}`);
     assert.match(all, /aria-live/);

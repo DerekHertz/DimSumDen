@@ -6,7 +6,7 @@
 
 **Blocked by:** organism-infra/106, den-v1/06
 
-**Status:** ready-for-agent
+**Status:** closed
 
 **Serves:** Den loop steps 3-4 and user story 22 (the agent continues after I answer, and its panda shows it).
 
@@ -23,3 +23,4 @@ Connect den-v1/06's A/D card (built against a stub) to the real approval hold fr
 
 ## Comments
 - **orchestrator, 2026-10-08:** Split from den-v1/06 on the user's yes: 06 builds the UI against a stub now; this ticket is the live wiring.
+- **orchestrator, 2026-10-11:** Closed: superseded: built under den-v1/13 (PR #214); live run 5 and smoke:live fixtures are the recorded evidence

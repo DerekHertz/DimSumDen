@@ -10,7 +10,8 @@
 //     tool       { kind, n, name, summary, status, expanded, toggleLabel: "Show details"|"Hide details",
 //                  and when expanded: inputText (JSON string of input), result: { text, truncatedBytes } | null }
 //                tool calls are collapsed unless their n is in ui.expanded (user, 2026-10-08)
-//     permission { kind, n, name, label: "Waiting on you" }           (no buttons: A/D is ticket 06)
+//     permission { kind, n, name, label: "Waiting on you", detail, answerable }   (the pending one names its target and
+//                can be answered: den-request.test.mjs)
 //     ended      { kind, n, state, label: "Agent ended: <state>" }
 //     unreadable { kind, n, type, label: "Unreadable event" }
 //   A result over 4096 bytes shows its first 4096 and truncatedBytes counts the rest.
@@ -38,6 +39,24 @@ describe("rows", () => {
     assert.deepEqual(v.rows.map((r) => r.speaker), ["Agent", "You"]);
     assert.equal(v.rows[1].text, "use 200");
     assert.equal(v.rows[0].at, "2026-10-08T14:02:00Z");
+  });
+
+  // den-v1 loop S5: a message the user sent from the den carries its delivery status; the bridge resends the entry.
+  test("your own message says whether the agent has taken it yet", () => {
+    const mine = (status) => transcriptView(fill({ ...msg("use 200", "user"), messageId: "m-1", ...(status ? { status } : {}) }), ui()).rows[0];
+    assert.equal(mine("queued").note, "Queued");
+    assert.equal(mine("applied").note, "Received");
+    assert.equal(mine("undelivered").note, "Not delivered");
+    assert.equal(mine().note, null);
+    assert.equal(mine("hologram").note, null, "an unknown status shows nothing");
+    assert.equal(mine("queued").speaker, "You");
+    assert.equal(transcriptView(fill({ ...msg("hi"), status: "queued" }), ui()).rows[0].note, null, "an agent's message has no delivery status");
+  });
+
+  test("a status change replaces the row instead of adding one", () => {
+    const sent = { ...msg("use 200", "user"), id: 4, messageId: "m-1" };
+    const v = transcriptView(fill({ ...sent, status: "queued" }, { ...sent, status: "applied" }), ui());
+    assert.deepEqual(v.rows.map((r) => r.note), ["Received"]);
   });
 
   test("tool calls are collapsed by default and say how to open them", () => {
@@ -97,6 +116,17 @@ describe("rows", () => {
     assert.equal(row.name, "Bash");
     assert.equal(row.label, "Waiting on you");
     assert.equal("actions" in row, false, "A and D belong to ticket 06");
+  });
+
+  // den-v1 loop S2: the bridge resends the entry with the answer, so the row stops saying it waits.
+  test("an answered permission request says how it ended, and only a pending one is waiting", () => {
+    const label = (status) => transcriptView(fill({ kind: "permission", name: "Write", ...(status ? { status } : {}) }), ui()).rows[0];
+    assert.deepEqual([label("pending").label, label("pending").waiting], ["Waiting on you", true]);
+    assert.equal(label().waiting, true);
+    assert.deepEqual([label("allowed").label, label("allowed").waiting], ["Allowed by you", false]);
+    assert.deepEqual([label("denied").label, label("denied").waiting], ["Denied by you", false]);
+    assert.deepEqual([label("expired").label, label("expired").waiting], ["Expired: denied", false]);
+    assert.deepEqual([label("hologram").label, label("hologram").waiting], ["Waiting on you", true], "an unknown status reads as pending");
   });
 
   test("an agent that ended leaves a final line with its state", () => {

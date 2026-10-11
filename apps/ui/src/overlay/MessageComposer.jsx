@@ -4,9 +4,10 @@ import { createMessageComposer } from "./message-composer.mjs";
 // den-v1/07: the message composer. The controller (message-composer.mjs) owns every rule; this file renders its state
 // and forwards keys, clicks and each new snapshot. The user's text and the bridge's refusal reason are inserted as
 // plain text. The agent's event stream feeds `composer.observe(event)` (the live wiring is den-v1/11).
+// den-v1 loop S1: on a resident panda the same box starts a task; the controller supplies the copy for either use.
 const HINTS = ["Enter send", "Shift+Enter new line", "Esc cancel"];
 
-export function useMessageComposer({ client, card, exploring, cursorFree, demo, snapshot, onOpen, blocked }) {
+export function useMessageComposer({ client, card, exploring, cursorFree, demo, snapshot, transcripts, onOpen, blocked }) {
   const latest = useRef({});
   latest.current = { card, exploring, cursorFree, demo, onOpen, blocked };
   const composer = useMemo(() => createMessageComposer({ client, hooks: { onOpen: () => latest.current.onOpen?.() } }), [client]);
@@ -31,7 +32,7 @@ export function useMessageComposer({ client, card, exploring, cursorFree, demo, 
     return () => document.removeEventListener("keydown", onKey, true);
   }, [composer]);
 
-  useEffect(() => { composer.sync({ agents: snapshot?.agents ?? [] }); }, [composer, snapshot]);
+  useEffect(() => { composer.sync({ agents: snapshot?.agents ?? [], transcripts }); }, [composer, snapshot, transcripts]);
   useEffect(() => {
     if (state.status?.kind !== "sent") return undefined;
     const timer = setInterval(() => composer.tick(), 1000);
@@ -79,12 +80,12 @@ export function MessageComposer({ composer, state }) {
         })}
       </p>
       <p className="message-count" id="message-composer-count">
-        <span>{sending ? <><span className="message-spinner" aria-hidden="true" />Sending</> : "One message, sent to this agent only"}</span>
+        <span>{sending ? <><span className="message-spinner" aria-hidden="true" />{state.busyLabel}</> : state.note}</span>
         <span className="message-bytes">{state.counter}</span>
       </p>
       <div className="message-buttons">
         <button type="button" className="message-cancel" ref={closeRef} onClick={composer.close}>Cancel</button>
-        <button type="button" className="message-send" disabled={!state.sendEnabled} onClick={composer.send}>{sending ? "Sending" : "Send"}</button>
+        <button type="button" className="message-send" disabled={!state.sendEnabled} onClick={composer.send}>{sending ? state.busyLabel : state.sendLabel}</button>
       </div>
       {final ? <span className="visually-hidden">Press Esc to close.</span> : null}
     </div>

@@ -25,3 +25,4 @@ Build ADR 0016 slice 2: `POST /cells/:id/message`, queued, acknowledged and appl
 ## Comments
 
 - **orchestrator, 2026-10-01:** Published from the crew-dashboard spec and ADR 0017 after the user approved the breakdown (user, 2026-10-01). Infra tickets first; frontend (P3) waits until the pipeline is where the user wants it.
+- **orchestrator, 2026-10-11:** 2026-10-10, plain session: den-v1/13 S5 (PR #214) built the message route (queued, then received). Still open here: cancel while queued, and the stop-then-resume hand-over.

@@ -31,11 +31,22 @@ const BODIES = {
     real: { ref: DISPATCH_REF, role: "architect" },
     bogus: { ref: `${FEATURE}/99-nope`, role: "architect" },
   },
+  // den-v1 loop S1: a task needs no ticket to exist, so "real" and "bogus" differ only in what would be written.
+  "POST /tasks": {
+    real: { role: "scout", text: "count the steamer baskets" },
+    bogus: { role: "herald", text: "something else entirely" },
+  },
   // A stop needs a live agent for the authenticated happy path; `prepare` starts one and returns its id.
   "POST /agents/:id/stop": {
     real: {},
     bogus: {},
     prepare: async () => (await bridge.host.start({ ref: `${FEATURE}/31-auth-stop`, role: "scout" })).agent.id,
+  },
+  // den-v1 loop S5: a message needs a live agent whose runtime takes messages (the fake is started with send on).
+  "POST /agents/:id/message": {
+    real: { text: "use port 5173" },
+    bogus: { text: "something else entirely" },
+    prepare: async () => (await bridge.host.start({ ref: `${FEATURE}/33-auth-message`, role: "scout" })).agent.id,
   },
   // organism-infra/141: an approval needs a live agent holding a permission request; `prepare` makes one and returns
   // its minted id. A deny needs no prior GET, so the authenticated happy path is a plain 200.
@@ -69,9 +80,9 @@ let file;
 let fake;
 
 beforeEach(async () => {
-  fx = await makeStateFixture();
+  fx = await makeStateFixture({ git: true });
   file = path.join(fx.root, ".scratch", "_requests", "requests.jsonl");
-  fake = createFakeRuntime?.() ?? null;
+  fake = createFakeRuntime?.({ send: true }) ?? null;
   bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, ...(fake ? { runtime: fake } : {}) });
   token = await login(bridge);
 });

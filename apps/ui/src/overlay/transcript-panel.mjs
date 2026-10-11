@@ -6,11 +6,11 @@ export function closeTranscript() {
   return initialTranscriptState();
 }
 
-// The F rule, shared by the key and the card's button. Returns null when F means nothing (no card, panel closed).
+// The R rule (the transcript key; it was F until 2026-10-10), shared by the key and the card's button. Returns null when R means nothing (no card, panel closed).
 function toggle(state, card) {
   if (state.agentId) return closeTranscript();
   if (!card) return null;
-  const f = card.actions?.F;
+  const f = card.actions?.R;
   if (f?.enabled && card.agentId) return { agentId: card.agentId, notice: null };
   return { agentId: null, notice: f?.reason ?? null };
 }
@@ -22,7 +22,7 @@ export function transcriptToggle(state, card) {
 export function transcriptKey(state, { key, card, mode }) {
   if (mode !== "walk") return { state, handled: false };
   if (key === "Escape") return state.agentId ? { state: closeTranscript(), handled: true } : { state, handled: false };
-  if (key === "f" || key === "F") {
+  if (key === "r" || key === "R") {
     const next = toggle(state, card);
     return next ? { state: next, handled: true } : { state, handled: false };
   }

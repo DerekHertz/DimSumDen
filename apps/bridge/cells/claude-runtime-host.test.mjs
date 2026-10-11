@@ -35,7 +35,7 @@ async function loadCreate() {
 async function boot(stubOpts) {
   const createClaudeRuntime = await loadCreate();
   const stub = await makeStub(stubOpts);
-  const fx = await makeStateFixture();
+  const fx = await makeStateFixture({ git: true });
   const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
   const bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, runtime, policy: { killGraceMs: 150 } });
   const token = await login(bridge);
@@ -59,7 +59,7 @@ describe("startBridge over the real Claude runtime", () => {
     assert.ok([201, 202].includes(res.status), `dispatch answered ${res.status} ${res.text}`);
     const { id, capabilities } = res.body.agent;
     assert.equal(capabilities.approve, true);
-    assert.equal(capabilities.send, false);
+    assert.equal(capabilities.send, true); // den-v1 loop S5
     const a = await until(async () => {
       const cur = await t.agent(id);
       return cur?.tool?.name === "Bash" && cur.tokens ? cur : null;
@@ -97,7 +97,7 @@ describe("startBridge over the real Claude runtime", () => {
 describe("the production entry (node apps/bridge/server.mjs)", () => {
   test("wires the default Claude runtime: DEN_CLAUDE_BIN is honoured and dispatch is not a 503", { timeout: 30000 }, async () => {
     const stub = await makeStub({ mode: "hang" });
-    const fx = await makeStateFixture();
+    const fx = await makeStateFixture({ git: true });
     const port = await new Promise((resolve) => {
       const s = net.createServer().listen(0, "127.0.0.1", () => {
         const { port } = s.address();
