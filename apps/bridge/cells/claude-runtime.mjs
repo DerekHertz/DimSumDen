@@ -48,13 +48,13 @@ export function createClaudeRuntime({ env = process.env } = {}) {
     id: "claude",
     capabilities: { ...CAPABILITIES },
     resumeCommand: (sessionId) => (typeof sessionId === "string" && UUID_RE.test(sessionId) ? `claude --resume ${sessionId}` : null),
-    async spawn({ role, cwd, prompt, sessionId, model, ticketFile } = {}) {
+    async spawn({ role, cwd, prompt, sessionId, model, ticketFile, grants } = {}) {
       if (typeof cwd !== "string" || cwd === "") throw new TypeError("claude runtime: cwd must be a path");
       if (typeof prompt !== "string") throw new TypeError("claude runtime: prompt must be a string");
       // A ticket path the adapter cannot write as a rule is left out: that agent's ticket read stays a request.
       // agent-os/04: a role with a ceiling starts behind the wall, and a role that writes may write in cwd (its worktree).
       // A cwd the adapter cannot write as a rule keeps the wall and leaves the write rules out: the Write request stays.
-      const ceiling = compileCeiling(role, { worktree: isWorktreePath(cwd) ? cwd : undefined });
+      const ceiling = compileCeiling(role, { worktree: isWorktreePath(cwd) ? cwd : undefined, grants });
       const args = buildClaudeArgs({ sessionId, agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}), ...(ceiling ?? {}) });
       const bin = typeof env.DEN_CLAUDE_BIN === "string" && env.DEN_CLAUDE_BIN !== "" ? env.DEN_CLAUDE_BIN : "claude";
       const child = spawnChild(bin, args, { shell: false, detached: true, cwd, env: buildClaudeEnv(env), stdio: ["pipe", "pipe", "pipe"] });

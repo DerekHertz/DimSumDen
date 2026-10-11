@@ -40,27 +40,105 @@ const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArr
 // the CLI refuses to start if the sandbox cannot run, a blocked command cannot be retried outside it, and a host that
 // is not listed is refused, not asked about. A sandboxed command then runs with no permission request. Hosts are plain
 // lower-case dotted names: no wildcard, port, scheme or path. The runtime passes it for a role with a ceiling (agent-os/04).
+//
+// agent-os/02 (security review of agent-os/01): names only. The last label must be letters (or an xn-- label), so every IP
+// literal in any dotted-number form fails, and the labels that mean a private or local network are refused by name.
 const WALL_HOST_RE = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+const HOST_TLD_RE = /^(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/;
+const PRIVATE_TLDS = new Set(["local", "localhost", "localdomain", "internal", "lan", "home", "corp", "intranet", "private", "arpa"]);
 const WALL_HOSTS_MAX = 20;
-function isWall(wall) {
-  if (!isPlainObject(wall) || Object.keys(wall).length !== 1 || !Array.isArray(wall.hosts)) return false;
-  return wall.hosts.length <= WALL_HOSTS_MAX && wall.hosts.every((h) => typeof h === "string" && WALL_HOST_RE.test(h));
+const isDense = (a) => {
+  if (!Array.isArray(a)) return false;
+  for (let i = 0; i < a.length; i += 1) if (!Object.hasOwn(a, i)) return false; // a hole is not an entry
+  return true;
+};
+export function isWallHost(host) {
+  if (typeof host !== "string" || !WALL_HOST_RE.test(host)) return false;
+  const tld = host.slice(host.lastIndexOf(".") + 1);
+  return HOST_TLD_RE.test(tld) && !PRIVATE_TLDS.has(tld);
 }
-const sandboxFor = (wall) => ({
-  enabled: true,
-  failIfUnavailable: true,
-  allowUnsandboxedCommands: false,
-  autoAllowBashIfSandboxed: true,
-  network: { allowedDomains: [...wall.hosts], strictAllowlist: true },
-});
-const settingsFor = (ticketFile, wall, worktree) => {
+function isWall(wall) {
+  if (!isPlainObject(wall) || Object.keys(wall).length !== 1 || !isDense(wall.hosts)) return false;
+  return wall.hosts.length <= WALL_HOSTS_MAX && wall.hosts.every(isWallHost);
+}
+
+// agent-os/02: what a ceiling forbids, from governance.json (a guardrail path). Paths are relative to the worktree, plain
+// segments with an optional trailing /**; commands are plain words. A deny rule wins over an allow, so no grant lifts one.
+const GOVERNANCE = JSON.parse(readFileSync(new URL("./governance.json", import.meta.url), "utf8"));
+const FORBID_PATH_RE = /^(?!.*(?:^|\/)\.{1,2}(?:\/|$))[A-Za-z0-9._@-]+(?:\/[A-Za-z0-9._@-]+)*(?:\/\*\*)?$/;
+const FORBID_RUN_RE = /^[A-Za-z0-9._-]+(?: [A-Za-z0-9._-]+)*$/;
+const FORBID_MAX = 40;
+const isForbidList = (list, re) => isDense(list) && list.length <= FORBID_MAX && list.every((e) => typeof e === "string" && re.test(e));
+{
+  const ok = isPlainObject(GOVERNANCE) && Object.keys(GOVERNANCE).length === 4 &&
+    isForbidList(GOVERNANCE.ciPaths, FORBID_PATH_RE) && isForbidList(GOVERNANCE.guardrailPaths, FORBID_PATH_RE) &&
+    isForbidList(GOVERNANCE.denyRun, FORBID_RUN_RE) && isDense(GOVERNANCE.ciGrantRoles) && GOVERNANCE.ciGrantRoles.every((r) => ROLES.includes(r));
+  if (!ok) throw new Error("governance.json: bad governance data");
+}
+const isForbid = (f) => isPlainObject(f) && Object.keys(f).length === 2 && isForbidList(f.write, FORBID_PATH_RE) && isForbidList(f.run, FORBID_RUN_RE);
+const baseOf = (entry) => entry.replace(/\/\*\*$/, "");
+
+// agent-os/02 (ADR 0021 decision 3): task grants, data in a fixed shape: { kind: "host", value: <host name> } or
+// { kind: "path", value: <absolute or ~/ path of plain segments> }, at most six. Nothing else is accepted, and the error
+// text never echoes a value back.
+const GRANTS_MAX = 6;
+const GRANT_PATH_RE = /^~?(?:\/[A-Za-z0-9._@+-]+)+$/;
+export function isGrantPath(p) {
+  return typeof p === "string" && GRANT_PATH_RE.test(p) && !p.split("/").some((part) => part === "." || part === "..");
+}
+/** The validated grants as { hosts, paths }, repeats dropped. Anything outside the fixed shape is a TypeError. */
+export function parseGrants(grants) {
+  const hosts = [];
+  const paths = [];
+  if (grants === undefined) return { hosts, paths };
+  if (!isDense(grants) || grants.length > GRANTS_MAX) throw new TypeError(`grants must be a list of at most ${GRANTS_MAX} grants`);
+  for (const g of grants) {
+    if (!isPlainObject(g) || Object.keys(g).length !== 2 || !Object.hasOwn(g, "kind") || !Object.hasOwn(g, "value")) throw new TypeError("a grant must be { kind, value }");
+    if (g.kind === "host" && isWallHost(g.value)) {
+      if (!hosts.includes(g.value)) hosts.push(g.value);
+    } else if (g.kind === "path" && isGrantPath(g.value)) {
+      if (!paths.includes(g.value)) paths.push(g.value);
+    } else {
+      throw new TypeError("a grant must be a host name or an absolute (or ~/) path of plain segments");
+    }
+  }
+  return { hosts, paths };
+}
+
+const sandboxFor = (wall, worktree, forbid, writePaths, readLimit, ticketFile) => {
+  // Shell writes: the sandbox's own deny list, in the absolute form when the worktree is known.
+  const denyWrite = [...new Set((forbid?.write ?? []).map((p) => (worktree === undefined ? baseOf(p) : `${worktree}/${baseOf(p)}`)))];
+  const filesystem = { ...(denyWrite.length === 0 ? {} : { denyWrite }), ...(writePaths?.length ? { allowWrite: [...writePaths] } : {}),
+    // The read limit for a shell command (live check, agent-os/02): the home directory is closed, the worktree, the ticket and granted paths re-opened.
+    ...(readLimit === true ? { denyRead: ["~/"], allowRead: [...(worktree === undefined ? [] : [worktree]), ...(ticketFile === undefined ? [] : [`/${ticketFile}`.slice(1)]), ...(writePaths ?? [])] } : {}) };
+  return {
+    enabled: true,
+    failIfUnavailable: true,
+    allowUnsandboxedCommands: false,
+    autoAllowBashIfSandboxed: true,
+    network: { allowedDomains: [...wall.hosts], strictAllowlist: true },
+    ...(Object.keys(filesystem).length === 0 ? {} : { filesystem }),
+  };
+};
+// A file tool's rule for a path: `//abs` for an absolute one (the adapter's form), `~/x` for a home one.
+const ruleForm = (p) => (p.startsWith("/") ? `/${p}` : p);
+const settingsFor = ({ ticketFile, wall, worktree, forbid, writePaths, readLimit }) => {
   const allow = [
     ...(ticketFile === undefined ? [] : [`Read(/${ticketFile})`]),
     ...(worktree === undefined ? [] : [`Write(/${worktree}/**)`, `Edit(/${worktree}/**)`]),
+    ...(writePaths ?? []).flatMap((p) => [`Write(${ruleForm(p)}/**)`, `Edit(${ruleForm(p)}/**)`]),
+  ];
+  const denyPaths = (forbid?.write ?? []).flatMap((p) => [p, ...(worktree === undefined ? [] : [`/${worktree}/${p}`])]);
+  const deny = [
+    ...DENY_RULES,
+    ...denyPaths.flatMap((p) => [`Write(${p})`, `Edit(${p})`]),
+    // An infix rule, so a command wrapped in a newline, $(...), backticks or <(...) is still caught. Words are joined by "*",
+    // so `git -C dir push` and a doubled space match too.
+    ...(forbid?.run ?? []).map((words) => `Bash(*${words.split(" ").join(" *")}*)`),
   ];
   return JSON.stringify({
-    permissions: { deny: DENY_RULES, ...(allow.length === 0 ? {} : { allow }) },
-    ...(wall === undefined ? {} : { sandbox: sandboxFor(wall) }),
+    permissions: { deny: [...new Set(deny)], ...(allow.length === 0 ? {} : { allow }), ...(readLimit === true ? { blockReadsOutsideWorkingDirectories: true } : {}) },
+    ...(wall === undefined ? {} : { sandbox: sandboxFor(wall, worktree, forbid, writePaths, readLimit, ticketFile) }),
   });
 };
 
@@ -80,20 +158,45 @@ for (const [role, ceiling] of Object.entries(CEILINGS)) {
   if (!ok) throw new Error(`ceilings.json: bad ceiling for ${JSON.stringify(role)}`);
 }
 
+/** Whether a role has a ceiling, and whether it may be given task grants (a role that cannot write takes none). */
+export const ceilingOf = (role) => (Object.hasOwn(CEILINGS, role) ? { takesGrants: CEILINGS[role].write !== "none" } : null);
+
+const covers = (grant, file) => file === grant || file.startsWith(`${grant}/`);
+
 /**
- * The buildClaudeArgs options for a role's ceiling: the wall with the role's hosts, plus Write and Edit allow rules for the
- * worktree when the role writes. null for a role with no ceiling. A role that writes and gets a worktree that is not a plain
- * absolute path is a TypeError; worktree undefined leaves the write rules out (the wall stays, the Write request stays).
+ * The buildClaudeArgs options for a role's ceiling plus its task grants: the wall with the ceiling's hosts and the granted
+ * ones, Write and Edit allow rules for the worktree when the role writes and for each granted path, and the governance
+ * denies (CI and guardrail paths, and the commands). A host brings a read limit with it. Forbid beats permit: no grant lifts
+ * a deny, except that a role in governance.json's ciGrantRoles (security) drops the CI-path denies a granted path covers.
+ * null for a role with no ceiling. A role that writes and gets a worktree that is not a plain absolute path is a TypeError;
+ * worktree undefined leaves the write rules out (the wall stays, the Write request stays). Any grant outside the fixed shape,
+ * any grant for a role that cannot write, and a path grant that contains the worktree are TypeErrors.
  */
-export function compileCeiling(role, { worktree } = {}) {
+export function compileCeiling(role, { worktree, grants } = {}) {
+  const { hosts: grantHosts, paths } = parseGrants(grants);
   const ceiling = Object.hasOwn(CEILINGS, role) ? CEILINGS[role] : undefined;
-  if (ceiling === undefined) return null;
-  const options = { wall: { hosts: [...ceiling.hosts] } };
+  if (ceiling === undefined) {
+    if (grantHosts.length + paths.length > 0) throw new TypeError("compileCeiling: this role takes no grants");
+    return null;
+  }
+  if (ceiling.write === "none" && grantHosts.length + paths.length > 0) throw new TypeError("compileCeiling: this role takes no grants");
+  const options = {};
   if (ceiling.write === "worktree" && worktree !== undefined) {
     if (!isWorktreePath(worktree)) throw new TypeError("compileCeiling: worktree must be a plain absolute path");
     options.worktree = worktree;
   }
-  return options;
+  // A grant above the worktree would open the main checkout and its sibling worktrees, where the governance denies do not reach.
+  if (worktree !== undefined && paths.some((p) => p.startsWith("/") && worktree.startsWith(`${p}/`))) throw new TypeError("compileCeiling: a path grant may not contain the worktree");
+  const lifted = (entry) =>
+    options.worktree !== undefined && GOVERNANCE.ciGrantRoles.includes(role) && paths.some((p) => p.startsWith("/") && covers(p, `${options.worktree}/${baseOf(entry)}`));
+  const hosts = [...new Set([...ceiling.hosts, ...grantHosts])];
+  return {
+    wall: { hosts },
+    ...options,
+    forbid: { write: [...GOVERNANCE.guardrailPaths, ...GOVERNANCE.ciPaths.filter((e) => !lifted(e))], run: [...GOVERNANCE.denyRun] },
+    ...(paths.length === 0 ? {} : { writePaths: paths }),
+    ...(hosts.length === 0 ? {} : { readLimit: true }),
+  };
 }
 
 // ---- argv ----------------------------------------------------------------------------------
@@ -106,10 +209,15 @@ export function compileCeiling(role, { worktree } = {}) {
 export function buildClaudeArgs(options) {
   if (!isPlainObject(options)) throw new TypeError("buildClaudeArgs needs { sessionId, agent, model?, ticketFile?, wall?, worktree? }");
   for (const key of Object.keys(options)) {
-    if (key !== "sessionId" && key !== "agent" && key !== "model" && key !== "ticketFile" && key !== "wall" && key !== "worktree") throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
+    if (!["sessionId", "agent", "model", "ticketFile", "wall", "worktree", "forbid", "writePaths", "readLimit"].includes(key)) throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
   }
-  const { sessionId, agent, model, ticketFile, wall, worktree } = options;
+  const { sessionId, agent, model, ticketFile, wall, worktree, forbid, writePaths, readLimit } = options;
   if (wall !== undefined && !isWall(wall)) throw new TypeError("buildClaudeArgs: wall must be { hosts: [plain host names] }");
+  // agent-os/02: the governance denies, task-granted write paths and the read limit all come from compileCeiling and need the wall.
+  if (forbid !== undefined && !isForbid(forbid)) throw new TypeError("buildClaudeArgs: forbid must be { write: [plain paths], run: [plain words] }");
+  if (writePaths !== undefined && !(isDense(writePaths) && writePaths.length <= GRANTS_MAX && writePaths.every(isGrantPath))) throw new TypeError("buildClaudeArgs: writePaths must be plain absolute or ~/ paths");
+  if (readLimit !== undefined && readLimit !== true) throw new TypeError("buildClaudeArgs: readLimit must be true");
+  if (wall === undefined && (forbid !== undefined || writePaths !== undefined || readLimit !== undefined)) throw new TypeError("buildClaudeArgs: forbid, writePaths and readLimit need the wall");
   if (worktree !== undefined && !isWorktreePath(worktree)) throw new TypeError("buildClaudeArgs: worktree must be a plain absolute path");
   if (ticketFile !== undefined && !isTicketFilePath(ticketFile)) throw new TypeError("buildClaudeArgs: ticketFile must be a plain absolute path to a board ticket");
   if (typeof sessionId !== "string" || !UUID_RE.test(sessionId)) throw new TypeError("buildClaudeArgs: sessionId must be a UUID");
@@ -127,7 +235,7 @@ export function buildClaudeArgs(options) {
     ...(model === undefined ? [] : ["--model", model]),
     "--setting-sources", "project,local",
     "--strict-mcp-config",
-    "--settings", settingsFor(ticketFile, wall, worktree),
+    "--settings", settingsFor({ ticketFile, wall, worktree, forbid, writePaths, readLimit }),
   ];
 }
 

@@ -33,7 +33,10 @@ const CODE_RISK_PATTERNS = [
 
 // agent-os/04 (ADR 0021): a file whose content sets what an agent may do. Any change to one goes to a security review,
 // whatever the content says.
-const GUARDRAIL_PATHS = new Map([["apps/bridge/cells/ceilings.json", "guardrail file changed (role ceilings: what a den agent may do)"]]);
+const GUARDRAIL_PATHS = new Map([
+  ["apps/bridge/cells/ceilings.json", "guardrail file changed (role ceilings: what a den agent may do)"],
+  ["apps/bridge/cells/governance.json", "guardrail file changed (governance deny list: paths and commands no den agent may touch)"],
+]);
 
 function git(args) {
   return execFileSync("git", args, { encoding: "utf8" });

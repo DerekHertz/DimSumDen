@@ -224,7 +224,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     if (!result.ok) return reply(res, result.status, { error: result.error });
     reply(res, result.status, { agent: result.agent, ...(result.usageUnknown ? { usageUnknown: true } : {}) });
   }
-  // POST /tasks (ADR 0016 decision 3, amendment 9): a task typed in the den. Only role and text are read. The text
+  // POST /tasks (ADR 0016 decision 3, amendment 9): a task typed in the den. Only role, text and grants are read (grants: agent-os/02, data in a fixed shape the host checks). The text
   // goes into a ticket the board service writes under the den feature, and nowhere else: the host starts the role
   // for that ticket in direct mode, with a prompt that names the ticket file. This is the bridge's one Board write.
   async function postTask(req, res) {
@@ -236,6 +236,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     if (hasSecret(text)) return reply(res, 400, { error: "text looks like it holds a secret; nothing was written" });
     const result = await host.direct({
       role: body.role,
+      grants: body.grants,
       createTicket: (role) => createTicket(root, { feature: DEN_FEATURE, slug: role, title: `Den task for ${role}`, text, source: "den" }),
     });
     const ticket = result.ticket ? { ticket: result.ticket } : {};
