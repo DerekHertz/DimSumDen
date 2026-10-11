@@ -33,24 +33,45 @@ const TICKET_FILE_RE = /^(?:\/[A-Za-z0-9._@+-]+)*\/\.scratch\/[A-Za-z0-9._-]+\/i
 export function isTicketFilePath(file) {
   return typeof file === "string" && TICKET_FILE_RE.test(file) && !file.split("/").some((part) => part === "." || part === "..");
 }
-const settingsFor = (ticketFile) =>
-  JSON.stringify({ permissions: { deny: DENY_RULES, ...(ticketFile === undefined ? {} : { allow: [`Read(/${ticketFile})`] }) } });
-
 const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+
+// The wall (agent-os/01 spike, ADR 0021 decision 2): the CLI's own sandbox around the agent's shell commands. Strict:
+// the CLI refuses to start if the sandbox cannot run, a blocked command cannot be retried outside it, and a host that
+// is not listed is refused, not asked about. A sandboxed command then runs with no permission request. Hosts are plain
+// lower-case dotted names: no wildcard, port, scheme or path. The production runtime does not pass a wall yet.
+const WALL_HOST_RE = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+const WALL_HOSTS_MAX = 20;
+function isWall(wall) {
+  if (!isPlainObject(wall) || Object.keys(wall).length !== 1 || !Array.isArray(wall.hosts)) return false;
+  return wall.hosts.length <= WALL_HOSTS_MAX && wall.hosts.every((h) => typeof h === "string" && WALL_HOST_RE.test(h));
+}
+const sandboxFor = (wall) => ({
+  enabled: true,
+  failIfUnavailable: true,
+  allowUnsandboxedCommands: false,
+  autoAllowBashIfSandboxed: true,
+  network: { allowedDomains: [...wall.hosts], strictAllowlist: true },
+});
+const settingsFor = (ticketFile, wall) =>
+  JSON.stringify({
+    permissions: { deny: DENY_RULES, ...(ticketFile === undefined ? {} : { allow: [`Read(/${ticketFile})`] }) },
+    ...(wall === undefined ? {} : { sandbox: sandboxFor(wall) }),
+  });
 
 // ---- argv ----------------------------------------------------------------------------------
 
 /**
- * The whole argv (no binary name) for one child. Rejects anything outside { sessionId, agent, model?, ticketFile? }.
- * No passthrough parameter exists, so no permission-broadening flag can be constructed; ticketFile adds the one
- * Read rule above and nothing else.
+ * The whole argv (no binary name) for one child. Rejects anything outside { sessionId, agent, model?, ticketFile?,
+ * wall? }. No passthrough parameter exists, so no permission-broadening flag can be constructed; ticketFile adds the
+ * one Read rule above and nothing else, and wall adds the sandbox block above and nothing else.
  */
 export function buildClaudeArgs(options) {
-  if (!isPlainObject(options)) throw new TypeError("buildClaudeArgs needs { sessionId, agent, model?, ticketFile? }");
+  if (!isPlainObject(options)) throw new TypeError("buildClaudeArgs needs { sessionId, agent, model?, ticketFile?, wall? }");
   for (const key of Object.keys(options)) {
-    if (key !== "sessionId" && key !== "agent" && key !== "model" && key !== "ticketFile") throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
+    if (key !== "sessionId" && key !== "agent" && key !== "model" && key !== "ticketFile" && key !== "wall") throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
   }
-  const { sessionId, agent, model, ticketFile } = options;
+  const { sessionId, agent, model, ticketFile, wall } = options;
+  if (wall !== undefined && !isWall(wall)) throw new TypeError("buildClaudeArgs: wall must be { hosts: [plain host names] }");
   if (ticketFile !== undefined && !isTicketFilePath(ticketFile)) throw new TypeError("buildClaudeArgs: ticketFile must be a plain absolute path to a board ticket");
   if (typeof sessionId !== "string" || !UUID_RE.test(sessionId)) throw new TypeError("buildClaudeArgs: sessionId must be a UUID");
   if (typeof agent !== "string" || !ROLES.includes(agent)) throw new TypeError("buildClaudeArgs: agent must be a known role");
@@ -67,7 +88,7 @@ export function buildClaudeArgs(options) {
     ...(model === undefined ? [] : ["--model", model]),
     "--setting-sources", "project,local",
     "--strict-mcp-config",
-    "--settings", settingsFor(ticketFile),
+    "--settings", settingsFor(ticketFile, wall),
   ];
 }
 

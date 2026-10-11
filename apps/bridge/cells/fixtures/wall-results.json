@@ -1,0 +1,26 @@
+{
+  "spike": "Wall",
+  "verdict": "go",
+  "tag": "B5972D",
+  "answers": {
+    "q1": "yes",
+    "q2": "partly",
+    "q3": "yes",
+    "q4": "partly",
+    "q5": "unknown",
+    "q6": "yes",
+    "q7": "partly"
+  },
+  "disk": {
+    "inside": "WALL-IN-B5972D",
+    "insideTool": "WALL-IN-B5972D",
+    "outsideBash": false,
+    "home": false,
+    "gitProbe": true,
+    "hookProbe": false,
+    "escape": false,
+    "outsideWrite": false,
+    "outsideAllowed": true,
+    "outsideReadText": "WALL-MARK-B5972D"
+  }
+}

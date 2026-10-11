@@ -22,6 +22,7 @@ import { tmpdir, homedir, userInfo } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { runLive } from "./conformance-live.mjs";
+import { runWall } from "./conformance-wall.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const USAGE_SCRIPT = path.resolve(HERE, "../../../scripts/usage-claude.mjs");
@@ -1281,6 +1282,7 @@ export const SPIKES = {
   S6b: { title: "--setting-sources project,local in a worktree: allow applies, user and plugin config does not", turns: 1, control: true, run: runS6b },
   S3b: { title: "a subagent permission request reaches the parent; a held request; updatedInput omitted", turns: 3, run: runS3b },
   Live: { title: "one agent through the bridge itself (den-v1 loop S3): worktree cwd, a held Write outside it, allow over HTTP, tool result, done", turns: 1, run: runLive },
+  Wall: { title: "the wall (agent-os/01): the CLI sandbox under the bridge's argv; writes and hosts outside it, the file tools, an escape attempt", turns: 20, run: runWall },
 };
 
 // ---- Runner and CLI ------------------------------------------------------------------------
@@ -1426,7 +1428,7 @@ A run whose init is missing, or shows a permissionMode other than default, any M
 S4b is SETUP-INVALID unless its tool (tail -f on a hold file inside the child's cwd) is shown running, by a pid other than the child's, before each signal.
 S8 waits for a peer message until the turn's result (outcome c if it lands late) and probes two control_response shapes. It checks the socket and its directory for group and other bits and the directory's owner uid.
 S6b is SETUP-INVALID when the control's allowed.txt is also absent ("project allow did not apply in the control"): the control's stderr goes to S6b-control.stderr.txt, and two comparison probes run (a //path allow in the worktree, and --repo itself as the cwd with a temporary allow in its .claude/settings.local.json, restored afterwards).
-The default run is S1 to S7; S8, S4b, S6b, S3b and Live run only when named (--spike S8,S4b,S6b,S3b,Live). S6b adds its worktree to --repo (default: the repository containing this script); run \`claude\` there once so the owner has trusted it.
+The default run is S1 to S7; S8, S4b, S6b, S3b, Live and Wall run only when named (--spike S8,S4b,S6b,S3b,Live,Wall). S6b adds its worktree to --repo (default: the repository containing this script); run \`claude\` there once so the owner has trusted it.
 Live (npm run smoke:live) starts one agent through startBridge and the production runtime in a throwaway repository, allows its one held Write over HTTP, and saves Live.jsonl (stdout), Live-stdin.jsonl and Live-bridge.jsonl.
 Runs ADR 0016's spikes against the real \`claude\` login (DEN_CLAUDE_BIN overrides the binary).
 --dry-run prints the plan and spends nothing.`;
