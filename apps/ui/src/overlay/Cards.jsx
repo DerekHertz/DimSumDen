@@ -120,10 +120,30 @@ const Decision = forwardRef(function Decision({ request, session }, ref) {
   );
 });
 
-export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder, session }) {
+// den-v1 loop: a permission request the bridge holds. Both buttons open the permission review, which shows the full
+// tool input and sends the answer (ADR 0016 decision 6); nothing is sent from this card. E and Q are bound in App.
+function PermissionDecision({ request, onAnswer }) {
+  // No onAnswer: Demo mode, where nothing can be answered.
+  const hint = onAnswer ? "Opens the permission request" : "Demo mode: actions are off";
+  return (
+    <div aria-live="polite">
+      {request.expires ? <p className="small muted needs-expires">{request.expires}</p> : null}
+      <div className="decision-buttons">
+        <button type="button" className="btn btn-outline" data-answer="deny" aria-keyshortcuts="q" title={hint} disabled={!onAnswer} onClick={() => onAnswer?.(request.card)}>
+          Deny<kbd aria-hidden="true">Q</kbd>
+        </button>
+        <button type="button" className="btn btn-solid" data-answer="allow" aria-keyshortcuts="e" title={hint} disabled={!onAnswer} onClick={() => onAnswer?.(request.card)}>
+          Allow<kbd aria-hidden="true">E</kbd>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder, session, onAnswer }) {
   const { count, requests } = needsYouModel(snapshot, now);
   const [shown, setShown] = useState(null);
-  const current = requests.find((r) => r.ref === shown) ?? requests[0] ?? null;
+  const current = requests.find((r) => r.key === shown) ?? requests[0] ?? null;
   const decision = useRef(null);
 
   // Card-scoped keys: only while focus is inside this card and not in a text field. The Tally dialog and the
@@ -133,13 +153,13 @@ export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder,
     if (e.key === "a") decision.current?.approve();
     else if (e.key === "d") decision.current?.deny();
     else if (e.key === "m") decision.current?.focusNote();
-    else if (e.key === "j") setShown(stepRequest(requests, current.ref, 1));
-    else if (e.key === "k") setShown(stepRequest(requests, current.ref, -1));
+    else if (e.key === "j") setShown(stepRequest(requests, current.key, 1));
+    else if (e.key === "k") setShown(stepRequest(requests, current.key, -1));
     else return;
     e.preventDefault();
   };
 
-  const others = current ? requests.filter((r) => r.ref !== current.ref) : [];
+  const others = current ? requests.filter((r) => r.key !== current.key) : [];
   return (
     <div onKeyDown={onKeyDown} className="card-wrap">
       <Card
@@ -164,13 +184,15 @@ export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder,
                 <p className="needs-title">{current.title}</p>
               </div>
             </div>
-            <pre className="code-well"><code>{current.preview.join("\n")}</code></pre>
-            <Decision key={current.ref} ref={decision} request={current} session={session} />
+            {current.preview.length > 0 ? <pre className="code-well"><code>{current.preview.join("\n")}</code></pre> : null}
+            {current.kind === "permission"
+              ? <PermissionDecision key={current.key} request={current} onAnswer={onAnswer} />
+              : <Decision key={current.key} ref={decision} request={current} session={session} />}
             {others.length > 0 ? (
               <ul className="request-rows">
                 {others.map((r) => (
-                  <li key={r.ref}>
-                    <button type="button" className="request-row" onClick={() => setShown(r.ref)}>
+                  <li key={r.key}>
+                    <button type="button" className="request-row" onClick={() => setShown(r.key)}>
                       <span className="request-row-text">{r.rowText}</span>
                       {r.age ? <span className="request-row-age">{r.age}</span> : null}
                     </button>
@@ -238,7 +260,7 @@ export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZo
  * The right-hand column. Needs you opens by itself while something waits, until the user toggles it; Stations & queue
  * starts closed. Under 600 px both start closed and opening one closes the other.
  */
-export function Cards({ snapshot, now, connection, placeholder, camera, steering }) {
+export function Cards({ snapshot, now, connection, placeholder, camera, steering, onAnswer }) {
   const [needsOpen, setNeedsOpen] = useState(null); // null: follow the data
   const [stationsOpen, setStationsOpen] = useState(false);
   const waiting = needsYouModel(snapshot, now).count;
@@ -256,7 +278,7 @@ export function Cards({ snapshot, now, connection, placeholder, camera, steering
   return (
     <div className="cards">
       {steering.message ? <p className="small muted session-none" data-session="none" role="status">{steering.message}</p> : null}
-      <NeedsYouCard snapshot={snapshot} now={now} open={needs} onToggle={toggleNeeds} busy={busy} placeholder={placeholder} session={steering.session} />
+      <NeedsYouCard snapshot={snapshot} now={now} open={needs} onToggle={toggleNeeds} busy={busy} placeholder={placeholder} session={steering.session} onAnswer={onAnswer} />
       <StationsCard snapshot={snapshot} open={stationsOpen} onToggle={toggleStations} busy={busy} placeholder={placeholder} onZoomStation={(id) => camera.goToStation(id)} />
     </div>
   );

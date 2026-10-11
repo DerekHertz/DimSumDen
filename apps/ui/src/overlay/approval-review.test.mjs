@@ -7,8 +7,8 @@
 //   review.getState() -> plain view object (a new object after every change); review.subscribe(fn) -> unsubscribe,
 //     fn(state) runs on every change.
 //   review.open(card, { mode: "walk"|"free", demo?: boolean }) -> { opened: boolean, reason: string|null }
-//     card is cardFor()'s result. Opens only when card.actions.A (and D) are enabled; otherwise opened:false and
-//     reason is card.actions.A.reason (or "Demo mode: actions are off" when demo). Sends nothing but getApproval.
+//     card is cardFor()'s result. Opens only when card.actions.E (and D) are enabled; otherwise opened:false and
+//     reason is card.actions.E.reason (or "Demo mode: actions are off" when demo). Sends nothing but getApproval.
 //   review.key({ key, repeat?, inNote? }, { card, mode, demo? }) -> { handled, walk }
 //     `walk` is false while the review is open (the scene's walk handler must leave every key alone, Tab/Enter/Space
 //     included) and true otherwise. A or D (either case) with the review closed opens it, from mode "walk" only.
@@ -40,7 +40,7 @@ const deepFreeze = (o) => { Object.values(o).forEach((v) => v && typeof v === "o
 const on = { enabled: true, reason: null };
 const makeCard = (over = {}) => deepFreeze({
   id: "p-1", name: "dev-02", role: "developer", ref: "den-v1/06-approve-deny", agentId: "c-1", state: "needs-you",
-  tool: null, approval: APPROVAL, actions: { T: on, F: on, A: on, D: on }, ...over,
+  tool: null, approval: APPROVAL, actions: { T: on, R: on, E: on, Q: on }, ...over,
 });
 
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
@@ -82,7 +82,7 @@ const rejectWith = (status, reason) => Object.assign(new Error(reason), { status
 describe("A and D open the review; nothing is sent", () => {
   test("pressing A in walk mode opens the review and calls only getApproval", async () => {
     const h = harness();
-    const r = h.review.key({ key: "a" }, { card: makeCard(), mode: "walk" });
+    const r = h.review.key({ key: "e" }, { card: makeCard(), mode: "walk" });
     assert.equal(r.handled, true);
     assert.equal(h.state().open, true);
     assert.equal(h.state().focus, "deny", "opening focuses Deny");
@@ -95,7 +95,7 @@ describe("A and D open the review; nothing is sent", () => {
 
   test("D (either case) opens it too, and so does the card button", async () => {
     const d = harness();
-    d.review.key({ key: "D" }, { card: makeCard(), mode: "walk" });
+    d.review.key({ key: "Q" }, { card: makeCard(), mode: "walk" });
     assert.equal(d.state().open, true);
     assert.equal(d.decides().length, 0);
     const b = harness();
@@ -117,9 +117,9 @@ describe("A and D open the review; nothing is sent", () => {
   test("a disabled action does not open and gives the card's reason", () => {
     const h = harness();
     const off = { enabled: false, reason: "no pending permission request" };
-    const card = makeCard({ approval: null, actions: { T: on, F: on, A: off, D: off } });
+    const card = makeCard({ approval: null, actions: { T: on, R: on, E: off, Q: off } });
     assert.deepEqual(h.review.open(card, { mode: "walk" }), { opened: false, reason: "no pending permission request" });
-    assert.equal(h.review.key({ key: "a" }, { card, mode: "walk" }).handled, false);
+    assert.equal(h.review.key({ key: "e" }, { card, mode: "walk" }).handled, false);
     assert.equal(h.state().open, false);
     assert.equal(h.calls.length, 0);
     assert.equal(h.opened, 0);
@@ -128,16 +128,26 @@ describe("A and D open the review; nothing is sent", () => {
   test("demo mode disables A and D with its reason", () => {
     const h = harness();
     assert.deepEqual(h.review.open(makeCard(), { mode: "walk", demo: true }), { opened: false, reason: "Demo mode: actions are off" });
-    assert.equal(h.review.key({ key: "a" }, { card: makeCard(), mode: "walk", demo: true }).handled, false);
+    assert.equal(h.review.key({ key: "e" }, { card: makeCard(), mode: "walk", demo: true }).handled, false);
     assert.equal(h.state().open, false);
     assert.equal(h.calls.length, 0);
   });
 
-  test("keys open it from walk mode only, never on key repeat, never with no card", () => {
+  test("A and D are walking keys: beside a waiting agent they open nothing and the press still walks (live den run, 2026-10-10)", () => {
     const h = harness();
-    assert.equal(h.review.key({ key: "a" }, { card: makeCard(), mode: "free" }).handled, false);
-    assert.equal(h.review.key({ key: "a", repeat: true }, { card: makeCard(), mode: "walk" }).handled, false);
-    assert.equal(h.review.key({ key: "a" }, { card: null, mode: "walk" }).handled, false);
+    for (const key of ["a", "d", "A", "D", "f"]) {
+      assert.deepEqual(h.review.key({ key }, { card: makeCard(), mode: "walk" }), { handled: false, walk: true }, key);
+    }
+    assert.equal(h.state().open, false);
+    assert.equal(h.calls.length, 0);
+    assert.equal(h.review.key({ key: "q" }, { card: makeCard(), mode: "walk" }).handled, true, "Q opens the request");
+  });
+
+  test("keys never open it with the cursor free, on key repeat, or with no card", () => {
+    const h = harness();
+    assert.equal(h.review.key({ key: "e" }, { card: makeCard(), mode: "free" }).handled, false);
+    assert.equal(h.review.key({ key: "e", repeat: true }, { card: makeCard(), mode: "walk" }).handled, false);
+    assert.equal(h.review.key({ key: "e" }, { card: null, mode: "walk" }).handled, false);
     assert.equal(h.state().open, false);
     assert.equal(h.calls.length, 0);
   });
@@ -160,7 +170,7 @@ describe("the tool input is shown before any decision", () => {
     h.review.open(makeCard(), { mode: "walk" });
     h.advance(500);
     await h.review.press("allow");
-    h.review.key({ key: "a" }, { card: makeCard(), mode: "walk" });
+    h.review.key({ key: "e" }, { card: makeCard(), mode: "walk" });
     assert.equal(h.decides().length, 0);
   });
 
@@ -203,7 +213,7 @@ describe("the tool input is shown before any decision", () => {
     assert.equal(h.state().allowEnabled, false);
     assert.equal(h.state().denyEnabled, true);
     await h.review.press("allow");
-    h.review.key({ key: "a" }, { card: makeCard(), mode: "walk" });
+    h.review.key({ key: "e" }, { card: makeCard(), mode: "walk" });
     assert.equal(h.decides().length, 0);
   });
 
@@ -244,11 +254,11 @@ describe("keys", () => {
     h.review.open(card, { mode: "walk" });
     await flush();
     h.advance(399);
-    h.review.key({ key: "a" }, { card, mode: "walk" });
-    h.review.key({ key: "d" }, { card, mode: "walk" });
+    h.review.key({ key: "e" }, { card, mode: "walk" });
+    h.review.key({ key: "q" }, { card, mode: "walk" });
     assert.equal(h.decides().length, 0, "inside the guard");
     h.advance(1);
-    h.review.key({ key: "a" }, { card, mode: "walk" });
+    h.review.key({ key: "e" }, { card, mode: "walk" });
     await flush();
     assert.deepEqual(h.decides(), [["decide", ID, { decision: "allow" }]]);
   });
@@ -256,7 +266,7 @@ describe("keys", () => {
   test("D sends deny", async () => {
     const h = harness();
     const card = await openReady(h);
-    h.review.key({ key: "D" }, { card, mode: "walk" });
+    h.review.key({ key: "Q" }, { card, mode: "walk" });
     await flush();
     assert.deepEqual(h.decides(), [["decide", ID, { decision: "deny" }]]);
   });
@@ -264,15 +274,15 @@ describe("keys", () => {
   test("key repeat is ignored", async () => {
     const h = harness();
     const card = await openReady(h);
-    h.review.key({ key: "a", repeat: true }, { card, mode: "walk" });
-    h.review.key({ key: "d", repeat: true }, { card, mode: "walk" });
+    h.review.key({ key: "e", repeat: true }, { card, mode: "walk" });
+    h.review.key({ key: "q", repeat: true }, { card, mode: "walk" });
     assert.equal(h.decides().length, 0);
   });
 
   test("the A key does nothing while Allow is disabled", async () => {
     const h = harness({ getApproval: async () => view({ command: "ls" }) });
     const card = await openReady(h);
-    h.review.key({ key: "a" }, { card, mode: "walk" });
+    h.review.key({ key: "e" }, { card, mode: "walk" });
     await flush();
     assert.equal(h.decides().length, 0);
   });
@@ -290,7 +300,7 @@ describe("keys", () => {
   test("in the note input letters type text: no A, D or send", async () => {
     const h = harness();
     const card = await openReady(h);
-    for (const key of ["a", "d", "f", "A", "D", "Enter"]) {
+    for (const key of ["e", "q", "r", "E", "Q", "Enter"]) {
       assert.equal(h.review.key({ key, inNote: true }, { card, mode: "walk" }).handled, false, key);
     }
     await flush();
@@ -333,8 +343,8 @@ describe("sending", () => {
     const first = h.review.press("allow");
     h.review.press("allow");
     h.review.press("deny");
-    h.review.key({ key: "a" }, { card, mode: "walk" });
-    h.review.key({ key: "d" }, { card, mode: "walk" });
+    h.review.key({ key: "e" }, { card, mode: "walk" });
+    h.review.key({ key: "q" }, { card, mode: "walk" });
     assert.equal(h.decides().length, 1);
     pending.resolve({ ok: true });
     await first;
@@ -382,7 +392,7 @@ describe("sending", () => {
     await h.review.press("allow");
     await h.review.press("allow");
     await h.review.press("deny");
-    h.review.key({ key: "a" }, { card, mode: "walk" });
+    h.review.key({ key: "e" }, { card, mode: "walk" });
     assert.equal(h.decides().length, 1);
   });
 });
@@ -462,7 +472,7 @@ describe("a refusal shows the bridge's reason and changes nothing", () => {
       assert.equal(s.denyEnabled, false);
       assert.equal(s.focus, "close");
       await h.review.press("deny");
-      h.review.key({ key: "d" }, { card, mode: "walk" });
+      h.review.key({ key: "q" }, { card, mode: "walk" });
       assert.equal(h.decides().length, 1, "no further request");
     });
   }
@@ -473,7 +483,7 @@ describe("a refusal shows the bridge's reason and changes nothing", () => {
     await h.review.press("allow");
     const s = h.state();
     assert.equal(s.phase, "final");
-    assert.ok(s.banner.includes("Session ended: restart the bridge and reload."));
+    assert.ok(s.banner.includes("Session ended. Restart the bridge and open the launch link it prints."));
     assert.equal(s.allowEnabled, false);
     assert.equal(s.denyEnabled, false);
     assert.equal(s.focus, "close");
@@ -535,7 +545,7 @@ describe("the snapshot can end the review's approval", () => {
       assert.equal(s.denyEnabled, false);
       assert.equal(s.focus, "close");
       await h.review.press("deny");
-      h.review.key({ key: "d" }, { card, mode: "walk" });
+      h.review.key({ key: "q" }, { card, mode: "walk" });
       assert.equal(h.decides().length, 0);
     });
   }
@@ -642,7 +652,7 @@ describe("expiry", () => {
     assert.equal(s.denyEnabled, false);
     await h.review.press("deny");
     await h.review.press("allow");
-    h.review.key({ key: "d" }, { card, mode: "walk" });
+    h.review.key({ key: "q" }, { card, mode: "walk" });
     assert.equal(h.decides().length, 0);
   });
 

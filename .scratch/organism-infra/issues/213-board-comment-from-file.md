@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Retro 2026-10-09: the worktree isolation guard refused `board comment` twice (organism-infra/202 security, 209 qa verify) because the quoted comment text held parentheses or words like `git status`, which the guard's parser read as commands. Each refusal cost a retry with reworded text.
 
@@ -22,3 +22,4 @@ Add `--from <file>` to `npm run board -- comment <ref>`: the comment text is rea
 - [ ] The cell-facing instruction names `--from` for comments.
 
 ## Comments
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

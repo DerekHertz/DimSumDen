@@ -12,6 +12,7 @@
     "dev": "node apps/ci-cd/dev-server.mjs",
     "smoke": "node apps/ci-cd/smoke.mjs",
     "smoke:ui": "node apps/ci-cd/smoke-ui.mjs",
+    "smoke:live": "node apps/bridge/cells/conformance.mjs --spike Live",
     "risk-check": "node scripts/risk-check.mjs",
     "check:bom": "node scripts/bom-check.mjs",
     "board": "node apps/organism-infra/board.mjs",

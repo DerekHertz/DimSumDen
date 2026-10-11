@@ -1,0 +1,90 @@
+// agent-os/04: the production runtime passes the wall for a role with a ceiling, and only for one.
+// Same harness as claude-process.test.mjs: a stub script behind DEN_CLAUDE_BIN records the argv it was started with.
+// Pinned: spawn({ role, cwd, ... }) treats cwd as the worktree; for developer, qa, scout and security the child's inline
+// settings carry the sandbox block with an empty host list (ADR 0021 amendment 1) and, for the roles that write, Write and
+// Edit allow rules for cwd. A cwd that cannot be written as a plain rule keeps the wall and drops the write rules (the ticket
+// file precedent: the request stays). Roles with no ceiling start exactly as before.
+// The expected settings are hand-written literals; only the "no ceiling" case compares against buildClaudeArgs itself.
+import { test, describe, afterEach } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { until } from "./host-test-helpers.mjs";
+import { makeStub, alive } from "./claude-stub.mjs";
+import { buildClaudeArgs } from "./claude-adapter.mjs";
+import { createClaudeRuntime } from "./claude-runtime.mjs";
+
+const SESSION = "0b8f1c1e-5c1a-4c0e-9a55-3f2d9e7a4b10";
+const DENY = ["Write(.claude/**)", "Edit(.claude/**)", "Bash(git push:*)", "Bash(gh pr create:*)"];
+const WALL_NO_HOSTS = {
+  enabled: true,
+  failIfUnavailable: true,
+  allowUnsandboxedCommands: false,
+  autoAllowBashIfSandboxed: true,
+  network: { allowedDomains: [], strictAllowlist: true },
+};
+
+const cleanups = [];
+afterEach(async () => {
+  for (const fn of cleanups.splice(0)) await fn();
+});
+
+async function launch(role, { dirName = "den-wall-cwd-", extra = {} } = {}) {
+  const stub = await makeStub({ mode: "hang" });
+  const cwd = await mkdtemp(path.join(tmpdir(), dirName));
+  const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+  const proc = await runtime.spawn({ role, cwd, prompt: "do the thing", sessionId: SESSION, ...extra });
+  cleanups.push(async () => {
+    try {
+      proc.signal("SIGKILL");
+    } catch {}
+    const gc = await stub.grandchildPid();
+    if (gc && alive(gc)) process.kill(gc, "SIGKILL");
+  });
+  await until(async () => (await stub.start()) !== undefined, { what: "the child to start" });
+  const argv = (await stub.start()).argv;
+  return { cwd, argv, settings: JSON.parse(argv[argv.indexOf("--settings") + 1]) };
+}
+
+describe("the runtime passes the wall for a role with a ceiling", () => {
+  for (const role of ["developer", "qa", "security"]) {
+    test(`${role}: the sandbox has no hosts, Write and Edit are allowed in cwd, and the deny rules stay`, async () => {
+      const { cwd, settings } = await launch(role);
+      assert.deepEqual(settings.sandbox, WALL_NO_HOSTS);
+      assert.deepEqual([...settings.permissions.allow].sort(), [`Edit(/${cwd}/**)`, `Write(/${cwd}/**)`]);
+      assert.deepEqual(settings.permissions.deny, DENY);
+    });
+  }
+
+  test("scout: the sandbox has no hosts and nothing may be written", async () => {
+    const { settings } = await launch("scout");
+    assert.deepEqual(settings.sandbox, WALL_NO_HOSTS);
+    assert.deepEqual(settings.permissions.allow ?? [], []);
+    assert.deepEqual(settings.permissions.deny, DENY);
+  });
+
+  test("the ticket file rule is kept beside the worktree rules", async () => {
+    const ticketFile = "/repo/.scratch/den/issues/01-developer.md";
+    const { cwd, settings } = await launch("developer", { extra: { ticketFile } });
+    assert.deepEqual([...settings.permissions.allow].sort(), [`Edit(/${cwd}/**)`, `Read(/${ticketFile})`, `Write(/${cwd}/**)`]);
+    assert.deepEqual(settings.sandbox, WALL_NO_HOSTS);
+  });
+
+  test("a cwd that cannot be written as a plain rule keeps the wall and drops the write rules", async () => {
+    const { settings } = await launch("developer", { dirName: "den wall cwd " });
+    assert.deepEqual(settings.sandbox, WALL_NO_HOSTS);
+    assert.deepEqual(settings.permissions.allow ?? [], [], "the Write request stays a request");
+    assert.deepEqual(settings.permissions.deny, DENY);
+  });
+});
+
+describe("a role with no ceiling starts as it does today", () => {
+  for (const role of ["architect", "designer", "product", "herald", "orchestrator"]) {
+    test(`${role}: no sandbox and the unchanged argv`, async () => {
+      const { argv, settings } = await launch(role);
+      assert.equal(Object.hasOwn(settings, "sandbox"), false);
+      assert.deepEqual(argv, buildClaudeArgs({ sessionId: SESSION, agent: role }));
+    });
+  }
+});

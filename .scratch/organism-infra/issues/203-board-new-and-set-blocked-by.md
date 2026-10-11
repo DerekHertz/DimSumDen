@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Relay hygiene (pipeline-retro 2026-10-08). The worktree isolation guard has refused cells' writes to the main checkout's board 8 times. Most recently, architect 143 could not file ticket 202 or edit 143's Blocked by, so both rode a docs PR instead of a board commit.
 
@@ -32,3 +32,4 @@ Files: `apps/organism-infra/board.mjs`, `board-service.mjs`, their tests; `docs/
 
 ## Comments
 - **orchestrator, 2026-10-08:** Filed from the pipeline-retro on the user's yes (isolation-guard, 8 incidents).
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

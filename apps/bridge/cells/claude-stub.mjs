@@ -13,6 +13,16 @@
 //   utf8      a tool_use whose command holds multibyte characters, written in byte pieces split inside a character
 //   oversize  a 1.2 MB non-JSON stdout line, then a tool_use and a success `result`, exits 0
 //   dup       control_request req-1 twice, then a control_request req-2 with subtype "set_model"; stays alive
+//   write     assistant tool_use (Write, id tu1) for opts.writePath, then a can_use_tool control_request "req-1" for it;
+//             on a control_response it writes the file only if the answer is allow, then tool_result and `result`;
+//             like the live CLI it then stays up until its stdin closes, and exits 0; a second user line that
+//             carries a uuid is replayed with it, as the live CLI does under --replay-user-messages
+//   replay    writes the lines of opts.replayFile (a recorded stdout capture) in order; after each control_request it
+//             waits for a control_response before going on, and after the last line it stays up until stdin closes
+//   message   (den-v1 loop S5) replays the prompt line as the live CLI does under --replay-user-messages (with a uuid
+//             of its own), starts a tool call and waits; a second user line is replayed with the uuid it came with,
+//             then the tool result, a text block and a `result` that repeat its text; up until stdin closes.
+//             opts.forgeReplay: a uuid it also "replays" just before, though no such message was ever written
 // opts.grandchild: null | "plain" | "ignoreTerm"   spawns a child of the stub (same process group), pid in pidFile
 // opts.ignoreTerm: the stub itself ignores SIGTERM
 import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
@@ -29,14 +39,14 @@ export const alive = (pid) => {
   }
 };
 
-export async function makeStub({ mode = "approve", grandchild = null, ignoreTerm = false } = {}) {
+export async function makeStub({ mode = "approve", grandchild = null, ignoreTerm = false, writePath = null, replayFile = null, forgeReplay = null } = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), "den-claude-stub-"));
   const logFile = path.join(dir, "log.jsonl");
   const pidFile = path.join(dir, "grandchild.pid");
   const bin = path.join(dir, "claude-stub.mjs");
-  const opts = { mode, grandchild, ignoreTerm, logFile, pidFile, command: UTF8_COMMAND };
+  const opts = { mode, grandchild, ignoreTerm, logFile, pidFile, writePath, replayFile, forgeReplay, command: UTF8_COMMAND };
   const source = `#!${process.execPath}
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import readline from "node:readline";
 const O = ${JSON.stringify(opts)};
@@ -53,11 +63,24 @@ if (O.grandchild) {
 }
 const toolUse = (command) => ({ type: "assistant", message: { content: [{ type: "tool_use", id: "tu1", name: "Bash", input: { command } }], usage: { input_tokens: 10, output_tokens: 20 } } });
 const request = (id, subtype) => ({ type: "control_request", request_id: id, request: subtype === "can_use_tool" ? { subtype, tool_name: "Bash", input: { command: "npm test" } } : { subtype } });
-const result = () => ({ type: "result", subtype: "success", is_error: false });
+const writeInput = { file_path: O.writePath, content: "written by the stub" };
+const result = () => ({ type: "result", subtype: "success", is_error: false, result: "done by the stub", total_cost_usd: 0.0012 });
 const finish = (code = 0) => process.stdout.write("", () => process.exit(code));
 setInterval(() => {}, 1000);
 let prompted = false;
+let lingering = false;
+let replay = [];
+// Writes recorded lines until one is a control_request (held until its answer) or none are left.
+const pump = () => {
+  while (replay.length) {
+    const line = replay.shift();
+    process.stdout.write(line + "\\n");
+    if (JSON.parse(line).type === "control_request") return;
+  }
+  lingering = true;
+};
 const rl = readline.createInterface({ input: process.stdin });
+rl.on("close", () => { if (lingering) finish(0); });
 rl.on("line", async (line) => {
   log({ kind: "stdin", line });
   let msg;
@@ -68,9 +91,45 @@ rl.on("line", async (line) => {
     finish(0);
     return;
   }
+  if (msg.type === "control_response" && O.mode === "write") {
+    const allowed = msg.response?.response?.behavior === "allow";
+    if (allowed) writeFileSync(O.writePath, writeInput.content);
+    out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "tu1", content: allowed ? "ok" : "denied", is_error: !allowed }] } });
+    out(result());
+    lingering = true; // like the live CLI: up after the result line, until stdin closes
+    return;
+  }
+  if (msg.type === "control_response" && O.mode === "replay") return pump();
+  if (prompted && msg.type === "user" && O.mode === "write" && typeof msg.uuid === "string") {
+    out({ type: "user", message: msg.message, uuid: msg.uuid, isReplay: true });
+    return;
+  }
+  if (prompted && msg.type === "user" && O.mode === "message") {
+    const said = typeof msg.message?.content === "string" ? msg.message.content : "";
+    if (O.forgeReplay) out({ type: "user", message: { role: "user", content: "never sent" }, uuid: O.forgeReplay, isReplay: true });
+    out({ type: "user", message: msg.message, uuid: msg.uuid, isReplay: true });
+    out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "tu1", content: "ok" }] } });
+    out({ type: "assistant", message: { content: [{ type: "text", text: "got: " + said }] } });
+    out({ ...result(), result: "got: " + said });
+    lingering = true;
+    return;
+  }
   if (prompted || msg.type !== "user") return;
   prompted = true;
+  if (O.mode === "replay") {
+    replay = readFileSync(O.replayFile, "utf8").split("\\n").filter(Boolean);
+    return pump();
+  }
   if (O.mode === "approve") { out(toolUse("npm test")); out(request("req-1", "can_use_tool")); }
+  else if (O.mode === "write") {
+    out({ type: "assistant", message: { content: [{ type: "tool_use", id: "tu1", name: "Write", input: writeInput }], usage: { input_tokens: 10, output_tokens: 20 } } });
+    out({ type: "control_request", request_id: "req-1", request: { subtype: "can_use_tool", tool_name: "Write", input: writeInput } });
+  }
+  else if (O.mode === "message") {
+    out({ type: "user", message: msg.message, uuid: "00000000-0000-4000-8000-0000000000aa", isReplay: true });
+    out(toolUse("sleep 5"));
+    lingering = true;
+  }
   else if (O.mode === "hang") out(toolUse("sleep 999"));
   else if (O.mode === "crash") { out(toolUse("boom")); finish(3); }
   else if (O.mode === "flood") {

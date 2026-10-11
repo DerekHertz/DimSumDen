@@ -56,9 +56,10 @@ export const loadPolicy = () => need("./policy.mjs", ["MAX_CONCURRENT_AGENTS", "
 // A bridge over a disposable board, a fake runtime, a logged-in session, and shorthands.
 //   preWrite(root)  runs before the bridge starts (seed .scratch files)
 //   noRuntime       start with no runtime option at all
-export async function makeBridge({ runtimeConfig = {}, policy, preWrite, noRuntime = false } = {}) {
+//   noGit           the root is not a git repository, so no agent worktree can be created (den-v1 loop S0)
+export async function makeBridge({ runtimeConfig = {}, policy, preWrite, noRuntime = false, noGit = false } = {}) {
   const { createFakeRuntime } = await loadRuntime();
-  const fx = await makeStateFixture();
+  const fx = await makeStateFixture({ git: !noGit });
   if (preWrite) await preWrite(fx.root);
   const fake = createFakeRuntime(runtimeConfig);
   const bridge = await startBridge({

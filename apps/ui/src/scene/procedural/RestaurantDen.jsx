@@ -15,7 +15,7 @@ import { createReviewAgents } from '../../review/agents.mjs';
 import { liveActorsFromSnapshot } from '../../review/live-actors.mjs';
 import { createReviewLandscape, REVIEW_SKIES } from '../../review/landscape.mjs';
 import { createConstructionPads } from '../../review/construction-pads.mjs';
-import { cardFor } from '../../overlay/proximity-card.mjs';
+import { agentFor, cardFor, pickedCard } from '../../overlay/proximity-card.mjs';
 
 // The den: PR #162's restaurant scene (site plan, stations, leisure gardens, build pads, simulated pandas)
 // mounted inside the app's canvas. The wrapping App owns the camera, the overlays and the board state.
@@ -36,12 +36,12 @@ function savedLook() {
   return { direction: review?.direction || 'traveler', settings: review?.settings || loadPandaSettings() };
 }
 
-export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, stage, onReady, onNearby }) {
+export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, stage, onReady, onNearby, picked = null, onPick }) {
   const [den, setDen] = useState(null);
   const [dark, setDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
   const [look] = useState(savedLook);
   const live = useRef(null);
-  const inputs = useRef({}); inputs.current = { snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, onNearby };
+  const inputs = useRef({}); inputs.current = { snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, onNearby, picked, onPick };
   const position = useRef(new THREE.Vector3()).current;
   const proximityElapsed = useRef(0);
   const { scene } = useThree();
@@ -127,21 +127,26 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
     if (proximityElapsed.current >= 0.1) {
       proximityElapsed.current = 0;
       let card = null;
-      if (stage.explorer?.active) {
+      // Walk mode: the panda in front of you. Overview: the panda the user clicked (the same card, whatever the distance).
+      const walking = !!stage.explorer?.active, pick = walking ? null : inputs.current.picked;
+      if (walking || pick != null) {
         const snap = inputs.current.snapshot;
+        const boundRefs = new Set([...l.agents.actors.values()].map(a => a.live?.ref).filter(Boolean));
         const pandas = [...l.agents.actors].map(([id, a]) => {
           a.panda.model.getWorldPosition(position);
-          const matches = row => row.ref === a.live?.ref && row.role === a.role;
-          const agent = a.live ? snap?.agents?.findLast(row => matches(row) && !['done', 'failed', 'terminated'].includes(row.state)) ?? snap?.agents?.findLast(matches) : null;
+          // den-v1 loop S4: card content only. A panda the board has not bound reads the newest bridge agent of its role.
+          const agent = agentFor({ role: a.role, ref: a.live?.ref }, snap?.agents, boundRefs);
           // Board-driven pandas precede bridge-owned runs: keep their honest state/tool, with no invented handle.
           const cell = a.live ? (snap?.cells ?? []).filter(row => row.ref === a.live.ref && (!row.cellType || row.cellType === a.role))
             .reduce((latest, row) => !latest || Date.parse(row.lastEventAt) > Date.parse(latest.lastEventAt) ? row : latest, null) : null;
           const tool = cell?.tool ?? null; // The card keeps the current tool after its floating bubble fades.
           return { id, name: a.name, role: a.role, station: a.station, position: { x: position.x, z: position.z }, ref: a.live?.ref, state: a.live?.state, tool, agent };
         });
-        const camera = stage.explorer.camera;
-        card = cardFor(pandas, snap?.approvals ?? [], { x: camera.position.x, z: camera.position.z, yaw: camera.rotation.y });
+        const camera = walking ? stage.explorer.camera : null;
+        card = camera ? cardFor(pandas, snap?.approvals ?? [], { x: camera.position.x, z: camera.position.z, yaw: camera.rotation.y })
+          : pickedCard(pandas, snap?.approvals ?? [], pick);
       }
+      l.agents.hold(card?.id ?? null); // The panda the card is on stands still while you are with it.
       if (card) delete card.distance; // Distance selects the panda; it does not make the card re-render every stride.
       inputs.current.onNearby?.(card);
     }
@@ -150,6 +155,9 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
   const hit = (e) => {
     let object = e.object;
     while (object) {
+      // Overview: a click on a role panda opens its card (the one walk mode shows). The ticket chip above it still opens the ticket.
+      const actor = object.userData.actorKey;
+      if (actor && !stage.explorer?.active && inputs.current.onPick) { e.stopPropagation(); inputs.current.onPick(actor); return; }
       const ref = object.userData.ticketRef;
       if (ref) { e.stopPropagation(); inputs.current.onSelect(ref); return; }
       if (object.name === 'Tally abacus') { e.stopPropagation(); stage.tallyHit = true; inputs.current.onOpenTally(); return; }

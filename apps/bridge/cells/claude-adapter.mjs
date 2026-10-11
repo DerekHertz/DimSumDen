@@ -3,34 +3,115 @@
 //   buildClaudeArgs   a fixed argv template; the only variable parts are a UUID, a role and an optional model from a fixed list
 //   buildClaudeEnv    the child's environment as an allowlist, never a copy
 //   createLineSplitter / parseClaudeLine   stdout bytes to lines to CellEvents; cell output is untrusted text
+//                     (den-v1 loop S2: also the transcript events text, tool-result and reply;
+//                      S4: the model, tokens by tier, and the result line's own cost, duration and turns)
 //   decodeControlRequest / encodeControlResponse   the can_use_tool permission channel, bare decisions only
+//   encodeUserMessage a user message as one stdin line: the prompt, or (den-v1 loop S5) a message to a running child,
+//                     whose id comes back on the child's replay of it and reads as message-applied
+import { readFileSync } from "node:fs";
 import { StringDecoder } from "node:string_decoder";
-import { REQUEST_ID_MAX, REQUEST_IDS_PER_AGENT, ROLES, UUID_RE } from "./policy.mjs";
+import { COST_MAX_USD, MODEL_RE, REQUEST_ID_MAX, REQUEST_IDS_PER_AGENT, ROLES, UUID_RE } from "./policy.mjs";
 
 export const MAX_LINE_BYTES = 1_000_000; // ADR 0016 6.8: a stdout line over about 1 MB is dropped
 export const CLAUDE_MODELS = Object.freeze(["opus", "sonnet", "haiku"]); // the CLI's own aliases; nothing else reaches --model
 
 const SUMMARY_MAX = 200;
+export const BODY_MAX = 16_000; // characters of one text block, tool result or reply handed on; the host clips for display
 const DENY_REASON_DEFAULT = "Denied by the owner.";
 const DENY_REASON_MAX = 500; // APPROVAL_NOTE_MAX; the message is a short note, not a channel
 
-// The bridge's own inline --settings value (ADR 0016 6.10, a partial measure): cells cannot write to .claude/.
-const DENY_SETTINGS = JSON.stringify({ permissions: { deny: ["Write(.claude/**)", "Edit(.claude/**)"] } });
+// The bridge's own inline --settings value (ADR 0016 6.10, a partial measure): cells cannot write to .claude/, and
+// (den-v1 loop decision 2) cannot push or open a PR, which the project settings would otherwise auto-allow. A deny
+// rule wins over an allow. It matches the command as the CLI reads it, so it is a guard against the plain case and
+// not a boundary: the user still does every push and merge.
+const DENY_RULES = ["Write(.claude/**)", "Edit(.claude/**)", "Bash(git push:*)", "Bash(gh pr create:*)"];
 
+// The one allow the inline settings may carry (den-v1 loop, the live den run of 2026-10-10): Read on the agent's own
+// ticket file. The board is in the main checkout, outside the agent's worktree, so without it the CLI asks the user
+// before the agent can read its task. A rule is a pattern, so the path must be nothing but plain segments: absolute,
+// ending .scratch/<feature>/issues/<name>.md, with no character a rule could read as a glob, a separator or an end.
+const TICKET_FILE_RE = /^(?:\/[A-Za-z0-9._@+-]+)*\/\.scratch\/[A-Za-z0-9._-]+\/issues\/[A-Za-z0-9._-]+\.md$/;
+export function isTicketFilePath(file) {
+  return typeof file === "string" && TICKET_FILE_RE.test(file) && !file.split("/").some((part) => part === "." || part === "..");
+}
 const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+
+// The wall (agent-os/01 spike, ADR 0021 decision 2): the CLI's own sandbox around the agent's shell commands. Strict:
+// the CLI refuses to start if the sandbox cannot run, a blocked command cannot be retried outside it, and a host that
+// is not listed is refused, not asked about. A sandboxed command then runs with no permission request. Hosts are plain
+// lower-case dotted names: no wildcard, port, scheme or path. The runtime passes it for a role with a ceiling (agent-os/04).
+const WALL_HOST_RE = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+const WALL_HOSTS_MAX = 20;
+function isWall(wall) {
+  if (!isPlainObject(wall) || Object.keys(wall).length !== 1 || !Array.isArray(wall.hosts)) return false;
+  return wall.hosts.length <= WALL_HOSTS_MAX && wall.hosts.every((h) => typeof h === "string" && WALL_HOST_RE.test(h));
+}
+const sandboxFor = (wall) => ({
+  enabled: true,
+  failIfUnavailable: true,
+  allowUnsandboxedCommands: false,
+  autoAllowBashIfSandboxed: true,
+  network: { allowedDomains: [...wall.hosts], strictAllowlist: true },
+});
+const settingsFor = (ticketFile, wall, worktree) => {
+  const allow = [
+    ...(ticketFile === undefined ? [] : [`Read(/${ticketFile})`]),
+    ...(worktree === undefined ? [] : [`Write(/${worktree}/**)`, `Edit(/${worktree}/**)`]),
+  ];
+  return JSON.stringify({
+    permissions: { deny: DENY_RULES, ...(allow.length === 0 ? {} : { allow }) },
+    ...(wall === undefined ? {} : { sandbox: sandboxFor(wall) }),
+  });
+};
+
+// A worktree the write rules may name (agent-os/04): absolute, plain segments only, no "." or ".." and not the root, so the
+// rule Write(/<worktree>/**) cannot read as a glob, a separator or a wider path.
+const WORKTREE_RE = /^(?:\/[A-Za-z0-9._@+-]+)+$/;
+export function isWorktreePath(dir) {
+  return typeof dir === "string" && WORKTREE_RE.test(dir) && !dir.split("/").some((part) => part === "." || part === "..");
+}
+
+// ---- role ceilings (agent-os/04, ADR 0021 decisions 2 to 5) --------------------------------
+// ceilings.json gives scout, developer, qa and security a ceiling: { write: "none" | "worktree", hosts: [...] }. A role with
+// no key has none and starts as before. The data is checked once at load, so a bad edit stops the bridge, not a Start.
+const CEILINGS = JSON.parse(readFileSync(new URL("./ceilings.json", import.meta.url), "utf8"));
+for (const [role, ceiling] of Object.entries(CEILINGS)) {
+  const ok = ROLES.includes(role) && isPlainObject(ceiling) && Object.keys(ceiling).length === 2 && (ceiling.write === "none" || ceiling.write === "worktree") && isWall({ hosts: ceiling.hosts });
+  if (!ok) throw new Error(`ceilings.json: bad ceiling for ${JSON.stringify(role)}`);
+}
+
+/**
+ * The buildClaudeArgs options for a role's ceiling: the wall with the role's hosts, plus Write and Edit allow rules for the
+ * worktree when the role writes. null for a role with no ceiling. A role that writes and gets a worktree that is not a plain
+ * absolute path is a TypeError; worktree undefined leaves the write rules out (the wall stays, the Write request stays).
+ */
+export function compileCeiling(role, { worktree } = {}) {
+  const ceiling = Object.hasOwn(CEILINGS, role) ? CEILINGS[role] : undefined;
+  if (ceiling === undefined) return null;
+  const options = { wall: { hosts: [...ceiling.hosts] } };
+  if (ceiling.write === "worktree" && worktree !== undefined) {
+    if (!isWorktreePath(worktree)) throw new TypeError("compileCeiling: worktree must be a plain absolute path");
+    options.worktree = worktree;
+  }
+  return options;
+}
 
 // ---- argv ----------------------------------------------------------------------------------
 
 /**
- * The whole argv (no binary name) for one child. Rejects anything outside { sessionId, agent, model? }.
- * No passthrough parameter exists, so no permission-broadening flag can be constructed.
+ * The whole argv (no binary name) for one child. Rejects anything outside { sessionId, agent, model?, ticketFile?,
+ * wall?, worktree? }. No passthrough parameter exists, so no permission-broadening flag can be constructed; ticketFile adds
+ * the one Read rule above, wall adds the sandbox block above, and worktree adds Write and Edit rules for that one directory.
  */
 export function buildClaudeArgs(options) {
-  if (!isPlainObject(options)) throw new TypeError("buildClaudeArgs needs { sessionId, agent, model? }");
+  if (!isPlainObject(options)) throw new TypeError("buildClaudeArgs needs { sessionId, agent, model?, ticketFile?, wall?, worktree? }");
   for (const key of Object.keys(options)) {
-    if (key !== "sessionId" && key !== "agent" && key !== "model") throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
+    if (key !== "sessionId" && key !== "agent" && key !== "model" && key !== "ticketFile" && key !== "wall" && key !== "worktree") throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
   }
-  const { sessionId, agent, model } = options;
+  const { sessionId, agent, model, ticketFile, wall, worktree } = options;
+  if (wall !== undefined && !isWall(wall)) throw new TypeError("buildClaudeArgs: wall must be { hosts: [plain host names] }");
+  if (worktree !== undefined && !isWorktreePath(worktree)) throw new TypeError("buildClaudeArgs: worktree must be a plain absolute path");
+  if (ticketFile !== undefined && !isTicketFilePath(ticketFile)) throw new TypeError("buildClaudeArgs: ticketFile must be a plain absolute path to a board ticket");
   if (typeof sessionId !== "string" || !UUID_RE.test(sessionId)) throw new TypeError("buildClaudeArgs: sessionId must be a UUID");
   if (typeof agent !== "string" || !ROLES.includes(agent)) throw new TypeError("buildClaudeArgs: agent must be a known role");
   if (model !== undefined && (typeof model !== "string" || !CLAUDE_MODELS.includes(model))) throw new TypeError("buildClaudeArgs: model must be one of the fixed list");
@@ -39,13 +120,14 @@ export function buildClaudeArgs(options) {
     "--input-format", "stream-json",
     "--output-format", "stream-json",
     "--verbose",
+    "--replay-user-messages", // den-v1 loop S5: the child re-emits each stdin user message once it takes it
     "--permission-prompt-tool", "stdio",
     "--session-id", sessionId,
     "--agent", agent,
     ...(model === undefined ? [] : ["--model", model]),
     "--setting-sources", "project,local",
     "--strict-mcp-config",
-    "--settings", DENY_SETTINGS,
+    "--settings", settingsFor(ticketFile, wall, worktree),
   ];
 }
 
@@ -128,14 +210,53 @@ function summarise(input) {
   return "";
 }
 
-const count = (n) => (Number.isInteger(n) && n >= 0 ? n : 0);
+// Transcript text is kept as written (the host masks and escapes it); only its length is bounded here.
+function body(type, text, extra = {}) {
+  if (text.length <= BODY_MAX) return { type, ...extra, text };
+  return { type, ...extra, text: text.slice(0, BODY_MAX), more: text.length - BODY_MAX };
+}
 
-function usageEvent(usage) {
-  if (!isPlainObject(usage)) return null;
-  if (!Number.isInteger(usage.output_tokens) || usage.output_tokens < 0) return null;
+// A tool_result's content is a string or a list of blocks; a block that is not text is named by its type.
+function resultText(content) {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter(isPlainObject)
+    .map((block) => (block.type === "text" && typeof block.text === "string" ? block.text : `[${clip(String(block.type ?? "block"), 40)}]`))
+    .join("\n");
+}
+
+const whole = (n) => Number.isSafeInteger(n) && n >= 0;
+const count = (n) => (whole(n) ? n : 0);
+
+// A usage block as the four billed tiers, or null when it has no usable output count.
+function tiersOf(usage) {
+  if (!isPlainObject(usage) || !whole(usage.output_tokens)) return null;
+  return {
+    input: count(usage.input_tokens), cacheWrite: count(usage.cache_creation_input_tokens),
+    cacheRead: count(usage.cache_read_input_tokens), output: usage.output_tokens,
+  };
+}
+
+// One message's usage. The CLI writes a message as several lines that repeat the same id and usage, so the id goes
+// along and the host counts each message once. Per-message output is a partial count; the result line has the totals.
+function usageEvent(message) {
+  const tiers = tiersOf(message?.usage);
+  if (!tiers) return null;
   // Input is the context the model read: plain input plus cache creation and cache reads.
-  const input = count(usage.input_tokens) + count(usage.cache_creation_input_tokens) + count(usage.cache_read_input_tokens);
-  return { type: "usage", input, output: usage.output_tokens };
+  const input = tiers.input + tiers.cacheWrite + tiers.cacheRead;
+  return { type: "usage", input, output: tiers.output, message: typeof message.id === "string" ? clip(message.id, SUMMARY_MAX) : "", tiers };
+}
+
+// The result line's own totals (den-v1 loop S4), each kept only if it is a plain number in range.
+function totalsOf(obj) {
+  const tiers = tiersOf(obj.usage);
+  return {
+    ...(typeof obj.total_cost_usd === "number" && obj.total_cost_usd >= 0 && obj.total_cost_usd <= COST_MAX_USD ? { costUsd: obj.total_cost_usd } : {}),
+    ...(whole(obj.duration_ms) ? { durationMs: obj.duration_ms } : {}),
+    ...(whole(obj.num_turns) ? { turns: obj.num_turns } : {}),
+    ...(tiers ? { tiers } : {}),
+  };
 }
 
 function contentBlocks(message) {
@@ -154,21 +275,35 @@ export function parseClaudeLine(line) {
     if (obj.type === "assistant") {
       const events = [];
       for (const block of contentBlocks(obj.message)) {
+        if (block.type === "text") {
+          if (typeof block.text === "string" && block.text.trim() !== "") events.push(body("text", block.text));
+          continue;
+        }
         if (block.type !== "tool_use") continue;
         if (typeof block.name !== "string" || block.name === "") continue;
-        events.push({ type: "tool-start", name: block.name, summary: summarise(block.input) });
+        const id = typeof block.id === "string" ? clip(block.id, SUMMARY_MAX) : "";
+        events.push({ type: "tool-start", id, name: block.name, summary: summarise(block.input) });
       }
-      const usage = usageEvent(obj.message?.usage);
+      const usage = usageEvent(obj.message);
       if (usage) events.push(usage);
       return events;
     }
     if (obj.type === "user") {
+      // The child's replay of a stdin user message (den-v1 loop S5): it took the message. Never read as a tool result.
+      if (obj.isReplay === true) return typeof obj.uuid === "string" && UUID_RE.test(obj.uuid) ? [{ type: "message-applied", id: obj.uuid }] : [];
       return contentBlocks(obj.message)
         .filter((block) => block.type === "tool_result" && typeof block.tool_use_id === "string")
-        .map(() => ({ type: "tool-end" }));
+        .flatMap((block) => {
+          const id = clip(block.tool_use_id, SUMMARY_MAX);
+          return [body("tool-result", resultText(block.content), { id, ok: block.is_error !== true }), { type: "tool-end", id }];
+        });
+    }
+    if (obj.type === "system" && obj.subtype === "init") {
+      return typeof obj.model === "string" && MODEL_RE.test(obj.model) ? [{ type: "model", model: obj.model }] : [];
     }
     if (obj.type === "result") {
-      return [{ type: "done", ok: obj.subtype === "success" && obj.is_error !== true }];
+      const done = { type: "done", ok: obj.subtype === "success" && obj.is_error !== true, ...totalsOf(obj) };
+      return typeof obj.result === "string" && obj.result.trim() !== "" ? [body("reply", obj.result), done] : [done];
     }
     return [];
   } catch {
@@ -218,4 +353,14 @@ export function encodeControlResponse({ requestId, allow, reason, input } = {}) 
     body = { behavior: "deny", message };
   }
   return oneLine({ type: "control_response", response: { subtype: "success", request_id: requestId, response: body } });
+}
+
+/**
+ * A user message as one stdin line: the first prompt (no id), or a message to a running child (den-v1 loop S5).
+ * The id rides as the line's uuid, and the child's replay of the line carries it back.
+ */
+export function encodeUserMessage({ text, id } = {}) {
+  if (typeof text !== "string") throw new TypeError("encodeUserMessage: text must be a string");
+  if (id !== undefined && (typeof id !== "string" || !UUID_RE.test(id))) throw new TypeError("encodeUserMessage: id must be a UUID");
+  return oneLine({ type: "user", message: { role: "user", content: text }, ...(id === undefined ? {} : { uuid: id }) });
 }

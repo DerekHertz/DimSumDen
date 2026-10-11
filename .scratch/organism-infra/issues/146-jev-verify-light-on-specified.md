@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Testbed friction: verify mode is wrong in shadow logs, so Jev's verify accuracy data is skewed and light verify can't go live.
 
@@ -24,3 +24,4 @@ The relay rule is light verify when qa ran `specify` for the ticket, and full ot
 
 - **orchestrator, 2026-10-05:** Filed from pipeline-retro (user yes 2026-10-05). Incidents: 08 ×2 (handoff 38), 124 (usage.jsonl).
 - **orchestrator, 2026-10-07:** Pipeline retro 2026-10-07: shadow verify effective=full after qa specify has hit 3 tickets (158, den-layout/04, 140) and forced one full verify. The user approved running it next, right after batch D.
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

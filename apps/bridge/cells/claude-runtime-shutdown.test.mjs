@@ -13,7 +13,7 @@ import { makeStub, alive } from "./claude-stub.mjs";
 const PROBE = fileURLToPath(new URL("./claude-runtime-shutdown-probe.mjs", import.meta.url));
 
 async function run(mode, act) {
-  const fx = await makeStateFixture({ empty: true });
+  const fx = await makeStateFixture({ empty: true, git: true });
   const stub = await makeStub({ mode: "hang", grandchild: "ignoreTerm", ignoreTerm: true });
   const probe = spawn(process.execPath, [PROBE, fx.root, stub.bin, stub.dir, mode], { stdio: ["ignore", "pipe", "pipe"] });
   let out = "";

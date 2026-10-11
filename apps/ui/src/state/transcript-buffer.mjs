@@ -4,9 +4,25 @@ export const TRANSCRIPT_CAP = 200;
 
 const KINDS = new Set(["message", "tool", "permission", "ended"]);
 
+const isObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+const readable = (entry) => (isObject(entry) && KINDS.has(entry.kind) ? entry : { kind: "unreadable", type: isObject(entry) && typeof entry.kind === "string" ? entry.kind : "unknown" });
+
+// den-v1 loop S2: a bridge entry carries `id`, its number in that agent's transcript. An id the buffer holds replaces
+// that entry in place (a tool call gets its result, a permission request its answer); an older id the buffer has
+// already dropped is ignored; a new one appends with n = id. An entry with no id appends, numbered by arrival.
 export function appendTranscript(buffers, agentId, entry, cap = TRANSCRIPT_CAP) {
   const previous = buffers[agentId] ?? { entries: [], dropped: 0 };
-  const n = previous.dropped + previous.entries.length + 1;
+  let n = previous.dropped + previous.entries.length + 1;
+  if (Number.isInteger(entry?.id)) {
+    const at = previous.entries.findIndex((e) => e.id === entry.id);
+    if (at >= 0) {
+      const entries = previous.entries.slice();
+      entries[at] = { ...entry, n: previous.entries[at].n };
+      return { ...buffers, [agentId]: { ...previous, entries } };
+    }
+    if (entry.id <= (previous.entries.at(-1)?.n ?? previous.dropped)) return buffers;
+    n = entry.id;
+  }
   const entries = [...previous.entries, { ...entry, n }];
   const overflow = Math.max(0, entries.length - cap);
   return {
@@ -15,12 +31,26 @@ export function appendTranscript(buffers, agentId, entry, cap = TRANSCRIPT_CAP) 
   };
 }
 
+// The snapshot's `transcripts` ({ [agentId]: { entries, dropped } }, what the bridge kept) replaces the buffer of each
+// agent it names, so a reloaded page refills the panel. Other agents' buffers stay; a malformed part is skipped.
+export function seedTranscripts(buffers, fromSnapshot) {
+  if (!isObject(fromSnapshot)) return buffers;
+  let next = buffers;
+  for (const [agentId, kept] of Object.entries(fromSnapshot)) {
+    if (!isObject(kept) || !Array.isArray(kept.entries)) continue;
+    const dropped = Number.isInteger(kept.dropped) && kept.dropped > 0 ? kept.dropped : 0;
+    const entries = kept.entries.map((entry, i) => {
+      const row = readable(entry);
+      return { ...row, n: Number.isInteger(row.id) ? row.id : dropped + i + 1 };
+    });
+    next = { ...next, [agentId]: { entries, dropped } };
+  }
+  return next;
+}
+
 // The one place the SSE frame shape lives: { seq, type: "transcript", agentId, entry }.
-// organism-infra/106 has not landed, so this is the fixture shape; 106 changes only this function.
+// The bridge sends this shape since den-v1 loop S2 (host.mjs); the demo replay builds the same entries.
 export function entryFromFrame(frame) {
   if (!frame || frame.type !== "transcript" || typeof frame.agentId !== "string") return null;
-  const entry = frame.entry;
-  const known = entry && typeof entry === "object" && !Array.isArray(entry) && KINDS.has(entry.kind);
-  const type = entry && typeof entry === "object" && !Array.isArray(entry) && typeof entry.kind === "string" ? entry.kind : "unknown";
-  return { agentId: frame.agentId, entry: known ? entry : { kind: "unreadable", type } };
+  return { agentId: frame.agentId, entry: readable(frame.entry) };
 }

@@ -179,3 +179,36 @@ describe("applyEvent: three-digit tickets", () => {
     assert.deepEqual(next.tickets.map((x) => x.ref), ["fx/99-a", "fx/100-b"]);
   });
 });
+
+// den-v1 loop (live den runs, 2026-10-10): the reducer dropped `approval` changes, so a permission request raised
+// after the page loaded never showed. bridge-stream.test.mjs checks the same thing against a real bridge.
+describe("approval changes", () => {
+  const base = { schema: 1, seq: 4, tickets: [], frontier: [], agents: [{ id: "c-1" }], approvals: [] };
+  const approval = (extra = {}) => ({ id: "a-1", agentId: "c-1", tool: "Read", summary: "/x/package.json", inputLength: 30, state: "pending", ...extra });
+
+  test("a new approval is added, and the input state is not mutated", () => {
+    const next = applyEvent(base, { seq: 5, type: "approval", approval: approval() });
+    assert.equal(next.seq, 5);
+    assert.deepEqual(next.approvals, [approval()]);
+    assert.deepEqual(base.approvals, []);
+    assert.equal(next.agents, base.agents, "other keys are untouched");
+  });
+
+  test("a later change to the same approval replaces it in place; another approval is appended", () => {
+    const one = applyEvent(base, { seq: 5, type: "approval", approval: approval() });
+    const two = applyEvent(one, { seq: 6, type: "approval", approval: approval({ id: "a-2", tool: "Bash" }) });
+    const three = applyEvent(two, { seq: 7, type: "approval", approval: approval({ state: "allowed" }) });
+    assert.deepEqual(three.approvals.map((a) => [a.id, a.state]), [["a-1", "allowed"], ["a-2", "pending"]]);
+    assert.deepEqual(two.approvals.map((a) => a.state), ["pending", "pending"]);
+  });
+
+  test("a snapshot from before approvals existed gains the list", () => {
+    const { approvals, ...old } = base;
+    assert.deepEqual(applyEvent(old, { seq: 5, type: "approval", approval: approval() }).approvals, [approval()]);
+  });
+
+  test("an approval change with no id asks for a fresh snapshot", () => {
+    assert.equal(applyEvent(base, { seq: 5, type: "approval" }), null);
+    assert.equal(applyEvent(base, { seq: 5, type: "approval", approval: { tool: "Read" } }), null);
+  });
+});

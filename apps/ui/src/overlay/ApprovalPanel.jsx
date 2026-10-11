@@ -45,7 +45,7 @@ export function ApprovalPanel({ review, state }) {
   useEffect(() => {
     if (state.open || !state.focusReturn) return;
     const target = state.focusReturn === "card-button"
-      ? document.querySelector(".proximity-card button[data-key=A]:not(:disabled)") ?? document.querySelector(".proximity-card button[data-key=F]:not(:disabled)")
+      ? document.querySelector(".proximity-card button[data-key=E]:not(:disabled)") ?? document.querySelector(".proximity-card button[data-key=R]:not(:disabled)")
       : null;
     (target ?? document.querySelector('main[aria-label="Den scene"]'))?.focus({ preventScroll: true });
   }, [state.focusSeq, state.open, state.focusReturn]);
@@ -87,10 +87,10 @@ export function ApprovalPanel({ review, state }) {
       </div>
       <footer className="approval-foot">
         <button type="button" className="approval-deny" ref={refs.deny} disabled={!state.denyEnabled} onClick={() => review.press("deny")}>
-          {busy("deny") ? <><span className="approval-spinner" aria-hidden="true" />Sending</> : <>Deny <kbd>D</kbd></>}
+          {busy("deny") ? <><span className="approval-spinner" aria-hidden="true" />Sending</> : <>Deny <kbd>Q</kbd></>}
         </button>
         <button type="button" className="approval-allow" ref={refs.allow} disabled={!state.allowEnabled} onClick={() => review.press("allow")}>
-          {busy("allow") ? <><span className="approval-spinner" aria-hidden="true" />Sending</> : <>Allow <kbd>A</kbd></>}
+          {busy("allow") ? <><span className="approval-spinner" aria-hidden="true" />Sending</> : <>Allow <kbd>E</kbd></>}
         </button>
       </footer>
     </aside>

@@ -1,7 +1,7 @@
 // State holder a React component subscribes to. The EventSource and fetch are injected.
 import { applyEvent } from "./apply-event.mjs";
 import { initialConnection, connectionReducer } from "./connection.mjs";
-import { appendTranscript, entryFromFrame } from "./transcript-buffer.mjs";
+import { appendTranscript, entryFromFrame, seedTranscripts } from "./transcript-buffer.mjs";
 
 export function createLiveStore({ connect, fetchState, now }) {
   let state = { snapshot: null, connection: initialConnection(now()), metricsRevision: 0, transcripts: {} };
@@ -14,12 +14,15 @@ export function createLiveStore({ connect, fetchState, now }) {
     for (const fn of [...listeners]) fn();
   };
   const conn = (type) => connectionReducer(state.connection, { type, now: now() });
+  // Every snapshot (first load, reconnect, refetch) carries what the bridge kept of each transcript; it replaces
+  // those agents' buffers, so nothing is lost or doubled across a gap.
+  const withSnapshot = (snapshot) => ({ snapshot, connection: conn("snapshot"), transcripts: seedTranscripts(state.transcripts, snapshot?.transcripts) });
 
   async function refetch() {
     try {
       const snapshot = await fetchState();
       if (closed) return;
-      set({ snapshot, connection: conn("snapshot") });
+      set(withSnapshot(snapshot));
     } catch {
       // the stream's error handling owns the connection state
     }
@@ -38,7 +41,7 @@ export function createLiveStore({ connect, fetchState, now }) {
           const c = conn("open");
           if (c !== state.connection) set({ connection: c });
         },
-        onSnapshot: (snapshot) => set({ snapshot, connection: conn("snapshot") }),
+        onSnapshot: (snapshot) => set(withSnapshot(snapshot)),
         onChange: (event) => {
           if (!state.snapshot) return;
           // Transcript entries ride the normal seq sequence; buffer a frame once (a replayed seq is skipped).

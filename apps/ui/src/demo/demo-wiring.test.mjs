@@ -24,7 +24,7 @@ describe("no request, no token", () => {
     assert.doesNotMatch(src, /from\s+["'][^"']*(session|bridge-client)[^"']*["']/);
   });
 
-  test("a whole demo run (enter, two loops, cards, F, T, A, D, leave) touches no network global, storage or bridge client", () => {
+  test("a whole demo run (enter, two loops, cards, R, T, E, Q, leave) touches no network global, storage or bridge client", () => {
     const touched = [];
     const names = ["fetch", "EventSource", "WebSocket", "XMLHttpRequest", "sessionStorage", "localStorage"];
     const saved = new Map(names.map((n) => [n, Object.getOwnPropertyDescriptor(globalThis, n)]));
@@ -45,7 +45,7 @@ describe("no request, no token", () => {
         for (const card of cardsOf(snapshot).map((x) => demoCard(x, { transcripts }))) {
           assert.equal(review.open(card, { mode: "walk", demo: true }).opened, false);
           assert.equal(composer.open(card, { mode: "walk", demo: true }).opened, false);
-          review.key({ key: "a" }, { card, mode: "walk", demo: true });
+          review.key({ key: "e" }, { card, mode: "walk", demo: true });
           composer.key({ key: "t" }, { card, mode: "walk", demo: true });
         }
       }
@@ -62,7 +62,7 @@ describe("wiring and copy", () => {
   test("App builds Demo mode from the demo module, shows the replayed transcripts, and routes cards through demoCard", () => {
     const app = read("../App.jsx");
     assert.match(app, /demo\/demo-mode|useDemoMode/);
-    assert.doesNotMatch(app, /<TranscriptPanel[^>]*transcripts=\{live\.transcripts\}/, "Demo F would open an empty live buffer");
+    assert.doesNotMatch(app, /<TranscriptPanel[^>]*transcripts=\{live\.transcripts\}/, "Demo R would open an empty live buffer");
     assert.match(app + read("../scene/procedural/RestaurantDen.jsx"), /demoCard/);
   });
   test("the control, the strip and the polite announcement exist with the signed-off copy", () => {

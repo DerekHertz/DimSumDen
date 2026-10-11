@@ -14,6 +14,11 @@ export const RELAY_HOP_ROLES = ["developer", "qa", "security"];
 // mode reaches the prompt template, so it is an allowlist, never free text.
 export const MODES = ["specify", "verify", "review", "spec", "critique", "direction"];
 
+// den-v1 loop S1 (ADR 0016 decision 3, amendment 9): tasks started from the den with POST /tasks.
+export const DEN_FEATURE = "den"; // the board feature the route writes its tickets under
+export const DIRECT_MODE = "direct"; // set by the host for such an agent; not in MODES, so no client can ask for it
+export const TASK_MAX_BYTES = 2048; // UTF-8 bytes of task text (the 2 KB message cap of decision 6.7)
+
 // The director's states (ADR 0007). A runtime may report the live ones; the host alone decides the end states.
 export const LIVE_STATES = ["working", "waiting_on_user", "blocked", "throttled", "idle"];
 
@@ -22,6 +27,10 @@ export const LIVE_STATES = ["working", "waiting_on_user", "blocked", "throttled"
 export const REF_RE = /^[a-z0-9][a-z0-9-]*\/\d{2,}-[a-z0-9][a-z0-9-]*$/;
 export const AGENT_ID_RE = /^c-[0-9a-f]{16}$/; // approval ids are a-
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// den-v1 loop S0 (ADR 0016 decision 3, amendment 7): where agent worktrees go and how their branches are named.
+export const WORKTREES_DIR = ".claude/worktrees"; // repo-relative; git-ignored, and scripts/worktree-gc.mjs cleans it
+export const WORKSPACE_BRANCH_PREFIX = "den"; // den/<ref>-<short agent id>; also the worktree directory's prefix
 
 // organism-infra/141 (ADR 0016 decision 4 and 6.5, 6.7): held permission requests.
 export const APPROVAL_TTL_MS = 10 * 60 * 1000; // an undecided approval expires, and the child is answered deny
@@ -32,3 +41,20 @@ export const APPROVAL_INPUT_MAX = 256 * 1024; // serialised tool input; a bigger
 export const APPROVAL_HISTORY_CAP = 200; // settled approvals kept for the snapshot, oldest dropped first
 export const REQUEST_ID_MAX = 128; // the child's opaque request id (ADR 0016 6.5)
 export const REQUEST_IDS_PER_AGENT = 1000; // request ids remembered per agent; past it every request is answered deny
+
+// The live transcript (den-v1 loop S2, ADR 0016 amendment 10). Small on purpose: the buffer rides every snapshot.
+export const TRANSCRIPT_ENTRIES = 100; // entries kept per agent, oldest dropped first
+export const TRANSCRIPT_AGENTS = 4; // agents whose buffer is kept; the oldest ended agent's goes first
+export const TRANSCRIPT_TEXT_MAX = 4000; // characters of one message
+export const TRANSCRIPT_RESULT_MAX = 2000; // characters of one tool result
+
+// den-v1 loop S4: what a run reports about itself. All of it is cell output, so each value is checked before it is kept.
+export const MODEL_RE = /^[A-Za-z0-9][A-Za-z0-9._:@[\]-]{0,63}$/; // a model id as the CLI names it, e.g. claude-opus-5-5[1m]
+export const COST_MAX_USD = 100_000; // a reported cost above this is not believed
+export const REPLY_EXCERPT_MAX = 280; // characters of the final reply kept on the agent, for the card
+export const USAGE_MESSAGES = 200; // messages whose token counts are remembered, so a repeated one counts once
+
+// den-v1 loop S5 (ADR 0016 amendment 12): a message to a running agent.
+export const MESSAGE_MAX_BYTES = 2048; // UTF-8 bytes of one message (the 2 KB cap of decision 6.7)
+export const MESSAGE_QUEUE_MAX = 8; // messages one agent may have written and not yet taken
+export const MESSAGE_SETTLE_MS = 15_000; // how long an agent that reported done is kept up for a message it has not taken

@@ -1591,3 +1591,66 @@ export async function list(root, { feature, status } = {}) {
   }
   return results;
 }
+
+// --- Create ---------------------------------------------------------------------
+
+// den-v1 loop S1 (ADR 0016 amendment 9): the one place a ticket file is created by code. The number is the next free
+// one in the feature, taken under a per-feature lock, and the file is created exclusively, so nothing is overwritten.
+// `text` is its author's own words (the den's task box): every line is written inside a blockquote, with control
+// characters replaced, so no line of it can start a header field, a section or an attributed comment.
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
+const SOURCE_RE = /^[a-z0-9][a-z0-9 -]{0,39}$/;
+const PRIORITY_RE = /^P[0-3]$/;
+const TITLE_MAX = 120;
+// C0 and C1 controls, and the bidirectional marks and overrides (200e, 200f, 202a to 202e, 2066 to 2069).
+const CONTROL_SRC = `[\\x00-\\x1f\\x7f-\\x9f${[0x200e, 0x200f].map((n) => String.fromCharCode(n)).join("")}${String.fromCharCode(0x202a)}-${String.fromCharCode(0x202e)}${String.fromCharCode(0x2066)}-${String.fromCharCode(0x2069)}]`;
+const CONTROL_RE = new RegExp(CONTROL_SRC);
+const CONTROL_ALL_RE = new RegExp(CONTROL_SRC, "g");
+
+function quoteLines(text) {
+  return text
+    .split(LINE_TERMINATOR_RE)
+    .map((line) => `> ${line.replace(CONTROL_ALL_RE, " ")}`.trimEnd())
+    .join("\n");
+}
+
+export async function createTicket(root, { feature, slug, title, text, source, priority = "P2" } = {}) {
+  for (const [value, name] of [[feature, "feature"], [slug, "slug"], [title, "title"], [text, "text"], [source, "source"]]) {
+    checkArgLength(value, name);
+  }
+  if (typeof feature !== "string" || !FEATURE_RE.test(feature)) throw new BoardError(`invalid feature segment: ${feature}`);
+  if (typeof slug !== "string" || !SLUG_RE.test(slug)) throw new BoardError(`invalid ticket slug: ${slug}`);
+  if (typeof title !== "string" || !title.trim() || title.length > TITLE_MAX || LINE_TERMINATOR_RE.test(title) || CONTROL_RE.test(title)) {
+    throw new BoardError(`title must be one line of at most ${TITLE_MAX} characters`);
+  }
+  if (typeof text !== "string" || !text.trim()) throw new BoardError("text must be a non-empty string");
+  if (typeof priority !== "string" || !PRIORITY_RE.test(priority)) throw new BoardError(`invalid priority: ${priority}`);
+  if (source !== undefined && (typeof source !== "string" || !SOURCE_RE.test(source))) throw new BoardError("invalid source");
+
+  const issuesDir = path.join(root, ".scratch", feature, "issues");
+  await assertWithinRoot(root, issuesDir);
+  await mkdir(issuesDir, { recursive: true });
+  return withWriteLock(path.join(issuesDir, "_create.write-lock.json"), async () => {
+    const taken = (await readdir(issuesDir)).map((name) => /^(\d+)-[a-z0-9-]+\.md$/.exec(name)).filter(Boolean).map((m) => Number(m[1]));
+    const nn = String(Math.max(0, ...taken) + 1).padStart(2, "0");
+    const ticket = `${nn}-${slug}`;
+    const paths = boardPaths(root, feature, ticket);
+    const content = [
+      `# ${nn}: ${title}`, "",
+      "**Type:** task", "",
+      `**Priority:** ${priority}`, "",
+      "**Status:** ready-for-agent", "",
+      ...(source ? [`**Source:** ${source}`, ""] : []),
+      "## What to build", "",
+      "The request, quoted as its author wrote it:", "",
+      quoteLines(text.trim()), "",
+      "## Acceptance criteria", "",
+      "- [ ] The request above is done or answered, and the final reply says what was done.", "",
+      "## Comments", "",
+    ].join("\n");
+    await commitWithEvent(paths.eventsPath, () => createExclusive(paths.ticketPath, content), {
+      feature, ticket, cell: null, mode: null, op: "create", from_status: null, to_status: "ready-for-agent",
+    });
+    return { ref: `${feature}/${ticket}`, feature, ticket, path: paths.ticketPath };
+  });
+}

@@ -10,7 +10,7 @@
 
 **Blocked by:** 42 (and the user decisions it raised).
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] ADR 0010 decision 9 extended for each use, or a recorded no
 - [ ] 42 exposure conditions filed as build tickets
@@ -18,3 +18,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-10-07):** Build ticket from 136 (scopes in `handoffs/136-architect-2.md`), published with the user yes. Ranked P3, below the den-v1 path (refocus: one active feature at a time).
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

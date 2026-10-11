@@ -8,6 +8,7 @@ import { DEMO_FIXTURE } from "./demo-fixture.mjs";
 import { appendTranscript } from "../state/transcript-buffer.mjs";
 
 const APPROVAL_TTL_MS = 60000;
+const ENDED = new Set(["done", "failed", "terminated"]);
 const PREVIEW_CHARS = 40;
 
 // The card line quotes the first 40 characters, like the live composer's status line.
@@ -25,7 +26,17 @@ function reduce(events, count, base, loops) {
   const acks = new Map();
   let approvals = [];
   let transcripts = {};
-  const line = (agentId, entry, at) => { transcripts = appendTranscript(transcripts, agentId, { ...entry, at: stamp(at) }); };
+  // Each line carries its number in that agent's transcript, as a bridge entry does, so a request's answer can
+  // replace the waiting line (transcript-buffer.mjs).
+  const counts = new Map();
+  const waiting = new Map(); // agentId -> the permission line still pending
+  const line = (agentId, entry, at) => {
+    const id = (counts.get(agentId) ?? 0) + 1;
+    counts.set(agentId, id);
+    const full = { ...entry, id, at: stamp(at) };
+    transcripts = appendTranscript(transcripts, agentId, full);
+    return full;
+  };
   const updateTicket = (agent, over) => {
     const ticket = tickets.get(agent.ref);
     if (ticket) tickets.set(agent.ref, { ...ticket, ...over });
@@ -43,8 +54,10 @@ function reduce(events, count, base, loops) {
         break;
       case "agent": {
         agents.set(e.id, {
-          id: e.id, ref: e.ref, role: e.role, state: e.state, tool: agents.get(e.id)?.tool ?? null,
+          id: e.id, ref: e.ref, role: e.role, state: e.state, tool: ENDED.has(e.state) ? null : agents.get(e.id)?.tool ?? null,
           capabilities: { send: true, approve: true },
+          // den-v1 loop: a run that ended carries its reply and the cost the CLI reported, as a bridge row does.
+          ...(e.reply !== undefined ? { reply: e.reply } : {}), ...(e.costUsd !== undefined ? { costUsd: e.costUsd } : {}),
         });
         const cell = cells.get(`${e.ref}|${e.role}`);
         cells.set(`${e.ref}|${e.role}`, { ref: e.ref, cellType: e.role, state: e.state, tool: cell?.tool ?? null, lastEventAt: stamp(e.at) });
@@ -68,13 +81,15 @@ function reduce(events, count, base, loops) {
         agents.set(agent.id, { ...agent, state: "needs-you" });
         updateTicket(agent, { status: "ready-for-human" });
         approvals = [...approvals, { id: `demo-approval-${agent.id}`, agentId: agent.id, status: "pending", tool: e.tool, expiresAt: stamp(e.at + APPROVAL_TTL_MS) }];
-        line(agent.id, { kind: "permission", name: e.tool }, e.at);
+        waiting.set(agent.id, line(agent.id, { kind: "permission", name: e.tool, status: "pending" }, e.at));
         break;
       case "answer":
         if (!agent) break;
         agents.set(agent.id, { ...agent, state: "working" });
         updateTicket(agent, { status: "claimed" });
         approvals = approvals.filter((a) => a.agentId !== agent.id);
+        if (waiting.has(agent.id)) transcripts = appendTranscript(transcripts, agent.id, { ...waiting.get(agent.id), status: "allowed" });
+        waiting.delete(agent.id);
         break;
       case "ack":
         if (agent) acks.set(agent.id, { agentId: agent.id, kind: "received", label: "Message received", preview: previewOf(e.text) });

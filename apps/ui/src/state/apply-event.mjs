@@ -13,6 +13,16 @@ export function applyEvent(state, event) {
       next.agents = found ? agents.map(agent => agent.id === event.agent.id ? event.agent : agent) : [...agents, event.agent];
       break;
     }
+    // den-v1 loop (live den runs, 2026-10-10): a permission request and each change to it. Without this case a
+    // request raised after the page loaded never reached the card, Needs you or the review. A settled row is kept
+    // with its state, as the bridge's own snapshot keeps it; readers ask for "pending".
+    case "approval": {
+      if (!event.approval?.id) return null; // An incomplete approval event requires a fresh snapshot.
+      const approvals = Array.isArray(state.approvals) ? state.approvals : [];
+      const found = approvals.some((a) => a.id === event.approval.id);
+      next.approvals = found ? approvals.map((a) => (a.id === event.approval.id ? event.approval : a)) : [...approvals, event.approval];
+      break;
+    }
     case "ticket": {
       const rest = state.tickets.filter((t) => t.ref !== event.ref);
       if (event.ticket) rest.push(event.ticket);
