@@ -4,7 +4,7 @@
 
 **Priority:** P1
 
-**Blocked by:** agent-os/02
+**Blocked by:** agent-os/04 (resolved, PR #220). The host list criterion and any web use in the live run wait on agent-os/02.
 
 **Status:** ready-for-agent
 
@@ -38,3 +38,4 @@ Then:
 ## Comments
 
 - 2026-10-10, plain session (Opus 5.5): filed from the approved agent-os spec. Not started. Nobody has looked inside the target repo yet.
+- **orchestrator, 2026-10-11:** Blocker changed from agent-os/02 to agent-os/04 (user, 2026-10-11): 04 delivered the ceilings and the wall. The host list criterion and any web use in the live run still wait on 02.
