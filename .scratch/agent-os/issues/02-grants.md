@@ -6,7 +6,7 @@
 
 **Blocked by:** agent-os/01 (a go)
 
-**Status:** claimed
+**Status:** in-review
 
 **Serves:** agent-os step 2 (ADR 0021 decisions 2 to 5). User stories 1 to 5.
 
@@ -29,7 +29,7 @@ The spike was a go for the CLI sandbox around shell commands. It adds these to t
 - **The main checkout's `.git` is writable from a worktree.** The bridge should not trust a branch in the main checkout that an agent could have moved.
 - **Some command shapes still ask** inside the wall ("This command requires approval"). Those requests reach Needs you as they do today.
 - `buildClaudeArgs` already takes `wall: { hosts }`. This ticket makes the runtime pass it.
-- **Hardware limits work** as a `systemd-run --user --scope` around the CLI (needs linger, `XDG_RUNTIME_DIR` for the launcher only, and `OOMPolicy=continue` unless a memory kill should end the agent). Decide where that argv lives, the values per role, and stop-or-continue on a memory kill.
+- **Hardware limits** moved to agent-os/06 (split, 2026-10-11).
 
 From the security review of the spike (pass, 2026-10-10; findings in agent-os/01's comments):
 
@@ -70,3 +70,4 @@ The user decided that the skill-sources spec's Track C items that touch the wall
 - **designer, 2026-10-11:** UI spec signed off by the user 2026-10-10 (grants at Start: two-sided wall table, folded card; wall notices: ink until the pause, by kind, Keep refused restarts the count). Spec and qa mapping: handoffs/02-designer-spec.md. Mockup: https://claude.ai/artifact/Tk1KDW39ETgrbU8hrLG4NY. Next: qa specify. Written by a plain session acting as designer.
 - 2026-10-11, plain session (Opus 5.5): the no-prompt backend half (ceilings, compilation, the runtime passing the wall, no hosts and no grants) is cut out as agent-os/04 at the user's choice and is built first; the ceiling file's path is settled there. This ticket keeps task grants, the Start box table, wall notices, the pause at three, the read limit and hosts, and gains three criteria from the skill-sources grill.
 - **orchestrator, 2026-10-11:** Split (user, 2026-10-11): wall notices, the pause at three and the Start box table moved to agent-os/05; this ticket is backend only and qa specify's tests at 28a0244 cover it. User confirmed two qa decisions: security's CI-path write under a task grant is the one exception to forbid-beats-permit; the strict whole-string deny matcher stays until a live CLI run shows the CLI checks each part.
+- **orchestrator, 2026-10-11:** User decisions after the developer's partial return (2026-10-11): (1) hardware limits move to agent-os/06; (2) fix both path-grant gaps in this ticket, with tests: a path grant that contains the worktree is a 400 from POST /tasks, not a 502 at spawn, and a path grant inside the main checkout is covered by the governance denies (forbid beats permit); (3) the scout context-hook refusal is organism-infra/219; (4) a scout diagnoses the dispatch-context jg-exit-1 failure. Partial handoff: handoffs/02-developer.md. Host grants are not usable until the ticket-file read passes under the read limit.
