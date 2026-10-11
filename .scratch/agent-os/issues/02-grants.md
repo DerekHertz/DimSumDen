@@ -6,7 +6,7 @@
 
 **Blocked by:** agent-os/01 (a go)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 **Serves:** agent-os step 2 (ADR 0021 decisions 2 to 5). User stories 1 to 5.
 
