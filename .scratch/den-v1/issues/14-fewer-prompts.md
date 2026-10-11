@@ -6,7 +6,7 @@
 
 **Blocked by:** den-v1/13 (merge)
 
-**Status:** ready-for-human
+**Status:** closed
 
 **Serves:** Den loop step 4. Live run 5 (den-v1/13) needed seven approvals for a one-line task; the user asked for fewer (2026-10-10).
 
@@ -46,3 +46,4 @@ Two steps, decided by the user (question tool, 2026-10-10): allowlist first, the
 ## Comments
 
 - 2026-10-10, plain session (Opus 5.5): filed from den-v1/13's "Next" section. Not started. After this ticket, the plan is a scoping ticket for the testbed (ADR 0019 decision 9): what it takes to point the den at one small real repo.
+- **orchestrator, 2026-10-11:** Closed: replaced by agent-os/01 (wall spike), per ADR 0021; auto mode not adopted

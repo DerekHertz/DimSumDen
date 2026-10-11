@@ -6,7 +6,7 @@
 
 **Blocked by:** 158
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Security findings on organism-infra/158 (`.scratch/organism-infra/handoffs/158-security.md`): the repo is public and `main` is unprotected, so an ungated push publishes before CI's gitleaks runs.
 
@@ -27,3 +27,4 @@
 
 - **orchestrator, 2026-10-06:** Filed from 158's security pass (1 medium, 3 low; the fourth low, push of the cwd's branch, was judged sound). Not approved for dispatch yet.
 - **orchestrator, 2026-10-08:** User 2026-10-08: keep the main bypass for board-only pushes but limit it to .scratch/: a direct push to main touching any path outside .scratch/ must fail. Fold into this ticket's scope.
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

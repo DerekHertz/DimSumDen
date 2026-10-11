@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Relay hygiene (pipeline-retro 2026-10-08).
 
@@ -24,3 +24,4 @@ Both developers in the 2026-10-08 session (142, 195) skipped the code-review pas
 
 ## Comments
 - **orchestrator, 2026-10-08:** Filed from the pipeline-retro on the user's yes.
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

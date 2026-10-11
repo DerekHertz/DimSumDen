@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** needs-design
+**Status:** parked
 
 **Serves:** Relay setup cost. Every relay cell creates a fresh worktree and runs `npm ci` in `cell-start`; the setup is pure machine time and leaves worktrees behind for `worktree-gc` to clean.
 
@@ -29,3 +29,4 @@ Not in scope: pooling agents themselves. A reused agent carries one ticket's con
 ## Comments
 
 - **orchestrator, 2026-10-06:** Filed at the user's request (likes the idea, low priority; north star tickets first).
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists
