@@ -8,6 +8,10 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
 import { createHost } from "./cells/host.mjs";
+import { createLedger } from "./cells/ledger.mjs";
+import { DEN_FEATURE, TASK_MAX_BYTES } from "./cells/policy.mjs";
+import { createTicket } from "../organism-infra/board-service.mjs";
+import { hasSecret } from "../../scripts/exposure.mjs";
 import { REQUEST_KINDS, appendRequestLine } from "./requests-log.mjs";
 import { createHub } from "./watch.mjs";
 import { createAuth } from "./auth.mjs";
@@ -51,12 +55,13 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
   let actualPort = port;
   const auth = createAuth(authOptions);
   let host;
-  const hub = createHub(root, { agents: () => host.snapshot(), approvals: () => host.approvals() });
+  const hub = createHub(root, { agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts() });
   host = createHost({
     root,
     runtime,
     policy,
     onChange: (change) => hub.publish(change),
+    recordRun: createLedger(root).record,
     readUsage: async () => (await hub.snapshot()).usage?.fiveHour ?? null,
     checkGate: async (ref) => {
       const ticket = (await hub.snapshot()).tickets.find((t) => t.ref === ref);
@@ -136,7 +141,9 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
       await run;
     },
     "POST /agents": (req, res) => postAgent(req, res),
+    "POST /tasks": (req, res) => postTask(req, res),
     "POST /agents/:id/stop": (req, res) => stopAgent(req, res),
+    "POST /agents/:id/message": (req, res) => messageAgent(req, res),
     "GET /approvals/:id": (req, res) => {
       const approval = host.approval(new URL(req.url, "http://x").pathname.split("/")[2]);
       reply(res, approval ? 200 : 404, approval ?? { error: "no such approval" });
@@ -208,7 +215,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     await appendRequestLine(root, request);
     reply(res, 201, { request });
   }
-  // POST /agents (ADR 0016 decision 3): the only HTTP way an agent starts. Only ref, role and mode are read from
+  // POST /agents (ADR 0016 decision 3): with POST /tasks, the only HTTP ways an agent starts. Only ref, role and mode are read from
   // the body; the host validates them, applies the policy and answers with a status from its table.
   async function postAgent(req, res) {
     const body = await readJsonObject(req, res);
@@ -217,6 +224,24 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     if (!result.ok) return reply(res, result.status, { error: result.error });
     reply(res, result.status, { agent: result.agent, ...(result.usageUnknown ? { usageUnknown: true } : {}) });
   }
+  // POST /tasks (ADR 0016 decision 3, amendment 9): a task typed in the den. Only role and text are read. The text
+  // goes into a ticket the board service writes under the den feature, and nowhere else: the host starts the role
+  // for that ticket in direct mode, with a prompt that names the ticket file. This is the bridge's one Board write.
+  async function postTask(req, res) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    const text = typeof body.text === "string" ? body.text.trim() : "";
+    if (!text) return reply(res, 400, { error: "text must be a non-empty string" });
+    if (Buffer.byteLength(text) > TASK_MAX_BYTES) return reply(res, 400, { error: `text must be at most ${TASK_MAX_BYTES} bytes` });
+    if (hasSecret(text)) return reply(res, 400, { error: "text looks like it holds a secret; nothing was written" });
+    const result = await host.direct({
+      role: body.role,
+      createTicket: (role) => createTicket(root, { feature: DEN_FEATURE, slug: role, title: `Den task for ${role}`, text, source: "den" }),
+    });
+    const ticket = result.ticket ? { ticket: result.ticket } : {};
+    if (!result.ok) return reply(res, result.status, { error: result.error, ...ticket });
+    reply(res, result.status, { agent: result.agent, ...ticket, ...(result.usageUnknown ? { usageUnknown: true } : {}) });
+  }
   // POST /agents/:id/stop: takes no body, but the 4 KB cap still applies before anything is looked up.
   async function stopAgent(req, res) {
     if (!(await readBody(req, res))) return;
@@ -224,6 +249,16 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     const result = await host.stop(id);
     if (!result.ok) return reply(res, result.status, { error: result.error });
     reply(res, result.status, { ok: true });
+  }
+  // POST /agents/:id/message (ADR 0016 amendment 12): one message to a running agent. Only `text` is read; the host
+  // checks it and writes it to that agent's stdin, and nowhere else.
+  async function messageAgent(req, res) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    const id = new URL(req.url, "http://x").pathname.split("/")[2];
+    const result = await host.message(id, { text: body.text });
+    if (!result.ok) return reply(res, result.status, { error: result.error });
+    reply(res, result.status, { ok: true, messageId: result.messageId });
   }
   // Static UI build (ADR 0011 decision 2): unknown paths serve index.html; traversal is a 403.
   async function serveStatic(pathname, req, res) {

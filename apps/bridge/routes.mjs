@@ -11,7 +11,9 @@ export const ROUTES = [
   { method: "POST", path: "/session", auth: "origin", mutating: true },
   { method: "POST", path: "/requests", auth: "token", mutating: true },
   { method: "POST", path: "/agents", auth: "token", mutating: true },
+  { method: "POST", path: "/tasks", auth: "token", mutating: true },
   { method: "POST", path: "/agents/:id/stop", auth: "token", mutating: true },
+  { method: "POST", path: "/agents/:id/message", auth: "token", mutating: true },
   { method: "GET", path: "/approvals/:id", auth: "token", mutating: false },
   { method: "POST", path: "/approvals/:id", auth: "token", mutating: true },
 ];

@@ -3,6 +3,8 @@
 // events.jsonl rows, orchestrator handoffs, usage.jsonl and requests.jsonl.
 // Not a test file (no .test.mjs suffix), so `npm test` skips it.
 import { mkdtemp, mkdir, writeFile, rm, utimes } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -53,7 +55,8 @@ const jsonl = (rows) => rows.map((r) => JSON.stringify(r)).join("\n") + "\n";
 //  07-bumpable        ready, P1, mtime 09-20 (3 orchestrator handoffs later: bumps to P0)
 //  08-plain           ready, no priority (P2), mtime 09-29 (newer than all handoffs: no bump)
 //  09-claimed         (only when lock: true) status claimed with a claim lock
-export async function makeStateFixture({ lock = false, empty = false } = {}) {
+//  git: true         the root is a git repository with one (empty) commit, so the host can add agent worktrees
+export async function makeStateFixture({ lock = false, empty = false, git = false } = {}) {
   const root = await mkdtemp(path.join(tmpdir(), "bridge-fx-"));
   const scratch = path.join(root, ".scratch");
   await mkdir(scratch, { recursive: true });
@@ -122,6 +125,12 @@ export async function makeStateFixture({ lock = false, empty = false } = {}) {
         { id: PENDING_ID, ts: "2026-09-29T05:58:00.000Z", kind: "merge-approve", ref: `${FEATURE}/04-review`, note: "ship it" },
       ]),
     );
+  }
+  if (git) {
+    const run = (...args) =>
+      promisify(execFile)("git", ["-C", root, "-c", "user.name=fx", "-c", "user.email=fx@example.invalid", "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args]);
+    await run("init", "-q", "-b", "main");
+    await run("commit", "-q", "--allow-empty", "-m", "fixture");
   }
   return {
     root,

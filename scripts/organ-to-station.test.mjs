@@ -24,6 +24,9 @@ function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     if (e.name === "node_modules" || e.name === ".git" || e.name === "fixtures") continue;
     const p = path.join(dir, e.name);
+    // .claude/worktrees/ is git-ignored and holds whole checkouts (a den-started agent's worktree is kept after its
+    // run); each one is this repository again at some commit, its board history included, and not in scope.
+    if (p === path.join(ROOT, ".claude", "worktrees")) continue;
     if (e.isDirectory()) walk(p, out);
     else if (TEXT_EXT.has(path.extname(e.name)) && p !== SELF) out.push(p);
   }

@@ -4,12 +4,14 @@
 // permission requests until the host decides, and signals the whole group so no grandchild outlives a kill.
 import { spawn as spawnChild } from "node:child_process";
 import {
-  MAX_LINE_BYTES, buildClaudeArgs, buildClaudeEnv, createLineSplitter, decodeControlRequest, encodeControlResponse, parseClaudeLine,
+  MAX_LINE_BYTES, buildClaudeArgs, buildClaudeEnv, createLineSplitter, decodeControlRequest, encodeControlResponse, encodeUserMessage, isTicketFilePath,
+  parseClaudeLine,
 } from "./claude-adapter.mjs";
 import { UUID_RE } from "./policy.mjs";
 
-const oneLine = (value) => `${JSON.stringify(value).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029")}\n`;
-const CAPABILITIES = { spawn: true, stop: true, approve: true, send: false, handover: true }; // S8 outcome (c): inbox on
+// S8 outcome (c): the approval inbox is on. den-v1 loop S5: so is send, a user message line on the child's stdin
+// (spike S7: the child takes it into its running turn once the running tool call ends).
+const CAPABILITIES = { spawn: true, stop: true, approve: true, send: true, handover: true };
 
 // A queue that is also an async iterable; end() lets queued events drain, then finishes the stream.
 function createChannel() {
@@ -46,10 +48,11 @@ export function createClaudeRuntime({ env = process.env } = {}) {
     id: "claude",
     capabilities: { ...CAPABILITIES },
     resumeCommand: (sessionId) => (typeof sessionId === "string" && UUID_RE.test(sessionId) ? `claude --resume ${sessionId}` : null),
-    async spawn({ role, cwd, prompt, sessionId, model } = {}) {
+    async spawn({ role, cwd, prompt, sessionId, model, ticketFile } = {}) {
       if (typeof cwd !== "string" || cwd === "") throw new TypeError("claude runtime: cwd must be a path");
       if (typeof prompt !== "string") throw new TypeError("claude runtime: prompt must be a string");
-      const args = buildClaudeArgs({ sessionId, agent: role, ...(model === undefined ? {} : { model }) });
+      // A ticket path the adapter cannot write as a rule is left out: that agent's ticket read stays a request.
+      const args = buildClaudeArgs({ sessionId, agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}) });
       const bin = typeof env.DEN_CLAUDE_BIN === "string" && env.DEN_CLAUDE_BIN !== "" ? env.DEN_CLAUDE_BIN : "claude";
       const child = spawnChild(bin, args, { shell: false, detached: true, cwd, env: buildClaudeEnv(env), stdio: ["pipe", "pipe", "pipe"] });
       await new Promise((resolve, reject) => {
@@ -64,6 +67,7 @@ export function createClaudeRuntime({ env = process.env } = {}) {
       const splitter = createLineSplitter({ maxLineBytes: MAX_LINE_BYTES });
       const held = new Map(); // requestId -> the held request's input
       const seen = new Set();
+      const sent = new Set(); // ids of messages written and not yet replayed by the child
       let exitedFlag = false;
       const write = (line) =>
         new Promise((resolve, reject) => {
@@ -95,7 +99,11 @@ export function createClaudeRuntime({ env = process.env } = {}) {
           }
           return;
         }
-        for (const event of parseClaudeLine(line)) channel.push(event);
+        for (const event of parseClaudeLine(line)) {
+          // Only a message this process wrote, and only once: the prompt's own replay and a repeated id are dropped.
+          if (event.type === "message-applied" && !sent.delete(event.id)) continue;
+          channel.push(event);
+        }
       };
       child.stdout.on("data", (chunk) => {
         for (const line of splitter.push(chunk)) handleLine(line);
@@ -112,7 +120,7 @@ export function createClaudeRuntime({ env = process.env } = {}) {
       });
 
       try {
-        await write(oneLine({ type: "user", message: { role: "user", content: prompt } }));
+        await write(encodeUserMessage({ text: prompt }));
       } catch {
         // the child may already be gone; the host sees it through `exited`
       }
@@ -131,6 +139,17 @@ export function createClaudeRuntime({ env = process.env } = {}) {
         signal(sig) {
           if (exitedFlag || (sig !== "SIGTERM" && sig !== "SIGKILL")) return;
           signalGroup(sig);
+        },
+        async send(messageId, text) {
+          if (typeof messageId !== "string") throw new TypeError("claude runtime: a message needs an id");
+          const line = encodeUserMessage({ text, id: messageId });
+          sent.add(messageId);
+          try {
+            await write(line);
+          } catch (err) {
+            sent.delete(messageId);
+            throw err;
+          }
         },
         async decide(requestId, { allow, reason } = {}) {
           if (!held.has(requestId)) return;

@@ -24,7 +24,7 @@ const alive = (pid) => {
 
 // Start the probe, wait for its ready line, run `act(probe, pids)`, wait for it to exit, then check the children.
 async function run(mode, act) {
-  const fx = await makeStateFixture({ empty: true });
+  const fx = await makeStateFixture({ empty: true, git: true });
   const probe = spawn(process.execPath, [PROBE, fx.root, mode], { stdio: ["ignore", "pipe", "pipe"] });
   let out = "";
   let err = "";

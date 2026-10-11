@@ -36,7 +36,8 @@ const fixtureObjs = (name) => fixtureLines(name).map((l) => JSON.parse(l));
 
 const SID = "5d3c9a52-8f0e-4b7c-9a41-0e6f1c2b7d90";
 const SID2 = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d";
-const DENY_SETTINGS = '{"permissions":{"deny":["Write(.claude/**)","Edit(.claude/**)"]}}';
+const DENY_RULES = ["Write(.claude/**)", "Edit(.claude/**)", "Bash(git push:*)", "Bash(gh pr create:*)"];
+const DENY_SETTINGS = JSON.stringify({ permissions: { deny: DENY_RULES } });
 
 // ---- buildClaudeArgs -----------------------------------------------------------------------
 
@@ -46,6 +47,7 @@ describe("buildClaudeArgs: the fixed argv template (ADR 0016 6.6)", () => {
     "--input-format", "stream-json",
     "--output-format", "stream-json",
     "--verbose",
+    "--replay-user-messages",
     "--permission-prompt-tool", "stdio",
     "--session-id", sessionId,
     "--agent", agent,
@@ -73,12 +75,63 @@ describe("buildClaudeArgs: the fixed argv template (ADR 0016 6.6)", () => {
     assert.ok(!argv.includes("--mcp-config"));
   });
 
-  test("--settings carries the inline deny rule for Write and Edit of .claude/**, as JSON and not a file path", () => {
-    const argv = need("buildClaudeArgs")({ sessionId: SID, agent: "scout" });
-    const value = argv[argv.indexOf("--settings") + 1];
-    const parsed = JSON.parse(value);
-    assert.deepEqual(parsed, { permissions: { deny: ["Write(.claude/**)", "Edit(.claude/**)"] } });
-    assert.equal(argv.filter((a) => a === "--settings").length, 1);
+  test("--settings carries the inline deny rules, as JSON and not a file path: no write to .claude/**, no push, no PR", () => {
+    // den-v1 loop decision 2: project settings auto-allow `git push -u origin feature/*` and `gh pr create`; a deny
+    // rule wins over an allow, so a bridge-run agent of any role can neither push nor open a PR. The user does both.
+    for (const agent of ROLES) {
+      const argv = need("buildClaudeArgs")({ sessionId: SID, agent });
+      const value = argv[argv.indexOf("--settings") + 1];
+      const parsed = JSON.parse(value);
+      assert.deepEqual(parsed, { permissions: { deny: DENY_RULES } });
+      assert.deepEqual(Object.keys(parsed.permissions), ["deny"], "the inline settings never allow or ask, they only deny");
+      assert.equal(argv.filter((a) => a === "--settings").length, 1);
+    }
+  });
+
+  test("a ticket file adds one allow rule, Read on that exact absolute path, and changes nothing else (den-v1 loop: the ticket read)", () => {
+    // The live den run of 2026-10-10: the ticket is in the main checkout, outside the agent's worktree, so the CLI
+    // asked the user before the agent could read its own task. The path is the bridge's, never a client string.
+    const build = need("buildClaudeArgs");
+    const file = "/home/u/dim-sum_den.2/.scratch/den/issues/01-scout.md";
+    const plain = build({ sessionId: SID, agent: "scout" });
+    const argv = build({ sessionId: SID, agent: "scout", ticketFile: file });
+    const at = argv.indexOf("--settings") + 1;
+    assert.deepEqual(JSON.parse(argv[at]), { permissions: { deny: DENY_RULES, allow: [`Read(/${file})`] } });
+    assert.deepEqual(argv.toSpliced(at, 1), plain.toSpliced(at, 1), "only the --settings value differs");
+  });
+
+  test("a ticket file that is not a plain absolute .scratch/<feature>/issues/<name>.md path is refused, and the predicate says so first", () => {
+    const build = need("buildClaudeArgs");
+    const ok = need("isTicketFilePath");
+    const bad = [
+      ".scratch/den/issues/01-scout.md", // relative
+      "/repo/.scratch/den/issues/../../../etc/passwd.md",
+      "/repo/.scratch/den/issues/./01-scout.md",
+      "/repo//.scratch/den/issues/01-scout.md",
+      "/repo/.scratch/den/issues/*.md",
+      "/repo/.scratch/den/issues/**",
+      "/repo/.scratch/**/issues/01-scout.md",
+      "/repo/.scratch/den/issues/01-scout.md)", // would close the rule early
+      "/repo/.scratch/den/issues/01-scout.md, Bash(*",
+      "/my repo/.scratch/den/issues/01-scout.md", // a space: not expressible as a rule we trust, so it stays a request
+      "/repo/.scratch/den/issues/[0-9]1-scout.md",
+      "/repo/.scratch/den/issues/!01-scout.md",
+      "/repo/.scratch/den/issues/01-scout.txt",
+      "/repo/.scratch/den/01-scout.md",
+      "/repo/.scratch/den/issues/sub/01-scout.md",
+      "/repo/.claude/settings.json",
+      "/repo/.scratch/den/issues/01-scout.md\n",
+      "",
+      7,
+      null,
+    ];
+    for (const file of bad) {
+      assert.equal(ok(file), false, `isTicketFilePath(${JSON.stringify(file)})`);
+      assert.throws(() => build({ sessionId: SID, agent: "scout", ticketFile: file }), TypeError, `ticketFile ${JSON.stringify(file)}`);
+    }
+    for (const file of ["/repo/.scratch/den/issues/01-scout.md", "/home/a.b/x_y-z/@w+1/.scratch/organism-infra/issues/107-steering-slice-2.md"]) {
+      assert.equal(ok(file), true, file);
+    }
   });
 
   test("the child asks for permissions over stdio (the control_request channel)", () => {
@@ -105,7 +158,7 @@ describe("buildClaudeArgs: the fixed argv template (ADR 0016 6.6)", () => {
   test("the only flags the builder can emit are the template's own", () => {
     const build = need("buildClaudeArgs");
     const flagsOf = (argv) => argv.filter((a, i) => a.startsWith("-") && argv[i - 1] !== "--settings" && argv[i - 1] !== "--agent" && argv[i - 1] !== "--session-id" && argv[i - 1] !== "--model").sort();
-    const template = ["--input-format", "--output-format", "--permission-prompt-tool", "--session-id", "--agent", "--setting-sources", "--settings", "--strict-mcp-config", "--verbose", "-p"].sort();
+    const template = ["--input-format", "--output-format", "--permission-prompt-tool", "--session-id", "--agent", "--setting-sources", "--settings", "--strict-mcp-config", "--verbose", "--replay-user-messages", "-p"].sort();
     assert.deepEqual(flagsOf(build({ sessionId: SID, agent: "qa" })), template);
     const withModel = flagsOf(build({ sessionId: SID, agent: "qa", model: adapter.CLAUDE_MODELS?.[0] }));
     assert.deepEqual(withModel, [...template, "--model"].sort());
@@ -323,12 +376,13 @@ describe("parseClaudeLine over the committed fixtures", () => {
         assert.equal(typeof e.summary, "string");
         assert.ok(e.summary.includes(summaries[i]), `summary ${JSON.stringify(e.summary)} should show ${summaries[i]}`);
         assert.ok(e.summary.length <= 200);
-        assert.deepEqual(Object.keys(e).sort(), ["name", "summary", "type"], "a tool-start carries no full tool input");
+        assert.deepEqual(Object.keys(e).sort(), ["id", "name", "summary", "type"], "a tool-start carries no full tool input");
+        assert.match(e.id, /^toolu_/, "the tool_use id pairs a start with its result");
       });
       assert.equal(ofType(events, "tool-end").length, results);
       const done = ofType(events, "done");
       assert.equal(done.length, dones);
-      for (const d of done) assert.deepEqual(d, { type: "done", ok: true });
+      for (const d of done) assert.equal(d.ok, true);
     });
   }
 
@@ -341,7 +395,7 @@ describe("parseClaudeLine over the committed fixtures", () => {
     const usage = ofType(eventsOf("s3-allow.jsonl"), "usage");
     assert.ok(usage.length >= 1);
     for (const u of usage) {
-      assert.deepEqual(Object.keys(u).sort(), ["input", "output", "type"]);
+      assert.deepEqual(Object.keys(u).sort(), ["input", "message", "output", "tiers", "type"]);
       assert.ok(Number.isInteger(u.input) && u.input >= 8, "input counts at least input_tokens (8 or 10 in this fixture)");
       assert.ok(Number.isInteger(u.output) && u.output >= 0);
     }
@@ -381,14 +435,19 @@ describe("parseClaudeLine: result lines and message shapes", () => {
     return JSON.stringify({ ...base, ...patch });
   };
 
+  // den-v1 loop S2: the real result line also carries the reply text, which comes out first as its own event.
+  // den-v1 loop S4: done also carries the line's own totals; these tests are about the verdict.
+  const done = (patch) => need("parseClaudeLine")(resultLine(patch)).filter((e) => e.type !== "reply").map(({ type, ok }) => ({ type, ok }));
+
   test("a successful result is done ok", () => {
-    assert.deepEqual(need("parseClaudeLine")(resultLine({})), [{ type: "done", ok: true }]);
+    assert.deepEqual(done({}), [{ type: "done", ok: true }]);
+    assert.deepEqual(need("parseClaudeLine")(resultLine({})).map((e) => e.type), ["reply", "done"]);
   });
 
   test("an error result is done not ok", () => {
-    assert.deepEqual(need("parseClaudeLine")(resultLine({ is_error: true })), [{ type: "done", ok: false }]);
-    assert.deepEqual(need("parseClaudeLine")(resultLine({ subtype: "error_max_turns", is_error: false })), [{ type: "done", ok: false }]);
-    assert.deepEqual(need("parseClaudeLine")(resultLine({ subtype: "error_during_execution" })), [{ type: "done", ok: false }]);
+    assert.deepEqual(done({ is_error: true }), [{ type: "done", ok: false }]);
+    assert.deepEqual(done({ subtype: "error_max_turns", is_error: false }), [{ type: "done", ok: false }]);
+    assert.deepEqual(done({ subtype: "error_during_execution" }), [{ type: "done", ok: false }]);
   });
 
   test("one assistant line with two tool_use blocks gives two tool-starts, one per block", () => {
@@ -415,6 +474,209 @@ describe("parseClaudeLine: result lines and message shapes", () => {
       const line = JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "t", name, input: {} }] } });
       assert.deepEqual(need("parseClaudeLine")(line).filter((e) => e.type === "tool-start"), [], `name ${JSON.stringify(name)}`);
     }
+  });
+});
+
+// den-v1 loop S2: the transcript events. Contract:
+//   an assistant text block   -> { type: "text", text }                    in block order with the tool-starts
+//   a tool_use block          -> { type: "tool-start", id, name, summary } (id is the tool_use id; "" when unusable)
+//   a tool_result block       -> { type: "tool-result", id, ok, text }, then { type: "tool-end", id }
+//   a result line             -> { type: "reply", text } when it carries result text, then { type: "done", ok }
+// Text is kept as the model wrote it (newlines included) up to BODY_MAX characters; a longer one is cut there and
+// `more` holds the number of characters dropped. Thinking blocks and tool inputs never become transcript text.
+describe("parseClaudeLine: transcript events (den-v1 loop S2)", () => {
+  const parse = (o) => need("parseClaudeLine")(typeof o === "string" ? o : JSON.stringify(o));
+  const live = () => fixtureLines("live.jsonl").flatMap((l) => need("parseClaudeLine")(l));
+  const assistant = (content) => ({ type: "assistant", message: { content } });
+  const toolResult = (block) => ({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "toolu_1", ...block }] } });
+
+  test("the live fixture reads as two tool calls with their results, the agent's text and the reply", () => {
+    const events = live();
+    assert.deepEqual(events.map((e) => e.type).filter((t) => t !== "usage"), [
+      "model", "tool-start", "tool-result", "tool-end", "tool-start", "tool-result", "tool-end", "text", "reply", "done",
+    ]);
+    const starts = events.filter((e) => e.type === "tool-start");
+    const results = events.filter((e) => e.type === "tool-result");
+    assert.deepEqual(results.map((r) => r.id), starts.map((s) => s.id), "each result names its tool call");
+    for (const r of results) {
+      assert.equal(r.ok, true);
+      assert.match(r.text, /^File created successfully at: /);
+    }
+    const [text] = events.filter((e) => e.type === "text");
+    assert.match(text.text, /^LIVE-CHECK-OK\./);
+    assert.equal(events.find((e) => e.type === "reply").text, text.text, "in this run the reply is the last text block");
+    assert.equal(events.at(-1).type, "done");
+    assert.equal(events.at(-1).ok, true);
+  });
+
+  test("text and tool_use blocks in one message keep their order; thinking and blank text give nothing", () => {
+    const events = parse(assistant([
+      { type: "thinking", thinking: "private reasoning" },
+      { type: "text", text: "First I will look.\nThen write." },
+      { type: "tool_use", id: "toolu_1", name: "Read", input: { file_path: "a.md" } },
+      { type: "text", text: "   " },
+      { type: "text", text: "Done looking." },
+    ]));
+    assert.deepEqual(events, [
+      { type: "text", text: "First I will look.\nThen write." },
+      { type: "tool-start", id: "toolu_1", name: "Read", summary: "a.md" },
+      { type: "text", text: "Done looking." },
+    ]);
+    assert.equal(JSON.stringify(events).includes("private reasoning"), false);
+  });
+
+  test("a tool result is text whatever its shape: a string, text blocks, other blocks named by type, or nothing", () => {
+    const text = (block) => parse(toolResult(block)).find((e) => e.type === "tool-result");
+    assert.deepEqual(text({ content: "plain" }), { type: "tool-result", id: "toolu_1", ok: true, text: "plain" });
+    assert.equal(text({ content: [{ type: "text", text: "one" }, { type: "text", text: "two" }] }).text, "one\ntwo");
+    assert.equal(text({ content: [{ type: "image", source: { data: "AAAA" } }, { type: "text", text: "after" }] }).text, "[image]\nafter");
+    assert.equal(text({}).text, "");
+    assert.equal(text({ content: { odd: true } }).text, "");
+    assert.equal(text({ content: "no", is_error: true }).ok, false);
+    assert.deepEqual(parse(toolResult({ content: "x" })).map((e) => e.type), ["tool-result", "tool-end"]);
+  });
+
+  test("long text and long results are cut at BODY_MAX characters and say how much was dropped", () => {
+    const max = adapter.BODY_MAX;
+    assert.ok(Number.isInteger(max) && max >= 1000 && max <= 64_000, "BODY_MAX is an exported bound");
+    const long = "a".repeat(max + 37);
+    const [text] = parse(assistant([{ type: "text", text: long }]));
+    assert.deepEqual({ length: text.text.length, more: text.more }, { length: max, more: 37 });
+    const result = parse(toolResult({ content: long })).find((e) => e.type === "tool-result");
+    assert.deepEqual({ length: result.text.length, more: result.more }, { length: max, more: 37 });
+    const reply = parse({ type: "result", subtype: "success", result: long }).find((e) => e.type === "reply");
+    assert.deepEqual({ length: reply.text.length, more: reply.more }, { length: max, more: 37 });
+    assert.equal("more" in parse(assistant([{ type: "text", text: "short" }]))[0], false, "no `more` when nothing was dropped");
+  });
+
+  test("a result line with no usable result text gives no reply, only done", () => {
+    for (const result of [undefined, "", "  ", 7, null, { text: "x" }]) {
+      assert.deepEqual(parse({ type: "result", subtype: "success", result }), [{ type: "done", ok: true }], JSON.stringify(result));
+    }
+    assert.deepEqual(parse({ type: "result", subtype: "error_during_execution", is_error: true, result: "it broke" }), [
+      { type: "reply", text: "it broke" }, { type: "done", ok: false },
+    ]);
+  });
+
+  test("a tool_use with no usable id still starts, with an empty id; a text block that is not a string gives nothing", () => {
+    const events = parse(assistant([{ type: "tool_use", id: 7, name: "Bash", input: { command: "ls" } }, { type: "text", text: { a: 1 } }]));
+    assert.deepEqual(events, [{ type: "tool-start", id: "", name: "Bash", summary: "ls" }]);
+  });
+});
+
+describe("parseClaudeLine: run totals (den-v1 loop S4)", () => {
+  const parse = (o) => need("parseClaudeLine")(typeof o === "string" ? o : JSON.stringify(o));
+  const live = () => fixtureObjs("live.jsonl");
+  const init = () => live().find((o) => o.type === "system" && o.subtype === "init");
+  const result = () => live().find((o) => o.type === "result");
+  const doneOf = (o) => parse(o).find((e) => e.type === "done");
+
+  test("the init line names the model; anything that is not a plain model id is no event", () => {
+    assert.deepEqual(parse(init()), [{ type: "model", model: "claude-haiku-5-5" }]);
+    assert.deepEqual(parse({ ...init(), model: "claude-opus-5-5[1m]" }), [{ type: "model", model: "claude-opus-5-5[1m]" }]);
+    for (const model of [undefined, null, 7, "", "x".repeat(65), "two words", "a\nb", "$(id)", "<b>", ["haiku"]]) {
+      assert.deepEqual(parse({ ...init(), model }), [], JSON.stringify(model));
+    }
+    assert.deepEqual(parse({ type: "system", subtype: "status", model: "claude-haiku-5-5" }), [], "only the init line");
+  });
+
+  test("a usage event carries the four tiers and its message id, so one message read twice can count once", () => {
+    const usage = live().flatMap((o) => parse(o)).filter((e) => e.type === "usage");
+    assert.equal(usage.length, 4);
+    assert.deepEqual(usage[0].tiers, { input: 2, cacheWrite: 1168, cacheRead: 1183, output: 6 });
+    assert.deepEqual([usage[0].input, usage[0].output], [2 + 1168 + 1183, 6], "input stays the context the model read");
+    assert.match(usage[0].message, /^msg_/);
+    assert.equal(usage[1].message, usage[0].message, "the fixture's first two assistant lines are one message");
+    assert.notEqual(usage[2].message, usage[0].message);
+    assert.deepEqual(usage[3].tiers, { input: 2, cacheWrite: 179, cacheRead: 2740, output: 8 });
+  });
+
+  test("a usage block with no message id still counts, with an empty id; a hostile id is cut", () => {
+    const line = (id) => ({ type: "assistant", message: { ...(id === undefined ? {} : { id }), content: [], usage: { input_tokens: 10, output_tokens: 20 } } });
+    assert.deepEqual(parse(line()), [{ type: "usage", input: 10, output: 20, message: "", tiers: { input: 10, cacheWrite: 0, cacheRead: 0, output: 20 } }]);
+    assert.equal(parse(line(7))[0].message, "");
+    assert.ok(parse(line("m".repeat(5000)))[0].message.length <= 200);
+  });
+
+  test("the live result line gives the CLI's own totals on done: cost, duration, turns and tokens by tier", () => {
+    assert.deepEqual(doneOf(result()), {
+      type: "done", ok: true, costUsd: 0.0006970399999999999, durationMs: 3692, turns: 3,
+      tiers: { input: 6, cacheWrite: 1736, cacheRead: 6274, output: 573 },
+    });
+    assert.equal(doneOf(result()).costUsd, result().total_cost_usd, "the number is the CLI's, not a rounding of it");
+  });
+
+  test("a result line with no totals is a bare done", () => {
+    assert.deepEqual(parse({ type: "result", subtype: "success" }), [{ type: "done", ok: true }]);
+  });
+
+  test("each total is checked on its own: a bad one is left out and the rest stay", () => {
+    const base = { type: "result", subtype: "success", total_cost_usd: 0.34, duration_ms: 1200, num_turns: 4, usage: { input_tokens: 1, output_tokens: 2 } };
+    const full = { type: "done", ok: true, costUsd: 0.34, durationMs: 1200, turns: 4, tiers: { input: 1, cacheWrite: 0, cacheRead: 0, output: 2 } };
+    assert.deepEqual(doneOf(base), full);
+    const without = (key) => Object.fromEntries(Object.entries(full).filter(([k]) => k !== key));
+    for (const cost of [-0.01, "0.34", null, 1e12, [0.34], {}]) assert.deepEqual(doneOf({ ...base, total_cost_usd: cost }), without("costUsd"), `cost ${JSON.stringify(cost)}`);
+    for (const ms of [-1, 1.5, "1200", null, 2 ** 60]) assert.deepEqual(doneOf({ ...base, duration_ms: ms }), without("durationMs"), `ms ${JSON.stringify(ms)}`);
+    for (const turns of [-1, 0.5, "4", null]) assert.deepEqual(doneOf({ ...base, num_turns: turns }), without("turns"), `turns ${JSON.stringify(turns)}`);
+    for (const usage of [null, "x", [], {}, { input_tokens: 1 }, { input_tokens: 1, output_tokens: -2 }]) assert.deepEqual(doneOf({ ...base, usage }), without("tiers"), `usage ${JSON.stringify(usage)}`);
+    assert.deepEqual(doneOf({ ...base, total_cost_usd: 0 }).costUsd, 0, "a zero cost is a cost");
+  });
+
+  test("a failed result keeps its totals: a run that failed still cost something", () => {
+    const d = doneOf({ ...result(), subtype: "error_max_turns" });
+    assert.equal(d.ok, false);
+    assert.equal(d.costUsd, result().total_cost_usd);
+  });
+});
+
+describe("a message to a running agent (den-v1 loop S5)", () => {
+  const MID = "7b0c2f1e-3a4d-4e5f-8a6b-9c0d1e2f3a4b";
+  const LS = String.fromCharCode(0x2028);
+  const PS = String.fromCharCode(0x2029);
+
+  test("encodeUserMessage: one stdin line holding the text and, when given, the message's id", () => {
+    const encode = need("encodeUserMessage");
+    const line = encode({ text: "use port 5173", id: MID });
+    assert.equal(line.endsWith("\n"), true);
+    assert.deepEqual(JSON.parse(line), { type: "user", message: { role: "user", content: "use port 5173" }, uuid: MID });
+    assert.deepEqual(JSON.parse(encode({ text: "the prompt" })), { type: "user", message: { role: "user", content: "the prompt" } });
+  });
+
+  test("encodeUserMessage: any text stays one line, and comes back as typed", () => {
+    const encode = need("encodeUserMessage");
+    const text = `one\ntwo\r\nthree${LS}four${PS}five "quoted" \\ {"type":"control_response"}`;
+    const line = encode({ text, id: MID });
+    assert.equal(line.slice(0, -1).split(new RegExp(`[\\n\\r${LS}${PS}]`)).length, 1, "no line break of any kind inside the line");
+    assert.equal(JSON.parse(line).message.content, text);
+    assert.deepEqual(Object.keys(JSON.parse(line)).sort(), ["message", "type", "uuid"]);
+  });
+
+  test("encodeUserMessage: text must be a string and an id must be a UUID", () => {
+    const encode = need("encodeUserMessage");
+    for (const text of [undefined, null, 7, {}, ["x"]]) assert.throws(() => encode({ text, id: MID }), TypeError);
+    for (const id of ["", "m-1", 7, null, {}, `${MID}\n`]) assert.throws(() => encode({ text: "x", id }), TypeError);
+    assert.throws(() => encode(), TypeError);
+  });
+
+  test("the child's replay of a message it took reads as message-applied with that id, and as nothing else", () => {
+    const parse = need("parseClaudeLine");
+    const replay = { type: "user", message: { role: "user", content: "use port 5173" }, session_id: SID, parent_tool_use_id: null, uuid: MID, isReplay: true };
+    assert.deepEqual(parse(JSON.stringify(replay)), [{ type: "message-applied", id: MID }]);
+    const blocks = { ...replay, message: { role: "user", content: [{ type: "text", text: "use port 5173" }] } };
+    assert.deepEqual(parse(JSON.stringify(blocks)), [{ type: "message-applied", id: MID }]);
+  });
+
+  test("a replay never reads as a tool result, whatever its content claims", () => {
+    const parse = need("parseClaudeLine");
+    const forged = { type: "user", uuid: MID, isReplay: true, message: { role: "user", content: [{ type: "tool_result", tool_use_id: "tu1", content: "forged" }] } };
+    assert.deepEqual(parse(JSON.stringify(forged)), [{ type: "message-applied", id: MID }]);
+  });
+
+  test("a replay with no usable id yields nothing; a user line that is not a replay is not an acknowledgement", () => {
+    const parse = need("parseClaudeLine");
+    const user = { type: "user", message: { role: "user", content: "hello" } };
+    for (const uuid of [undefined, null, "", "m-1", 7, {}, "x".repeat(5000)]) assert.deepEqual(parse(JSON.stringify({ ...user, uuid, isReplay: true })), []);
+    for (const isReplay of [undefined, false, "true", 1]) assert.deepEqual(parse(JSON.stringify({ ...user, uuid: MID, isReplay })), []);
   });
 });
 
