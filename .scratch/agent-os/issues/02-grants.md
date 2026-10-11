@@ -29,6 +29,14 @@ The spike was a go for the CLI sandbox around shell commands. It adds these to t
 - **The main checkout's `.git` is writable from a worktree.** The bridge should not trust a branch in the main checkout that an agent could have moved.
 - **Some command shapes still ask** inside the wall ("This command requires approval"). Those requests reach Needs you as they do today.
 - `buildClaudeArgs` already takes `wall: { hosts }`. This ticket makes the runtime pass it.
+- **Hardware limits work** as a `systemd-run --user --scope` around the CLI (needs linger, `XDG_RUNTIME_DIR` for the launcher only, and `OOMPolicy=continue` unless a memory kill should end the agent). Decide where that argv lives, the values per role, and stop-or-continue on a memory kill.
+
+From the security review of the spike (pass, 2026-10-10; findings in agent-os/01's comments):
+
+- **Host names only.** `isWall` in `claude-adapter.mjs` accepts IP literals and internal names (`127.0.0.1`, `169.254.169.254`, `10.0.0.5`, `localhost.localdomain`). Reject IPs, `localhost.*` and private or link-local names before any grant reaches `wall.hosts`, and reject sparse arrays. Whether the CLI honours an IP in `allowedDomains` was not tried.
+- **A read limit comes before any host.** With reads open, an agent that is given a host could send out what it can read, the CLI's own credentials included. No host is listed for an agent until the read limit is tried and holds.
+- **Deny rules under the wall.** `autoAllowBashIfSandboxed` was not tried against the `git push` and `gh pr create` deny rules. Test that they still refuse with the wall on.
+- **`.git/config`** in the main checkout was not probed; only `hooks` was.
 
 ## Acceptance criteria
 
@@ -47,3 +55,4 @@ The spike was a go for the CLI sandbox around shell commands. It adds these to t
 ## Comments
 
 - 2026-10-10, plain session (Opus 5.5): filed from the approved agent-os spec. Not started.
+- 2026-10-10, plain session (Opus 5.5): handoff for the design session is `.scratch/agent-os/handoffs/02-plain-session.md`. It lists what the designer and the user settle before any UI code: grants at Start and wall notices now; the Open/Closed sign, Bao's body and den art if the user wants them in the same session.
