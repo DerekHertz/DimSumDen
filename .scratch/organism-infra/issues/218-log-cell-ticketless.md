@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Spend accuracy. `log-cell` (and `jev route`/`tier`) require a real ticket ref, so subagent runs not tied to a ticket (README capture scouts, survey scouts) can't be logged. This happened twice (2026-10-01, 2026-10-08); the second time left two Haiku scout runs, about 58k tokens, out of the trial measures.
 
@@ -30,3 +30,5 @@
 - **orchestrator, 2026-10-09:** qa light verify passed at 0c613d7 (round 3). risk-check exited 1 with 2 hits, both in `scripts/log-cell-ticketless.test.mjs` (shells out to another program; board code), so full `security` is next: `--base 0c613d7 --detach --continue`. Then PR and merge on green. The branch is pushed to origin.
 - **security, 2026-10-11:** Security pass (0c613d7): no critical/high. Only log-cell.mjs and its test changed; 'none' is an exact string and builds no path; non-scout ticketless rows need --allow-no-handoff; gitleaks clean; no dependency change. Handoff 218-security.
 - **orchestrator, 2026-10-11:** Security pass at 0c613d7, but the branch conflicts with main in scripts/log-cell.mjs (c6572eb). No PR opened. Next: developer round to merge main and resolve, then light qa verify and risk-check on the new SHA (user, 2026-10-11: after agent-os/02 qa specify returns).
+- **qa, 2026-10-11:** QA pass (light verify, fa6f193, round 4): suite 3518/3518 from saved dev run; specify tests unchanged (one addition); AC1-AC4 and allow-no-handoff scope mapped. Handoff 218-qa-verify-4.
+- **security, 2026-10-11:** Security pass at fa6f193. No findings at medium or above; gitleaks clean (3 commits); no dependency or workflow change. See handoffs/218-security-2.md.
