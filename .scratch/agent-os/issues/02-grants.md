@@ -15,9 +15,9 @@
 A den-started agent in this repo works inside its worktree with no prompt, and is refused outside it.
 
 - **Ceilings.** One data file in this repo gives each role its ceiling. Start with scout (read the project and the web, no write), developer and qa (write in the worktree, the project's hosts) and security (read, and write its report in the worktree). It is a guardrail path.
-- **Task grants.** A task may carry named extras (a host, an extra path). `POST /tasks` validates them against a fixed shape; the Start box shows them before the agent runs. No grant text reaches argv or the prompt template.
+- **Task grants.** A task may carry named extras (a host, an extra path). `POST /tasks` validates them against a fixed shape. No grant text reaches argv or the prompt template.
 - **Compilation.** `claude-adapter.mjs` turns ceiling plus grants into the sandbox settings and permission rules that agent-os/01 recorded. The four deny rules stay.
-- **Refusals.** The bridge marks a wall refusal on the agent row (card and transcript notice). After three of the same kind it pauses the agent and raises a request in Needs you offering "grant for this task". Build this only if agent-os/01 answered question 7 with yes; otherwise write down what replaces it.
+- **Refusals and the Start box table** moved to agent-os/05 (split, 2026-10-11). This ticket has no UI change.
 
 ## From the spike (agent-os/01, ADR 0021 amendment 1)
 
@@ -51,8 +51,8 @@ The user decided that the skill-sources spec's Track C items that touch the wall
 - [ ] Failing tests first: the adapter compiles each role's ceiling, and ceiling plus a grant, into the recorded settings.
 - [ ] A live check: a den-started developer task writes and runs tests inside its worktree with no permission request, and a write outside the worktree is refused.
 - [ ] A grant outside the fixed shape is a 400, and a test shows no grant string in argv or the prompt.
-- [ ] The Start box lists the task's grants (UI test). The layout is agreed with the user first.
-- [ ] The refusal notice and the pause at three have tests against the stub, or the ticket records why they were not built.
+- Moved to agent-os/05 (split, 2026-10-11): the Start box grants table.
+- Moved to agent-os/05 (split, 2026-10-11): the refusal notice and the pause at three.
 - [ ] Forbid beats permit: a test tries each grant shape against each deny in a ceiling, and no grant lifts a deny.
 - [ ] The ceilings deny the governance paths and commands listed under "From the skill-sources grill", with a test per entry.
 - [ ] A table-driven test of the compiled rules refuses each bypass form listed there.
@@ -69,3 +69,4 @@ The user decided that the skill-sources spec's Track C items that touch the wall
 - 2026-10-10, plain session (Opus 5.5): handoff for the design session is `.scratch/agent-os/handoffs/02-plain-session.md`. It lists what the designer and the user settle before any UI code: grants at Start and wall notices now; the Open/Closed sign, Bao's body and den art if the user wants them in the same session.
 - **designer, 2026-10-11:** UI spec signed off by the user 2026-10-10 (grants at Start: two-sided wall table, folded card; wall notices: ink until the pause, by kind, Keep refused restarts the count). Spec and qa mapping: handoffs/02-designer-spec.md. Mockup: https://claude.ai/artifact/Tk1KDW39ETgrbU8hrLG4NY. Next: qa specify. Written by a plain session acting as designer.
 - 2026-10-11, plain session (Opus 5.5): the no-prompt backend half (ceilings, compilation, the runtime passing the wall, no hosts and no grants) is cut out as agent-os/04 at the user's choice and is built first; the ceiling file's path is settled there. This ticket keeps task grants, the Start box table, wall notices, the pause at three, the read limit and hosts, and gains three criteria from the skill-sources grill.
+- **orchestrator, 2026-10-11:** Split (user, 2026-10-11): wall notices, the pause at three and the Start box table moved to agent-os/05; this ticket is backend only and qa specify's tests at 28a0244 cover it. User confirmed two qa decisions: security's CI-path write under a task grant is the one exception to forbid-beats-permit; the strict whole-string deny matcher stays until a live CLI run shows the CLI checks each part.
