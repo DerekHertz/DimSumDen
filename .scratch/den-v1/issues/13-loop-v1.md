@@ -43,7 +43,7 @@ One plain Claude Code session built the whole loop, by the user's instruction. N
 - [x] The cost badge matches the CLI's own reported cost for the run, or the difference is explained. Run 5: the agent row, the badge's source, and the run record all hold 0.00375692 USD (badge "≈0.38¢ API-equiv"). The row's figure is the CLI's `total_cost_usd` passed through by the adapter, which a test pins against a recorded CLI capture; the CLI's raw output for run 5 itself was not captured.
 - [x] Every bridge-run agent leaves a run record: model, tokens by tier, cost, duration, outcome (`host-run.test.mjs`).
 - [x] Each new route, event and UI state has a test against the fake runtime or the claude stub. `npm test`, risk-check and gitleaks are green apart from the two items under Known failures.
-- [ ] A 20 to 30 second GIF of the loop is in the README. The README's "Not built yet" line is updated (done on the branch).
+- [x] A 20 to 30 second GIF of the loop is in the README. The README's "Not built yet" line is updated (done on the branch).
 
 ## Known failures
 
@@ -141,3 +141,4 @@ Asked for, not yet scoped:
 
 - 2026-10-10, plain session (Opus 5.5): slices S0, S3, S1, S2, S4 and S5 are built and uncommitted on `feat/den-loop-v1`. Status is `ready-for-human` because the next steps need the user: review the diff, do the recorded live run from the browser, record the GIF, and decide on commits, push and PR.
 - 2026-10-10, plain session (Opus 5.5): GIF made, awaiting the user's inspection; the acceptance box stays open until then. `docs/images/den-loop.gif` (960x540, 27.7 s, 4.9 MB) is linked from the README's "Agents from the den" bullet. How: the built UI served by a real bridge over an empty fixture board, driven by Playwright in a headed Chromium on the GPU (Mesa D3D12 driver; headless only gets a software rasteriser), lossless screencast frames joined by ffmpeg. The agent is a scripted stand-in, not the real CLI, and the README caption says so. The capture scripts are in the session scratchpad, not in the repo. Seen while recording, not fixed: after the task ends its den ticket is still `ready-for-agent`, so Needs you opens on a dispatch gate for it and the tally table still says "Queued"; the recording folds Needs you at the end.
+- 2026-10-10: the user inspected `docs/images/den-loop.gif` and approved it ("looks great!"). The GIF box is ticked; every acceptance item is now met. Still the user's: push this branch and merge PR #214.
