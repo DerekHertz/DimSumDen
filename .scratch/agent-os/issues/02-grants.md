@@ -29,6 +29,7 @@ The spike was a go for the CLI sandbox around shell commands. It adds these to t
 - **The main checkout's `.git` is writable from a worktree.** The bridge should not trust a branch in the main checkout that an agent could have moved.
 - **Some command shapes still ask** inside the wall ("This command requires approval"). Those requests reach Needs you as they do today.
 - `buildClaudeArgs` already takes `wall: { hosts }`. This ticket makes the runtime pass it.
+- **Hardware limits work** as a `systemd-run --user --scope` around the CLI (needs linger, `XDG_RUNTIME_DIR` for the launcher only, and `OOMPolicy=continue` unless a memory kill should end the agent). Decide where that argv lives, the values per role, and stop-or-continue on a memory kill.
 
 ## Acceptance criteria
 

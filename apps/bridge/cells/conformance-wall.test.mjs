@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { evaluateWall, readTurn, wallTurns, WALL_BLOCKED_HOST, WALL_HOST } from "./conformance-wall.mjs";
+import { evaluateLimits, evaluateWall, LIMITS, limitsTurns, readTurn, wallTurns, WALL_BLOCKED_HOST, WALL_HOST } from "./conformance-wall.mjs";
 
 const fixture = (name) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
 const recorded = JSON.parse(fixture("wall-results.json"));
@@ -113,3 +113,65 @@ test("a turn the model did not make leaves its question unknown, not answered", 
   assert.equal(r.answers.q3.answer, "unknown");
   assert.equal(r.verdict, "no-go");
 });
+
+// ---- question 5: the Limits spike, replayed over fixtures/limits.jsonl and limits-results.json ---------------
+
+const limitsRecorded = JSON.parse(fixture("limits-results.json"));
+function limitsRecordedTurns() {
+  const objs = fixture("limits.jsonl").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const ids = limitsTurns().map((t) => t.id);
+  const turns = {};
+  let from = 0, n = 0;
+  objs.forEach((o, i) => {
+    if (o.type !== "result") return;
+    turns[ids[n]] = readTurn(objs.slice(from, i + 1));
+    from = i + 1;
+    n += 1;
+  });
+  assert.equal(n, ids.length, "the fixture holds one result line per planned turn");
+  return turns;
+}
+const runLimits = (change = () => {}) => {
+  const input = structuredClone({ scope: limitsRecorded.scope, before: limitsRecorded.before, after: limitsRecorded.after, burnMs: limitsRecorded.burnMs });
+  input.turns = limitsRecordedTurns();
+  change(input);
+  return evaluateLimits(input);
+};
+
+test("limits plan: three turns, and the memory turn is bounded even if the limit fails", () => {
+  const plan = limitsTurns();
+  assert.deepEqual(plan.map((t) => t.id), ["cgroup", "memory-hog", "cpu-burn"]);
+  assert.ok(plan[1].text.includes("head -c 3G /dev/zero"));
+  assert.equal(LIMITS.hogBytes, 3 * 1024 ** 3);
+  assert.ok(LIMITS.memoryBytes < LIMITS.hogBytes, "the hog asks for more than the limit");
+});
+
+test("the recorded limits run: the scope holds the sandboxed command, the hog is killed and the CPU is throttled", () => {
+  const r = runLimits();
+  assert.equal(r.verdict, "go");
+  assert.equal(r.answers.q5.answer, "yes");
+  assert.equal(limitsRecorded.answers.q5, "yes");
+  const t = limitsRecordedTurns();
+  assert.ok(t.cgroup.results[0].text.includes(limitsRecorded.scope.path), "a sandboxed command is in the child's own scope");
+  assert.match(limitsRecorded.scope.path, /\/den-limits-[0-9a-f]+\.scope$/);
+  assert.match(t["memory-hog"].results[0].text, /^0\nrc=137$/);
+  assert.match(limitsRecorded.after.memoryEvents, /^oom_kill 1$/m);
+  assert.equal(t["cpu-burn"].results.length, 1, "the agent outlived the memory kill and ran the next turn");
+});
+
+test("limits: no kill, no throttle, or a command outside the scope is a no", () => {
+  assert.equal(runLimits((i) => { i.after.memoryEvents = i.before.memoryEvents; }).answers.q5.answer, "no");
+  assert.equal(runLimits((i) => { i.after.cpuStat = i.before.cpuStat; }).answers.q5.answer, "no");
+  assert.equal(runLimits((i) => { i.turns.cgroup.results = [{ error: false, text: "0::/init.scope" }]; }).answers.q5.answer, "no");
+  assert.equal(runLimits((i) => { i.turns["memory-hog"].results = [{ error: false, text: `${LIMITS.hogBytes}\nrc=0` }]; }).answers.q5.answer, "no");
+  assert.equal(runLimits((i) => { i.burnMs = 1000; }).answers.q5.answer, "no", "more CPU used than one core allows in that time");
+});
+
+test("limits: a scope without the limits, or a turn that was not made, is unknown and not a go", () => {
+  const off = runLimits((i) => { i.scope.memoryMax = "max"; });
+  assert.equal(off.answers.q5.answer, "unknown");
+  assert.equal(off.verdict, "no-go");
+  const unmade = runLimits((i) => { i.turns["cpu-burn"] = { calls: [], requests: [], results: [], other: [], ended: true }; });
+  assert.equal(unmade.answers.q5.answer, "unknown");
+});
+

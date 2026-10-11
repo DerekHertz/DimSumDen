@@ -35,7 +35,7 @@ This ticket replaces den-v1/14. Auto mode is not checked: ADR 0021 does not adop
 
 ## Acceptance criteria
 
-- [x] Each of the seven questions has an answer backed by a recorded fixture, or is marked "could not be determined" with the reason. (Q5 is the one not determined.)
+- [x] Each of the seven questions has an answer backed by a recorded fixture, or is marked "could not be determined" with the reason. (All seven are answered; Q5 was run last, after linger was enabled.)
 - [x] A go or no-go is written here as a comment (confirmed by the user, 2026-10-10). On no-go, the comment says what failed and whether a container per agent should be tried.
 - [x] If go: the exact settings and flags that produced the result are recorded in an ADR 0021 amendment. (Amendment 1, accepted by the user 2026-10-10.)
 - [x] `npm test`, risk-check and gitleaks are green apart from known failures. (See the gates comment: risk-check cannot see uncommitted work.)
@@ -58,4 +58,5 @@ This ticket replaces den-v1/14. Auto mode is not checked: ADR 0021 does not adop
 - 2026-10-10, plain session (Opus 5.5): gates on the uncommitted tree. `npm test`: 3469 of 3470; the one failure is the known `/tmp/.git` one (organism-infra/197). gitleaks: no leaks in `apps/bridge/cells`, `docs/adr` and `.scratch/agent-os`. risk-check reads committed diffs only, so it has not seen this work; once committed it will hit, because the change touches the adapter's settings and adds a harness that starts the CLI and runs git. No security review has been run. Still open: Q5, the user's confirmation of the go, and the user's acceptance of ADR 0021 amendment 1.
 - 2026-10-10: the user confirmed the go and accepted ADR 0021 amendment 1 (question tool). The user also chose to enable linger so that Q5 can be run; that run is still to do, so this ticket stays open.
 - 2026-10-10: Q5 is put off. The user cannot run sudo commands right now and will enable linger later tonight (`sudo loginctl enable-linger dhertzell`). Until then Q5 stays "could not be determined". Plan for the run: the CLI inside a `systemd-run --user --scope` with a memory and a CPU limit, a sandboxed command that goes over each, and the scope's own `memory.events` and `cpu.stat` read from outside as the evidence.
+- 2026-10-10, plain session (Opus 5.5): **Q5 yes.** The user enabled linger; spike `Limits` (`node apps/bridge/cells/conformance.mjs --spike Limits`) ran the CLI, wall on, inside `systemd-run --user --scope` with `MemoryMax=2G`, `MemorySwapMax=0`, `OOMPolicy=continue` and `CPUQuota=100%`. A sandboxed command sits in the scope; a 3 GB command was killed (exit 137, `oom_kill` +1) and the agent carried on; a four-loop burn was throttled to about one core. Run 1, with the default `OOMPolicy`, ended the whole agent at the first memory kill. Fixture `limits.jsonl` and `limits-results.json`; ADR 0021 amendment 1, answer 5, is updated. Two live runs, Haiku.
 

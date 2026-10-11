@@ -1,0 +1,21 @@
+{
+  "spike": "Limits",
+  "verdict": "go",
+  "answers": {
+    "q5": "yes"
+  },
+  "scope": {
+    "path": "/user.slice/user-1000.slice/user@1000.service/app.slice/den-limits-193243.scope",
+    "memoryMax": "2147483648",
+    "cpuMax": "100000 100000"
+  },
+  "before": {
+    "memoryEvents": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+    "cpuStat": "usage_usec 7357240\nuser_usec 1411828\nsystem_usec 5945412\nnr_periods 126\nnr_throttled 62\nthrottled_usec 2541163\nnr_bursts 0\nburst_usec 0"
+  },
+  "after": {
+    "memoryEvents": "low 0\nhigh 0\nmax 43\noom 1\noom_kill 1\noom_group_kill 0",
+    "cpuStat": "usage_usec 11832350\nuser_usec 5760162\nsystem_usec 6072188\nnr_periods 191\nnr_throttled 103\nthrottled_usec 15044010\nnr_bursts 0\nburst_usec 0"
+  },
+  "burnMs": 6931
+}
