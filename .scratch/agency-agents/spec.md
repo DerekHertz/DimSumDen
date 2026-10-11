@@ -11,7 +11,7 @@ The den can build what I specify, but nothing in it helps me decide what to buil
 Two tracks, both vendored with attribution and rewritten in house style. No upstream persona is imported as-is.
 
 - **Track A, discovery.** A pipeline from signal to spec that runs before product's grill: a new read-only role, scout-intel, gathers and grades trend evidence; a separate verifier re-fetches every quote; product gains an assess mode that frames an opportunity and a falsifiable hypothesis with a cheap test; Bao assembles a Gate 0 file that I sign. Only a signed GO reaches grill-me and to-spec.
-- **Track B, fold-ins.** Rules from engineering, testing and specialist agents go into roles we already have as skills or short rule lists.
+- **Track B, fold-ins.** Rules from engineering, testing and specialist agents go into the cell types we already have, as three shared skills (`scope-check`, `evidence-gate`, `drift-audit`) or short rule lists, plus one new read-only cell type, the archaeologist.
 
 ## User Stories
 
@@ -28,7 +28,9 @@ Two tracks, both vendored with attribution and rewritten in house style. No upst
 11. As the user, a developer's handoff lists the follow-ups it noticed and did not do.
 12. As the user, qa's full verify treats a perfect report from an earlier cell as a reason to look harder, and checks each claim in a handoff against the diff and the test output.
 13. As the user, Bao sorts what reaches me into three tiers: ask now, handle and brief me later, park.
-14. As the user, after a target project runs, herald can audit time from a clean clone to a running app, and whether Claude, ChatGPT and Perplexity describe the project correctly.
+14. As the user, before agents start on a target repo, an archaeologist maps where its code disagrees with itself and with its docs, ranked by risk, and changes nothing.
+15. As the user, while I am away, the archaeologist audits the commits since its last run and files findings as tickets for triage, never as ready work.
+16. As the user, after a target project runs, herald can audit time from a clean clone to a running app, and whether Claude, ChatGPT and Perplexity describe the project correctly.
 
 ## Implementation Decisions
 
@@ -74,14 +76,34 @@ Two tracks, both vendored with attribution and rewritten in house style. No upst
 | specialized-developer-advocate | herald, dx-proof mode | Time from a clean clone to a running app, graded; every code sample runs unmodified; every error has a message, a cause and a fix; never astroturf. Invented NPS targets dropped. |
 | marketing-ai-citation-strategist | herald, aeo-audit mode | A fixed prompt set asked of Claude, ChatGPT and Perplexity about the project; "never guarantee citation outcomes". Impact percentages dropped. One-off, after a target ships. |
 
-New role later, not in this spec's first steps: **archaeologist** (specialized-codebase-archaeologist), read-only drift audit, for agent-os step 7's janitorial queue and for first contact with a target repo.
+### Track B: shared skills
+
+Rules that more than one cell uses are written once as a skill and listed in each genome's `skills:`, so the genomes stay short.
+
+| Skill | Source | Loaded by | What it holds |
+|---|---|---|---|
+| `scope-check` | engineering-minimal-change-engineer | developer; qa light verify reads its output | The self-check before commit: each touched file with the reason the ticket needs it; lines tempted but not written; abstractions rejected; diff size. Writes the "Follow-ups noticed, not done" handoff field. |
+| `evidence-gate` | testing-reality-checker (testing-evidence-collector read from its README line only) | qa full verify, security, designer review mode, Bao before merge | Default verdict is "needs work" until evidence shows otherwise. Each claim in a handoff is matched to a diff hunk, a test name or a recorded output, or marked unverified. A perfect score or "no issues" from an earlier cell means look harder. |
+| `drift-audit` | specialized-codebase-archaeologist | archaeologist | Group history into eras; compare the same kind of file across eras; find one concept implemented two ways; trace state each event handler reads but did not create; trace what a value represents (units) across call sites; confirm two look-alikes share a purpose before calling them duplicates. Findings go to a drift registry with four views (by finding, era, responsibility, risk); none is deleted, "won't fix" needs a reason. |
+
+### Track B: new cell type, archaeologist
+
+- **Purpose.** Find drift that no single session would notice: half-migrated patterns, two implementations of one responsibility that disagree, docs that no longer match the code, handlers that assume an order nobody guarantees. It never fixes; it files findings.
+- **Genome.** Source: specialized/specialized-codebase-archaeologist. Skills: `organism-protocol`, `drift-audit`. Model: sonnet (finding drift needs judgment; scout can run the greps). Isolation: worktree.
+- **Ceiling.** Read the project and its git history; write only its drift registry (`.scratch/drift/registry.md` in the repo it audits) and its handoff. No web, no shell writes, no Edit outside the registry. The simplest ceiling of any cell, so it can run before the four undecided ceilings are settled.
+- **Inputs and outputs.** In: a repo path and a scope (whole repo, a directory, or the commits since its last audit). Out: registry updates, one ticket per Critical or Moderate finding (status `needs-triage`, never `ready-for-agent`), handoff.
+- **Gates.** Filing a ticket is a proposal; the user or Bao triages it. It never marks a finding Fixed without re-reading both sides of the mismatch.
+- **Done.** Every finding in scope has a severity (or "can't tell, and why"), an era and a responsibility; the risk view is current; a handoff is written.
+- **Where it runs.** (a) First contact with a target repo, before scout-intel or a developer starts there (agent-os/03). (b) The janitorial queue while the user is away (agent-os step 7), on the commits since the last audit. (c) This repo, which many Claude and Codex sessions have built.
+- **Den.** It needs a station and a resident panda; see Further Notes.
 
 ### Steps
 
 | # | Step | Done when |
 |---|---|---|
 | 1 | Vendor and read | Upstream pinned, licence copied, VENDORED.md table written; the five unread files read and their rows filled |
-| 2 | Track B rule fold-ins | developer, qa, Bao, security, architect and designer carry their rules; each rule has a check (a handoff field, a verify step, a test) |
+| 2 | Track B rule fold-ins and skills | developer, qa, Bao, security, architect and designer carry their rules; `scope-check` and `evidence-gate` exist and are loaded; each rule has a check (a handoff field, a verify step, a test) |
+| 2b | Archaeologist | Genome, `drift-audit` and registry schema exist; a run on a fixture repo with planted drift (a reversed fallback, two disagreeing validators, a stale doc) finds all three; a write outside the registry is refused |
 | 3 | Discovery schemas | Signal, trend card, opportunity, hypothesis and gate-0 have schemas and a validator with tests |
 | 4 | Verifier | Against a fixture with a planted fabricated excerpt and a dead URL, both are struck and logged |
 | 5 | scout-intel | A recorded run on a fixed brief produces valid signals and cards; a write outside its folder is refused by the wall |
@@ -118,7 +140,8 @@ Questions for the grill:
 - **Ceilings.** scout-intel's web hosts: open web read, or a list? ADR 0021 says no host for any agent until a read limit holds.
 - **Human signal.** Is a waiver at Gate 0 allowed, and does it show on the card?
 - **Herald.** Herald is on demand and writes outside the repo today. Do dx-proof and aeo-audit change that?
-- **Archaeologist.** Add with step 7 of agent-os, or earlier for first contact with `safety-aware-route-planner`?
+- **Archaeologist.** Build at step 2b (before agent-os/03, for first contact with `safety-aware-route-planner`), or wait for agent-os step 7? Its station: Tea & Pantry beside qa and security, or a reserved plot. Does its registry live in the audited repo's board or this one?
+- **Skills versus genome rules.** Is `evidence-gate` one skill for four cells, or is it different enough in qa and security to stay in each genome?
 - **Thresholds.** Accept the starting confidence rules, or tune them before the first run?
 
 Evidence behind the guards (from the research report of 2026-10-11, not re-checked here): a May 2026 benchmark of deep-research models found link validity above 94% and relevance above 80% but factual accuracy of 39–77% ("Cited but Not Verified", arXiv:2605.06635), with accuracy falling as tool calls grew; Teresa Torres reports about 30% of quotes in a ChatGPT interview summary were wrong or absent from the source; Nielsen Norman Group found synthetic users useful for hypotheses, not decisions.
