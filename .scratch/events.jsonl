@@ -2479,3 +2479,4 @@
 {"seq":1830,"ts":"2026-10-11T00:23:02.328Z","feature":"den","ticket":"04-scout","cell":null,"mode":null,"op":"create","from_status":null,"to_status":"ready-for-agent"}
 {"seq":1831,"ts":"2026-10-11T00:23:33.391Z","feature":"den","ticket":"04-scout","cell":"scout","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
 {"seq":1832,"ts":"2026-10-11T00:24:16.553Z","feature":"den","ticket":"04-scout","cell":"scout","op":"release","from_status":"claimed","to_status":"in-review","force":false}
+{"seq":1833,"ts":"2026-10-11T00:52:20.361Z","feature":"den","ticket":"04-scout","cell":"orchestrator","op":"close","from":"in-review","to":"closed","reason":"live run 5 recorded; demo fixture source"}

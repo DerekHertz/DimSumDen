@@ -121,6 +121,15 @@ Asked for, not yet scoped:
 4. **Desks.** Agents should have desks, in the manner of Ado Kukic's setup, alongside the booths. This is scene layout and art: it needs a design session with mockups before any code.
 5. **Walk speed.** First-person walking should be faster, set by a value the user can edit (today `WALK.speed` is 2.1 in the walk core). The same for panda speed would cover item 3's "move faster".
 
+## Close-out (2026-10-10)
+
+- The spec's slices are all built; the only open acceptance item is the README GIF, which the user records.
+- Committed locally in five commits on `feat/den-loop-v1` (bridge core, live conformance check, UI, demo, docs and board). S0, S1, S2, S4 and S5 share `host.mjs` and `routes.mjs`, so they are one commit. Only the final tree was run through the gates. Not pushed.
+- Security review of the risk-check hits: skipped by user decision (question tool). The waiver stands.
+- Run leftovers cleared: the four `den/` worktrees and branches are removed (none held work) and `den/04-scout` is closed.
+- Items 1 and 2 under "Next" are now den-v1/14. Items 3 to 5 (pandas near stations, desks, walk speed) wait for the testbed; no ticket yet.
+- `den-v1/10`, `den-v1/11` and `organism-infra/153` look met by this work but were not checked criterion by criterion; they are still open.
+
 ## Comments
 
 - 2026-10-10, plain session (Opus 5.5): slices S0, S3, S1, S2, S4 and S5 are built and uncommitted on `feat/den-loop-v1`. Status is `ready-for-human` because the next steps need the user: review the diff, do the recorded live run from the browser, record the GIF, and decide on commits, push and PR.
