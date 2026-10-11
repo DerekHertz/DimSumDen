@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildClaudeArgs, decodeControlRequest, parseClaudeLine } from "./claude-adapter.mjs";
+import * as adapterAll from "./claude-adapter.mjs"; // agent-os/04: compileCeiling is read off the namespace so a missing export fails this test by name
 import { makeStub } from "./claude-stub.mjs";
 import { SPIKES, parseCli, setupProblems } from "./conformance.mjs";
 
@@ -383,7 +384,9 @@ describe("runLive", () => {
     assert.equal(start.cwd, setup.worktree);
     assert.match(setup.worktree, /\/\.claude\/worktrees\/den-den-01-live-check-[0-9a-f]{8}$/);
     const sessionId = start.argv[start.argv.indexOf("--session-id") + 1];
-    assert.deepEqual(start.argv, buildClaudeArgs({ sessionId, agent: LIVE_ROLE, ticketFile: path.join(repo.dir, ".scratch", "den", "issues", "01-live-check.md") }));
+    assert.equal(typeof adapterAll.compileCeiling, "function", "agent-os/04: claude-adapter.mjs must export compileCeiling");
+    // agent-os/04: scout has a ceiling now, so the production argv carries the wall; the worktree is the child's cwd.
+    assert.deepEqual(start.argv, buildClaudeArgs({ sessionId, agent: LIVE_ROLE, ...adapterAll.compileCeiling(LIVE_ROLE, { worktree: setup.worktree }), ticketFile: path.join(repo.dir, ".scratch", "den", "issues", "01-live-check.md") }));
     assert.ok(!start.envKeys.includes("DEN_SECRET_CANARY"));
 
     // What the three captures hold: scrubbed, and every line a JSON object with a type.
