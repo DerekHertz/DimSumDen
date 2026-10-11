@@ -24,6 +24,7 @@ import { clock, cardsOf, projection, STEP } from "./demo-test-helpers.mjs";
 
 const LOOP = DEMO_FIXTURE.loopMs;
 const KINDS = new Set(["message", "tool", "permission", "ended"]);
+const ENDED = new Set(["done", "failed", "terminated"]);
 
 function started() {
   const c = clock();
@@ -52,7 +53,8 @@ function observe() {
     for (const agent of s.snapshot.agents ?? []) {
       seen.agentIds.add(agent.id);
       const ticket = s.snapshot.tickets.find((t) => t.ref === agent.ref);
-      if (!ticket || ticket.holder?.cell !== agent.role) seen.mismatched.push(`${agent.id}@${ms}`);
+      // An agent that has ended has released its ticket (the recorded scout does); only a running one must be held.
+      if (!ENDED.has(agent.state) && (!ticket || ticket.holder?.cell !== agent.role)) seen.mismatched.push(`${agent.id}@${ms}`);
     }
     for (const card of cardsOf(s.snapshot)) {
       if (card.approval && !seen.waiting) seen.waiting = card;
@@ -102,7 +104,7 @@ describe("the recorded fixture (read through the driver)", () => {
     assert.equal(typeof seen.ack.status.preview, "string");
     assert.ok(seen.ack.at > 0, "the ack comes after the start, not with it");
   });
-  test("every agent is held by a ticket of its role, so a panda and a card bind to it", () => {
+  test("every running agent is held by a ticket of its role, so a panda and a card bind to it", () => {
     assert.deepEqual(seen.mismatched, []);
   });
   test("transcript lines are recorded for some agents and not others, in the buffer's entry kinds", () => {
