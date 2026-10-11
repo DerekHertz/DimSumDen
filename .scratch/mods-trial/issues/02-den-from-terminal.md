@@ -6,7 +6,7 @@
 
 **Blocked by:** den-v1/06, den-v1/07, den-v1/09 (north star first)
 
-**Status:** needs-triage
+**Status:** parked
 
 **Serves:** The user's idea (2026-10-08): launch the den from the `claude` terminal and use mods alongside it. Spec line 61 already defers "the relay band that reads Den data" to its own spec; this is that spec's seed.
 
@@ -23,3 +23,4 @@ Display limit: mods draw only in terminal `claude` in WSL (v2.1.287+), not the W
 ## Comments
 
 - orchestrator (2026-10-08): parked at the user's choice until den-v1 06, 07 and 09 resolve.
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

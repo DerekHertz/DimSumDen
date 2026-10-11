@@ -6,7 +6,7 @@
 
 **Blocked by:** 139
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Developer experience: with `npm run ui:dev`, POST /session and POST /requests get 403, so steering can't be tested with hot reload.
 
@@ -22,3 +22,4 @@ Through `npm run ui:dev`, Vite forwards its own Origin, so the bridge's required
 ## Comments
 
 - **orchestrator, 2026-10-06:** Found by 139 qa verify and security (vite.config.mjs proxies /session, but the Origin check refuses it). Filed with the user's yes. Behind den-v1.
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists
