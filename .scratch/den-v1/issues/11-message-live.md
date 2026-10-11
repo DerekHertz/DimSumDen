@@ -6,7 +6,7 @@
 
 **Blocked by:** organism-infra/107, den-v1/07
 
-**Status:** ready-for-agent
+**Status:** closed
 
 **Serves:** Den loop steps 3-4 and user story 17 (I see that my message was received).
 
@@ -23,3 +23,4 @@ Connect den-v1/07's T message box (built against a stub) to organism-infra/107's
 
 ## Comments
 - **orchestrator, 2026-10-08:** Split from den-v1/07 on the user's yes: 07 builds the UI against a stub now; this ticket is the live wiring.
+- **orchestrator, 2026-10-11:** Closed: superseded: built under den-v1/13 (PR #214); live run 5 and smoke:live fixtures are the recorded evidence
