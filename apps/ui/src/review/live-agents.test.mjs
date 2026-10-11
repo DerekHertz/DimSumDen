@@ -175,3 +175,61 @@ test("the main app wires live state through the adapter into the agents seam", (
   assert.match(wiring, /liveActorsFromSnapshot\(/);
   assert.match(wiring, /\.applyLive\(/, "its output reaches createReviewAgents's controller");
 });
+
+// Live den run, 2026-10-10: a resident wandered off while the user stood with it typing a task. hold(id) names the
+// panda whose card is showing (the actors key); it stands still until hold(null) or another id.
+const pos = (a) => [a.panda.model.position.x, a.panda.model.position.z];
+const moved = (a, from) => Math.hypot(a.panda.model.position.x - from[0], a.panda.model.position.z - from[1]);
+
+test("a held panda stands where it is, mid-walk or idle, and walks on once released", () => {
+  withAgents((agents) => {
+    const scout = agents.actors.get("scout");
+    settle(agents, 1);
+    assert.equal(scout.state, "walking", "it starts out walking to its leisure spot");
+    const at = pos(scout);
+    agents.hold("scout");
+    settle(agents, 40);
+    assert.ok(moved(scout, at) < 0.01, "held: it did not move in 40 seconds");
+    assert.equal(scout.panda.bones.Hip_L.rotation.x, 0, "held: it is not mid-stride");
+    agents.hold(null);
+    settle(agents, 5);
+    assert.ok(moved(scout, at) > 0.5, "released: it walks on");
+  });
+});
+
+test("an idle held panda starts no new wander, and the others keep theirs", () => {
+  withAgents((agents) => {
+    settle(agents, 60);
+    const qa = agents.actors.get("qa");
+    const at = pos(qa);
+    agents.hold("qa");
+    const others = ["product", "scout", "designer"].map((r) => agents.actors.get(r));
+    const starts = others.map(pos);
+    settle(agents, 60);
+    assert.ok(moved(qa, at) < 0.01, "the held panda stayed");
+    assert.ok(others.some((a, i) => moved(a, starts[i]) > 0.5), "the rest still wander");
+  });
+});
+
+test("holding does not keep a panda from its station once it has an agent", () => {
+  withAgents((agents) => {
+    const dev = agents.actors.get("developer");
+    agents.hold("developer");
+    agents.applyLive([live("developer", "fx/01-a")]);
+    settle(agents, 60);
+    assert.ok(dist(dev, dev.home) < 1.0, "a panda with a task goes to its station, held or not");
+    assert.equal(rows(agents, "developer")[0].state, "working");
+  });
+});
+
+test("hold takes only a known panda: an unknown id releases", () => {
+  withAgents((agents) => {
+    const scout = agents.actors.get("scout");
+    settle(agents, 1);
+    agents.hold("scout");
+    agents.hold("nobody");
+    const at = pos(scout);
+    settle(agents, 5);
+    assert.ok(moved(scout, at) > 0.5);
+  });
+});

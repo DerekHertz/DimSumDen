@@ -77,6 +77,21 @@ export function appendUsageRows(root, rows) {
   }
 }
 
+// The one shape of a kind:"cell" row (ADR 0008 decision 12), shared by log-cell.mjs and the bridge's run ledger
+// (apps/bridge/cells/ledger.mjs). Callers validate their own fields; this only fixes the keys and their order.
+export function cellRow({ ts, ticket, cell, mode, model, tokens, ms, outcome, context, billed, allowNoHandoff, extra }) {
+  return {
+    kind: "cell", ts, ticket, cell,
+    ...(mode !== undefined ? { mode } : {}),
+    ...(model !== undefined ? { model } : {}),
+    tokens, ms, outcome,
+    ...(context !== undefined ? { context } : {}),
+    ...(billed ?? {}),
+    ...(allowNoHandoff !== undefined ? { allow_no_handoff: allowNoHandoff } : {}),
+    ...(extra ?? {}),
+  };
+}
+
 export const sessionOf = (transcript) => path.basename(transcript).replace(/\.jsonl$/, "");
 
 // The spend row for a delta, or null when the delta is all zero.

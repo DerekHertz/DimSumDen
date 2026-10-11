@@ -11,9 +11,11 @@ const UNSAFE_RANGES = [[0x0,0x1f],[0x7f,0x9f],[0xad,0xad],[0x61c,0x61c],[0x115f,
 const isUnsafe = (cp) => UNSAFE_RANGES.some(([lo, hi]) => cp >= lo && cp <= hi);
 const DEMO_REASON = "Demo mode: actions are off";
 
-const escapeUnsafe = (text) => Array.from(text, (ch) => {
+// `keepNewlines` is for pretty-printed JSON only: JSON.stringify has already escaped every line break inside a
+// value, so a raw one is layout and the input reads on its own lines.
+const escapeUnsafe = (text, keepNewlines = false) => Array.from(text, (ch) => {
   const cp = ch.codePointAt(0);
-  if (!isUnsafe(cp)) return ch;
+  if (!isUnsafe(cp) || (keepNewlines && cp === 0x0a)) return ch;
   const hex = cp.toString(16).padStart(4, "0");
   return hex.length > 4 ? "\\u{" + hex + "}" : "\\u" + hex;
 }).join("");
@@ -138,13 +140,13 @@ export function createApprovalReview({ client, now = Date.now, hooks = {} }) {
       }
       s.input = input;
       s.inputCount = JSON.stringify(input).length;
-      s.inputText = escapeUnsafe(JSON.stringify(input, null, 2));
+      s.inputText = escapeUnsafe(JSON.stringify(input, null, 2), true);
       s.loadStatus = "loaded";
       emit();
     }, (err) => {
       if (!current(seq)) return;
       const status = statusOf(err);
-      if (status === 401) setFinal("Session ended: restart the bridge and reload.");
+      if (status === 401) setFinal("Session ended. Restart the bridge and open the launch link it prints.");
       else if (FINAL_STATUSES.has(status)) setFinal(`Too late. ${reasonOf(err)}`);
       else { s.loadStatus = "failed"; s.loadError = reasonOf(err); emit(); }
     });
@@ -153,7 +155,7 @@ export function createApprovalReview({ client, now = Date.now, hooks = {} }) {
   function open(card, { mode = "walk", demo = false } = {}) {
     if (s.open) return { opened: true, reason: null };
     if (demo) return { opened: false, reason: DEMO_REASON };
-    const a = card?.actions?.A, d = card?.actions?.D;
+    const a = card?.actions?.E, d = card?.actions?.Q;
     if (!card || !a?.enabled || !d?.enabled || !card.approval?.id) {
       return { opened: false, reason: a?.reason ?? d?.reason ?? "no pending permission request" };
     }
@@ -204,7 +206,7 @@ export function createApprovalReview({ client, now = Date.now, hooks = {} }) {
       if (!current(seq)) return;
       s.sending = null;
       const status = statusOf(err);
-      if (status === 401) setFinal("Session ended: restart the bridge and reload.");
+      if (status === 401) setFinal("Session ended. Restart the bridge and open the launch link it prints.");
       else if (FINAL_STATUSES.has(status)) setFinal(`Too late. ${reasonOf(err)}`);
       else {
         s.refusal = `Not sent. ${reasonOf(err)} Nothing changed. Try again.`;
@@ -267,7 +269,7 @@ export function createApprovalReview({ client, now = Date.now, hooks = {} }) {
   function key(event, { card = null, mode = "walk", demo = false } = {}) {
     const { key: k, repeat = false, inNote = false } = event ?? {};
     const lower = typeof k === "string" ? k.toLowerCase() : "";
-    const decision = lower === "a" ? "allow" : lower === "d" ? "deny" : null;
+    const decision = lower === "e" ? "allow" : lower === "q" ? "deny" : null; // E and Q: A and D walk
     if (s.open) {
       if (k === "Escape") { close(); return { handled: true, walk: false }; }
       if (inNote) return { handled: false, walk: false };
@@ -277,7 +279,8 @@ export function createApprovalReview({ client, now = Date.now, hooks = {} }) {
       }
       return { handled: false, walk: false };
     }
-    if (decision && !inNote && !repeat && mode === "walk" && card) {
+    // Walk mode or the overview ("diorama"); with the cursor free in walk mode the card's buttons are clicked instead.
+    if (decision && !inNote && !repeat && mode !== "free" && card) {
       const { opened } = open(card, { mode, demo });
       return { handled: opened, walk: !opened };
     }

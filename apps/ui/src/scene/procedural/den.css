@@ -21,7 +21,9 @@
 .den-error { position:absolute; left:16px; bottom:150px; padding:16px; background:var(--surface-glass); color:var(--ink); border-radius:12px; max-width:360px; }
 .proximity-card { position:absolute; z-index:5; left:16px; bottom:124px; width:min(330px,calc(100vw - 32px)); max-height:calc(100dvh - 300px); overflow:auto; padding:20px; border:1px solid var(--line); border-radius:16px; background:var(--surface-glass); color:var(--ink); box-shadow:var(--shadow-panel); pointer-events:none; }
 .proximity-card h2 { margin:4px 0 8px; font-size:23px; }
-.den-cursor-free .proximity-card { pointer-events:auto; }
+.den-cursor-free .proximity-card, .den-picked .proximity-card { pointer-events:auto; }
+.proximity-dock .proximity-card:has(.proximity-close) { position:relative; }
+.proximity-close { position:absolute; top:12px; right:12px; display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border:1px solid var(--line); border-radius:var(--radius-m); background:transparent; color:var(--ink); cursor:pointer; }
 .den-entry button + button { margin-left:8px; }
 .proximity-station { margin:0; font-size:12px; }
 .proximity-state, .proximity-ticket, .proximity-tool, .proximity-pending { margin:8px 0; font-size:13px; overflow-wrap:anywhere; }
@@ -65,6 +67,7 @@
 .transcript-empty { margin-top:var(--space-5); }
 .transcript-speaker { margin:0; font-size:12px; line-height:16px; font-weight:600; color:var(--ink-muted); }
 .transcript-speaker time { font-weight:400; margin-left:var(--space-1); }
+.transcript-note { font-weight:400; }
 .transcript-text { margin:2px 0 0; white-space:pre-wrap; }
 .transcript-you { padding:var(--space-2) var(--space-3); background:var(--surface-300); border-radius:var(--radius-m); }
 .transcript-tool-head { width:100%; display:flex; align-items:center; gap:var(--space-2); padding:var(--space-1) var(--space-2); border:1px solid var(--line); border-radius:var(--radius-m); background:transparent; color:var(--ink); font:inherit; text-align:left; cursor:pointer; }
@@ -78,6 +81,13 @@
 .transcript-truncated { margin:var(--space-1) 0 0; font-size:12px; color:var(--ink-muted); }
 .transcript-permission { font-size:13px; }
 .transcript-waiting { display:inline-flex; align-items:center; gap:var(--space-1); font-weight:600; color:var(--lantern); }
+.transcript-answered { color:var(--ink-muted); }
+.transcript-asking { padding:var(--space-3); border:1px solid var(--lantern); border-radius:var(--radius-m); background:var(--surface-100); }
+.transcript-asking p { margin:0; }
+.transcript-asked { margin-top:var(--space-1); overflow-wrap:anywhere; }
+.transcript-answer { display:flex; justify-content:flex-end; gap:var(--space-2); margin-top:var(--space-2); }
+.transcript-answer .approval-deny, .transcript-answer .approval-allow { min-height:32px; }
+.needs-expires { margin:var(--space-2) 0 0; }
 .transcript-ended { font-size:12px; font-weight:600; color:var(--ink-muted); }
 .transcript-ended-failed { color:var(--alarm); }
 .transcript-unreadable { font-size:12px; color:var(--ink-muted); }
@@ -98,6 +108,11 @@
 /* den-v1/06: the permission review. Takes the transcript's slot; right panel on desktop, bottom sheet under 600px. Tokens only (light and dark). */
 .proximity-pending { display:flex; align-items:center; gap:var(--space-1); font-weight:600; color:var(--lantern); }
 .proximity-lantern { width:8px; height:8px; border-radius:2px; background:currentColor; display:inline-block; flex:none; }
+/* den-v1 loop S4: the last run's outcome, reply excerpt and cost badge on the card. Tokens only. */
+.proximity-result { margin:8px 0; padding-top:8px; border-top:1px solid var(--line); font-size:13px; }
+.proximity-last { display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--space-1); margin:0; overflow-wrap:anywhere; }
+.proximity-cost { margin-left:auto; padding:1px 8px; border:1px solid var(--line); border-radius:999px; font-size:12px; white-space:nowrap; }
+.proximity-reply { margin:6px 0 0; color:var(--ink-muted); line-height:1.4; overflow-wrap:anywhere; }
 .approval-panel { position:absolute; z-index:5; right:16px; top:88px; bottom:124px; width:min(420px,calc(100vw - 32px)); display:flex; flex-direction:column; background:var(--surface-glass); color:var(--ink); border:1px solid var(--line); border-radius:var(--radius-l); box-shadow:var(--shadow-panel); pointer-events:auto; touch-action:auto; animation:approval-in var(--dur-base) var(--ease-soft); }
 @keyframes approval-in { from { opacity:0; transform:translateX(8px); } to { opacity:1; transform:none; } }
 .approval-head { display:flex; justify-content:space-between; align-items:flex-start; gap:var(--space-3); padding:var(--space-3); border-bottom:1px solid var(--line); }

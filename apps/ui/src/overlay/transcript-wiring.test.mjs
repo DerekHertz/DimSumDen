@@ -30,7 +30,7 @@ describe("story 23: no network request", () => {
       h.onSnapshot({ schema: 1, seq: 10, tickets: [], frontier: [], usage: null, requests: [], agents: [] });
       const card = cardFor([{ id: "p", role: "developer", position: { x: -2, z: 0 }, agent: { id: "c-1", state: "working", capabilities: {} } }], [], { x: 0, z: 0, yaw: Math.PI / 2 });
 
-      let panel = transcriptKey(initialTranscriptState(), { key: "f", card, mode: "walk" }).state;
+      let panel = transcriptKey(initialTranscriptState(), { key: "r", card, mode: "walk" }).state;
       assert.equal(panel.agentId, "c-1");
       for (let i = 0; i < 5; i += 1) {
         h.onChange({ seq: 11 + i, type: "transcript", agentId: "c-1", entry: { kind: "message", role: "agent", text: `m${i}`, at: "t" } });
@@ -60,7 +60,7 @@ describe("wiring", () => {
     .filter((f) => /\.(jsx|mjs)$/.test(f) && !/\.test\./.test(f))
     .map((f) => read(`../overlay/${f}`)).join("\n");
 
-  test("the card's F button no longer says the transcript is coming next", () => {
+  test("the card's R button no longer says the transcript is coming next", () => {
     assert.doesNotMatch(read("./ProximityCard.jsx"), /Transcript coming next/);
   });
 

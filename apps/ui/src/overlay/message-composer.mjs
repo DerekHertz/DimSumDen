@@ -1,6 +1,8 @@
 // den-v1/07: the message composer controller. Pure and DOM-free, like approval-review.mjs: the client, the clock and the
 // open hook are injected, so every state in the design spec is testable without a browser. React renders getState()
 // and forwards keys, clicks and each new snapshot (MessageComposer.jsx). This module never touches the network.
+// den-v1 loop S1: opened on a resident the bridge can start (card.start), the same box starts a task for that panda's
+// role through client.startTask(role, { text }). COPY holds what differs between the two uses.
 export const MESSAGE_MAX_BYTES = 2048;
 export const ACK_WAIT_MS = 20000;
 const PREVIEW_CHARS = 40;
@@ -8,6 +10,16 @@ const FINAL_STATUSES = new Set([401, 404, 409]);
 const ENDED = new Set(["done", "failed", "terminated"]);
 const MAX_LABEL = "2,048"; // MESSAGE_MAX_BYTES as the spec writes it
 const DEMO_REASON = "Demo mode: actions are off";
+const COPY = {
+  message: {
+    overline: (name) => `Message ${name}`, placeholder: (name) => `Tell ${name} what to do next`,
+    note: "One message, sent to this agent only", sendLabel: "Send", busyLabel: "Sending",
+  },
+  start: {
+    overline: (name) => `New task for ${name}`, placeholder: (name) => `Tell ${name} what to do`,
+    note: "One task, started as a new agent", sendLabel: "Start", busyLabel: "Starting",
+  },
+};
 const encoder = new TextEncoder();
 
 const bytesOf = (text) => encoder.encode(text).length;
@@ -41,16 +53,19 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
       return {
         open: false, phase: "closed", overline: "", ariaLabel: "", placeholder: "", text: "", counter: `0 / ${MAX_LABEL} bytes`,
         overLimit: false, readOnly: false, sendEnabled: false, banner: null, focus: null, focusSeq,
+        note: "", sendLabel: COPY.message.sendLabel, busyLabel: COPY.message.busyLabel,
         focusReturn: leaving.focusReturn, announcement: leaving.announcement, status,
       };
     }
+    const copy = COPY[s.card.start ? "start" : "message"];
     const used = bytesOf(trimmed());
     const over = used > MESSAGE_MAX_BYTES;
     const tooLong = over ? `Too long. ${fmt(used)} of ${MAX_LABEL} bytes. Shorten it by ${fmt(used - MESSAGE_MAX_BYTES)} ${used - MESSAGE_MAX_BYTES === 1 ? "byte" : "bytes"} to send.` : null;
     const editable = s.phase === "ready" || s.phase === "refused";
     return {
       open: true, phase: s.phase,
-      overline: `Message ${s.card.name}`, ariaLabel: `Message ${s.card.name}`, placeholder: `Tell ${s.card.name} what to do next`,
+      overline: copy.overline(s.card.name), ariaLabel: copy.overline(s.card.name), placeholder: copy.placeholder(s.card.name),
+      note: copy.note, sendLabel: copy.sendLabel, busyLabel: copy.busyLabel,
       text: s.text, counter: `${fmt(bytesOf(s.text))} / ${MAX_LABEL} bytes`,
       overLimit: over, readOnly: !editable, sendEnabled: editable && used > 0 && !over,
       banner: s.final ?? s.refusal ?? tooLong,
@@ -70,11 +85,13 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
     if (s.open) return { opened: true, reason: null };
     if (demo) return { opened: false, reason: DEMO_REASON };
     const t = card?.actions?.T;
-    if (!card || !t?.enabled || !card.agentId) return { opened: false, reason: t?.reason ?? "no agent running" };
+    const start = !card?.agentId && card?.start === true;
+    if (!card || !t?.enabled || !(card.agentId || start)) return { opened: false, reason: t?.reason ?? "no agent running" };
+    const draftKey = start ? `start:${card.id}` : card.agentId; // a draft belongs to one agent, or to one resident panda
     s = {
       open: true, seq: ++seqCounter, mode, phase: "ready", focus: "box",
-      card: { agentId: card.agentId, name: card.name || card.role || "agent" },
-      text: drafts.get(card.agentId) ?? "", refusal: null, final: null,
+      card: { agentId: card.agentId, name: card.name || card.role || "agent", start, role: card.role, draftKey },
+      text: drafts.get(draftKey) ?? "", refusal: null, final: null,
     };
     focusSeq += 1;
     hooks.onOpen?.();
@@ -107,8 +124,8 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
     s.text = String(text ?? "");
     s.refusal = null;
     s.phase = "ready";
-    if (s.text) drafts.set(s.card.agentId, s.text);
-    else drafts.delete(s.card.agentId);
+    if (s.text) drafts.set(s.card.draftKey, s.text);
+    else drafts.delete(s.card.draftKey);
     emit();
   }
 
@@ -116,6 +133,7 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
     if (!s.open || !getState().sendEnabled) return;
     const seq = s.seq;
     const { agentId, name } = s.card;
+    if (s.card.start) return startTask(seq);
     const text = trimmed();
     s.phase = "sending";
     s.refusal = null;
@@ -127,7 +145,7 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
     } catch (err) {
       if (!(s.open && s.seq === seq)) return;
       const status = statusOf(err);
-      if (status === 401) setFinal("Session ended: restart the bridge and reload.");
+      if (status === 401) setFinal("Session ended. Restart the bridge and open the launch link it prints.");
       else if (FINAL_STATUSES.has(status)) setFinal(`Too late. ${reasonOf(err)}`);
       else {
         s.phase = "refused";
@@ -150,6 +168,35 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
     emit();
   }
 
+  // den-v1 loop S1: the box was opened on a resident. The bridge writes the ticket and starts the role; the card's
+  // status line then follows the new agent. Only an ended session is final: any other refusal may be retried.
+  async function startTask(seq) {
+    const { name, role, draftKey } = s.card;
+    const text = trimmed();
+    s.phase = "sending";
+    s.refusal = null;
+    emit();
+    let res;
+    try {
+      res = await client.startTask(role, { text });
+    } catch (err) {
+      if (!(s.open && s.seq === seq)) return;
+      if (statusOf(err) === 401) return setFinal("Session ended. Restart the bridge and open the launch link it prints.");
+      s.phase = "refused";
+      s.refusal = `Not started. ${reasonOf(err)} Press Enter to try again.`;
+      setFocus("box");
+      emit();
+      return;
+    }
+    drafts.delete(draftKey);
+    const agentId = res?.agent?.id ?? null;
+    line = agentId ? { agentId, name, messageId: null, preview: previewOf(text), kind: "started", sentAt: now() } : null;
+    const announcement = `Task started for ${name}.`;
+    if (s.open && s.seq === seq) leave(announcement);
+    else leaving = { ...leaving, announcement };
+    emit();
+  }
+
   function observe(event) {
     if (event?.type !== "message-ack" || typeof event.messageId !== "string") return;
     early.add(event.messageId);
@@ -160,8 +207,15 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
     emit();
   }
 
-  function sync({ agents = [] } = {}) {
+  // den-v1 loop S5: the bridge reports a taken message on the agent's transcript, as the entry's status.
+  const applied = (transcripts, { agentId, messageId }) => {
+    const entries = transcripts?.[agentId]?.entries;
+    return Array.isArray(entries) && entries.some((e) => e?.kind === "message" && e.role === "user" && e.messageId === messageId && e.status === "applied");
+  };
+
+  function sync({ agents = [], transcripts } = {}) {
     const stateOf = (id) => agents.find((a) => a.id === id)?.state;
+    if (line && line.kind !== "received" && line.messageId !== null && applied(transcripts, line)) observe({ type: "message-ack", agentId: line.agentId, messageId: line.messageId });
     if (line && ENDED.has(stateOf(line.agentId))) {
       line = null;
       emit();
@@ -205,4 +259,4 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
   };
 }
 
-const LABELS = { sent: "Message sent", received: "Message received", stalled: "Sent, not yet received" };
+const LABELS = { sent: "Message sent", received: "Message received", stalled: "Sent, not yet received", started: "Task started" };

@@ -27,3 +27,4 @@ Parent: 106. Found by the 140 architect check (`.scratch/organism-infra/handoffs
 ## Comments
 
 - **orchestrator, 2026-10-06:** Filed with the user's yes. Architect first for item 3.
+- **orchestrator, 2026-10-11:** 2026-10-10, plain session: den-v1/13 (PR #214) covers item 2 (worktree per agent) and item 3 (fixed prompt templates, ADR 0016 amendments 9 and 13). Item 1 is open: the start is audited in sessions.jsonl with its route, not as a dispatch-approve line in requests.jsonl.

@@ -22,6 +22,7 @@ import { dashboardModel } from "./panel/dashboard-model.mjs";
 import { tallyRods } from "./scene/tally-face.mjs";
 import { TallyCard } from "./scene/TallyCard.jsx";
 import { useNow } from "./panel/Panel.jsx";
+import { answerCardFor, needsYouModel } from "./overlay/overlay-model.mjs";
 import { panelPlaceholder } from "./state/connection.mjs";
 import { createCameraStore } from "./scene/camera-store.mjs";
 import { LogoPill, Cards } from "./overlay/Cards.jsx";
@@ -77,21 +78,31 @@ export function App() {
   const [exploring,setExploring]=useState(false);
   const [cursorFree, setCursorFree] = useState(false);
   const [nearby, setNearby] = useState(null);
+  // Overview (live den run, 2026-10-10): a clicked panda shows the card walk mode shows. `engaged` is walk mode or a
+  // picked panda: the transcript, the permission review and the message box stay open, and their keys act, in either.
+  const [picked, setPicked] = useState(null);
+  const engaged = exploring || picked != null;
+  const now = useNow();
+  const requests = useMemo(() => needsYouModel(snapshot, now).requests, [snapshot, now]);
   const onNearby = useCallback(card => setNearby(previous => JSON.stringify(previous) === JSON.stringify(card) ? previous : card), []);
   const releaseCursor = useCallback(() => stage.explorer?.freeCursor?.(), [stage]);
   const reviewOpen = useRef(false);
   const approvalOpen = useRef(false);
   const transcriptClose = useRef(null);
   const messageClose = useRef(null);
-  // In Demo mode the card is routed through demoCard: T, A and D greyed, F on only when a transcript line was recorded.
+  // In Demo mode the card is routed through demoCard: T, E and Q greyed, R on only when a transcript line was recorded.
   const shownCard = useMemo(() => (denDemo.active ? demoCard(nearby, { transcripts: denDemo.transcripts }) : nearby), [nearby, denDemo.active, denDemo.transcripts]);
-  const transcript = useTranscript({ card: shownCard, exploring, onOpen: releaseCursor, blocked: reviewOpen });
+  const transcript = useTranscript({ card: shownCard, exploring: engaged, onOpen: releaseCursor, blocked: reviewOpen });
   transcriptClose.current = transcript.close;
   const bridge = useMemo(() => approvalDemo?.client ?? createBridgeClient({ fetch: steering.session.fetch }), [steering.session, approvalDemo]);
   const onReviewOpen = useCallback(() => { transcriptClose.current?.(); messageClose.current?.(); releaseCursor(); }, [releaseCursor]);
-  const approval = useApprovalReview({ client: bridge, card: nearby, exploring, cursorFree, demo: inDemo, snapshot, onOpen: onReviewOpen });
-  // den-v1/07: T opens the message composer. Message acknowledgements reach it as composer.observe(event) once the live runtime feeds the event stream (den-v1/11).
-  const message = useMessageComposer({ client: bridge, card: nearby, exploring, cursorFree, demo: inDemo, snapshot, onOpen: releaseCursor, blocked: approvalOpen });
+  // E and Q answer the panda card in view, or else the first waiting permission request (overlay-model.mjs answerCardFor).
+  const answerCard = useMemo(() => answerCardFor(nearby, requests), [nearby, requests]);
+  const approval = useApprovalReview({ client: bridge, card: answerCard, exploring: engaged, cursorFree, demo: inDemo, snapshot, onOpen: onReviewOpen });
+  const answerRequest = useCallback((card) => { if (card) approval.review.open(card, { mode: "card", demo: inDemo }); }, [approval.review, inDemo]);
+  const answerAgent = useCallback((agentId) => answerRequest(requests.find((r) => r.card?.agentId === agentId)?.card), [answerRequest, requests]);
+  // den-v1/07: T opens the message composer. A message the agent took shows on its transcript entry (den-v1 loop S5), which reaches the composer with each snapshot and frame.
+  const message = useMessageComposer({ client: bridge, card: nearby, exploring: engaged, cursorFree, demo: inDemo, snapshot, transcripts: live.transcripts, onOpen: releaseCursor, blocked: approvalOpen });
   messageClose.current = message.composer.close;
   useEffect(() => approvalDemo?.onEvent((event) => message.composer.observe(event)), [approvalDemo, message.composer]); // dev-only demo acks (scene/approval-fixture.mjs)
   approvalOpen.current = approval.state.open;
@@ -100,15 +111,17 @@ export function App() {
   onDemoChange.current = () => {
     stage.explorer?.exit();
     transcript.close(); message.composer.close(); approval.review.close();
-    setNearby(null); setSelected(null);
+    setNearby(null); setSelected(null); setPicked(null);
     setTimeout(() => demoButton.current?.focus({ preventScroll: true }), 0);
   };
   const [exploreHint,setExploreHint]=useState('WASD / arrows to walk · drag to look · Esc to leave');
   const onDenReady=useCallback(value=>setDen(value),[]);
   const sceneEvents=useMemo(()=>state=>denEvents(defaultEvents(state),stage),[stage]);
-  const selectTicket=useCallback(ref=>{stage.explorer?.exit();setSelected(ref);},[stage]);
+  const selectTicket=useCallback(ref=>{stage.explorer?.exit();setPicked(null);setSelected(ref);},[stage]);
+  const pickPanda=useCallback(id=>{setSelected(null);setPicked(id);},[]);
+  const unpick=useCallback(()=>{setPicked(null);setNearby(null);},[]);
   const closeTicket=useCallback(()=>{setSelected(null);document.querySelector('main[aria-label="Den scene"]')?.focus({preventScroll:true});},[]);
-  const onExploreChange=useCallback(active=>{setExploring(active);setNearby(null);if(active){setSelected(null);setTallyOpen(false);}},[]);
+  const onExploreChange=useCallback(active=>{setExploring(active);setNearby(null);setPicked(null);if(active){setSelected(null);setTallyOpen(false);}},[]);
   const frontier=snapshot?.frontier ?? [];
   const cells = useMemo(() => (snapshot ? sceneFromState(snapshot) : []), [snapshot]);
   // Bao's crown always holds the Pass: an idle stand-in when no orchestrator work is active.
@@ -117,7 +130,6 @@ export function App() {
   const handoffs = useHandoffs(snapshot);
   const { metrics, failed: metricsFailed, retry: retryMetrics } = useMetrics(metricsRevision);
   const dashboard = useMemo(() => dashboardModel(metrics, { error: metricsFailed }), [metrics, metricsFailed]);
-  const now = useNow();
   const tally = useMemo(() => tallyRods(snapshot?.usage ?? null, dashboard, now), [snapshot?.usage, dashboard, now]);
   // Tally expands into an in-place card over the scene (nothing scrolls). Esc, Close and the pill return
   // focus to the pill; an outside pointerdown closes without moving focus.
@@ -134,16 +146,16 @@ export function App() {
   const hearts = useMemo(() => new Set(handoffs.map((h) => h.ref)), [handoffs]);
   const overflow = snapshot ? Math.max(0, activeCount(snapshot) - MAX_PLUSH) : 0;
   return (
-    <div className={`shell procedural-den${exploring ? " den-visiting" : ""}${cursorFree ? " den-cursor-free" : ""}`}>
+    <div className={`shell procedural-den${exploring ? " den-visiting" : ""}${cursorFree ? " den-cursor-free" : ""}${!exploring && picked != null ? " den-picked" : ""}`}>
       <main aria-label="Den scene" aria-keyshortcuts="ArrowLeft ArrowRight + -" tabIndex={0} className="scene">
         <SceneBoundary>
           <Canvas aria-hidden="true" orthographic shadows dpr={[1,1.5]}
             camera={{ manual: true, zoom: 1, near: 0.1, far: 160 }}
-            gl={{antialias:true}} events={sceneEvents} onPointerMissed={() => setSelected(null)}>
+            gl={{antialias:true}} events={sceneEvents} onPointerMissed={() => { setSelected(null); unpick(); }}>
             <CameraRig store={camera} stage={stage} den={den} onModeChange={onExploreChange} onHint={setExploreHint} onCursorChange={setCursorFree} />
             <Suspense fallback={null}>
               <RestaurantDen snapshot={snapshot} cells={sceneCells} frontier={frontier} tally={tally} onOpenTally={openTally}
-                selected={selected} onSelect={selectTicket} stage={stage} onReady={onDenReady} onNearby={onNearby} />
+                selected={selected} onSelect={selectTicket} stage={stage} onReady={onDenReady} onNearby={onNearby} picked={picked} onPick={pickPanda} />
             </Suspense>
           </Canvas>
         </SceneBoundary>
@@ -151,12 +163,12 @@ export function App() {
         {tallyOpen ? <TallyCard tally={tally} metrics={metrics} failed={metricsFailed} onRetry={retryMetrics} onClose={closeTally} stage={stage} /> : null}
         {selected?<PandaCard snapshot={snapshot} selected={selected} onClose={closeTicket} />:null}
         <div className="proximity-dock">
-          {exploring ? <ProximityCard card={shownCard} onTranscript={(c) => { if (!reviewOpen.current) transcript.toggle(c); }} onAnswer={approval.openFrom}
+          {engaged ? <ProximityCard card={shownCard} onClose={exploring ? null : unpick} onTranscript={(c) => { if (!reviewOpen.current) transcript.toggle(c); }} onAnswer={approval.openFrom}
             onMessage={(c) => { if (!approvalOpen.current) message.openFrom(c); }} status={denDemo.active ? denDemoMode.statusFor(nearby) : message.composer.statusFor(nearby)} demo={inDemo} transcriptOpen={!!transcript.panel.agentId} /> : null}
           <MessageComposer composer={message.composer} state={message.state} />
         </div>
         <ApprovalPanel review={approval.review} state={approval.state} />
-        <TranscriptPanel tx={transcript} transcripts={denDemo.transcripts ?? live.transcripts} agents={snapshot?.agents} connection={denDemo.active ? { phase: "live" } : connection} />
+        <TranscriptPanel tx={transcript} transcripts={denDemo.transcripts ?? live.transcripts} agents={snapshot?.agents} approvals={inDemo ? null : snapshot?.approvals} onAnswer={answerAgent} connection={denDemo.active ? { phase: "live" } : connection} />
         <div className="den-crosshair" aria-hidden="true" hidden={!exploring || cursorFree}>+</div>
         {snapshot && cells.length === 0 ? <p className="scene-caption scene-empty">The den is quiet. No active tickets.</p> : null}
         {overflow > 0 ? <p className="scene-caption scene-more">+{overflow} more in queue</p> : null}
@@ -165,7 +177,7 @@ export function App() {
       <DemoButton ref={demoButton} state={denDemo} onToggle={denDemoMode.toggle} />
       {denDemo.active ? <DemoStrip loops={denDemo.loops} /> : null}
       <DemoAnnouncer text={denDemo.announcement} />
-      <Cards snapshot={snapshot} now={now} connection={connection} placeholder={placeholder} camera={camera} steering={steering} />
+      <Cards snapshot={snapshot} now={now} connection={connection} placeholder={placeholder} camera={camera} steering={steering} onAnswer={inDemo ? null : answerRequest} />
       <div className="den-entry">
         <button type="button" className="btn btn-solid" aria-pressed={exploring} aria-disabled={!den || undefined}
           onClick={()=>{if(stage.explorer?.active)stage.explorer.exit();else stage.explorer?.enter();}}>
