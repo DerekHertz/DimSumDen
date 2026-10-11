@@ -130,6 +130,14 @@ Asked for, not yet scoped:
 - Items 1 and 2 under "Next" are now den-v1/14. Items 3 to 5 (pandas near stations, desks, walk speed) wait for the testbed; no ticket yet.
 - `den-v1/10`, `den-v1/11` and `organism-infra/153` look met by this work but were not checked criterion by criterion; they are still open.
 
+## After the close-out (2026-10-10)
+
+- PR #214 is open, not merged. `den-v1/10`, `den-v1/11` and `den-v1/14` are closed; 29 desktop-relay tickets are parked.
+- The agent-system grill produced ADR 0021 (accepted) and the `agent-os` spec (approved) with tickets `agent-os/01` to `03`. These, the parked tickets and the ticket 14 closure are uncommitted on `feat/den-loop-v1`, kept out of PR #214; a separate branch is proposed and not yet agreed.
+- Next, by user decision: run `agent-os/01` (the wall spike) in the plain session, after a compact.
+- GIF: the user asked whether the session can make it. Plan, not started: Playwright (in the repo) drives the built UI through the loop against a real bridge and the stub CLI, takes frames in the overview, and Pillow (installed) joins them into `docs/images/den-loop.gif`. No ffmpeg on this machine. Headless rendering is software, so walk mode is too slow to capture; the user inspects the result.
+
 ## Comments
 
 - 2026-10-10, plain session (Opus 5.5): slices S0, S3, S1, S2, S4 and S5 are built and uncommitted on `feat/den-loop-v1`. Status is `ready-for-human` because the next steps need the user: review the diff, do the recorded live run from the browser, record the GIF, and decide on commits, push and PR.
+- 2026-10-10, plain session (Opus 5.5): GIF made, awaiting the user's inspection; the acceptance box stays open until then. `docs/images/den-loop.gif` (960x540, 27.7 s, 4.9 MB) is linked from the README's "Agents from the den" bullet. How: the built UI served by a real bridge over an empty fixture board, driven by Playwright in a headed Chromium on the GPU (Mesa D3D12 driver; headless only gets a software rasteriser), lossless screencast frames joined by ffmpeg. The agent is a scripted stand-in, not the real CLI, and the README caption says so. The capture scripts are in the session scratchpad, not in the repo. Seen while recording, not fixed: after the task ends its den ticket is still `ready-for-agent`, so Needs you opens on a dispatch gate for it and the tally table still says "Queued"; the recording folds Needs you at the end.

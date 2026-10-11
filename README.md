@@ -106,6 +106,10 @@ npm run next-session            # prints the command to resume from the latest h
 
 - **Agents from the den.** Press T beside a resident panda that has no agent and type a task. The bridge writes a ticket under `.scratch/den/` and starts that role's Claude Code agent in its own git worktree. Its tool calls, permission requests, final reply and cost show on the panda's card, and you can message it while it works. A permission request also shows in the Needs you card and in the transcript, with Deny and Allow ([ADR 0016](docs/adr/0016-ui-steering-channel.md)).
 
+  ![Starting a task for the scout from the den, allowing its request and reading its reply](docs/images/den-loop.gif)
+
+  *The loop in the running app: pick a panda, start a task, allow its request, read the reply and the cost. The agent in this recording is a scripted stand-in for Claude Code, so the reply and the cost are not from a live run.*
+
 Not built yet: shipping an agent's work from the den (the review, PR and merge still run from a terminal session), and runtimes other than Claude Code ([ADR 0004](docs/adr/0004-runtime-adapter.md) sketches the adapter).
 
 ## Numbers
