@@ -6,7 +6,7 @@
 
 **Blocked by:** den-v1/05-transcript-f, den-v1/06-approve-deny, den-v1/07-message-t (run after the den-v1 loop works; user, 2026-10-05)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** ADR 0019 decision 8 (drift guardrails): keeps tokens on the active milestone instead of pipeline self-work.
 
@@ -33,3 +33,4 @@ The genome wording that points at these checks is a gated `.claude/` edit: the d
 ## Comments
 
 - **orchestrator, 2026-10-05:** Filed on the user's ask after the drift review (user, 2026-10-05). Same day: parked 113, 116, 88, 99 and 121 (no `Serves` line), and added `Serves` to 105, 106 and 107.
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

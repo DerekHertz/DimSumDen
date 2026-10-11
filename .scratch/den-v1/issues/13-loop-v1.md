@@ -4,7 +4,7 @@
 
 **Priority:** P1
 
-**Status:** ready-for-human
+**Status:** resolved
 
 **Serves:** the v1 den loop (refocus 2026-10-02): start a Claude agent from the den and follow it to its result with no terminal after the bridge is up.
 
@@ -142,3 +142,4 @@ Asked for, not yet scoped:
 - 2026-10-10, plain session (Opus 5.5): slices S0, S3, S1, S2, S4 and S5 are built and uncommitted on `feat/den-loop-v1`. Status is `ready-for-human` because the next steps need the user: review the diff, do the recorded live run from the browser, record the GIF, and decide on commits, push and PR.
 - 2026-10-10, plain session (Opus 5.5): GIF made, awaiting the user's inspection; the acceptance box stays open until then. `docs/images/den-loop.gif` (960x540, 27.7 s, 4.9 MB) is linked from the README's "Agents from the den" bullet. How: the built UI served by a real bridge over an empty fixture board, driven by Playwright in a headed Chromium on the GPU (Mesa D3D12 driver; headless only gets a software rasteriser), lossless screencast frames joined by ffmpeg. The agent is a scripted stand-in, not the real CLI, and the README caption says so. The capture scripts are in the session scratchpad, not in the repo. Seen while recording, not fixed: after the task ends its den ticket is still `ready-for-agent`, so Needs you opens on a dispatch gate for it and the tally table still says "Queued"; the recording folds Needs you at the end.
 - 2026-10-10: the user inspected `docs/images/den-loop.gif` and approved it ("looks great!"). The GIF box is ticked; every acceptance item is now met. Still the user's: push this branch and merge PR #214.
+- **orchestrator, 2026-10-11:** Every acceptance item is met; the user approved the GIF. Resolved at the user's request ahead of the merge; this row reaches main with PR 216, after 214.

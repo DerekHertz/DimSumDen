@@ -10,7 +10,7 @@
 
 **Blocked by:** 184 (B1), 185 (A1, replay tool).
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] Replay report of qa-unspecified tickets reaching 0.8
 - [ ] Floor lifted, or a stop with the question to the user
@@ -18,3 +18,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-10-07):** Build ticket from 136 (scopes in `handoffs/136-architect-2.md`), published with the user yes. Ranked P3, below the den-v1 path (refocus: one active feature at a time).
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

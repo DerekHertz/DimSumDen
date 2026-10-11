@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Testbed friction: a timing flake fails full-suite runs and costs relay cells re-runs and doubt.
 
@@ -22,3 +22,4 @@
 ## Comments
 
 - **orchestrator, 2026-10-05:** Filed from pipeline-retro (user yes 2026-10-05). Can be batched with 148.
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

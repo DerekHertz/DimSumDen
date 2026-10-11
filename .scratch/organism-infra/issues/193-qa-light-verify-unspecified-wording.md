@@ -10,7 +10,7 @@
 
 **Blocked by:** 187 (B2).
 
-**Status:** ready-for-agent
+**Status:** parked
 
 - [ ] Before/after pair posted on the ticket
 - [ ] User applied it
@@ -18,3 +18,4 @@
 ## Comments
 
 - **Created (orchestrator, 2026-10-07):** Build ticket from 136 (scopes in `handoffs/136-architect-2.md`), published with the user yes. Ranked P3, below the den-v1 path (refocus: one active feature at a time).
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

@@ -6,7 +6,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Relay hygiene (pipeline-retro 2026-10-08).
 
@@ -28,3 +28,4 @@
 ## Comments
 - **orchestrator, 2026-10-08:** Filed from the pipeline-retro on the user's yes.
 - **orchestrator, 2026-10-08:** User 2026-10-08: parked 178 (handoff pending string shape) merged into this ticket; its scope and criteria are above. 178 closed.
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists

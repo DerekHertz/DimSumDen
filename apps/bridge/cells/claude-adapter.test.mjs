@@ -246,6 +246,48 @@ describe("buildClaudeArgs: the fixed argv template (ADR 0016 6.6)", () => {
 
 // ---- buildClaudeEnv ------------------------------------------------------------------------
 
+// agent-os/01 (the wall spike, ADR 0021 decision 2): an optional `wall` turns the CLI's own sandbox on in the inline
+// settings. The production runtime does not pass it yet; the spike's live check does, to learn whether it holds.
+describe("buildClaudeArgs: the wall (agent-os/01 spike)", () => {
+  const build = (o) => need("buildClaudeArgs")({ sessionId: SID, agent: "scout", ...o });
+  const settingsOf = (argv) => JSON.parse(argv[argv.indexOf("--settings") + 1]);
+  const sandbox = (hosts) => ({
+    enabled: true,
+    failIfUnavailable: true,
+    allowUnsandboxedCommands: false,
+    autoAllowBashIfSandboxed: true,
+    network: { allowedDomains: hosts, strictAllowlist: true },
+  });
+
+  test("wall with no hosts: the sandbox is on, strict, with an empty host list, and the deny rules stay", () => {
+    assert.deepEqual(settingsOf(build({ wall: { hosts: [] } })), { permissions: { deny: DENY_RULES }, sandbox: sandbox([]) });
+  });
+
+  test("wall hosts are the allowed domains, in order, and the ticket file rule is kept beside them", () => {
+    const file = "/home/u/den/.scratch/den/issues/01-scout.md";
+    const got = settingsOf(build({ wall: { hosts: ["registry.npmjs.org", "example.com"] }, ticketFile: file }));
+    assert.deepEqual(got, { permissions: { deny: DENY_RULES, allow: [`Read(/${file})`] }, sandbox: sandbox(["registry.npmjs.org", "example.com"]) });
+  });
+
+  test("nothing but the --settings value changes", () => {
+    const plain = build({});
+    const walled = build({ wall: { hosts: [] } });
+    const at = plain.indexOf("--settings") + 1;
+    assert.deepEqual(walled.filter((_, i) => i !== at), plain.filter((_, i) => i !== at));
+    assert.equal(Object.hasOwn(settingsOf(plain), "sandbox"), false, "no wall, no sandbox key");
+  });
+
+  test("a wall that is not exactly { hosts: [plain host names] } is rejected", () => {
+    const bad = [
+      null, "on", true, [], {}, { hosts: "example.com" }, { hosts: [], extra: 1 }, { hosts: [1] },
+      { hosts: ["*.example.com"] }, { hosts: ["*"] }, { hosts: ["example.com/path"] }, { hosts: ["https://example.com"] },
+      { hosts: ["exa mple.com"] }, { hosts: ["EXAMPLE.com"] }, { hosts: ["localhost"] }, { hosts: ["example.com:443"] },
+      { hosts: ["a.com\",\"b"] }, { hosts: Array.from({ length: 21 }, (_, i) => `h${i}.example.com`) },
+    ];
+    for (const wall of bad) assert.throws(() => build({ wall }), TypeError, `wall ${JSON.stringify(wall)}`);
+  });
+});
+
 describe("buildClaudeEnv: the child's environment is an allowlist, never a copy (ADR 0016 6.6)", () => {
   const parent = {
     PATH: "/usr/bin:/bin",

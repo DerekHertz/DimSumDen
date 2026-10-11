@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Testbed friction: five incidents since 2026-10-02 (`"tool":"Grep"` in `.scratch/usage.jsonl`), mostly qa on Haiku, where a Grep call returns "No such tool available" and the cell falls back to grep in Bash. No fix has been tried yet.
 
@@ -22,3 +22,4 @@
 
 ## Comments
 - **orchestrator, 2026-10-09:** Filed from the retro on the user's yes.
+- **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists
