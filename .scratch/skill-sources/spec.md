@@ -1,6 +1,6 @@
 # skill-sources: what the den takes from six outside agent and skill repos
 
-Status: draft for a grill (not approved). Source: reviews on 2026-10-11 of six repos (table under Vendoring) and two research reports, one on agency-agents' business and product agents, one on the other four repos. Depends on: ADR 0021 (role ceilings, the wall) and agent-os/02 (grants). ADR 0021 is on `docs/agent-os` and not yet on `main`.
+Status: grilled 2026-10-11 (decisions recorded under "Decisions from the grill"; not yet ticketed). Source: reviews on 2026-10-11 of six repos (table under Vendoring) and two research reports, one on agency-agents' business and product agents, one on the other four repos. Depends on: ADR 0021 (role ceilings, the wall) and agent-os/02 (grants). ADR 0021 is on `main` (PR #217).
 
 ## Problem Statement
 
@@ -237,21 +237,34 @@ Decided against, and why (for the ADR):
 - Agents holding user interviews or acting as synthetic users; paid data sources, scraping behind logins, social posting, ad accounts; forecasting and market sizing; a sustained AEO programme.
 - Den UI for discovery (cards, the Gate 0 sign) and the PR card's look. They wait for a design session.
 
+## Decisions from the grill (2026-10-11)
+
+The user's answers, by question tool, in a plain session. Where the text above disagrees with this section, this section wins; the text above has not been rewritten to match.
+
+Order of work
+
+1. agent-os/04 as filed. Its ceiling file is `apps/bridge/cells/ceilings.json`, added to risk-check's guardrail list in the same ticket.
+2. The rest of agent-os/02, which takes the Track C criteria: the governance deny list, forbid beats permit, and the bypass-form tests.
+3. One Track B ticket: `scope-check` with the "Follow-ups noticed, not done" handoff field; `evidence-gate`; severity labels and the merge rule in code-review; Non-goals and Success metrics in to-spec; and the Tier 2 trigger and collision check in CI. It edits `.claude/`, so it ships as gated patches.
+4. agent-os/03, planned together with the floor guard, the block-no-verify hook and CONSTRAINTS.md.
+5. After agent-os/03: the archaeologist, then Track A.
+
+Rules
+
+- **Vendoring.** Pattern-only by default: rewritten in our words, with a source line and a VENDORED.md row. Only anatomy and autonomous-coding are cloned, each when its step starts. This replaces "clone each at its commit" and shrinks step 1.
+- **Floor guard.** Deferred to agent-os/03's planning, so that it is designed to work on any project the den is pointed at (the user: low priority unless it is extensible). A new suppression always fails; only a skip or a deletion gets the commit-message reason. It is no longer "before the first target-project ticket" as its own step.
+- **Archaeologist.** Built after agent-os/03, not at step 2b.
+- **scout-intel.** Its own cell type. Web read through the web fetch and search tools, with no shell, so no sandbox host is listed. The verifier gets the same.
+- **Gate 0.** The human-signal item can be waived in writing, with a reason; the waiver shows on the Gate 0 file and is carried into the spec.
+- **Parked**, each to be grilled when it is next up: Track D (the baseline arm, Tier 3 evals), Track E (figure mode, the PR card), herald's dx-proof and aeo-audit modes, and the Track B fold-ins not named in item 3 above (the grill-me mechanic, the architect checklist, the security principles, the designer contract, Bao's three tiers).
+
 ## Further Notes
 
-Questions for the grill:
+Questions still open (the rest of the original list is answered above):
 
-- **Sequencing.** The den loop works first, and agent-os/02 is next. Proposed order: Track C items as criteria on agent-os/02 and its successors; the floor guard and hook before the first target-project ticket; Track B and Tier 2 evals as one small ticket after 02; Track A after agent-os/03; Track D's baseline when the benchmark is next; Track E when the README needs it. Agree?
-- **Track C ownership.** Does this spec own the floor guard and hook, and only feed the rest into agent-os tickets, or does it own all of Track C?
-- **Where discovery lives.** An idea that concerns a target project: its board, `.scratch/discovery/<idea>/`. An idea with no repo yet: this repo's board, or a separate ideas repo?
-- **Stations.** scout-intel: Steamers beside scout, or a reserved plot (CONTEXT.md)? Archaeologist: Tea & Pantry beside qa and security, or a reserved plot? Each new cell type needs a genome and a CONTEXT.md entry.
-- **Scout or new cell type.** scout-intel as a mode of scout (one ceiling, already haiku) versus its own cell type (the synthesise pass needs a stronger model and a different output).
-- **Ceilings.** scout-intel's web hosts: open web read, or a list? ADR 0021 says no host for any agent until a read limit holds.
-- **Human signal.** Is a waiver at Gate 0 allowed, and does it show on the card?
+- **Floor guard design.** How its patterns extend to a new language or test framework, whether a project's CONSTRAINTS.md can add patterns, and whether "an assertion removed" is in the first version. For agent-os/03's planning.
+- **Archaeologist registry.** In the audited repo's board or this one?
 - **Herald.** Herald is on demand and writes outside the repo today. Do dx-proof, aeo-audit and figures for posts change that?
-- **Archaeologist timing.** Build at step 2b (before agent-os/03, for first contact with `safety-aware-route-planner`), or wait for agent-os step 7? Does its registry live in the audited repo's board or this one?
-- **evidence-gate.** One skill for four cells, or different enough in qa and security to stay in each genome? Is the fresh-context reviewer worth its tokens at every pass gate, or only on risk-check hits?
-- **Floor guard strictness.** Fail on any new suppression, or allow one with a reason in the commit message, as with skips?
 - **Baseline fairness.** Same model for both arms, or each at its own default? Who writes the app spec, and is it frozen before either arm runs?
 - **Thresholds.** Accept the starting confidence rules and the 40/60 tool-call lines, or tune them before the first run?
 - **Figure mode owner.** Designer (with my critique) or herald? Which mechanism is the first figure?

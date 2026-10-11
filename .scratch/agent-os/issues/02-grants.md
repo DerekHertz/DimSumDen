@@ -38,6 +38,14 @@ From the security review of the spike (pass, 2026-10-10; findings in agent-os/01
 - **Deny rules under the wall.** `autoAllowBashIfSandboxed` was not tried against the `git push` and `gh pr create` deny rules. Test that they still refuse with the wall on.
 - **`.git/config`** in the main checkout was not probed; only `hooks` was.
 
+## From the skill-sources grill (2026-10-11)
+
+The user decided that the skill-sources spec's Track C items that touch the wall land here as criteria (`.scratch/skill-sources/spec.md`, "Decisions from the grill"). Sources are credited in that spec's Track C table.
+
+- **Governance deny list**, in the ceilings data. Deny write: `.github/workflows/`, `.github/CODEOWNERS`, `.gitlab-ci.yml`, `Jenkinsfile`, and our guardrail paths. Deny run: `gh pr review`, `gh pr merge`, `gh issue close`, `gh release create`, a push to a protected branch. Security may write CI paths only under a task grant; merge and PR stay bridge calls.
+- **Forbid beats permit.** A deny in a ceiling is never lifted by a grant.
+- **Bypass forms.** Must-refuse cases for the compiled rules: a newline between commands, `$(...)`, backticks, `<(...)`, `git -c core.hooksPath=/dev/null`. The wall is the boundary; this shows the compiled rules open no hole above it.
+
 ## Acceptance criteria
 
 - [ ] Failing tests first: the adapter compiles each role's ceiling, and ceiling plus a grant, into the recorded settings.
@@ -45,6 +53,9 @@ From the security review of the spike (pass, 2026-10-10; findings in agent-os/01
 - [ ] A grant outside the fixed shape is a 400, and a test shows no grant string in argv or the prompt.
 - [ ] The Start box lists the task's grants (UI test). The layout is agreed with the user first.
 - [ ] The refusal notice and the pause at three have tests against the stub, or the ticket records why they were not built.
+- [ ] Forbid beats permit: a test tries each grant shape against each deny in a ceiling, and no grant lifts a deny.
+- [ ] The ceilings deny the governance paths and commands listed under "From the skill-sources grill", with a test per entry.
+- [ ] A table-driven test of the compiled rules refuses each bypass form listed there.
 - [ ] `npm test`, risk-check and gitleaks are green apart from known failures.
 
 ## Open questions
@@ -57,3 +68,4 @@ From the security review of the spike (pass, 2026-10-10; findings in agent-os/01
 - 2026-10-10, plain session (Opus 5.5): filed from the approved agent-os spec. Not started.
 - 2026-10-10, plain session (Opus 5.5): handoff for the design session is `.scratch/agent-os/handoffs/02-plain-session.md`. It lists what the designer and the user settle before any UI code: grants at Start and wall notices now; the Open/Closed sign, Bao's body and den art if the user wants them in the same session.
 - **designer, 2026-10-11:** UI spec signed off by the user 2026-10-10 (grants at Start: two-sided wall table, folded card; wall notices: ink until the pause, by kind, Keep refused restarts the count). Spec and qa mapping: handoffs/02-designer-spec.md. Mockup: https://claude.ai/artifact/Tk1KDW39ETgrbU8hrLG4NY. Next: qa specify. Written by a plain session acting as designer.
+- 2026-10-11, plain session (Opus 5.5): the no-prompt backend half (ceilings, compilation, the runtime passing the wall, no hosts and no grants) is cut out as agent-os/04 at the user's choice and is built first; the ceiling file's path is settled there. This ticket keeps task grants, the Start box table, wall notices, the pause at three, the read limit and hosts, and gains three criteria from the skill-sources grill.
