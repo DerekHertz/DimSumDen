@@ -64,10 +64,10 @@ _Avoid_: Provider, engine
 
 **Board**:
 The local-markdown issue tracker under `.scratch/` in the main checkout, and the single source of truth for work.
-_Avoid_: Backlog, queue
+_Avoid_: Backlog. Do not call the board "the queue"; **Queue** names the ordered frontier below.
 
 **Kanban**:
-The Den view of the board as columns (proposed, ready, in flight, waiting on you, blocked, resolved). The user may move a card only across their own gates; a claimed card is pinned. The terminal queue band (a mod) shows the same columns in text.
+The Den view of the board as columns (proposed, ready, in flight, waiting on you, blocked, resolved). The user may move a card only across their own gates; a claimed card is pinned. The terminal band (a mod, `/queue`) shows the same columns in text.
 _Avoid_: Dashboard, board view
 
 **Board service**:
@@ -83,7 +83,14 @@ One tracer-bullet slice of work on the board, sized for one cell.
 _Avoid_: Issue, task, story
 
 **Frontier**:
-The tickets that are ready, unblocked, and unclaimed right now.
+The tickets that are ready, unblocked, and unclaimed right now. An unordered set.
+
+**Queue**:
+The frontier in its computed order: the active feature's tickets first, then the rest, each group ordered by unblock count, then priority, then ticket number. Only a P0 with a named reason jumps the active feature. It is computed on every read, never stored.
+_Avoid_: Backlog, board (the board is the whole tracker, not the order)
+
+**Active feature**:
+The one feature whose ready tickets outrank all others in the Queue. Only the user sets it.
 
 **Parked**:
 A ticket taken off the relay because it serves no den-loop step or testbed friction yet. It comes back with `board unpark`.
