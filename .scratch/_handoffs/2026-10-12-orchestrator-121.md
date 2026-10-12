@@ -29,3 +29,10 @@ Send work to several headless agents from the interface by end of day. The user 
 1. Fresh session: get the user's verdict on 226 to 228, file them with the cap at 8, open the 154 docs PR.
 2. Propose 226 (code relay, qa specify first) and hand the user the designer prompt for 228.
 3. Then 227, 228, den-v1/15.
+
+## Update, 15:10 PDT (supersedes the lines above where they differ)
+- The user approved the drafts ("draft is fine"). **226, 227 and 228 are filed** at P1 with the rulings folded in (cap 8 in 226 item 5; lock visibility in 228 item 6).
+- **PR #238** is open for `architect/154-ui-dispatch-every-agent` (docs only, no conflicts with main). 154 is approved, so under relay autonomy: merge on green, `board resolve organism-infra/154-ui-dispatch-every-agent --pr 238`, log its `advisory-outcome`, then GC the architect worktree.
+- The user is frustrated that non-urgent work kept being prioritized. Until multi-agent control from the Den works, propose only 226, 227, 228 (and den-v1/15 if 228 needs it), as stated deviations from the Queue order. Do not raise queue/08, 107, retro items or the orchestrator-through-the-bridge idea.
+- Proposed to the user, not yet answered: run 226 and 227 as **one batch** (one relay, one PR), and have the user run the designer spec for 228 in a terminal while the batch builds.
+- This session ended at about 90k context; the user was asked to `/compact`.
