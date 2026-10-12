@@ -2782,3 +2782,6 @@
 {"seq":2133,"ts":"2026-10-12T22:38:57.210Z","feature":"organism-infra","ticket":"227-snapshot-capacity-and-gate","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
 {"seq":2134,"ts":"2026-10-12T22:51:59.653Z","feature":"organism-infra","ticket":"228-ui-run-any-frontier-ticket","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
 {"seq":2135,"ts":"2026-10-12T22:55:29.100Z","feature":"organism-infra","ticket":"228-ui-run-any-frontier-ticket","cell":"qa","op":"release","from_status":"claimed","to_status":"ready-for-agent","force":false}
+{"seq":2136,"ts":"2026-10-12T22:56:25.705Z","feature":"organism-infra","ticket":"228-ui-run-any-frontier-ticket","cell":"developer","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":2137,"ts":"2026-10-12T23:11:35.632Z","feature":"organism-infra","ticket":"228-ui-run-any-frontier-ticket","cell":"developer","op":"release","from_status":"claimed","to_status":"in-review","force":false}
+{"seq":2138,"ts":"2026-10-12T23:15:03.038Z","feature":"organism-infra","ticket":"228-ui-run-any-frontier-ticket","cell":"qa","mode":"verify","op":"claim","from_status":"in-review","to_status":"in-review"}
