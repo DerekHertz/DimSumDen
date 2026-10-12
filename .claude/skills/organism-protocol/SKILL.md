@@ -93,7 +93,7 @@ A cell does one ticket or one task, then ends. When your genome's `done` criteri
 
 ## Token hygiene (Pro plan)
 
-- Read only what the ticket needs. Use Grep/Glob before Read, and read line ranges of large files.
+- Read only what the ticket needs. Use Grep/Glob before Read, and read line ranges of large files. Some Claude Code builds give cells no Grep or Glob tool even though the genome lists them: check your tool list first, and when they are missing use `grep -rn` and `find` through Bash instead of calling them.
 - Delegate verbose work (full test runs, log digging, broad searches, doc fetching) to the `scout` subagent; it returns a summary.
 - Don't paste diffs or files into prompts. Pass paths and commands instead.
 - Prefer CLI tools (`git`, `gh`, `npm`) over MCP tools.
