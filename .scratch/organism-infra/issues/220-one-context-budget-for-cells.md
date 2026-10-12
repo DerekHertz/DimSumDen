@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Serves:** Token hygiene. A cell that hits its context stop returns partial, and a fresh cell has to read the ticket's state again. The user's view (2026-10-11) is that the lower budgets cause more partial returns and cost more over a ticket than they save per call.
 
@@ -38,3 +38,5 @@ Out of scope: the orchestrator's 70k and 80k limits, and organism-infra/219 (the
 
 - 2026-10-11, orchestrator: filed at the user's request. User decisions (2026-10-11): stop at 150k for all cell roles with the warning at 100k; the orchestrator keeps 70k and 80k; run it first in the session after agent-os/02 resolves.
 - 2026-10-11, orchestrator: qa specify done (tests/organism-infra-220-context-budget @ 98e5d11; handoff 220-qa-specify.md). User decision (2026-10-11) on the built-in fallback in `scripts/context-budget.mjs` (used when the config file is missing or invalid): raise it from 70k/80k to warn 100000 and stop 150000 for cell roles. This overrides qa specify decision 2. The developer updates the tests that pin the old fallback (`context-budget.test.mjs` "missing file", tiers "invalid or missing config", and the `context-budget-220.test.mjs` scan that allows the two built-in literals) and lists each changed assertion in its handoff for qa verify. Orchestrator reading, not asked separately: the orchestrator still resolves to 70k/80k under a missing or invalid config, since its limits are out of scope here; flag it in the handoff if that cannot hold.
+- **qa, 2026-10-12:** QA pass (light verify, 63ea546): suite 4034 pass/0 fail/0 skipped; only the 3 user-approved assertion changes vs 98e5d11; all criteria mapped. Handoff 220-qa-verify.md.
+- **security, 2026-10-12:** Security pass. 4 risk-check hits reviewed: 2 .claude prose edits (user-applied patch), 2 test-file hits benign. No findings; gitleaks clean; no dependency change.
