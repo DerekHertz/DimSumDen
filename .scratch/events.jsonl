@@ -2573,3 +2573,5 @@
 {"seq":1924,"ts":"2026-10-12T00:43:03.415Z","feature":"agent-os","ticket":"02-grants","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":1925,"ts":"2026-10-12T00:50:24.653Z","feature":"agent-os","ticket":"02-grants","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":1926,"ts":"2026-10-12T00:50:24.676Z","feature":"agent-os","ticket":"02-grants","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":1927,"ts":"2026-10-12T00:58:52.905Z","feature":"organism-infra","ticket":"220-one-context-budget-for-cells","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":1928,"ts":"2026-10-12T01:04:34.652Z","feature":"organism-infra","ticket":"220-one-context-budget-for-cells","cell":"qa","op":"release","from_status":"claimed","to_status":"ready-for-agent","force":false}
