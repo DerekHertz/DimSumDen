@@ -10,7 +10,7 @@
 
 **Blocked by:** 02
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** `.scratch/queue/spec.md` decisions 3, 7 (admit); ADR 0015 Amendment 3.
 

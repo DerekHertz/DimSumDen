@@ -40,3 +40,13 @@ Mid-flight handoff, written at the 80k context gate so the session can be compac
 1. Finish queue/04 as above.
 2. Fresh session: queue/05, then 07, then 08.
 3. After queue/08: agent-os/03 as A / B / C, then agent-os/05, then triage of agent-os/06.
+
+## Update: queue/04 resolved (end of session)
+This section replaces "Still to do for queue/04" and the in-flight State above.
+- **queue/04 resolved.** Full `security` passed on 8864f42 (sonnet-class genome model, 54k). PR #236 merged on green CI under relay autonomy (merge commit 4d856cc). `board resolve` ran; both advisory-outcome rows are logged. One bounce in total.
+- **For queue/07** (also in that ticket's Comments): security medium. The two prefix deny rules in the queue/04 patch miss `npm run --silent queue-admin`, `npm run-script queue-admin`, `node ./scripts/queue-admin.mjs`, an absolute path, and `node -e` importing the module; add those and an Edit/Write deny on `.scratch/usage.jsonl`. Then test queue/04 criterion 5 in the main session.
+- Security lows, no ticket filed: the root prints in the prompt without `printable()`; `--reason` has no length cap; a small newline race on append.
+- **Orchestrator slips this session:** after the merge I committed the board before pulling and used `git pull --no-rebase`, so `main` has one local merge commit (cc053d4) holding board files only. The genome says `--ff-only`. The session ran to about 90k context because the user had not compacted when security returned; no cell was dispatched past 80k.
+- **`pipeline-retro` did not run this session** (context). Run it first in the next session. Window: from handoff 116. Known items: the queue/04 bounce (`tool: test-edit`, first of its kind) and the two notes above.
+- Worktrees: `worktree-gc --apply` ran; `agent-aa4d4143502c7612c` stays until this session's agent process ends.
+- Next: queue/05, then 07, then 08.
