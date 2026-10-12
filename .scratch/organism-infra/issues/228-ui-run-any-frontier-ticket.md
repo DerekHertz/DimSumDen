@@ -41,3 +41,4 @@ Design is in ADR 0016 amendment 14 (items 4 to 6). UI ticket: the designer specs
 - **qa, 2026-10-12:** QA pass (light verify + code read). Specify tests unchanged; suite 4487/0 fail/0 skipped. Notes for visual check in handoff 228-qa-verify.md.
 - **orchestrator, 2026-10-12:** user visual verdict on the 228 build (both themes, 375px, reduced motion)
 - **orchestrator, 2026-10-12:** User visual verdict 2026-10-12: pass ("it works!"). Two requests go to a new ticket after the merge, at the user's choice: default role = the first agent needed, and a finish event that wakes the orchestrator to route the next hop. risk-check: 2 hits (Cards.jsx, bridge-client-dispatch.test.mjs); security dispatched.
+- **security, 2026-10-12:** Security pass at b0f959c. No critical/high/medium. Two low notes (bridge import coupling, verbatim refusal text), neither blocks. Detail: handoffs/228-security.md
