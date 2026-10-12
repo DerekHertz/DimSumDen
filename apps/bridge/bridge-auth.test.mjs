@@ -48,6 +48,24 @@ const BODIES = {
     bogus: { text: "something else entirely" },
     prepare: async () => (await bridge.host.start({ ref: `${FEATURE}/33-auth-message`, role: "scout" })).agent.id,
   },
+  // organism-infra/107: a cancel needs a live agent with one message queued; `prepare` makes both, returns the agent id and
+  // keeps the message id for the body. A hand-over needs only a live agent.
+  "POST /agents/:id/message/cancel": {
+    get real() {
+      return { messageId: queuedMessageId };
+    },
+    bogus: { messageId: "00000000-0000-4000-8000-00000000beef" },
+    prepare: async () => {
+      const { agent } = await bridge.host.start({ ref: `${FEATURE}/35-auth-cancel`, role: "scout" });
+      queuedMessageId = (await bridge.host.message(agent.id, { text: "cancel me" })).messageId;
+      return agent.id;
+    },
+  },
+  "POST /agents/:id/handover": {
+    real: {},
+    bogus: {},
+    prepare: async () => (await bridge.host.start({ ref: `${FEATURE}/36-auth-handover`, role: "scout" })).agent.id,
+  },
   // organism-infra/141: an approval needs a live agent holding a permission request; `prepare` makes one and returns
   // its minted id. A deny needs no prior GET, so the authenticated happy path is a plain 200.
   "POST /approvals/:id": {
@@ -78,11 +96,12 @@ let bridge;
 let token;
 let file;
 let fake;
+let queuedMessageId; // set by the cancel row's prepare (organism-infra/107)
 
 beforeEach(async () => {
   fx = await makeStateFixture({ git: true });
   file = path.join(fx.root, ".scratch", "_requests", "requests.jsonl");
-  fake = createFakeRuntime?.({ send: true }) ?? null;
+  fake = createFakeRuntime?.({ send: true, cancel: true }) ?? null;
   bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, ...(fake ? { runtime: fake } : {}) });
   token = await login(bridge);
 });
