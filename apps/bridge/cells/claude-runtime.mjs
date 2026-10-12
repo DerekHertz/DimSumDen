@@ -56,7 +56,11 @@ export function createClaudeRuntime({ env = process.env } = {}) {
       // A cwd the adapter cannot write as a rule keeps the wall and leaves the write rules out: the Write request stays.
       // agent-os/02: root (the main checkout) and home let a path grant meet the governance denies there; a path the adapter
       // cannot write as a rule is left out.
-      const ceiling = compileCeiling(role, { worktree: isWorktreePath(cwd) ? cwd : undefined, grants, ...(isWorktreePath(root) ? { root } : {}), ...(isWorktreePath(mainGit) ? { mainGit } : {}), ...(isWorktreePath(env.HOME) ? { home: env.HOME } : {}) });
+      // agent-os/11 (ADR 0021 Amendment 2): the main .git denies fail closed. A mainGit the adapter cannot write as a rule
+      // (a space or other character outside the plain set) refuses the spawn; dropping it silently left refs, HEAD,
+      // packed-refs and index writable. The host answers a spawn failure with its 502 and cleans up.
+      if (mainGit !== undefined && !isWorktreePath(mainGit)) throw new TypeError("claude runtime: mainGit must be a plain absolute path; refusing to start without the main .git denies");
+      const ceiling = compileCeiling(role, { worktree: isWorktreePath(cwd) ? cwd : undefined, grants, ...(isWorktreePath(root) ? { root } : {}), ...(mainGit !== undefined ? { mainGit } : {}), ...(isWorktreePath(env.HOME) ? { home: env.HOME } : {}) });
       const args = buildClaudeArgs({ sessionId, agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}), ...(ceiling ?? {}) });
       const bin = typeof env.DEN_CLAUDE_BIN === "string" && env.DEN_CLAUDE_BIN !== "" ? env.DEN_CLAUDE_BIN : "claude";
       const child = spawnChild(bin, args, { shell: false, detached: true, cwd, env: buildClaudeEnv(env), stdio: ["pipe", "pipe", "pipe"] });
