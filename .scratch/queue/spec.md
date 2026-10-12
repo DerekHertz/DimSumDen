@@ -1,6 +1,6 @@
 # Queue: a computed order for the frontier, with an admission gate
 
-**Status:** draft. Decisions below were settled with the user in a grilling session on 2026-10-12 (orchestrator, four rounds). The user has not yet confirmed the summary. No tickets yet.
+**Status:** confirmed by the user on 2026-10-12 after a four-round grilling session with the orchestrator. Next: architect for the ADR 0015 amendment. No tickets yet.
 
 **Why:** the frontier order today is the orchestrator's own pick. ADR 0015 decision 4 defines an order in code (`rankFrontier` in `scripts/jev.mjs`: P, unblock count, scope, number) but it runs in shadow only and knows nothing of the north star. Nothing checks a ticket when it is filed, so P values are arbitrary and pipeline tickets pile up (organism-infra: 12 ready, 68 parked on 2026-10-12). The user wants an order that follows a rule, changes as work completes, and limits scope creep.
 
