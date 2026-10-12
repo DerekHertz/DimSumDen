@@ -41,3 +41,4 @@ Security's own attempt at the refs probe was denied by the auto-mode classifier.
 ## Comments
 
 - 2026-10-11, orchestrator: filed after agent-os/02 merged (PR #222). User decisions (2026-10-11): merge agent-os/02 and fix the findings here; a grant on a governed path is a 400 up front; the developer runs the `.git/refs` probe.
+- 2026-10-11, orchestrator: user decision (2026-10-11) on the refused list for criterion 2: security's list from `02-security.md` finding 1. A path grant on `~/.ssh`, `~/.claude`, `~/.config`, `~/.local`, `~/.git*`, a shell rc file, `/etc` or `/usr` (and paths under each) gets a 400, with a test per entry. Relay approved by the user; first cell qa specify.
