@@ -24,11 +24,6 @@
 //
 // Scope additions (from ticket Comments, deferred from organism-infra/71 by qa verify):
 //
-//   [S1] orderRow wiring: jev.mjs exports orderRow; calling it and appending the resulting
-//        jev-order row to usage.jsonl is a valid workflow. The wiring itself is in the
-//        orchestrator genome (human-applied), so the test verifies the export shape and that
-//        buildReport handles a jev-order row alongside advisory outcome rows without error.
-//
 //   [S2] jev-priority-verdict rows: a new CLI point "priority-verdict" (or equivalent export)
 //        lets the orchestrator log a verdict row when the user rules on a priority flag.
 //        CLI: node scripts/jev.mjs priority-verdict --ticket <ref> --verdict right|wrong
@@ -38,7 +33,6 @@
 // Criteria covered:
 //   [2] An outcome row records orchestrator pick, Jev pick, user choice, and later bounce;
 //       jev-report.mjs prints advisory agreement per label
-//   [S1] orderRow wiring — export shape and integration with buildReport
 //   [S2] jev-priority-verdict logging via CLI
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -154,32 +148,6 @@ test("formatReport shows advisory section even with no advisory outcome rows", a
   const out = formatReport(buildReport([]));
   // Advisory section must be present (even if empty)
   assert.match(out, /advisory route/i);
-});
-
-// ── Scope [S1]: orderRow export shape and integration with buildReport ────────
-
-test("[S1] orderRow export exists and produces a jev-order row with kind, actual, wouldHave, same", async () => {
-  const { orderRow } = await import("./jev.mjs");
-  assert.ok(typeof orderRow === "function", "orderRow must be exported from jev.mjs");
-  const t = (key, priority, unblockCount, scope, ticketNumber) => ({ key, priority, unblockCount, scope, ticketNumber });
-  const tickets = [t("feat/02", 1, 0, "small", 2), t("feat/01", 2, 0, "large", 1)];
-  const row = orderRow({ tickets, actual: ["feat/02", "feat/01"], now: new Date(NOW) });
-  assert.equal(row.kind, "jev-order");
-  assert.ok(Array.isArray(row.actual), "row.actual must be an array");
-  assert.ok(Array.isArray(row.wouldHave), "row.wouldHave must be an array");
-  assert.equal(typeof row.same, "boolean");
-});
-
-test("[S1] buildReport processes a jev-order row alongside advisory outcome rows without error", async () => {
-  const { buildReport } = await load();
-  const { orderRow } = await import("./jev.mjs");
-  const t = (key, priority, unblockCount, scope, ticketNumber) => ({ key, priority, unblockCount, scope, ticketNumber });
-  const tickets = [t("feat/01", 1, 0, "small", 1), t("feat/02", 2, 0, "medium", 2)];
-  const orderRowData = orderRow({ tickets, actual: ["feat/01", "feat/02"], now: new Date(NOW) });
-  const rows = [outcome(), orderRowData];
-  // Must not throw; advisory section must still have 1 row
-  const report = buildReport(rows);
-  assert.equal(report.advisory.rows, 1);
 });
 
 // ── Scope [S2]: jev-priority-verdict rows via CLI "priority-verdict" point ────

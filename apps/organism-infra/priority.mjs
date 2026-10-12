@@ -3,24 +3,17 @@
 //
 // Rules:
 // - `**Priority:** P0`..`P3` on its own line. Missing or malformed is P2.
-// - A ticket bumps one level per 3 orchestrator handoffs strictly newer than
-//   its readySince. Bumps stack (6 handoffs = 2 levels) and clamp at P0; a P0
-//   is never bumped. `bumps` reports the levels actually applied.
-// - Order: effective priority, then readySince (oldest first), then ticket
-//   number (numeric), then ref as a final stable tiebreak.
+// - No aging (queue/06, ADR 0015 Amendment 3: the Queue replaces the bump). A ticket's
+//   effective priority is its priority; `bumps` is always 0 and `bumped` false. The
+//   fields stay so the UI snapshot and queue-model keep their shape.
+// - Order: priority, then readySince (oldest first), then ticket number
+//   (numeric), then ref as a final stable tiebreak.
 //
-// Caller contract: handoffTimestamps hold ISO timestamps, one per
-// `.scratch/_handoffs/*-orchestrator-*.md` file; filtering to orchestrator
-// files is the caller's job (the snapshot builder, dimsumden-ui-v0/04).
-// Handoff file names carry only a day (`2026-09-29-orchestrator-8.md`), so the
-// caller must convert a name to a timestamp itself. Recommended rule: use the
-// file's mtime, or the end of that day (T23:59:59.999Z) when only the name is
-// known; a same-day handoff then counts as after a ticket ready earlier that day.
+// handoffTimestamps is still accepted (the snapshot builder passes it) and unused.
 
 import { compareRefs } from "../../packages/board-refs/src/compare-refs.mjs";
 
-const LEVELS =["P0", "P1", "P2", "P3"];
-const PER_BUMP = 3;
+const LEVELS = ["P0", "P1", "P2", "P3"];
 
 export function parsePriority(ticketMarkdown) {
   const m = /^\*\*Priority:\*\*[ \t]*(P[0-3])[ \t]*$/m.exec(String(ticketMarkdown ?? ""));
@@ -34,22 +27,15 @@ function ticketNumber(ref) {
 }
 
 export function orderFrontier(candidates, handoffTimestamps) {
-  const handoffs = handoffTimestamps.map((t) => Date.parse(t));
-  const rows = candidates.map((c) => {
-    const ready = Date.parse(c.readySince);
-    const level = LEVELS.indexOf(c.priority);
-    const waited = handoffs.filter((h) => h > ready).length;
-    const bumps = Math.min(Math.floor(waited / PER_BUMP), level);
-    return {
-      ref: c.ref,
-      priority: c.priority,
-      effectivePriority: LEVELS[level - bumps],
-      bumps,
-      bumped: bumps > 0,
-      _level: level - bumps,
-      _ready: ready,
-    };
-  });
+  const rows = candidates.map((c) => ({
+    ref: c.ref,
+    priority: c.priority,
+    effectivePriority: c.priority,
+    bumps: 0,
+    bumped: false,
+    _level: LEVELS.indexOf(c.priority),
+    _ready: Date.parse(c.readySince),
+  }));
   rows.sort(
     (a, b) =>
       a._level - b._level ||
