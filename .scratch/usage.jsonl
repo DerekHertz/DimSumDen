@@ -3408,3 +3408,5 @@
 {"kind":"usage","ts":"2026-10-12T18:20:44Z","five_hour":68,"weekly":37,"event":"dispatch","ticket":"queue/05-decay-pick-and-unplanned-cap","cell":"qa"}
 {"kind":"context","ts":"2026-10-12T18:20:44Z","session":"544882e4-da35-4d39-9e2b-341b4d8f576c","context_tokens":73152,"percent":7.32,"event":"dispatch"}
 {"kind":"jev","ts":"2026-10-12T18:20:44.493Z","ticket":"queue/05-decay-pick-and-unplanned-cap","point":"verify","pick":"light","actual":"light","cost":0.00023310000000000003,"conf":0.7,"mode":"shadow","fallback":null,"floor":null,"ms":825,"model":"jev-1.13.0"}
+{"kind":"spend","ts":"2026-10-12T18:21:26.500Z","session":"544882e4-da35-4d39-9e2b-341b4d8f576c","role":"orchestrator","ticket":"queue/05-decay-pick-and-unplanned-cap","input_tokens":6,"cache_creation_input_tokens":3006,"cache_read_input_tokens":238854,"output_tokens":3553}
+{"kind":"context","ts":"2026-10-12T18:21:26Z","session":"544882e4-da35-4d39-9e2b-341b4d8f576c","context_tokens":80910,"percent":8.09,"event":"dispatch"}
