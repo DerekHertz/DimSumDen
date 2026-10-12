@@ -3,7 +3,7 @@
 // the usage reading and the board gate are injected too, so this module knows nothing about files other than its own
 // registry, and nothing about HTTP. (den-v1 loop S4: `recordRun(run)` is injected as well; it is called once per agent,
 // after the end line is written, with the run record.) Three entries share one reservation:
-//   dispatch(input)  the route entry: relay-hop roles are refused, and the ticket must hold the dispatch gate
+//   dispatch(input)  the route entry: relay-hop roles are refused, and the ticket must be in the frontier (organism-infra/226)
 //   start(input)     the internal entry (the relay runner): relay-hop roles allowed, no gate check; never a route
 //   direct(input)    the den's entry (POST /tasks): any role, on a ticket the caller writes once the host has room
 // All resolve { ok: true, status: 201, agent, usageUnknown? } or { ok: false, status, error }.
@@ -21,6 +21,7 @@ import {
 } from "./policy.mjs";
 import { ceilingOf, grantContainsWorktrees, parseGrants } from "./claude-adapter.mjs";
 import { grantRefusal } from "./grant-policy.mjs";
+import { capacity as capacityOf } from "./capacity.mjs";
 import { createSessions } from "./sessions.mjs";
 import { createApprovalStore, cleanText } from "./approvals.mjs";
 import { createWorkspaces, prepareMainGit } from "./workspace.mjs";
@@ -59,7 +60,7 @@ function excerpt(value) {
   return flat.length > REPLY_EXCERPT_MAX ? `${flat.slice(0, REPLY_EXCERPT_MAX)}…` : flat;
 }
 
-export function createHost({ root, runtime, policy = {}, readUsage = async () => null, checkGate = async () => "ok", onChange = () => {}, recordRun = async () => {} }) {
+export function createHost({ root, runtime, policy = {}, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], onChange = () => {}, recordRun = async () => {} }) {
   const maxConcurrent = Math.min(policy.maxConcurrent ?? MAX_CONCURRENT_AGENTS, SESSION_CAP);
   const sessionCap = Math.min(policy.sessionCap ?? SESSION_CAP, SESSION_CAP);
   const graceMs = policy.killGraceMs ?? KILL_GRACE_MS;
@@ -194,9 +195,25 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
   const down = () => (!runtime ? refuse(503, "no runtime is configured") : shuttingDown ? refuse(503, "the bridge is shutting down") : null);
   const overUsage = (usage) =>
     typeof usage === "number" && usage >= USAGE_REFUSE_AT ? refuse(429, `five-hour usage is ${usage}% (limit ${USAGE_REFUSE_AT}%)`) : null;
-  const full = () =>
-    liveByRef.size >= maxConcurrent ? refuse(429, `max_concurrent_cells (${maxConcurrent}) reached`)
-      : liveByRef.size >= sessionCap ? refuse(429, `the ${sessionCap}-session cap is reached`) : null;
+  // The one capacity rule (organism-infra/226, ADR 0016 amendment 14): live agents plus foreign claim locks fill max;
+  // live agents alone fill the session cap. `locked` is read before the synchronous step, never inside it.
+  const capacityNow = (locked) => capacityOf({ liveRefs: [...liveByRef.keys()], lockedRefs: locked, max: maxConcurrent, cap: sessionCap });
+  const readLocked = async () => {
+    try {
+      const refs = await lockedRefs();
+      return Array.isArray(refs) ? refs : [];
+    } catch (err) {
+      console.error(`bridge: could not read the claim locks: ${err?.message ?? err}`);
+      return null;
+    }
+  };
+  const unreadable = () => refuse(503, "could not read the board's claim locks");
+  const full = (locked) => {
+    const c = capacityNow(locked);
+    if (c.room > 0) return null;
+    if (c.load >= c.max) return refuse(429, `max_concurrent_cells (${c.max}) reached: ${c.refs.map((r) => r.ref).join(", ")}`);
+    return refuse(429, `the ${c.cap}-session cap is reached`);
+  };
 
   // entry: "dispatch" | "start" | "direct" (the three entries in the header).
   async function admit(input, { entry }) {
@@ -210,16 +227,18 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       if (RELAY_HOP_ROLES.includes(role)) return refuse(409, `${role} is a relay-hop role: dispatch the orchestrator, which runs the relay`);
       const gate = await checkGate(ref);
       if (gate === "unknown") return refuse(404, "no such ticket");
-      if (gate !== "ok") return refuse(409, "the ticket has no dispatch gate");
+      if (gate !== "ok") return refuse(409, "the ticket is not in the frontier");
     }
     const usage = await readUsage();
     const over = overUsage(usage);
     if (over) return over;
+    const locked = await readLocked();
+    if (locked === null) return unreadable();
 
     // From here to the registration of the reservation there is no await: this is the one synchronous step.
     if (shuttingDown) return refuse(503, "the bridge is shutting down");
     if (liveByRef.has(ref)) return refuse(409, "this ticket already has a live agent");
-    const noRoom = full();
+    const noRoom = full(locked);
     if (noRoom) return noRoom;
     const agent = {
       id: `c-${randomBytes(8).toString("hex")}`, ref, role, mode, runtimeId: runtime.id, sessionId: randomUUID(), state: "working",
@@ -283,8 +302,12 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     // reason, whatever its casing or symlinks. The governance denies in the adapter stay as the second layer.
     const refusal = await grantRefusal(checked, { roots: [...new Set([root, await realRoot()])], home: homeDir() });
     if (refusal !== null) return refuse(400, refusal);
-    const early = down() ?? overUsage(await readUsage()) ?? full();
+    const early = down() ?? overUsage(await readUsage());
     if (early) return early;
+    const lockedNow = await readLocked();
+    if (lockedNow === null) return unreadable();
+    const noRoom = full(lockedNow);
+    if (noRoom) return noRoom;
     let ref;
     try {
       ({ ref } = await createTicket(role));
@@ -649,6 +672,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     shutdown,
     killAllSync,
     snapshot: () => [...agents.values()].map(view),
+    capacity: capacityNow, // (lockedRefs) -> the capacity key the hub puts in the snapshot
     approvals: () => approvals.list(),
     transcripts: transcriptView,
     approval: (id) => approvals.read(id),

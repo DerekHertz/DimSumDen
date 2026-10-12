@@ -164,8 +164,6 @@ export async function buildSnapshot(root, seq = 0) {
   const pendingByRef = new Map();
   for (const r of requests) if (r.state === "pending" && !pendingByRef.has(r.ref)) pendingByRef.set(r.ref, r);
 
-  const anyLock = [...all.values()].some((t) => t.locked !== null);
-
   const tickets = [];
   const candidates = [];
   for (const t of [...all.values()].sort((a, b) => compareRefs(a.ref, b.ref))) {
@@ -221,7 +219,7 @@ export async function buildSnapshot(root, seq = 0) {
     t.bumped = o.bumped;
   }
   const frontier = ordered.map((o) => o.ref);
-  if (frontier.length && !anyLock) byRef.get(frontier[0]).gate = "dispatch";
+  if (frontier.length) byRef.get(frontier[0]).gate = "dispatch"; // organism-infra/227: locks no longer hold the gate back (capacity does)
 
   let usage = null;
   for (const r of usageRows) {

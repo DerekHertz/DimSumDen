@@ -125,6 +125,17 @@ Only non-resolved tickets appear. Keys are additive-only: later panels add keys,
   ],
   "frontier": ["dimsumden-ui-v0/04-bridge-state"],
   "usage": { "fiveHour": 74, "weekly": 72, "sampledAt": "2026-09-29T04:36:50.650Z" },
+  "capacity": {
+    "max": 8,
+    "cap": 8,
+    "load": 2,
+    "live": 1,
+    "room": 6,
+    "refs": [
+      { "ref": "dimsumden-ui-v0/04-bridge-state", "kind": "live" },
+      { "ref": "organism-infra/28-review-claims-keep-in-review", "kind": "lock" }
+    ]
+  },
   "requests": [
     {
       "id": "6f1c1b7e-0d55-4c3a-9b52-1f5d7e0a9a10",
@@ -146,7 +157,8 @@ Field rules (each is a test target for ticket 04):
 - `frontier` is the refs of `ready` tickets with no claim lock, in the order ticket 02 produces (effective priority, then age, then number). Ticket 02's interface, which the snapshot builder calls: a pure function taking each candidate's `{ref, priority, readySince}` and the list of orchestrator handoff timestamps, returning `{ref, priority, effectivePriority, bumps, bumped}` in frontier order. `priority` is the parsed `P0` to `P3` (missing or malformed is `P2`). `readySince` is an opaque ISO string; the recommended source is the ticket's first board event at or after it became `ready-for-agent`, else the file mtime. `sessions` is the count of `.scratch/_handoffs/*-orchestrator-*.md` files. `bumped` is `bumps >= 1`; a P0 never bumps.
 - `holder` is `{cell, since}` parsed from the claim lock, else `null`. `lastCell` is the `cell` of the ticket's newest row in `events.jsonl`, else `null`.
 - `blockedReason` is the text of the ticket's last `## Comments` bullet when `status` is `blocked`, else `null`.
-- `gate` is derived, never stored. `"merge"` when `status` is `in-review`, there is no claim lock, and the newest `--verdict` comment on the ticket is a `pass` from `security` (ADR 0008 decision 12 rows carry `verdict`). `"dispatch"` for `frontier[0]` only. Otherwise `null`. *(Amended 2026-10-12, organism-infra/154: the clause "and only when no ticket anywhere holds a claim lock" is gone. It rested on `max_concurrent_cells` being 1; the cap is 2 and the den must reach every agent. The gate stays on one ticket, so Needs you shows one dispatch prompt rather than one per frontier ticket, and it moves to the next ticket as soon as the first is claimed. Whether a ticket may be started, and whether there is room, is no longer the gate's job: any `frontier` ref may be dispatched and the snapshot's top-level `capacity` object says whether there is room. Both are in ADR 0016 amendment 14. The `capacity` key is additive and is added by the hub with the agents, not by the board-only snapshot builder.)*
+- `capacity` (added 2026-10-12, organism-infra/227; top-level, additive, still schema 1; added by the hub beside `agents`, not by `buildSnapshot`) is the output of `capacity()` in ADR 0016 amendment 14, built from the host's live agents, the tickets that hold a claim lock, and the host's effective limits: `max` (`max_concurrent_cells`, default 8) and `cap` (the session cap, 8), each already lowered by any policy override. `load` counts distinct refs that hold a live agent or a lock; `live` counts host agents; `room = max(0, min(max - load, cap - live))`; `refs` is one `{ ref, kind }` per ref that fills a slot, `kind` `"live"` for a host agent (including one that has claimed its own ticket) and `"lock"` for a claim lock held by a cell the host did not start. Ended agents and released locks do not count. It is also in the SSE `snapshot` frame; no new change frame carries it.
+- `gate` is derived, never stored. `"merge"` when `status` is `in-review`, there is no claim lock, and the newest `--verdict` comment on the ticket is a `pass` from `security` (ADR 0008 decision 12 rows carry `verdict`). `"dispatch"` for `frontier[0]` only. Otherwise `null`. *(Amended 2026-10-12, organism-infra/154: the clause "and only when no ticket anywhere holds a claim lock" is gone. It rested on `max_concurrent_cells` being 1; the default `max_concurrent_cells` is now 8 (was 2 when this was written) and the den must reach every agent. The gate stays on one ticket, so Needs you shows one dispatch prompt rather than one per frontier ticket, and it moves to the next ticket as soon as the first is claimed. Whether a ticket may be started, and whether there is room, is no longer the gate's job: any `frontier` ref may be dispatched and the snapshot's top-level `capacity` object says whether there is room. Both are in ADR 0016 amendment 14. The `capacity` key is additive and is added by the hub with the agents, not by the board-only snapshot builder.)*
 - `request` is the ticket's pending Gate request `{id, kind, ts}`, else `null`. It is the reason a button shows "pending" (story 22).
 - `handoff` is the newest file (by mtime) in `<feature>/handoffs/` whose name starts with the ticket's `NN-`, with `path` relative to `.scratch/`, ISO `mtime`, and `text` capped at 8 KB (`truncated: true` when cut), else `null`.
 - `usage` is the newest `kind:"usage"` row with a numeric `five_hour`, as `{fiveHour, weekly, sampledAt}`, else `null` (the panel shows "not sampled").

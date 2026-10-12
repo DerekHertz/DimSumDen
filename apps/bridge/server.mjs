@@ -55,7 +55,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
   let actualPort = port;
   const auth = createAuth(authOptions);
   let host;
-  const hub = createHub(root, { agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts() });
+  const hub = createHub(root, { agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts(), capacity: (lockedRefs) => host.capacity(lockedRefs) });
   host = createHost({
     root,
     runtime,
@@ -63,10 +63,12 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     onChange: (change) => hub.publish(change),
     recordRun: createLedger(root).record,
     readUsage: async () => (await hub.snapshot()).usage?.fiveHour ?? null,
+    // organism-infra/226: a dispatch needs the ticket to be in the frontier (ready, unblocked, unlocked), not to hold the gate.
     checkGate: async (ref) => {
-      const ticket = (await hub.snapshot()).tickets.find((t) => t.ref === ref);
-      return !ticket ? "unknown" : ticket.gate === "dispatch" ? "ok" : "nogate";
+      const snap = await hub.snapshot();
+      return !snap.tickets.some((t) => t.ref === ref) ? "unknown" : snap.frontier.includes(ref) ? "ok" : "nofrontier";
     },
+    lockedRefs: async () => (await hub.snapshot()).tickets.filter((t) => t.holder).map((t) => t.ref),
   });
   await host.ready;
   let postChain = Promise.resolve();

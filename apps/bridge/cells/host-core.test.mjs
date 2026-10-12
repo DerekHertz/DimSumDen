@@ -41,7 +41,7 @@ const at = (rec, call) => rec.calls.find((c) => c.call === call)?.at;
 describe("policy constants (cells/policy.mjs)", () => {
   test("the caps, the grace and the relay-hop roles are the ones ADR 0016 and CLAUDE.md name", async () => {
     const p = await loadPolicy();
-    assert.equal(p.MAX_CONCURRENT_AGENTS, 2);
+    assert.equal(p.MAX_CONCURRENT_AGENTS, 8); // organism-infra/226: raised from 2 (user, 2026-10-12)
     assert.equal(p.SESSION_CAP, 8);
     assert.equal(p.KILL_GRACE_MS, 5000);
     assert.deepEqual([...p.RELAY_HOP_ROLES].sort(), ["developer", "qa", "security"]);
@@ -407,8 +407,8 @@ describe("dispatch policy: refusals write nothing and start nothing", () => {
     }
   });
 
-  test("the internal start() does start a relay-hop role, and it takes a slot like any other agent", async () => {
-    t = await makeBridge();
+  test("the internal start() does start a relay-hop role, and it takes a slot like any other agent (max 2 injected)", async () => {
+    t = await makeBridge({ policy: { maxConcurrent: 2 } });
     const res = await t.bridge.host.start({ ref: `${FEATURE}/21-hop`, role: "developer" });
     assert.equal(res.ok, true);
     assert.equal(res.status, 201);
@@ -455,11 +455,12 @@ describe("dispatch policy: refusals write nothing and start nothing", () => {
     assert.equal(t.fake.spawns.length, 1);
   });
 
-  test("a ref that is not on the board is 404; a ticket without a dispatch gate is 409", async () => {
+  test("a ref that is not on the board is 404; a ticket outside the frontier is 409 (organism-infra/226: the gate no longer decides)", async () => {
     t = await makeBridge();
     await refused(await t.dispatch("scout", `${FEATURE}/99-nope`), 404, "unknown ticket");
-    await refused(await t.dispatch("scout", NO_GATE_REF), 409, "no dispatch gate");
-    await refused(await t.dispatch("scout", `${FEATURE}/08-plain`), 409, "no dispatch gate (plain)");
+    const blocked = await t.dispatch("scout", NO_GATE_REF);
+    await refused(blocked, 409, "not in the frontier");
+    assert.match(blocked.body.error, /not in the frontier/i);
   });
 
   test("a bridge started with no runtime answers 503 and spawns nothing", async () => {
@@ -523,8 +524,8 @@ describe("dispatch policy: refusals write nothing and start nothing", () => {
 describe("caps and the concurrent-dispatch race (criterion 3)", () => {
   const refs = (n) => Array.from({ length: n }, (_, i) => `${FEATURE}/${31 + i}-race`);
 
-  test("max_concurrent_cells: two agents run, a third is 429, and an exit frees a slot", async () => {
-    t = await makeBridge();
+  test("max_concurrent_cells: two agents run, a third is 429, and an exit frees a slot (max 2 injected)", async () => {
+    t = await makeBridge({ policy: { maxConcurrent: 2 } });
     assert.equal((await t.bridge.host.start({ ref: `${FEATURE}/21-a`, role: "scout" })).status, 201);
     assert.equal((await t.bridge.host.start({ ref: `${FEATURE}/22-b`, role: "scout" })).status, 201);
     const third = await t.dispatch("scout");
@@ -534,8 +535,8 @@ describe("caps and the concurrent-dispatch race (criterion 3)", () => {
     await until(async () => (await t.dispatch("scout")).status === 201, { what: "a slot to free up" });
   });
 
-  test("six concurrent start() calls with the default cap: exactly two win, peak concurrency never passes two", async () => {
-    t = await makeBridge({ runtimeConfig: { spawnDelayMs: 40 } });
+  test("six concurrent start() calls with max 2 injected: exactly two win, peak concurrency never passes two", async () => {
+    t = await makeBridge({ runtimeConfig: { spawnDelayMs: 40 }, policy: { maxConcurrent: 2 } });
     const results = await Promise.all(refs(6).map((ref) => t.bridge.host.start({ ref, role: "scout" })));
     assert.equal(results.filter((r) => r.status === 201).length, 2);
     assert.equal(results.filter((r) => r.status === 429).length, 4);
@@ -561,8 +562,8 @@ describe("caps and the concurrent-dispatch race (criterion 3)", () => {
     assert.equal(t.fake.spawns.length, 1);
   });
 
-  test("an HTTP dispatch racing a start() for the last slot: exactly one wins", async () => {
-    t = await makeBridge({ runtimeConfig: { spawnDelayMs: 40 } });
+  test("an HTTP dispatch racing a start() for the last slot: exactly one wins (max 2 injected)", async () => {
+    t = await makeBridge({ runtimeConfig: { spawnDelayMs: 40 }, policy: { maxConcurrent: 2 } });
     assert.equal((await t.bridge.host.start({ ref: `${FEATURE}/21-held`, role: "scout" })).status, 201);
     const [viaHttp, viaStart] = await Promise.all([t.dispatch("scout"), t.bridge.host.start({ ref: `${FEATURE}/22-racer`, role: "scout" })]);
     const wins = [viaHttp.status === 201, viaStart.status === 201].filter(Boolean).length;

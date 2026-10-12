@@ -125,8 +125,8 @@ describe("POST /tasks starts a role on a ticket the route writes", () => {
     assert.equal(JSON.stringify(t.fake.spawns[1].args).includes("opus"), false);
   });
 
-  test("the concurrency limit still applies, and a refused task writes no ticket", async () => {
-    t = await makeBridge();
+  test("the concurrency limit still applies, and a refused task writes no ticket (max 2 injected)", async () => {
+    t = await makeBridge({ policy: { maxConcurrent: 2 } });
     assert.equal((await t.post("/tasks", { role: "scout", text: TEXT })).status, 201);
     assert.equal((await t.dispatch("architect")).status, 201);
     const res = await t.post("/tasks", { role: "herald", text: TEXT });
