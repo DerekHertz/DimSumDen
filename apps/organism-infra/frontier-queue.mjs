@@ -91,10 +91,11 @@ export function buildQueue(snapshot) {
     else row.planned += 1;
   }
 
-  // gated: tickets the admission gate parked and that are still parked. expired stays empty until decay parking
-  // exists (queue/05).
+  // gated: tickets the gate parked and that are still parked. expired: ready tickets whose decay count is used up;
+  // `board gate --apply` parks them (queue/05). They stay in `ordered` until then.
   const gated = (snapshot.gateParks ?? []).map((g) => ({ ref: g.ref, reasons: [g.reason] }));
-  return { ordered, gated, expired: [], unplanned };
+  const expired = ordered.filter((item) => item.decayLeft === 0).map((item) => item.ref);
+  return { ordered, gated, expired, unplanned };
 }
 
 // --- the admission gate (ADR 0015 Amendment 3 A and C, ADR 0019 decision 8) ------------------------------------
@@ -191,12 +192,35 @@ function threeIncidentsOfOneTool(incidentTs, snapshot) {
   return [...perTool.values()].some((n) => n >= PIPELINE_INCIDENTS);
 }
 
+// The unplanned cap (ADR 0015 Amendment 3 decision 10): once a feature has at least 3 planned tickets, an Origin-added
+// ticket is refused when the added tickets already filed (every status, the ticket itself left out) pass a third of
+// the planned count, i.e. added * 3 > planned. Planned is every ticket not Origin: added (as in buildQueue). A security
+// finding (Serves finding:<ref>) is never refused by the cap, but the tickets it filed count toward it.
+const UNPLANNED_BASELINE = 3;
+
+function checkUnplannedCap(ticket, snapshot) {
+  if (ticket.origin !== "added") return null;
+  if (FINDING_FORM_RE.test(typeof ticket.serves === "string" ? ticket.serves.trim() : "")) return null;
+  let planned = 0;
+  let added = 0;
+  for (const t of snapshot.tickets ?? []) {
+    if (t.feature !== ticket.feature || t.ref === ticket.ref) continue;
+    if (t.origin === "added") added += 1;
+    else planned += 1;
+  }
+  if (planned < UNPLANNED_BASELINE || added * 3 <= planned) return null;
+  return `unplanned: ${added} added tickets already filed in ${ticket.feature} against ${planned} planned, past a third; admitting another needs the user's yes (queue-admin admit)`;
+}
+
 export function checkAdmission(ticket, snapshot) {
   const reasons = [];
   if (!TICKET_CLASSES.includes(ticket.class)) reasons.push("class: no Class line, or not product or pipeline");
 
   const serves = checkServes(ticket, snapshot);
   reasons.push(...serves.reasons);
+
+  const capReason = checkUnplannedCap(ticket, snapshot);
+  if (capReason) reasons.push(capReason);
 
   if (ticket.class === "pipeline" && !blocksActiveFeature(ticket, snapshot) && !threeIncidentsOfOneTool(serves.incidentTs, snapshot)) {
     reasons.push(`incident: a pipeline ticket needs ${PIPELINE_INCIDENTS} distinct incidents with the same tool, or to block an active-feature ticket`);
@@ -209,15 +233,17 @@ export function checkAdmission(ticket, snapshot) {
 }
 
 // The tickets the gate would park: every ready-for-agent ticket checkAdmission refuses, except one the user admitted
-// (a `queue-admit` row, written by `queue-admin admit`; the snapshot lists the admitted refs).
+// (a `queue-admit` row, written by `queue-admin admit`; the snapshot lists the admitted refs), plus every ticket whose
+// decay has run out (queue/05; an admitted ticket still decays).
 export function gateRefusals(snapshot) {
   const refused = [];
   const admitted = new Set(snapshot.admitted ?? []);
+  const expired = new Set(buildQueue(snapshot).expired);
   for (const t of snapshot.tickets ?? []) {
     if (t.status !== "ready-for-agent") continue;
-    if (admitted.has(t.ref)) continue;
-    const r = checkAdmission(t, snapshot);
-    if (!r.ok) refused.push({ ref: t.ref, reasons: r.reasons });
+    const reasons = admitted.has(t.ref) ? [] : checkAdmission(t, snapshot).reasons;
+    if (expired.has(t.ref)) reasons.push(`decay: ${DECAY_LIMIT} tickets resolved since it was ready or last picked, and it was not picked`);
+    if (reasons.length) refused.push({ ref: t.ref, reasons });
   }
   return refused;
 }
@@ -299,10 +325,13 @@ export async function loadSnapshot(root) {
     .filter((r) => r.kind === "queue-pick" && typeof r.ts === "string" && typeof r.picked === "string")
     .map((r) => ({ ts: r.ts, picked: r.picked }));
 
-  // The last time each ticket went to ready-for-agent (create, unpark, reopen or release back to ready).
+  // The last time each ticket went to ready-for-agent (create, release back to ready, unpark or reopen). Claim and
+  // release events carry `to_status`; the park path's unpark and reopen events carry `to`.
   const readyAt = new Map();
   for (const e of events) {
-    if (e.to_status === "ready-for-agent" && typeof e.ts === "string") readyAt.set(`${e.feature}/${e.ticket}`, e.ts);
+    if ((e.to_status === "ready-for-agent" || e.to === "ready-for-agent") && typeof e.ts === "string") {
+      readyAt.set(`${e.feature}/${e.ticket}`, e.ts);
+    }
   }
 
   const raw = [];
