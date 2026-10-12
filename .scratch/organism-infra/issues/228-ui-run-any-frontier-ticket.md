@@ -37,3 +37,4 @@ Design is in ADR 0016 amendment 14 (items 4 to 6). UI ticket: the designer specs
 ## Comments
 
 - **orchestrator, 2026-10-12:** filed from the 154 architect handoff on the user's approval ("draft is fine"). Priority set to P1: the user's goal is several agents controlled from the interface today. User ruling folded in: lock visibility (item 6). den-v1/15 overlaps: a den task ticket left `ready-for-agent` would get a Run control.
+- **designer, 2026-10-12:** UI spec signed off by the user: full spec in .scratch/organism-infra/handoffs/228-designer-spec.md, mockups at https://claude.ai/artifact/BqPJ8iBVisEc9TLTiP9vN5. Rulings: Run and slot strip in the Stations card (all ready rows, scrolling); native role select beside Run; stale lock is shown and named, no Clear button (follow-up ticket needs a bridge route); Needs you dispatch prompt hidden at room 0.
