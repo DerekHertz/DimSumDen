@@ -133,12 +133,12 @@ test("a fixture config's default entry applies to roles it does not list", () =>
   refuses(run(25_000, "security", { config }), "25k");
 });
 
-test("an invalid or missing config file leaves the hook on the built-in 70k / 80k and never crashes it", () => {
+test("an invalid or missing config file leaves the hook on the built-in (cells 100k / 150k) and never crashes it", () => {
   const bad = writeConfig({ default: { warn: "x" }, cells: { developer: { warn: 5, stop: 1 } } });
-  silent(run(60_000, "developer", { config: bad }), "bad config 60k");
-  warns(run(75_000, "developer", { config: bad }), "bad config 75k");
-  refuses(run(85_000, "developer", { config: bad }), "bad config 85k");
+  silent(run(90_000, "developer", { config: bad }), "bad config 90k");
+  warns(run(120_000, "developer", { config: bad }), "bad config 120k");
+  refuses(run(155_000, "developer", { config: bad }), "bad config 155k");
   const missing = path.join(tmpdir(), "no-such-dir-ctx-tiers", "context-budget.json");
-  silent(run(60_000, "developer", { config: missing }), "missing config 60k");
-  refuses(run(85_000, "developer", { config: missing }), "missing config 85k");
+  silent(run(90_000, "developer", { config: missing }), "missing config 90k");
+  refuses(run(155_000, "developer", { config: missing }), "missing config 155k");
 });

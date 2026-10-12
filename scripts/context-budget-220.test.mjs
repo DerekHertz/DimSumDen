@@ -97,11 +97,10 @@ test("no reader's code holds a budget literal (statusline, context.mjs, cell-sta
   }
 });
 
-test("context-budget.mjs holds only its fail-open built-in; the shipped numbers live in the JSON", () => {
+test("context-budget.mjs holds only its fail-open built-in (cells 100k / 150k, orchestrator 70k / 80k)", () => {
   const code = stripComments(read("scripts/context-budget.mjs"));
-  const hits = code.match(new RegExp(BUDGET_LITERAL.source, "g")) ?? [];
-  assert.ok(hits.length <= 2, `more than the BUILT_IN pair: ${hits.join(", ")}`);
-  assert.doesNotMatch(code, /(?:100|130|150)_?000/, "no cell-tier number in code");
+  const hits = (code.match(new RegExp(BUDGET_LITERAL.source, "g")) ?? []).map((h) => h.replace("_", "")).sort();
+  assert.deepEqual(hits, ["100000", "150000", "70000", "80000"], "only the built-in pairs, no 130k");
 });
 
 // ---- docs ----
