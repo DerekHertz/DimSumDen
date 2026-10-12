@@ -2945,3 +2945,12 @@
 {"kind":"jg","ts":"2026-10-11T23:42:27.309Z","ticket":"agent-os/02-grants","bytes":0,"files":0,"ms":2184,"skipped":null,"fallback":"jg-exit-1"}
 {"kind":"usage","ts":"2026-10-11T23:42:45Z","five_hour":35,"weekly":16,"event":"dispatch","ticket":"agent-os/02-grants","cell":"developer"}
 {"kind":"context","ts":"2026-10-11T23:42:45Z","event":"dispatch","session":"42f9cc73-68e8-46c7-a47e-7e312c45880c","context_tokens":61420,"percent":6.14}
+{"kind":"jg","ts":"2026-10-11T23:42:47.784Z","ticket":"organism-infra/219-scout-context-hook-counts-parent","bytes":0,"files":0,"ms":2594,"skipped":null,"fallback":"jg-exit-1"}
+{"kind":"cell","ts":"2026-10-11T23:44:24.268Z","ticket":null,"cell":"scout","model":"claude-haiku-5-5","tokens":20892,"ms":37094,"outcome":"jg-exit-1 diagnosis: jg exits 1 for any query and root; likely stale env key (unverified)","input_tokens":12,"cache_creation_input_tokens":19659,"cache_read_input_tokens":77392,"output_tokens":61}
+{"kind":"spend","ts":"2026-10-11T23:44:24.268Z","session":"agent-ad0d728b01d79dc5f","role":"scout","input_tokens":12,"cache_creation_input_tokens":19659,"cache_read_input_tokens":77392,"output_tokens":61}
+{"kind":"cell","ts":"2026-10-12T00:05:00.968Z","ticket":"agent-os/02-grants","cell":"developer","model":"claude-sonnet-5","tokens":108083,"ms":1317064,"outcome":"complete: 7be73f3, 3998/3998, risk-check 3 hits; .git/config probe not done","context":103380,"input_tokens":100,"cache_creation_input_tokens":99211,"cache_read_input_tokens":3941326,"output_tokens":2415}
+{"kind":"spend","ts":"2026-10-12T00:05:00.968Z","session":"agent-ade0336c36aca9d2b","role":"developer","ticket":"agent-os/02-grants","input_tokens":100,"cache_creation_input_tokens":99211,"cache_read_input_tokens":3941326,"output_tokens":2415}
+{"kind":"jev","ts":"2026-10-12T00:07:21.464Z","ticket":"agent-os/02-grants","point":"verify","pick":"light","actual":"light","cost":0.00023293200000000004,"conf":0.66,"mode":"shadow","fallback":null,"floor":null,"ms":460,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-10-12T00:07:50Z","five_hour":41,"weekly":16,"event":"dispatch","ticket":"agent-os/02-grants","cell":"qa"}
+{"kind":"context","ts":"2026-10-12T00:07:50Z","event":"dispatch","session":"42f9cc73-68e8-46c7-a47e-7e312c45880c","context_tokens":76138,"percent":7.61}
+{"kind":"spend","ts":"2026-10-12T00:07:50.931Z","session":"42f9cc73-68e8-46c7-a47e-7e312c45880c","role":"orchestrator","ticket":"agent-os/02-grants","input_tokens":38,"cache_creation_input_tokens":23669,"cache_read_input_tokens":1002054,"output_tokens":15193}
