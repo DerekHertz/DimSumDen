@@ -1,6 +1,6 @@
 # A ticket's relay runs through the bridge: a pure hop planner, the next hop as the den's default, a finish event that advances the relay, and ceilings for the five roles that have none
 
-**Status:** proposed (architect, 2026-10-12, for organism-infra/229; the user has not read it). Nothing here is accepted until the user says yes, and the "Decisions for the user" list at the end needs their answers. It amends ADR 0016 decision 3 (the relay-hop 409, "Slice 3") and builds the relay runner that ADR 0019 decision 3 placed in `apps/bridge/relay/`. It leans on ADR 0021 (decisions 3, 7, 8, 10, 11, 12) and changes none of them. No code in this ticket.
+**Status:** accepted (user, 2026-10-12, for organism-infra/229). The user answered the seven decisions at the end; each answer is recorded there. It amends ADR 0016 decision 3 (the relay-hop 409, "Slice 3") and builds the relay runner that ADR 0019 decision 3 placed in `apps/bridge/relay/`. It leans on ADR 0021 (decisions 3, 7, 8, 10, 11, 12) and changes none of them. No code in this ticket.
 
 **Context.** The user (2026-10-12, at the visual verdict on organism-infra/228) asked for two things: "dispatch the agent needed for a task directly ... the default in the drop down was the first agent needed", and "after completing the task it should trigger some event that wakes up orchestrator/bao and then it can be routed to the next task and so on". They also asked whether they will stop approving every request. Facts from the code (read 2026-10-12):
 
@@ -121,3 +121,12 @@ The smallest slice the user can use from the Den is slice 1: start the next hop 
 5. **Board writes by hop agents** (claim, comment, handoff, release, outside the wall). (a) Keep asking, measure in the first live den relay, decide with numbers (recommended). (b) Grant hop roles a write on `<root>/.scratch/**`. (c) Build bridge-held board calls (ADR 0021 step 4) before the relay.
 6. **Where the relay ends.** (a) At "ready to merge"; PR and merge stay with you or an orchestrator session until ADR 0021 steps 4 and 6 exist (recommended). (b) The bridge opens the PR but you merge. (c) Wait for the full step 4 and 6 first.
 7. **Interactive roles** (`designer` spec, `product` grilling). (a) Never auto-advanced; the relay stops for them (recommended). (b) Run them headless and let the agent put its questions in a handoff.
+
+**The user's answers (2026-10-12, recorded by the orchestrator).** The user took option (a) on all seven:
+1. Bridge code decides the deterministic hops; an orchestrator session is woken only at a stop.
+2. Slice 1 is a click per hop; slice 2 adds the per-ticket "Run relay" switch, which is the user's approval.
+3. The first hop of a code ticket started from the den is `developer`, test-first (ADR 0019 decision 4). The question was asked about den-started relays; the terminal relay in `CLAUDE.md` and the orchestrator genome is not changed by this answer.
+4. The ceilings table is accepted as proposed. It still ships as one reviewed ticket (slice 3, a guardrail path).
+5. Board writes by hop agents keep asking; the first live den relay counts them and the user decides with numbers.
+6. The relay ends at "ready to merge"; PR and merge stay with the user or an orchestrator session.
+7. Interactive roles (`designer` spec, `product`) are never auto-advanced; the relay stops for them.
