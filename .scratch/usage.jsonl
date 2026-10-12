@@ -3171,3 +3171,6 @@
 {"kind":"usage","ts":"2026-10-12T06:16:08Z","five_hour":34,"weekly":27,"event":"return","ticket":"agent-os/03-target-project","cell":"architect"}
 {"kind":"context","ts":"2026-10-12T06:16:08Z","session":"2a892319-20ca-4785-a460-ce9953c3a149","context_tokens":50603,"percent":5.06,"event":"return"}
 {"kind":"spend","ts":"2026-10-12T06:16:08.217Z","session":"2a892319-20ca-4785-a460-ce9953c3a149","role":"orchestrator","ticket":"agent-os/03-target-project","input_tokens":22,"cache_creation_input_tokens":14459,"cache_read_input_tokens":368435,"output_tokens":6559}
+{"kind":"usage","ts":"2026-10-12T06:34:12Z","five_hour":36,"weekly":27,"event":"merge","ticket":null,"cell":"orchestrator"}
+{"kind":"context","ts":"2026-10-12T06:34:12Z","session":"2a892319-20ca-4785-a460-ce9953c3a149","context_tokens":76767,"percent":7.68,"event":"merge"}
+{"kind":"spend","ts":"2026-10-12T06:34:12.361Z","session":"2a892319-20ca-4785-a460-ce9953c3a149","role":"orchestrator","input_tokens":42,"cache_creation_input_tokens":26928,"cache_read_input_tokens":1293349,"output_tokens":18264}
