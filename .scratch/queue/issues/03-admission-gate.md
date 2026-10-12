@@ -10,7 +10,7 @@
 
 **Blocked by:** 02
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** `.scratch/queue/spec.md` decisions 4 (refusal), 6, 7; ADR 0015 Amendment 3; ADR 0019 decision 8.
 
@@ -43,3 +43,4 @@
 - **qa, 2026-10-12:** Handoff: .scratch/queue/handoffs/03-qa-verify.md (light verify escalated to full).
 - **orchestrator, 2026-10-12:** user ruling on the scope call: `createTicket` is the accepted write surface; no `board create` subcommand is required. Criterion 4 is reworded to say so. Criterion 6 is human-verified (no test): the developer's handoff reports 0 of 10 ready organism-infra tickets passing the three-incidents rule over the real `usage.jsonl`.
 - **qa, 2026-10-12:** qa, light verify on b9b5403: QA pass. Suite (saved output): 4360 pass, 0 fail, 0 skipped. Test file unchanged since 4df65d9. Criteria 1-5 mapped to tests; criterion 6 human-verified. All changed files in scope. Detail in handoff 03-qa-verify-2.md.
+- **security, 2026-10-12:** Security pass on b9b5403. No critical/high/medium. Low: finding:<ref> accepts the ticket itself (frontier-queue.mjs, Serves finding form); same-tool approximates same-cause. gitleaks clean. Handoff 03-security.md.
