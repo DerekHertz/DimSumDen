@@ -52,8 +52,8 @@ const jsonl = (rows) => rows.map((r) => JSON.stringify(r)).join("\n") + "\n";
 //  04-review          in-review, no lock, newest verdict is security pass; pending request; 2 handoffs
 //  05-blocked         status blocked, last comment bullet is the reason
 //  06-human           ready-for-human, huge handoff
-//  07-bumpable        ready, P1, mtime 09-20 (3 orchestrator handoffs later: bumps to P0)
-//  08-plain           ready, no priority (P2), mtime 09-29 (newer than all handoffs: no bump)
+//  07-bumpable        ready, P1, mtime 09-20 (older than 08; no aging bump since queue/06)
+//  08-plain           ready, no priority (P2), mtime 09-29 (newest, after 07)
 //  09-claimed         (only when lock: true) status claimed with a claim lock
 //  git: true         the root is a git repository with one (empty) commit, so the host can add agent worktrees
 export async function makeStateFixture({ lock = false, empty = false, git = false } = {}) {

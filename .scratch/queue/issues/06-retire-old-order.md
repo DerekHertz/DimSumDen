@@ -10,7 +10,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** `.scratch/queue/spec.md` decisions 1, 14; ADR 0015 Amendment 3 (the order leaves `jev.mjs`).
 
@@ -36,3 +36,4 @@ One order only: the Queue from ticket 02. Design: ADR 0015 Amendment 3 and `.scr
 ## Comments
 
 - **orchestrator, 2026-10-12:** published from the architect's breakdown (Q5) on the user's approval. Its files do not overlap tickets 03 or 04. The orchestrator genome still names `jev.mjs order` until ticket 07 is applied; an orchestrator that hits the removed command logs nothing and carries on.
+- **qa, 2026-10-12:** QA pass (light verify, 6d1098f): 4312 pass, 0 fail, 0 skipped in saved run. Specify test files unchanged. AC1-AC3, AC5, AC6 covered by named tests; AC4 and AC5 wording human-verified. Details in handoff 06-qa-verify.md.

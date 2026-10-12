@@ -1,7 +1,5 @@
-// organism-infra/71: jev.mjs `scope` point and `rankFrontier` ordering function (ADR 0015 decision 4).
+// organism-infra/71: jev.mjs `scope` point (ADR 0015 decision 4). queue/06 retired the frontier ordering function.
 // Scope labels: small | medium | large | other. Shadow mode only (not yet live).
-// Combined frontier order (code, not Jev): P-level ASC, unblockCount DESC, scopeRank ASC, ticketNumber ASC.
-// Scope never crosses a P-level: all P0 before P1, etc.
 //
 // Pinned contract for `decide({point:"scope", ...})`:
 //   Labels: ["small", "medium", "large", "other"].
@@ -10,12 +8,6 @@
 //   Standard fallbacks apply (no-key, blocked-input, http, cap).
 //   Scope has no dedicated reservation; draws from shared $0.35.
 //
-// Pinned contract for exported `rankFrontier(tickets)`:
-//   tickets: Array<{key: string, priority: 0|1|2|3, unblockCount: number, scope: string|null, ticketNumber: number}>
-//   Returns a copy of the array sorted by: priority ASC, unblockCount DESC, scopeRank(scope) ASC, ticketNumber ASC.
-//   scopeRank: small=0, medium=1, large=2, null|"other"=3.
-//   Priority is the tie-breaker that must never be violated: a P0 ticket always comes before any P1+.
-//   scope: null or "other" ranks after "large" within the same P-level and unblockCount bucket.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
@@ -32,10 +24,6 @@ function fake(answer, calls = []) {
 function jrow(point, cost, ts = DAY) {
   return { kind: "jev", ts, point, cost };
 }
-function ticket(key, priority, unblockCount, scope, ticketNumber) {
-  return { key, priority, unblockCount, scope, ticketNumber };
-}
-
 function args(over = {}) {
   return {
     point: "scope",
@@ -123,99 +111,4 @@ test("scope: shared remainder exhausted blocks scope", async () => {
   const { row } = await decide(args({ usageRows, transport: fake(ans("small"), calls) }));
   assert.equal(calls.length, 0);
   assert.equal(row.fallback, "cap");
-});
-
-// ---- Criterion 2: rankFrontier ordering function ----
-
-test("rankFrontier: P-level is the primary sort key; P0 always before P1, P2, P3", async () => {
-  const { rankFrontier } = await load();
-  const input = [
-    ticket("feat/02", 2, 0, "small", 2),
-    ticket("feat/03", 3, 0, "small", 3),
-    ticket("feat/01", 0, 0, "large", 1),
-    ticket("feat/00", 1, 0, "small", 0),
-  ];
-  const sorted = rankFrontier(input);
-  assert.equal(sorted[0].key, "feat/01"); // P0
-  assert.equal(sorted[1].key, "feat/00"); // P1
-  assert.equal(sorted[2].key, "feat/02"); // P2
-  assert.equal(sorted[3].key, "feat/03"); // P3
-});
-
-test("rankFrontier: within the same P-level, higher unblockCount comes first", async () => {
-  const { rankFrontier } = await load();
-  const input = [
-    ticket("feat/01", 2, 1, "small", 1),
-    ticket("feat/02", 2, 5, "large", 2),
-    ticket("feat/03", 2, 3, "medium", 3),
-  ];
-  const sorted = rankFrontier(input);
-  assert.equal(sorted[0].key, "feat/02"); // unblockCount 5
-  assert.equal(sorted[1].key, "feat/03"); // unblockCount 3
-  assert.equal(sorted[2].key, "feat/01"); // unblockCount 1
-});
-
-test("rankFrontier: scope sorts within same P-level and unblockCount; small before medium before large", async () => {
-  const { rankFrontier } = await load();
-  const input = [
-    ticket("feat/03", 2, 0, "large", 3),
-    ticket("feat/01", 2, 0, "small", 1),
-    ticket("feat/02", 2, 0, "medium", 2),
-  ];
-  const sorted = rankFrontier(input);
-  assert.equal(sorted[0].key, "feat/01"); // small
-  assert.equal(sorted[1].key, "feat/02"); // medium
-  assert.equal(sorted[2].key, "feat/03"); // large
-});
-
-test("rankFrontier: scope=other and scope=null rank after large within the same bucket", async () => {
-  const { rankFrontier } = await load();
-  const input = [
-    ticket("feat/02", 2, 0, "other", 2),
-    ticket("feat/03", 2, 0, null, 3),
-    ticket("feat/01", 2, 0, "large", 1),
-  ];
-  const sorted = rankFrontier(input);
-  assert.equal(sorted[0].key, "feat/01"); // large comes before other/null
-  // other and null both rank after large; relative order between them is tie-broken by ticketNumber
-  const lastTwo = new Set([sorted[1].key, sorted[2].key]);
-  assert.ok(lastTwo.has("feat/02"));
-  assert.ok(lastTwo.has("feat/03"));
-});
-
-test("rankFrontier: within the same P-level, unblockCount, and scope, lower ticketNumber (older) first", async () => {
-  const { rankFrontier } = await load();
-  const input = [
-    ticket("feat/10", 2, 2, "medium", 10),
-    ticket("feat/04", 2, 2, "medium", 4),
-    ticket("feat/07", 2, 2, "medium", 7),
-  ];
-  const sorted = rankFrontier(input);
-  assert.equal(sorted[0].key, "feat/04");
-  assert.equal(sorted[1].key, "feat/07");
-  assert.equal(sorted[2].key, "feat/10");
-});
-
-test("rankFrontier: scope never causes a ticket to cross a P-level", async () => {
-  const { rankFrontier } = await load();
-  // P1 ticket with scope=small and P0 ticket with scope=large: P0 must still win
-  const input = [
-    ticket("feat/02", 1, 99, "small", 2), // P1, many unblocks, small scope
-    ticket("feat/01", 0, 0, "large", 1),  // P0, no unblocks, large scope
-  ];
-  const sorted = rankFrontier(input);
-  assert.equal(sorted[0].key, "feat/01"); // P0 always first
-  assert.equal(sorted[1].key, "feat/02"); // P1 always second
-});
-
-test("rankFrontier: does not mutate the input array", async () => {
-  const { rankFrontier } = await load();
-  const input = [
-    ticket("feat/02", 2, 0, "large", 2),
-    ticket("feat/01", 2, 0, "small", 1),
-  ];
-  const original = [...input];
-  rankFrontier(input);
-  assert.equal(input[0].key, original[0].key);
-  assert.equal(input[1].key, original[1].key);
 });

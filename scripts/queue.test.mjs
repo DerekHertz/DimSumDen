@@ -13,19 +13,21 @@
 //                 ready-for-agent ticket is in flight and not ready.
 //     blocked     blockedBy: array of the unresolved blocker refs (full refs). Status `blocked` with no
 //                 unresolved blocker listed gives [].
-//     ready       rank (only when the ticket is in the latest jev-order `actual` list): its 1-based
-//                 position in that list, counting entries that are not ready. No `rank` key otherwise.
-//     proposed    [{ ref, title, rank }]: the entries of the latest jev-order `actual` list that are
-//                 ready right now, in list order. Empty when no usable jev-order row exists.
-//   The latest jev-order row is the last one in .scratch/usage.jsonl. Non-JSON lines and other kinds
-//   are skipped. A latest jev-order row whose `actual` is not an array gives no ranks.
+//     ready       rank: the 1-based position in the ready list. The ready list is in the Queue's order
+//                 (queue/06: buildQueue from apps/organism-infra/frontier-queue.mjs: P0-with-reason tier,
+//                 then the active feature, then the rest; inside a tier unblock count, then P, then number).
+//                 Locked tickets are in flight, so they take no rank and do not count in it.
+//     proposed    [{ ref, title, rank }]: the ready tickets in that same order, with the same ranks.
+//                 Empty when nothing is ready.
+//   usage.jsonl is read only for the active-feature row (kind "config", queue_active). A jev-order row
+//   changes nothing, and junk lines are skipped.
 //   Resolved, closed and parked tickets appear in no bucket.
 //   Plain output prints four columns headed READY, IN FLIGHT, WAITING ON YOU, BLOCKED (in that order),
 //   with proposed tickets marked ①②③… by rank.
 //   package.json has an `queue` script that runs it (`npm run queue`).
 //
 // Criterion map: AC1 buckets          -> "AC1 ..."
-//                AC2 proposed order   -> "AC2 ..."
+//                queue/06 ready list in buildQueue order -> "Q6 ..."
 //                AC3 titles           -> "AC3 ..."
 //                AC5 npm run queue    -> "AC5 ..."
 //                AC4 band             -> scripts/mods-queue.test.mjs
@@ -69,16 +71,63 @@ function mixedBoard() {
   return root;
 }
 
-test("AC1 ready holds the frontier sorted by priority, then feature, then number", () => {
+// mixedBoard, no active feature, no P0 reason: one tier. Unblock count first: 302 and beta/301 each hold one open
+// ticket (310 and 312), so they lead; beta/301 is P1 against 302's P2. Then the unblock-0 tickets by P, then number.
+const MIXED_QUEUE_ORDER = [
+  "beta/301-urgent-too", // unblocks 312, P1
+  "alpha/302-second", // unblocks 310, P2
+  "alpha/304-critical", // unblocks nothing, P0
+  "alpha/303-urgent", // P1
+  "alpha/311-unblocked", // no Priority counts as P2
+];
+
+test("Q6 ready holds the frontier in the Queue's order: unblock count, then P, then number", () => {
   const q = readJson(mixedBoard());
+  assert.deepEqual(refs(q.ready), MIXED_QUEUE_ORDER);
+  assert.deepEqual(q.ready.map((r) => r.priority), [1, 2, 0, 1, 2]);
+});
+
+test("Q6 ready rows carry a 1-based rank, and proposed lists the same tickets in the same order", () => {
+  const q = readJson(mixedBoard());
+  assert.deepEqual(q.ready.map((r) => r.rank), [1, 2, 3, 4, 5]);
+  assert.deepEqual(q.proposed.map((p) => [p.ref, p.rank]), MIXED_QUEUE_ORDER.map((ref, i) => [ref, i + 1]));
+  assert.equal(q.proposed[0].title, "Urgent in beta");
+});
+
+test("Q6 a locked ticket is in flight, so it takes no rank and does not shift the others", () => {
+  const q = readJson(mixedBoard());
+  assert.ok(!refs(q.proposed).includes("alpha/305-specifying"));
+  assert.ok(q.ready.every((r) => r.ref !== "alpha/305-specifying"));
+  assert.equal(q.ready.length, 5);
+});
+
+test("Q6 the active feature comes before the rest, wherever its tickets sit on P and unblock count", () => {
+  const root = mixedBoard();
+  usage(root, [{ kind: "config", ts: "2026-10-12T00:00:00.000Z", queue_active: "alpha" }]);
+  const q = readJson(root);
   assert.deepEqual(refs(q.ready), [
-    "alpha/304-critical", // P0
-    "alpha/303-urgent", // P1, feature alpha before beta
-    "beta/301-urgent-too",
-    "alpha/302-second", // P2
-    "alpha/311-unblocked", // no Priority counts as P2; number 311 after 302
+    "alpha/302-second",
+    "alpha/304-critical",
+    "alpha/303-urgent",
+    "alpha/311-unblocked",
+    "beta/301-urgent-too", // outside the active feature: last
   ]);
-  assert.deepEqual(q.ready.map((r) => r.priority), [0, 1, 1, 2, 2]);
+  assert.deepEqual(q.proposed.map((p) => p.rank), [1, 2, 3, 4, 5]);
+});
+
+test("Q6 a P0 with a P0-reason leads even outside the active feature; a bare P0 does not", () => {
+  const root = mixedBoard();
+  ticket(root, "beta/302-outage", { priority: "P0", title: "Outage", headers: ["**P0-reason:** production is down"] });
+  usage(root, [{ kind: "config", ts: "2026-10-12T00:00:00.000Z", queue_active: "alpha" }]);
+  const q = readJson(root);
+  assert.equal(q.ready[0].ref, "beta/302-outage");
+  assert.deepEqual(refs(q.ready).slice(1), [
+    "alpha/302-second",
+    "alpha/304-critical", // P0 without a reason is only an ordinary active-feature ticket
+    "alpha/303-urgent",
+    "alpha/311-unblocked",
+    "beta/301-urgent-too",
+  ]);
 });
 
 test("AC1 in flight holds locked and claimed or in-review tickets, with the holding cell and mode", () => {
@@ -118,64 +167,28 @@ test("AC1 a board with no .scratch tickets prints empty buckets and exits 0", ()
   assert.deepEqual(q, { inFlight: [], ready: [], waitingOnUser: [], blocked: [], proposed: [] });
 });
 
-test("AC2 proposed and rank come from the latest jev-order row, skipping other kinds and junk lines", () => {
+test("Q6 a jev-order row in usage.jsonl no longer changes the order, and junk lines are skipped", () => {
   const root = mixedBoard();
   usage(root, [
-    { kind: "jev-order", ts: "2026-10-08T00:00:00.000Z", actual: ["alpha/302-second", "alpha/303-urgent"] },
+    { kind: "jev-order", ts: "2026-10-09T01:00:00.000Z", actual: ["alpha/311-unblocked", "alpha/303-urgent", "alpha/302-second"] },
     "this line is not json",
-    {
-      kind: "jev-order",
-      ts: "2026-10-09T01:00:00.000Z",
-      actual: ["beta/301-urgent-too", "gone/999-not-on-the-board", "alpha/303-urgent", "alpha/305-specifying", "alpha/302-second"],
-    },
     { kind: "incident", ts: "2026-10-09T02:00:00.000Z", tool: "Bash" },
     "{ broken json",
   ]);
   const q = readJson(root);
-  const rank = Object.fromEntries(q.ready.map((r) => [r.ref, r.rank]));
-  assert.equal(rank["beta/301-urgent-too"], 1);
-  assert.equal(rank["alpha/303-urgent"], 3);
-  assert.equal(rank["alpha/302-second"], 5);
-  assert.equal(rank["alpha/304-critical"], undefined, "a ready ticket outside the list has no rank");
-  assert.equal(rank["alpha/311-unblocked"], undefined);
-  assert.deepEqual(
-    q.proposed.map((p) => [p.ref, p.rank]),
-    [["beta/301-urgent-too", 1], ["alpha/303-urgent", 3], ["alpha/302-second", 5]],
-    "ready entries only (the in-flight and unknown refs drop out), in list order",
-  );
-  assert.equal(q.proposed[0].title, "Urgent in beta");
-  // The ready order itself stays board priority, not the proposed order.
-  assert.deepEqual(refs(q.ready).slice(0, 2), ["alpha/304-critical", "alpha/303-urgent"]);
+  assert.deepEqual(refs(q.ready), MIXED_QUEUE_ORDER);
+  assert.deepEqual(refs(q.proposed), MIXED_QUEUE_ORDER);
 });
 
-test("AC2 no usage.jsonl means no proposed order and no ranks, not a crash", () => {
+test("Q6 no usage.jsonl still gives the Queue's order, not a crash and not an unranked list", () => {
   const q = readJson(mixedBoard());
-  assert.deepEqual(q.proposed, []);
-  assert.ok(q.ready.every((r) => !("rank" in r) || r.rank === undefined));
+  assert.deepEqual(refs(q.proposed), MIXED_QUEUE_ORDER);
 });
 
-test("AC2 a latest jev-order row with a malformed actual means no ranks, not a crash", () => {
-  for (const bad of ["alpha/303-urgent", null, { 0: "alpha/303-urgent" }, 7]) {
-    const root = mixedBoard();
-    usage(root, [
-      { kind: "jev-order", ts: "2026-10-08T00:00:00.000Z", actual: ["alpha/303-urgent"] },
-      { kind: "jev-order", ts: "2026-10-09T00:00:00.000Z", actual: bad },
-    ]);
-    const q = readJson(root);
-    assert.deepEqual(q.proposed, [], JSON.stringify(bad));
-    assert.ok(q.ready.every((r) => r.rank === undefined), JSON.stringify(bad));
-    assert.equal(q.ready.length, 5);
-  }
-});
-
-test("AC2 a latest jev-order row with no actual key, or entries that are not strings, means no crash and no bogus ranks", () => {
+test("Q6 an active-feature row naming a feature with no ready ticket changes nothing", () => {
   const root = mixedBoard();
-  usage(root, [{ kind: "jev-order", ts: "2026-10-09T00:00:00.000Z" }]);
-  assert.deepEqual(readJson(root).proposed, []);
-  usage(root, [{ kind: "jev-order", ts: "2026-10-09T00:00:00.000Z", actual: [42, null, "alpha/303-urgent"] }]);
-  const q = readJson(root);
-  assert.deepEqual(q.proposed.map((p) => p.ref), ["alpha/303-urgent"]);
-  assert.equal(q.proposed[0].rank, 3);
+  usage(root, [{ kind: "config", ts: "2026-10-12T00:00:00.000Z", queue_active: "nowhere" }]);
+  assert.deepEqual(refs(readJson(root).ready), MIXED_QUEUE_ORDER);
 });
 
 test("AC3 titles come from the ticket heading, not the slug", () => {
@@ -210,21 +223,21 @@ test("AC5 plain output prints the four columns in order, with every bucket's tic
   }
 });
 
-test("AC5 plain output marks proposed tickets with their rank, and only those", () => {
-  const root = mixedBoard();
-  usage(root, [{ kind: "jev-order", ts: "2026-10-09T01:00:00.000Z", actual: ["alpha/303-urgent", "alpha/304-critical", "alpha/302-second"] }]);
-  const text = run(root).stdout;
-  const line = (needle) => text.split("\n").find((l) => l.includes(needle)) ?? "";
-  assert.match(line("Urgent work"), /①/);
-  assert.match(line("Critical work"), /②/);
-  assert.match(line("Second priority work"), /③/);
-  assert.doesNotMatch(line("Urgent in beta"), /[①②③④⑤]/);
+test("Q6 plain output lists READY in the Queue's order and marks each ticket with its rank", () => {
+  const text = run(mixedBoard()).stdout;
+  const readyBlock = text.slice(text.indexOf("READY"), text.indexOf("IN FLIGHT"));
+  const titles = ["Urgent in beta", "Second priority work", "Critical work", "Urgent work", "Free since 301 shipped"];
+  const at = titles.map((needle) => readyBlock.indexOf(needle));
+  assert.ok(at.every((i) => i >= 0), `all five ready titles in:\n${readyBlock}`);
+  assert.deepEqual([...at].sort((a, b) => a - b), at, "READY prints in the Queue's order");
+  const line = (needle) => readyBlock.split("\n").find((l) => l.includes(needle)) ?? "";
+  titles.forEach((needle, i) => assert.match(line(needle), new RegExp("①②③④⑤"[i])));
 });
 
-test("AC5 plain output with no usage.jsonl has no rank marks and still exits 0", () => {
-  const out = run(mixedBoard());
-  assert.equal(out.status, 0, out.stderr);
-  assert.doesNotMatch(out.stdout, /[①②③④⑤⑥⑦⑧⑨⑩]/);
+test("Q6 plain output marks only ready tickets with a rank", () => {
+  const text = run(mixedBoard()).stdout;
+  const after = text.slice(text.indexOf("IN FLIGHT"));
+  assert.doesNotMatch(after, /[①②③④⑤⑥⑦⑧⑨⑩]/);
 });
 
 test("AC5 an empty board still prints the four headings", () => {

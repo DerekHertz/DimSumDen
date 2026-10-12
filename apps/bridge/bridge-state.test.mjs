@@ -110,11 +110,12 @@ describe("GET /state on a fixture tree (no claim lock)", () => {
     assert.equal(snap.sessions, 3);
   });
 
-  test("bump: 3 later orchestrator handoffs lift P1 to P0; P0 and fresh tickets do not bump", () => {
-    const b = byRef[ref("07-bumpable")];
-    assert.equal(b.effectivePriority, "P0");
-    assert.equal(b.bumps, 1);
-    assert.equal(b.bumped, true);
+  test("no aging (queue/06): 3 later orchestrator handoffs leave P1 at P1; the bump fields stay and say not bumped", () => {
+    const aged = byRef[ref("07-bumpable")];
+    assert.equal(aged.priority, "P1");
+    assert.equal(aged.effectivePriority, "P1");
+    assert.equal(aged.bumps, 0);
+    assert.equal(aged.bumped, false);
     const p0 = byRef[ref("02-ready-p0")];
     assert.equal(p0.effectivePriority, "P0");
     assert.equal(p0.bumps, 0);

@@ -16,14 +16,17 @@ export function boardRoot() {
 //   title    -> the heading text after `# 04: ` (default: the slug)
 //   priority -> "P1" etc.; omitted means the ticket has no Priority line
 //   lock     -> the lock file's content, e.g. "qa 2026-10-09T01:25:07.351Z specify ready-for-agent"
-export function ticket(root, ref, { title = null, status = "ready-for-agent", blockedBy = "None (can start immediately)", priority = null, lock = null } = {}) {
+//   headers  -> extra header lines written after Blocked by, e.g. ["**P0-reason:** outage"] (queue/06)
+export function ticket(root, ref, { title = null, status = "ready-for-agent", blockedBy = "None (can start immediately)", priority = null, lock = null, headers = [] } = {}) {
   const [feature, slug] = ref.split("/");
   const dir = path.join(root, ".scratch", feature, "issues");
   mkdirSync(dir, { recursive: true });
   const nn = /^(\d+)/.exec(slug)[1];
   const lines = [`# ${nn}: ${title ?? slug}`, "", "**Type:** feature", ""];
   if (priority) lines.push(`**Priority:** ${priority}`, "");
-  lines.push(`**Blocked by:** ${blockedBy}`, "", `**Status:** ${status}`, "", "## What to build", "", "Something.", "", "## Comments", "");
+  lines.push(`**Blocked by:** ${blockedBy}`, "");
+  for (const h of headers) lines.push(h, "");
+  lines.push(`**Status:** ${status}`, "", "## What to build", "", "Something.", "", "## Comments", "");
   writeFileSync(path.join(dir, `${slug}.md`), lines.join("\n"));
   if (lock !== null) writeFileSync(path.join(dir, `${slug}.lock`), `${lock}\n`);
 }

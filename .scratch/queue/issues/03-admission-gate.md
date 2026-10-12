@@ -10,7 +10,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** `.scratch/queue/spec.md` decisions 4 (refusal), 6, 7; ADR 0015 Amendment 3; ADR 0019 decision 8.
 
@@ -32,10 +32,14 @@
 - [ ] `checkAdmission` admits and refuses per spec decisions 6 and 7, each refusal with a reason, tested with literal tickets.
 - [ ] A pipeline ticket listed in an active-feature ticket's Blocked by is admitted without three incidents.
 - [ ] `board gate` with no flag writes nothing; `--apply` parks each refused ticket with its reason.
-- [ ] `board create` writes Class, Origin and Serves lines and refuses a P0 with no `--p0-reason`.
+- [ ] `createTicket` (options `class`, `origin`, `serves`, `p0Reason`) writes Class, Origin and Serves lines and refuses a P0 with no reason. No `board create` CLI subcommand is required (user, 2026-10-12).
 - [ ] A `spec:<feature>` path in ticket text cannot make the gate read a file outside `.scratch/`.
 - [ ] The handoff reports how many organism-infra pipeline tickets pass the three-incidents rule when it is run over the real `usage.jsonl` (the architect did not prove that the same `tool` means the same cause).
 
 ## Comments
 
 - **orchestrator, 2026-10-12:** published from the architect's breakdown (Q2) on the user's approval. Do not run at the same time as ticket 04: both touch `board.mjs` and `frontier-queue.mjs`.
+- **qa, 2026-10-12:** light verify: escalate to full verify. Light steps 1, 2 and 4 are clean (saved suite 4360 pass, 0 fail, 0 skipped; test file unchanged since 4df65d9; no out-of-scope files). Criterion 4 names a board create command, which does not exist; createTicket is tested and no CLI subcommand was built. Scope call needed. Detail in handoff.
+- **qa, 2026-10-12:** Handoff: .scratch/queue/handoffs/03-qa-verify.md (light verify escalated to full).
+- **orchestrator, 2026-10-12:** user ruling on the scope call: `createTicket` is the accepted write surface; no `board create` subcommand is required. Criterion 4 is reworded to say so. Criterion 6 is human-verified (no test): the developer's handoff reports 0 of 10 ready organism-infra tickets passing the three-incidents rule over the real `usage.jsonl`.
+- **qa, 2026-10-12:** qa, light verify on b9b5403: QA pass. Suite (saved output): 4360 pass, 0 fail, 0 skipped. Test file unchanged since 4df65d9. Criteria 1-5 mapped to tests; criterion 6 human-verified. All changed files in scope. Detail in handoff 03-qa-verify-2.md.
