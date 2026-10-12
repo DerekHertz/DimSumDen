@@ -3371,3 +3371,5 @@
 {"kind":"usage","ts":"2026-10-12T17:48:07Z","five_hour":55,"weekly":36,"event":"dispatch","ticket":"queue/04","cell":"security"}
 {"kind":"context","ts":"2026-10-12T17:48:07Z","session":"c0f2c4c8-bdab-4cfb-9333-fca2b283a86d","context_tokens":78876,"percent":7.89,"event":"dispatch"}
 {"kind":"spend","ts":"2026-10-12T17:48:08.003Z","session":"c0f2c4c8-bdab-4cfb-9333-fca2b283a86d","role":"orchestrator","ticket":"queue/04-queue-admin-user-entry-point","input_tokens":8,"cache_creation_input_tokens":5543,"cache_read_input_tokens":226108,"output_tokens":2850}
+{"kind":"cell","ts":"2026-10-12T17:49:50.744Z","ticket":"queue/04-queue-admin-user-entry-point","cell":"security","model":"sonnet","tokens":54404,"ms":78351,"outcome":"pass (full review) on 8864f42: 1 medium for queue/07, 3 low","context":52688,"input_tokens":24,"cache_creation_input_tokens":53182,"cache_read_input_tokens":439987,"output_tokens":283}
+{"kind":"spend","ts":"2026-10-12T17:49:50.744Z","session":"agent-a0355de7402fac905","role":"security","ticket":"queue/04-queue-admin-user-entry-point","input_tokens":24,"cache_creation_input_tokens":53182,"cache_read_input_tokens":439987,"output_tokens":283}

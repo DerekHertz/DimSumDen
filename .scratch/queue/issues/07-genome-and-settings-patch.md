@@ -33,3 +33,4 @@ The orchestrator follows the Queue. `.claude/` is gated, so a cell writes the pa
 ## Comments
 
 - **orchestrator, 2026-10-12:** published from the architect's breakdown (Q6) on the user's approval.
+- **orchestrator, 2026-10-12:** from the queue/04 security review (medium, `04-security.md`): the two prefix deny rules in the queue/04 patch miss `npm run --silent queue-admin`, `npm run-script queue-admin`, `node ./scripts/queue-admin.mjs`, an absolute path to the script, and `node -e` importing the module. Add the variants the matcher allows, plus an Edit/Write deny on `.scratch/usage.jsonl`. Then test queue/04 criterion 5 in the main session: does the user's `!npm run queue-admin ...` still run with the rules in place.
