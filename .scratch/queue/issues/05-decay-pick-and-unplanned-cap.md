@@ -10,7 +10,7 @@
 
 **Blocked by:** 03, 04
 
-**Status:** ready-for-agent
+**Status:** blocked
 
 **Serves:** `.scratch/queue/spec.md` decisions 8 (a pick resets decay), 9, 10; ADR 0015 Amendment 3.
 
@@ -33,3 +33,5 @@ Tickets that sit in the Queue decay and are parked, and unplanned work is capped
 ## Comments
 
 - **orchestrator, 2026-10-12:** published from the architect's breakdown (Q4) on the user's approval.
+- **developer, 2026-10-12:** developer: test 5 in queue-decay.test.mjs (line 138) looks wrong: expects the picked ticket's decayLeft 5, but a resolved row at 10-07T12:00 is after the pick at 10-07T00:00, so 4 is correct. I did not edit it. qa to fix (pick ts 10-08, or expect 4). Everything else passes; see handoffs/05-developer.md.
+- **developer, 2026-10-12:** qa test 5 asserts a wrong decayLeft; qa must fix, implementation done at a8ffdbe
