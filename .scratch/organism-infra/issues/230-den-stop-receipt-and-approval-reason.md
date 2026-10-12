@@ -44,3 +44,4 @@ Out of scope: a chat with Bao (the panda), and the relay through the bridge (org
 ## Comments
 
 - 2026-10-12, orchestrator: filed at the user's choice ("One ticket, designer"). Can run beside 229. The designer spec runs in a terminal with the user, never through the Agent tool.
+- **orchestrator, 2026-10-12:** User direction for the designer, 2026-10-12, in their words: "it should be as if i'm talking directly to the agent not just seeing a list of commands with no context". Read this as the goal for the whole ticket: the agent's requests, the user's replies, stop and deny notes read as one conversation with that agent, with the command as detail under what the agent says it is doing.
