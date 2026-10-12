@@ -10,7 +10,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** `.scratch/queue/spec.md` decisions 1, 14; ADR 0015 Amendment 3 (the order leaves `jev.mjs`).
 

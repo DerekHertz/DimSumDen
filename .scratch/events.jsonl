@@ -2670,3 +2670,17 @@
 {"seq":2021,"ts":"2026-10-12T16:03:44.486Z","feature":"queue","ticket":"02-order-module-and-board-queue","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":2022,"ts":"2026-10-12T16:09:59.954Z","feature":"queue","ticket":"02-order-module-and-board-queue","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":2023,"ts":"2026-10-12T16:09:59.976Z","feature":"queue","ticket":"02-order-module-and-board-queue","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":2024,"ts":"2026-10-12T16:23:14.807Z","feature":"queue","ticket":"03-admission-gate","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":2025,"ts":"2026-10-12T16:23:14.955Z","feature":"queue","ticket":"06-retire-old-order","cell":"qa","mode":"specify","op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":2026,"ts":"2026-10-12T16:27:33.192Z","feature":"queue","ticket":"03-admission-gate","cell":"qa","op":"release","from_status":"claimed","to_status":"ready-for-agent","force":false}
+{"seq":2027,"ts":"2026-10-12T16:28:10.978Z","feature":"queue","ticket":"03-admission-gate","cell":"developer","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":2028,"ts":"2026-10-12T16:31:35.152Z","feature":"queue","ticket":"06-retire-old-order","cell":"qa","op":"release","from_status":"claimed","to_status":"ready-for-agent","force":false}
+{"seq":2029,"ts":"2026-10-12T16:32:09.253Z","feature":"queue","ticket":"06-retire-old-order","cell":"developer","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":2030,"ts":"2026-10-12T16:34:01.110Z","feature":"queue","ticket":"03-admission-gate","cell":"developer","op":"release","from_status":"claimed","to_status":"in-review","force":false}
+{"seq":2031,"ts":"2026-10-12T16:39:32.718Z","feature":"queue","ticket":"03-admission-gate","cell":"qa","mode":"verify","op":"claim","from_status":"in-review","to_status":"in-review"}
+{"seq":2032,"ts":"2026-10-12T16:40:35.085Z","feature":"queue","ticket":"03-admission-gate","cell":"qa","op":"comment","text":"light verify: escalate to full verify. Light steps 1, 2 and 4 are clean (saved suite 4360 pass, 0 fail, 0 skipped; test file unchanged since 4df65d9; no out-of-scope files). Criterion 4 names a board create command, which does not exist; createTicket is tested and no CLI subcommand was built. Scope call needed. Detail in handoff."}
+{"seq":2033,"ts":"2026-10-12T16:40:53.151Z","feature":"queue","ticket":"03-admission-gate","cell":"qa","op":"comment","text":"Handoff: .scratch/queue/handoffs/03-qa-verify.md (light verify escalated to full)."}
+{"seq":2034,"ts":"2026-10-12T16:40:53.465Z","feature":"queue","ticket":"03-admission-gate","cell":"qa","op":"release","from_status":"in-review","to_status":"in-review","force":false}
+{"seq":2035,"ts":"2026-10-12T16:41:32.286Z","feature":"queue","ticket":"06-retire-old-order","cell":"developer","op":"release","from_status":"claimed","to_status":"in-review","force":false}
+{"seq":2036,"ts":"2026-10-12T16:44:37.900Z","feature":"queue","ticket":"03-admission-gate","cell":"qa","mode":"verify","op":"claim","from_status":"in-review","to_status":"in-review"}
+{"seq":2037,"ts":"2026-10-12T16:44:38.618Z","feature":"queue","ticket":"06-retire-old-order","cell":"qa","mode":"verify","op":"claim","from_status":"in-review","to_status":"in-review"}
