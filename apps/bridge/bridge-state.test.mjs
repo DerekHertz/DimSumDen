@@ -206,14 +206,14 @@ describe("GET /state on a fixture tree (no claim lock)", () => {
 });
 
 describe("GET /state with a claim lock", () => {
-  test("holder parsed from the lock; locked ticket leaves the frontier; no dispatch gate anywhere", () =>
+  test("holder parsed from the lock; locked ticket leaves the frontier; frontier[0] keeps the dispatch gate (organism-infra/227)", () =>
     withBridge({ lock: true }, async (bridge) => {
       const { snap } = await getState(bridge);
       const t = snap.tickets.find((x) => x.ref === ref("09-claimed"));
       assert.deepEqual(t.holder, { cell: "developer", since: LOCK_TS });
       assert.ok(!snap.frontier.includes(ref("09-claimed")));
       assert.deepEqual(snap.frontier, [ref("02-ready-p0"), ref("07-bumpable"), ref("08-plain")]);
-      for (const x of snap.tickets) assert.notEqual(x.gate, "dispatch", x.ref);
+      assert.deepEqual(snap.tickets.filter((x) => x.gate === "dispatch").map((x) => x.ref), [ref("02-ready-p0")], "only frontier[0], and it has the gate despite the lock");
       // a merge gate needs no lock on the ticket itself
       assert.equal(snap.tickets.find((x) => x.ref === ref("04-review")).gate, "merge");
     }));
