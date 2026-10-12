@@ -10,7 +10,7 @@
 
 **Blocked by:** 03, 04
 
-**Status:** blocked
+**Status:** in-review
 
 **Serves:** `.scratch/queue/spec.md` decisions 8 (a pick resets decay), 9, 10; ADR 0015 Amendment 3.
 
