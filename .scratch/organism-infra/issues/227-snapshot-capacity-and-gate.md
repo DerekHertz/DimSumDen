@@ -33,3 +33,4 @@ Design is in ADR 0011 decision 3 (amended 2026-10-12) and ADR 0016 amendment 14.
 ## Comments
 
 - **orchestrator, 2026-10-12:** filed from the 154 architect handoff on the user's approval ("draft is fine"). Priority set to P1: the user's goal is several agents controlled from the interface today. The default max is 8 after 226.
+- **orchestrator, 2026-10-12:** batch 226-227: 226 and 227 run as one relay (one tests branch tests/organism-infra-226-227-dispatch-capacity, one PR). User, 2026-10-12: finish the list; relay approved.
