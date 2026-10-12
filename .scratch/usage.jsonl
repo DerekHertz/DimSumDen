@@ -3449,3 +3449,5 @@
 {"kind":"usage","ts":"2026-10-12T18:46:51Z","five_hour":78,"weekly":39,"event":"return","ticket":"queue/07-genome-and-settings-patch","cell":"qa"}
 {"kind":"context","ts":"2026-10-12T18:46:51Z","session":"d2260a5d-2532-4841-8e57-1b63e2a4a1c9","context_tokens":53602,"percent":5.36,"event":"return"}
 {"kind":"spend","ts":"2026-10-12T18:46:51.584Z","session":"d2260a5d-2532-4841-8e57-1b63e2a4a1c9","role":"orchestrator","ticket":"queue/07-genome-and-settings-patch","input_tokens":12,"cache_creation_input_tokens":7213,"cache_read_input_tokens":253945,"output_tokens":3909}
+{"kind":"resolved","ts":"2026-10-12T18:50:23.825Z","ticket":"queue/07-genome-and-settings-patch","pr":null,"bounces":0}
+{"kind":"jev-advisory-outcome","ts":"2026-10-12T18:50:23.878Z","ticket":"queue/07-genome-and-settings-patch","orchestratorPick":"developer-direct","jevPick":"other","userChoice":"developer-direct","bounced":false}
