@@ -1,7 +1,7 @@
 // organism-infra/140 (ADR 0016 decision 3): the steering host's policy values and role table, in one place.
 // Mechanism lives in host.mjs; every number and allowlist a reviewer may want to change lives here.
 
-export const MAX_CONCURRENT_AGENTS = 2; // max_concurrent_cells (CLAUDE.md, ADR 0002)
+export const MAX_CONCURRENT_AGENTS = 8; // max_concurrent_cells (ADR 0002, ADR 0016 amendment 14); SESSION_CAP still bounds it
 export const SESSION_CAP = 8; // hard ceiling on live daemon-spawned sessions; a policy override can only lower it
 export const KILL_GRACE_MS = 5000; // between stdin close, SIGTERM and SIGKILL
 export const SHUTDOWN_SPAWN_WAIT_MS = 3000; // organism-infra/143: how long shutdown waits for spawns in flight before it kills synchronously
