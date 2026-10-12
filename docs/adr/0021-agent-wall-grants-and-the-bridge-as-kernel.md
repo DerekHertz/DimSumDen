@@ -114,6 +114,30 @@ The production runtime does not pass `wall` yet. That is agent-os/02.
 - Decision 5 (notice, pause at three of a kind) can be built on the tool result text: the violations block for hosts, and `Read-only file system` for writes. The second is a text match and can be wrong.
 - Decision 2's hardware limits work as a scope around the CLI. Where the `systemd-run` argv lives (it is not a Claude flag), the limit values per role, and whether an agent that goes over memory is stopped or only loses the command, are for agent-os/02.
 
+## Amendment 2 (proposed by the architect for agent-os/07 on 2026-10-11, pending the user's acceptance): the rule for the main checkout's `.git`
+
+**What was found.** A developer child in a worktree wrote the main checkout's `.git/refs` and `.git/HEAD`, and `git update-ref` and `git branch` succeeded (`.scratch/agent-os/handoffs/07-developer.md`). Amendment 1 named the opening and left it for the bridge to distrust; this closes it.
+
+**The cause, from the code and the CLI binary (2.1.293).**
+
+- When the working directory is a linked worktree, the CLI adds the worktree's git common directory (the main checkout's `.git`) to the sandbox's write allowances, so that `git commit` works. It then denies a short fixed list inside it: `hooks`, `config`, `config.worktree`, `commondir`, `objects/info/alternates`, and the same `config.worktree` and `commondir` under each `worktrees/<name>`. `refs`, `HEAD`, `packed-refs` and `index` are not on that list.
+- The adapter adds nothing for them. `sandboxFor` builds `denyWrite` from the governed list resolved against the worktree (`<worktree>/.git`) plus `denyAbs`, and `denyAbs` is built only from the path grants (`governedUnder`). `host.mjs` passes `root` only when a task has grants. So a task with no grants has no deny on the main `.git`.
+- The developer's guess is therefore half right. Passing `root` for every task is not enough: even with `root` and a grant elsewhere, `denyAbs` holds only the governed paths that grant reaches, never `<root>/.git/refs`.
+
+**What the sandbox can and cannot say (live prototype, real child, bridge flags, production path).**
+
+- A `denyWrite` on an existing file or directory under the allowed `.git` holds: `Read-only file system` for a shell write, for `git update-ref`, `git branch` and `git tag` (git cannot create the `.lock`), and for a `HEAD` rewrite.
+- A `denyWrite` on a path that does not exist is masked so that it cannot be read: with `packed-refs` absent, every git command in the worktree failed with `couldn't read .git/packed-refs: Permission denied`. Every deny target must exist before the spawn.
+- A deny cannot be narrowed by a more specific allow. With `refs` denied and `refs/heads/den/feat` allowed, the agent's own `git commit` failed: `Unable to create '.git/refs/heads/<its branch>.lock': Read-only file system`. The sandbox cannot say "deny the other refs, keep my own branch".
+- A worktree on a detached `HEAD` commits without touching any ref: with `refs`, `HEAD` and `packed-refs` denied, `git commit` succeeded (objects and the worktree's own `HEAD` and index), and every ref write, including `refs/heads/main`, a new branch and a tag, was refused.
+
+**The rule (decision 17).**
+
+17. **A worktree agent commits detached and cannot write refs.** The bridge creates each agent's worktree on a detached `HEAD` at the base commit (`git worktree add --detach`), not on a new branch. The agent keeps `objects` and its own `worktrees/<name>` entry (commit, add, status, diff, log all work). The sandbox denies, in the main checkout's `.git`: `refs`, `HEAD`, `packed-refs` and `index`, on top of the CLI's own list (`hooks`, `config`, ...). The Write and Edit tools get the same denies through `denyAbs`. The deny targets are fixed names built from the main checkout's path; they come from no grant and no client string. The branch name stays as before (`den/<ref>-<id>`), but it is the name the bridge will use: the bridge, which holds the credentials (decision 7), creates the branch at the agent's final commit and pushes it when the agent is done. If a deny target does not exist at spawn, the bridge makes it exist (`git pack-refs --all --no-prune` creates `packed-refs`) or refuses the spawn; it never spawns with a deny missing.
+    - **What stays open.** `worktrees/<other>` (a sibling agent's `HEAD` and index), `logs`, `info` and `objects` are writable. A sibling's `HEAD` is moved, not a ref the bridge trusts. Denying siblings that exist at spawn is a best-effort addition, not required for this ticket.
+    - **If the user will not detach.** The fallback inside the sandbox is: keep the named branch and deny `HEAD`, `packed-refs`, `index`, `refs/tags`, `refs/remotes` and `refs/stash` (each must exist). `refs/heads` stays writable, so an agent can move or create any branch, `main` included. The bridge then treats every branch as untrusted (Amendment 1) and takes the sha from the worktree's `HEAD`, not from a ref. The stronger fallback is decision 2's container per agent.
+    - **Always-on.** The denies apply to every task that spawns in a worktree, with or without grants. They are keyed on a new compile option for the main `.git` path, separate from `root`, so a task without grants gets them and the agent-os/02 grant rules keep their meaning.
+
 ## Consequences
 
 - den-v1/14 (allowlist, then auto mode) is replaced by the wall spike. Auto mode is not adopted: inside the wall no decision is needed, and crossing it reaches the user, not a classifier.
