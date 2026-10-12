@@ -1602,6 +1602,11 @@ const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const SOURCE_RE = /^[a-z0-9][a-z0-9 -]{0,39}$/;
 const PRIORITY_RE = /^P[0-3]$/;
 const TITLE_MAX = 120;
+// queue/03 (ADR 0015 Amendment 3): the machine header lines the admission gate reads.
+export const TICKET_CLASSES = ["product", "pipeline"];
+export const TICKET_ORIGINS = ["spec", "added"];
+export const P0_REASONS = ["main-red", "relay-down", "security-high"];
+const SERVES_MAX = 300;
 // C0 and C1 controls, and the bidirectional marks and overrides (200e, 200f, 202a to 202e, 2066 to 2069).
 const CONTROL_SRC = `[\\x00-\\x1f\\x7f-\\x9f${[0x200e, 0x200f].map((n) => String.fromCharCode(n)).join("")}${String.fromCharCode(0x202a)}-${String.fromCharCode(0x202e)}${String.fromCharCode(0x2066)}-${String.fromCharCode(0x2069)}]`;
 const CONTROL_RE = new RegExp(CONTROL_SRC);
@@ -1614,8 +1619,8 @@ function quoteLines(text) {
     .join("\n");
 }
 
-export async function createTicket(root, { feature, slug, title, text, source, priority = "P2" } = {}) {
-  for (const [value, name] of [[feature, "feature"], [slug, "slug"], [title, "title"], [text, "text"], [source, "source"]]) {
+export async function createTicket(root, { feature, slug, title, text, source, priority = "P2", class: ticketClass, origin, serves, p0Reason } = {}) {
+  for (const [value, name] of [[feature, "feature"], [slug, "slug"], [title, "title"], [text, "text"], [source, "source"], [serves, "serves"], [p0Reason, "p0 reason"]]) {
     checkArgLength(value, name);
   }
   if (typeof feature !== "string" || !FEATURE_RE.test(feature)) throw new BoardError(`invalid feature segment: ${feature}`);
@@ -1626,6 +1631,20 @@ export async function createTicket(root, { feature, slug, title, text, source, p
   if (typeof text !== "string" || !text.trim()) throw new BoardError("text must be a non-empty string");
   if (typeof priority !== "string" || !PRIORITY_RE.test(priority)) throw new BoardError(`invalid priority: ${priority}`);
   if (source !== undefined && (typeof source !== "string" || !SOURCE_RE.test(source))) throw new BoardError("invalid source");
+  if (ticketClass !== undefined && !TICKET_CLASSES.includes(ticketClass)) throw new BoardError(`invalid class: ${ticketClass} (product or pipeline)`);
+  if (origin !== undefined && !TICKET_ORIGINS.includes(origin)) throw new BoardError(`invalid origin: ${origin} (spec or added)`);
+  if (serves !== undefined) {
+    // One header line: a newline or control character in it could start a second header field.
+    if (typeof serves !== "string" || !serves.trim() || serves.length > SERVES_MAX || LINE_TERMINATOR_RE.test(serves) || CONTROL_RE.test(serves)) {
+      throw new BoardError(`serves must be one line of at most ${SERVES_MAX} characters`);
+    }
+  }
+  if (priority === "P0") {
+    if (!P0_REASONS.includes(p0Reason)) throw new BoardError(`a P0 ticket needs --p0-reason ${P0_REASONS.join("|")}`);
+  } else if (p0Reason !== undefined) {
+    throw new BoardError("p0 reason only applies to a P0 ticket");
+  }
+  const originLine = origin ?? (ticketClass !== undefined ? "added" : undefined);
 
   const issuesDir = path.join(root, ".scratch", feature, "issues");
   await assertWithinRoot(root, issuesDir);
@@ -1641,6 +1660,10 @@ export async function createTicket(root, { feature, slug, title, text, source, p
       `**Priority:** ${priority}`, "",
       "**Status:** ready-for-agent", "",
       ...(source ? [`**Source:** ${source}`, ""] : []),
+      ...(ticketClass ? [`**Class:** ${ticketClass}`, ""] : []),
+      ...(originLine ? [`**Origin:** ${originLine}`, ""] : []),
+      ...(serves ? [`**Serves:** ${serves.trim()}`, ""] : []),
+      ...(priority === "P0" ? [`**P0-reason:** ${p0Reason}`, ""] : []),
       "## What to build", "",
       "The request, quoted as its author wrote it:", "",
       quoteLines(text.trim()), "",

@@ -17,7 +17,7 @@ import {
   BoardError,
 } from "./board-service.mjs";
 import { audit } from "./board-audit.mjs";
-import { loadSnapshot, buildQueue, formatQueue } from "./frontier-queue.mjs";
+import { loadSnapshot, buildQueue, formatQueue, gateRefusals, gateReason } from "./frontier-queue.mjs";
 
 // organism-infra/18: `allowed` declares a subcommand's flag set; any other
 // `--flag` is a hard error naming the bad flag, never silently absorbed as
@@ -201,6 +201,36 @@ async function main() {
       if (positional.length) throw new BoardError(`queue takes no arguments: ${positional.join(" ")}`);
       const snapshot = await loadSnapshot(root);
       console.log(formatQueue(buildQueue(snapshot), snapshot));
+      return;
+    }
+    case "gate": {
+      // queue/03: the admission gate (ADR 0015 Amendment 3). A dry run lists the ready tickets it would park and writes
+      // nothing; `--apply` parks each one with its reason through the park path.
+      const { positional, flags } = parseFlags(rest, { allowed: ["apply"], boolean: ["apply"] });
+      if (positional.length) throw new BoardError(`gate takes no arguments: ${positional.join(" ")}`);
+      const refused = gateRefusals(await loadSnapshot(root));
+      if (!refused.length) {
+        console.log("Nothing to park: every ready ticket passes the admission gate.");
+        return;
+      }
+      if (!flags.apply) {
+        console.log(`Would park ${refused.length} ticket${refused.length === 1 ? "" : "s"} (dry run; pass --apply to park):`);
+        for (const r of refused) console.log(`  ${r.ref}: ${r.reasons.join("; ")}`);
+        return;
+      }
+      let failed = 0;
+      for (const r of refused) {
+        try {
+          await setOffRelay(root, [r.ref], "park", { reason: gateReason(r.reasons) });
+          console.log(`parked ${r.ref}: ${r.reasons.join("; ")}`);
+        } catch (err) {
+          if (!(err instanceof BoardError)) throw err;
+          // A ticket claimed since the listing stays as it is; the rest are still parked.
+          failed += 1;
+          console.error(`board: not parked ${r.ref}: ${err.message}`);
+        }
+      }
+      if (failed) process.exitCode = 1;
       return;
     }
     default:
