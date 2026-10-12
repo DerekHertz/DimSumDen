@@ -39,3 +39,4 @@ Design is in ADR 0016 decision 3, amendment 14 ("Who may be dispatched, and how 
 
 - **orchestrator, 2026-10-12:** filed from the 154 architect handoff on the user's approval ("draft is fine"). Priority set to P1: the user's goal is several agents controlled from the interface today. User rulings folded in: cap raised to 8 (item 5); a stale lock from a dead holder counts toward the cap, as designed.
 - **orchestrator, 2026-10-12:** batch 226-227: 226 and 227 run as one relay (one tests branch tests/organism-infra-226-227-dispatch-capacity, one PR). User, 2026-10-12: finish the list; relay approved.
+- **qa, 2026-10-12:** QA pass (light verify): 4445 pass, 0 fail, 0 skipped; no test changed; every criterion mapped; ADRs 0002/0016 say 8. Gap: no test for the lockedRefs-throws 503 path (fails closed). See 226-qa-verify.md.
