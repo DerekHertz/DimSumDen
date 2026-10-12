@@ -172,6 +172,9 @@ export const ceilingOf = (role) => (Object.hasOwn(CEILINGS, role) ? { takesGrant
 
 const covers = (grant, file) => file === grant || file.startsWith(`${grant}/`);
 
+/** What a worktree agent may not write in the main checkout's .git (agent-os/09). `objects` and `worktrees/<own>` stay writable. */
+export const MAIN_GIT_DENIED = Object.freeze(["refs", "HEAD", "packed-refs", "index"]);
+
 /** A grant as an absolute path: "~/x" becomes "<home>/x" when home is known; otherwise it is returned as it is. */
 const expandHome = (grant, home) => (grant.startsWith("~/") && home !== undefined ? `${home}${grant.slice(1)}` : grant);
 
@@ -212,9 +215,10 @@ function governedUnder(grant, root, worktree) {
  * worktree undefined leaves the write rules out (the wall stays, the Write request stays). Any grant outside the fixed shape,
  * any grant for a role that cannot write, and a path grant that contains the worktree are TypeErrors.
  */
-export function compileCeiling(role, { worktree, grants, root, home } = {}) {
+export function compileCeiling(role, { worktree, grants, root, home, mainGit } = {}) {
   const { hosts: grantHosts, paths } = parseGrants(grants);
   if (root !== undefined && !isWorktreePath(root)) throw new TypeError("compileCeiling: root must be a plain absolute path");
+  if (mainGit !== undefined && !isWorktreePath(mainGit)) throw new TypeError("compileCeiling: mainGit must be a plain absolute path");
   if (home !== undefined && !isWorktreePath(home)) throw new TypeError("compileCeiling: home must be a plain absolute path");
   const ceiling = Object.hasOwn(CEILINGS, role) ? CEILINGS[role] : undefined;
   if (ceiling === undefined) {
@@ -233,7 +237,12 @@ export function compileCeiling(role, { worktree, grants, root, home } = {}) {
     options.worktree !== undefined && GOVERNANCE.ciGrantRoles.includes(role) && paths.some((p) => p.startsWith("/") && covers(p, `${options.worktree}/${baseOf(entry)}`));
   // A path grant inside the main checkout: the governed paths it reaches are denied in absolute form. The CI exception is not
   // carried over; it is for the role's own worktree only.
-  const denyAbs = root === undefined ? [] : [...new Set(paths.flatMap((g) => governedUnder(expandHome(g, home), root, worktree)))];
+  // agent-os/09 (ADR 0021 Amendment 2, decision 17): a worktree agent never writes the main .git's refs, HEAD, packed-refs or index,
+  // with or without grants. Fixed names under a path the bridge computed; objects/ and worktrees/ stay writable. Keyed on mainGit, not root.
+  const denyAbs = [...new Set([
+    ...(root === undefined ? [] : paths.flatMap((g) => governedUnder(expandHome(g, home), root, worktree))),
+    ...(mainGit === undefined ? [] : MAIN_GIT_DENIED.map((name) => (name === "refs" ? `${mainGit}/refs/**` : `${mainGit}/${name}`))),
+  ])];
   const hosts = [...new Set([...ceiling.hosts, ...grantHosts])];
   return {
     wall: { hosts },

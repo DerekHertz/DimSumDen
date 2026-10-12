@@ -12,7 +12,7 @@ import { GOVERNED_BASES, grantContainsWorktrees } from "./claude-adapter.mjs";
 
 // Security's list from 02-security finding 1 (user decision 2026-10-11), by first path segment under the home directory.
 const HOME_DIRS = new Set([".ssh", ".claude", ".config", ".local"]);
-const RC_FILES = new Set([".bashrc", ".profile", ".zshrc", ".zshenv", ".zprofile", ".zlogin", ".zlogout", ".login", ".logout", ".kshrc", ".cshrc", ".tcshrc"]);
+const RC_FILES = new Set([".bashrc", ".profile", ".zshrc", ".zshenv", ".zprofile", ".zlogin", ".zlogout", ".login", ".logout", ".kshrc", ".cshrc", ".tcshrc", ".bash_profile", ".bash_login", ".bash_logout", ".bash_aliases"]);
 // `/etc` and `/usr` from the decision, and the other directories a write would change the system through (developer's addition).
 const SYSTEM_DIRS = new Set(["etc", "usr", "bin", "sbin", "lib", "lib32", "lib64", "boot", "root", "sys", "proc", "dev", "system", "library"]);
 const MAX_HOPS = 16;

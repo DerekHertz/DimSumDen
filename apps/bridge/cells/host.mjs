@@ -23,7 +23,7 @@ import { ceilingOf, grantContainsWorktrees, parseGrants } from "./claude-adapter
 import { grantRefusal } from "./grant-policy.mjs";
 import { createSessions } from "./sessions.mjs";
 import { createApprovalStore, cleanText } from "./approvals.mjs";
-import { createWorkspaces } from "./workspace.mjs";
+import { createWorkspaces, prepareMainGit } from "./workspace.mjs";
 import { TIERS, readCost, readCount, readModel, readTiers } from "./run-record.mjs";
 
 const HISTORY_CAP = 200; // ended agents kept in the snapshot, oldest dropped first
@@ -308,9 +308,20 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     }
     agent.worktree = workspace.worktree;
     agent.branch = workspace.branch;
+    agent.workspace = workspace;
+    // agent-os/09 (ADR 0021 Amendment 2): every deny target of the main .git must exist before the spawn, or nothing is spawned.
+    let mainGit;
+    try {
+      ({ mainGit } = await prepareMainGit(root));
+    } catch (err) {
+      await workspaces.remove(workspace);
+      liveByRef.delete(agent.ref);
+      console.error(`bridge: the main .git is not ready for ${agent.role} on ${agent.ref}: ${err?.message ?? err}`);
+      return refuse(502, "the repository's git directory is not ready for the agent");
+    }
     const args = {
       role: agent.role, ...(agent.mode ? { mode: agent.mode } : {}), ref: agent.ref, cwd: workspace.dir, sessionId: agent.sessionId,
-      prompt: promptFor(agent), ticketFile: ticketFile(agent.ref),
+      prompt: promptFor(agent), ticketFile: ticketFile(agent.ref), mainGit,
       // agent-os/02: data for the adapter, never in the prompt. The main checkout's path rides along so the adapter can deny
       // the governed paths a path grant reaches there.
       ...(agent.grants.length === 0 ? {} : { grants: agent.grants, root: await realRoot() }),
@@ -368,6 +379,10 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     agent.exitCode = info?.code ?? null;
     agent.exited = true;
     await Promise.race([consume, sleep(EVENT_DRAIN_MS)]);
+    // agent-os/09: the agent committed on a detached HEAD; the bridge, not the agent, creates its branch at the final commit.
+    if (agent.workspace) {
+      await workspaces.publish(agent.workspace).catch((err) => console.error(`bridge: could not create the branch ${agent.branch}: ${err?.message ?? err}`));
+    }
     finalize(agent);
     // The run record (den-v1 loop S4): on the end line, then as one ledger row. Neither write can undo the end.
     const run = {

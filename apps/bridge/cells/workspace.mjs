@@ -1,14 +1,19 @@
-// den-v1 loop S0 (ADR 0016 decisions 3 and 6.6, amendment 7): the agent workspace. Every bridge-started agent gets
-// one git worktree and one branch, so its working directory is never the repo root. The names are a pure function of
-// the validated ref and the bridge-minted agent id; git runs through execFile with an argument list, never a shell.
+// den-v1 loop S0 (ADR 0016 decisions 3 and 6.6, amendment 7), amended by agent-os/09 (ADR 0021 Amendment 2, decision 17): the agent
+// workspace. Every bridge-started agent gets one git worktree, so its working directory is never the repo root. The worktree is
+// created DETACHED: the agent holds no branch, so the sandbox can deny every ref of the main .git. The bridge creates the branch
+// (den/<ref>-<short>) at the agent's final commit when the agent ends. The names are a pure function of the validated ref and the
+// bridge-minted agent id; git runs through execFile with an argument list, never a shell.
 // A worktree is a working-directory convention, not a security boundary: nothing here confines the child.
 import { execFile } from "node:child_process";
-import { realpath } from "node:fs/promises";
+import { access, lstat, realpath } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { AGENT_ID_RE, REF_RE, WORKSPACE_BRANCH_PREFIX, WORKTREES_DIR } from "./policy.mjs";
 
 const execFileP = promisify(execFile);
+
+// The one shape a published branch may have: what workspaceNames derives (a ref's slashes kept, then "-" and 8 hex of the agent id).
+const PUBLISH_BRANCH_RE = new RegExp(`^${WORKSPACE_BRANCH_PREFIX}/[a-z0-9][a-z0-9-]*/\\d{2,}-[a-z0-9][a-z0-9-]*-[0-9a-f]{8}$`);
 
 /** { worktree, branch } for one agent: the worktree's repo-relative path and its branch. Throws on a bad ref or id. */
 export function workspaceNames({ ref, agentId } = {}) {
@@ -25,11 +30,21 @@ export function workspaceNames({ ref, agentId } = {}) {
 export function createWorkspaces(root, { exec = execFileP } = {}) {
   const git = (...args) => exec("git", ["-C", root, ...args]);
   return {
-    // -> { dir, worktree, branch }: `dir` is the resolved absolute path the child runs in.
+    // -> { dir, worktree, branch }: `dir` is the resolved absolute path the child runs in. `branch` is only the name to publish to.
     async create({ ref, agentId } = {}) {
       const { worktree, branch } = workspaceNames({ ref, agentId });
-      await git("worktree", "add", "-b", branch, path.join(root, ...worktree.split("/")), "HEAD");
+      await git("worktree", "add", "--detach", path.join(root, ...worktree.split("/")), "HEAD");
       return { dir: await realpath(path.join(root, ...worktree.split("/"))), worktree, branch };
+    },
+    // Creates `branch` in the main checkout at the worktree's current HEAD (the agent's final commit). Never moves a branch that
+    // already exists (git branch refuses), and only a derived den/ name is accepted. -> { branch, sha }.
+    async publish({ dir, branch } = {}) {
+      if (typeof branch !== "string" || !PUBLISH_BRANCH_RE.test(branch)) throw new TypeError("workspace: not a den agent branch name");
+      if (typeof dir !== "string" || dir === "") throw new TypeError("workspace: publish needs the worktree directory");
+      const sha = String((await exec("git", ["-C", dir, "rev-parse", "HEAD"])).stdout).trim();
+      if (!/^[0-9a-f]{40,64}$/.test(sha)) throw new Error("workspace: the worktree has no commit to publish");
+      await git("branch", branch, sha);
+      return { branch, sha };
     },
     // Undoes a create whose agent never started. Best effort: a leftover is reported by scripts/worktree-gc.mjs.
     async remove({ dir, branch }) {
@@ -37,4 +52,30 @@ export function createWorkspaces(root, { exec = execFileP } = {}) {
       await git("branch", "-D", branch).catch(() => {});
     },
   };
+}
+
+// agent-os/09: the main .git's deny targets must exist before the spawn, because the CLI's sandbox binds a deny on a path that is
+// missing and git then fails in the worktree. A repo that was never packed has no packed-refs: the bridge makes one (no refs lost,
+// nothing pruned). `refs` and `HEAD` exist in any repository. A missing index cannot be made safely, so the spawn is refused.
+const GIT_TARGETS = ["refs", "HEAD", "packed-refs", "index"];
+const exists = (p) => access(p).then(() => true, () => false);
+
+/** Makes every deny target of the main .git exist, or rejects. -> { mainGit }: the resolved <root>/.git the host hands to the runtime. */
+export async function prepareMainGit(root, { exec = execFileP } = {}) {
+  const mainGit = path.join(await realpath(root), ".git");
+  const info = await lstat(mainGit).catch(() => null);
+  if (info === null || !info.isDirectory()) throw new Error("the main checkout's .git is not a directory");
+  const missing = async () => {
+    const out = [];
+    for (const target of GIT_TARGETS) if (!(await exists(path.join(mainGit, target)))) out.push(target);
+    return out;
+  };
+  let lacking = await missing();
+  if (lacking.includes("packed-refs")) {
+    // A failed attempt (another spawn holds the lock) is judged by whether the file is there afterwards.
+    await exec("git", ["-C", root, "pack-refs", "--all", "--no-prune"]).catch(() => {});
+    lacking = await missing();
+  }
+  if (lacking.length > 0) throw new Error(`the main checkout's .git lacks ${lacking.join(", ")}`);
+  return { mainGit };
 }
