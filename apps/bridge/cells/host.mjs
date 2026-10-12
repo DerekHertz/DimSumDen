@@ -20,6 +20,7 @@ import {
   MESSAGE_MAX_BYTES, MESSAGE_QUEUE_MAX, MESSAGE_SETTLE_MS,
 } from "./policy.mjs";
 import { ceilingOf, grantContainsWorktrees, parseGrants } from "./claude-adapter.mjs";
+import { grantRefusal } from "./grant-policy.mjs";
 import { createSessions } from "./sessions.mjs";
 import { createApprovalStore, cleanText } from "./approvals.mjs";
 import { createWorkspaces } from "./workspace.mjs";
@@ -278,6 +279,10 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       const roots = [...new Set([root, await realRoot()])];
       if (checked.paths.some((g) => roots.some((r) => grantContainsWorktrees(g, { root: r, home: homeDir() })))) return refuse(400, "a path grant may not contain the agent's worktree");
     }
+    // agent-os/07: a grant that could never be safe (a governed path, a home or system path, a GitHub host) is refused with a
+    // reason, whatever its casing or symlinks. The governance denies in the adapter stay as the second layer.
+    const refusal = await grantRefusal(checked, { roots: [...new Set([root, await realRoot()])], home: homeDir() });
+    if (refusal !== null) return refuse(400, refusal);
     const early = down() ?? overUsage(await readUsage()) ?? full();
     if (early) return early;
     let ref;
