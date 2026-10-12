@@ -10,7 +10,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** `.scratch/queue/spec.md` decisions 1, 2, 4 (order), 5, 12, 14; ADR 0015 Amendment 3.
 
@@ -36,3 +36,7 @@
 ## Comments
 
 - **orchestrator, 2026-10-12:** published from the architect's breakdown (Q1) on the user's approval of "Seven: Q1 to Q7". User rulings the same day: den-v1 is the active feature; ADR 0019 decision 8 stays; the Class backfill rule is approved.
+- **developer, 2026-10-12:** qa test wrong: frontier-queue.test.mjs line 301 expects den-v1 planned 2, but the fixture seed den-v1/09-seed (resolved, no Origin) is planned too, so 3. Impl done at e7bc24f, 12 of 13 green. qa to fix the expectation; no code change needed. See 02-developer.md.
+- **developer, 2026-10-12:** qa CLI test expects planned 2 but fixture seed makes it 3; qa to fix test
+- **qa, 2026-10-12:** QA pass (light verify, e8aa3dd): saved developer run 4327 pass, 0 fail, 0 skipped; all six criteria map to passing tests. Changed planned count at frontier-queue.test.mjs:302 (2 to 3) rests on the resolved no-Origin reading; see handoff 02-qa-verify.md.
+- **orchestrator, 2026-10-12:** user ruling 2026-10-12: a ticket with no Origin line counts as planned, resolved tickets included; merge as built. risk-check hit on frontier-queue.mjs and its test (board code), so full security runs before the PR.
