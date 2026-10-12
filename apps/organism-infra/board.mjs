@@ -14,6 +14,8 @@ import {
   publishHandoff,
   handoffTemplate,
   list,
+  appendUsageLine,
+  checkArgLength,
   BoardError,
 } from "./board-service.mjs";
 import { audit } from "./board-audit.mjs";
@@ -203,14 +205,28 @@ async function main() {
       console.log(formatQueue(buildQueue(snapshot), snapshot));
       return;
     }
+    case "pick": {
+      // queue/05: record that the user chose this ticket. Resets its decay count (ADR 0015 Amendment 3 decisions 9, 14).
+      const { positional, flags } = parseFlags(rest, { allowed: ["deviation"] });
+      if (positional.length !== 1) throw new BoardError('usage: board pick <ref> [--deviation "<why>"]');
+      const ref = full(positional[0]);
+      checkArgLength(flags.deviation, "deviation");
+      await getStatus(root, ref); // throws "ticket not found" for an unknown ref
+      const top = buildQueue(await loadSnapshot(root)).ordered[0]?.ref ?? null;
+      const row = { kind: "queue-pick", ts: new Date().toISOString(), top, picked: ref };
+      if (flags.deviation !== undefined) row.deviation = flags.deviation;
+      await appendUsageLine(root, JSON.stringify(row) + "\n");
+      console.log(`picked ${ref}`);
+      return;
+    }
     case "gate": {
-      // queue/03: the admission gate (ADR 0015 Amendment 3). A dry run lists the ready tickets it would park and writes
+      // queue/03: the admission gate (ADR 0015 Amendment 3). A dry run lists the ready tickets it would park (refused by the gate, or decayed) and writes
       // nothing; `--apply` parks each one with its reason through the park path.
       const { positional, flags } = parseFlags(rest, { allowed: ["apply"], boolean: ["apply"] });
       if (positional.length) throw new BoardError(`gate takes no arguments: ${positional.join(" ")}`);
       const refused = gateRefusals(await loadSnapshot(root));
       if (!refused.length) {
-        console.log("Nothing to park: every ready ticket passes the admission gate.");
+        console.log("Nothing to park: every ready ticket passes the admission gate and none has decayed.");
         return;
       }
       if (!flags.apply) {
