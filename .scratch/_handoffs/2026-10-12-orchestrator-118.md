@@ -46,3 +46,9 @@ Mid-flight handoff, written at the 80k context gate so the session can be compac
 1. Finish queue/05 as above.
 2. Fresh session: queue/07, then 08.
 3. After queue/08: agent-os/03 as A / B / C (settle its status then), then agent-os/05, then triage of agent-os/06.
+
+## Update: light verify passed (still mid-flight, waiting on /compact)
+- qa light verify (haiku, 68k) passed on 5ed03a2; logged; its worktree is removed; no locks held. Handoff `05-qa-verify.md`.
+- "Still to do" item 1 is done. Start at item 2 (risk-check). Nothing is dispatched or running.
+- The verify cell re-ran the suite despite the Suite result line (genome step 1; it also noted the saved file records no commit). Incident logged; the queue/07 note covers the genome sentence.
+- Orchestrator context was 86k when this was written; no cell was dispatched past 80k.
