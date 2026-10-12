@@ -54,7 +54,7 @@ async function fake(options) {
 }
 
 describe("the child's working directory", () => {
-  test("is a new worktree under .claude/worktrees on a den/ branch at the root's HEAD, never the root", async () => {
+  test("is a new detached worktree under .claude/worktrees at the root's HEAD (branch name recorded, no branch yet), never the root", async () => {
     const t = await boot({ mode: "hang" });
     const res = await t.post("/agents", { ref: DISPATCH_REF, role: "architect" });
     assert.equal(res.status, 201, res.text);
@@ -67,7 +67,9 @@ describe("the child's working directory", () => {
     assert.equal(start.cwd, await realpath(path.join(t.fx.root, worktree)), "the child's cwd is the worktree");
     assert.notEqual(start.cwd, root, "the child never runs in the repo root");
     const listed = await git(t.fx.root, "worktree", "list", "--porcelain");
-    assert.match(listed, new RegExp(`worktree ${start.cwd}\\nHEAD [0-9a-f]+\\nbranch refs/heads/${branch}\\n`));
+    // agent-os/09 (ADR 0021 Amendment 2): detached while the agent runs; the bridge makes the branch at the final commit.
+    assert.match(listed, new RegExp(`worktree ${start.cwd}\\nHEAD [0-9a-f]+\\ndetached\\n`));
+    assert.equal((await git(t.fx.root, "branch", "--list", "den/*")).trim(), "", "no branch exists while the agent runs");
     assert.equal((await git(start.cwd, "rev-parse", "HEAD")).trim(), (await git(t.fx.root, "rev-parse", "HEAD")).trim());
 
     // The argv is still the fixed template: the worktree reaches the child as its cwd and nothing else. The one
@@ -137,6 +139,26 @@ describe("one worktree per agent", () => {
   });
 });
 
+describe("the bridge creates the agent's branch at its final commit (agent-os/09)", () => {
+  test("when the agent ends, den/<ref>-<short> points at the worktree's last commit and main HEAD has not moved", async () => {
+    const t = await fake();
+    const base = (await git(t.fx.root, "rev-parse", "HEAD")).trim();
+    const a = await t.dispatch("architect");
+    assert.equal(a.status, 201, a.text);
+    const { id, branch } = a.body.agent;
+    const cwd = t.fake.spawns[0].args.cwd;
+    await git(cwd, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "--allow-empty", "-m", "agent work");
+    const final = (await git(cwd, "rev-parse", "HEAD")).trim();
+    assert.equal((await git(t.fx.root, "branch", "--list", "den/*")).trim(), "", "no branch while the agent runs");
+
+    t.fake.spawns[0].exit();
+    await until(async () => (await t.agent(id))?.state === "done", { what: "the agent to end" });
+    await until(async () => (await git(t.fx.root, "branch", "--list", branch)).trim() !== "", { what: "the bridge to create the branch" });
+    assert.equal((await git(t.fx.root, "rev-parse", `refs/heads/${branch}`)).trim(), final);
+    assert.equal((await git(t.fx.root, "rev-parse", "HEAD")).trim(), base, "the main checkout's HEAD did not move");
+  });
+});
+
 describe("failures start nothing and leave nothing", () => {
   test("no worktree, no agent: a root that is not a git repository answers 500 and spawns nothing", async () => {
     const t = await fake({ noGit: true });
@@ -148,7 +170,7 @@ describe("failures start nothing and leave nothing", () => {
     assert.equal((await t.dispatch("architect")).status, 500, "the reservation was released (not 409)");
   });
 
-  test("a failed spawn removes the worktree and the branch it had just created", async () => {
+  test("a failed spawn removes the worktree and leaves no den/ branch", async () => {
     const t = await fake({ runtimeConfig: { failSpawn: true } });
     const res = await t.dispatch("architect");
     assert.equal(res.status, 502, res.text);
