@@ -129,7 +129,8 @@ test("buildQueue expired lists a ticket outside the active feature once 5 ticket
     active: "den-v1",
     tickets: [stale, fresh, picked, active],
     resolved: resolvedAt(2, 3, 4, 5, 6, 7),
-    picks: [{ ts: "2026-10-07T00:00:00Z", picked: picked.ref }],
+    // picked after the last resolved row (day 7, 12:00), so nothing counts since the pick
+    picks: [{ ts: "2026-10-08T00:00:00Z", picked: picked.ref }],
   };
   const q = buildQueue(snapshot);
   // stale: 6 resolved since ready. fresh: ready on day 6, so only days 6 and 7 count -> 2 used, 3 left.
