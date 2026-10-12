@@ -295,10 +295,11 @@ test("board queue prints the order, a reason and decay per ticket, planned/added
       assert.match(l, /unblock/i, `${ref} line shows unblock count: ${l}`);
     }
 
-    // Planned and added counts: den-v1 has Origin spec + no Origin + Origin added (2 planned, 1 added).
+    // Planned and added counts: den-v1 has 01-a (Origin spec), 02-b (no Origin), 09-seed (resolved, no Origin)
+    // and 03-c (Origin added): 3 planned, 1 added. Resolved tickets count.
     const counts = lines.find((l) => /den-v1/.test(l) && /planned/i.test(l) && /added/i.test(l));
     assert.ok(counts, `a den-v1 planned/added line:\n${r.stdout}`);
-    assert.match(counts, /planned\D{0,3}2|2\D{0,3}planned/i);
+    assert.match(counts, /planned\D{0,3}3|3\D{0,3}planned/i);
     assert.match(counts, /added\D{0,3}1|1\D{0,3}added/i);
 
     // The parked-by-gate list is printed and empty.
