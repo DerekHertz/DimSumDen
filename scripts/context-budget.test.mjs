@@ -11,7 +11,7 @@
 //    "orchestrator":{"warn":70000,"stop":80000}}
 // Fallback rules: unknown role (or none) -> `default`; an entry whose warn/stop are not finite numbers
 // or where warn >= stop is invalid and falls back to `default`; a missing, unparseable or invalid
-// config file falls back to the built-in 70000/80000, so every caller still fails open.
+// config file falls back to the built-in (cell roles 100000/150000, the orchestrator 70000/80000; 220), so every caller still fails open.
 //
 // Criterion map (145 rescoped scope, comment "orchestrator, 2026-10-06 (user yes)"):
 //   one config value, approved numbers   -> "shipped config ..." tests
@@ -52,23 +52,21 @@ const FIXTURE = {
   orchestrator: { warn: 20_000, stop: 25_000 },
 };
 
-// organism-infra/210 (user, 2026-10-09): developer, qa and designer warn at 100k and stop at 130k.
-// (208 had set every cell to 70k/80k; about 40 cell runs finished past 80k anyway.)
-test("shipped config: developer, qa and designer get 100k warn / 130k stop", () => {
-  for (const role of ["developer", "qa", "designer"]) {
-    assert.deepEqual(budgetFor(role), { warn: 100_000, stop: 130_000 }, role);
+// organism-infra/220 (user, 2026-10-11): every cell role warns at 100k and stops at 150k; the orchestrator
+// keeps 70k / 80k. (Supersedes 210's 130k for developer, qa, designer and 208's 70k/80k for the rest.)
+test("shipped config: every cell role gets 100k warn / 150k stop", () => {
+  for (const role of ["developer", "qa", "designer", "architect", "security", "scout", "product", "herald"]) {
+    assert.deepEqual(budgetFor(role), { warn: 100_000, stop: 150_000 }, role);
   }
 });
 
-test("shipped config: security, architect, scout and the orchestrator stay at 70k / 80k", () => {
-  for (const role of ["security", "architect", "scout", "orchestrator"]) {
-    assert.deepEqual(budgetFor(role), { warn: 70_000, stop: 80_000 }, role);
-  }
+test("shipped config: the orchestrator stays at 70k / 80k", () => {
+  assert.deepEqual(budgetFor("orchestrator"), { warn: 70_000, stop: 80_000 });
 });
 
-test("shipped config: an unknown role and no role fall back to 70k / 80k", () => {
-  assert.deepEqual(budgetFor("herald"), { warn: 70_000, stop: 80_000 });
-  assert.deepEqual(budgetFor(undefined), { warn: 70_000, stop: 80_000 });
+test("shipped config: an unknown role and no role get 100k / 150k", () => {
+  assert.deepEqual(budgetFor("some-future-cell"), { warn: 100_000, stop: 150_000 });
+  assert.deepEqual(budgetFor(undefined), { warn: 100_000, stop: 150_000 });
 });
 
 test("the config file is the single source: CONTEXT_BUDGET_CONFIG changes every role's numbers", () => {
@@ -104,14 +102,17 @@ test("invalid entry (warn >= stop, or non-numbers) falls back to default", () =>
   }
 });
 
-test("missing file falls back to the built-in 70k / 80k for every role", () => {
+test("missing file falls back to the built-in: cell roles 100k / 150k, the orchestrator 70k / 80k", () => {
   const missing = path.join(tmpdir(), "no-such-dir-ctx-budget", "context-budget.json");
-  for (const role of ["developer", "qa", "orchestrator", "scout"]) {
-    assert.deepEqual(budgetFor(role, missing), { warn: 70_000, stop: 80_000 }, role);
+  for (const role of ["developer", "qa", "scout", "some-future-cell", undefined]) {
+    assert.deepEqual(budgetFor(role, missing), { warn: 100_000, stop: 150_000 }, String(role));
   }
+  assert.deepEqual(budgetFor("orchestrator", missing), { warn: 70_000, stop: 80_000 });
 });
 
-test("unparseable file, or an invalid default entry, falls back to the built-in 70k / 80k", () => {
-  assert.deepEqual(budgetFor("developer", writeConfig("{ not json")), { warn: 70_000, stop: 80_000 });
-  assert.deepEqual(budgetFor("developer", writeConfig({ default: { warn: 5, stop: 1 }, cells: {} })), { warn: 70_000, stop: 80_000 });
+test("unparseable file, or an invalid default entry, falls back to the built-in (cells 100k / 150k, orchestrator 70k / 80k)", () => {
+  assert.deepEqual(budgetFor("developer", writeConfig("{ not json")), { warn: 100_000, stop: 150_000 });
+  assert.deepEqual(budgetFor("developer", writeConfig({ default: { warn: 5, stop: 1 }, cells: {} })), { warn: 100_000, stop: 150_000 });
+  assert.deepEqual(budgetFor("orchestrator", writeConfig("{ not json")), { warn: 70_000, stop: 80_000 });
+  assert.deepEqual(budgetFor("orchestrator", writeConfig({ default: { warn: 5, stop: 1 }, cells: {} })), { warn: 70_000, stop: 80_000 });
 });

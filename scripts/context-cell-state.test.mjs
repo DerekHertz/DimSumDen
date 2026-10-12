@@ -54,33 +54,41 @@ function run(f, args, env = {}) {
 
 const self = (tokens, cell, env) => run(fixture({ subagentTokens: tokens }), ["--self", "--cell", cell], env);
 
-test("developer: 65k is ok, with the shipped 100k / 130k numbers in the output", () => {
+test("developer: 65k is ok, with the shipped 100k / 150k numbers in the output", () => {
   const j = self(65_000, "developer");
   assert.equal(j.context_tokens, 65_000);
   assert.equal(j.warn, 100_000);
-  assert.equal(j.stop, 130_000);
+  assert.equal(j.stop, 150_000);
   assert.equal(j.state, "ok");
   assert.equal(j.scope, "self");
 });
 
-test("developer: warn from 100k, stop from 130k", () => {
+test("developer: warn from 100k, stop from 150k", () => {
   assert.equal(self(99_999, "developer").state, "ok");
   assert.equal(self(100_000, "developer").state, "warn");
-  assert.equal(self(129_999, "developer").state, "warn");
-  assert.equal(self(130_000, "developer").state, "stop");
+  assert.equal(self(149_999, "developer").state, "warn");
+  assert.equal(self(150_000, "developer").state, "stop");
 });
 
-test("security: 70k / 80k, so 75k warns and 80k stops", () => {
-  const j = self(75_000, "security");
-  assert.equal(j.warn, 70_000);
-  assert.equal(j.stop, 80_000);
+test("security: 100k / 150k like every cell, so 85k is ok, 105k warns and 150k stops", () => {
+  const j = self(105_000, "security");
+  assert.equal(j.warn, 100_000);
+  assert.equal(j.stop, 150_000);
   assert.equal(j.state, "warn");
-  assert.equal(self(80_000, "security").state, "stop");
+  assert.equal(self(85_000, "security").state, "ok");
+  assert.equal(self(150_000, "security").state, "stop");
 });
 
-test("an unknown cell type gets the default entry", () => {
-  const j = self(65_000, "herald");
-  assert.deepEqual([j.warn, j.stop, j.state], [70_000, 80_000, "ok"]);
+test("every cell role reports 100k / 150k (organism-infra/220)", () => {
+  for (const role of ["developer", "qa", "designer", "architect", "security", "scout", "product", "herald"]) {
+    const j = self(65_000, role);
+    assert.deepEqual([j.warn, j.stop, j.state], [100_000, 150_000, "ok"], role);
+  }
+});
+
+test("an unknown cell type gets 100k / 150k", () => {
+  const j = self(65_000, "some-future-cell");
+  assert.deepEqual([j.warn, j.stop, j.state], [100_000, 150_000, "ok"]);
 });
 
 test("--self --cell keeps the existing keys", () => {
@@ -102,7 +110,7 @@ test("null reading: state is null, the thresholds are still reported, exit 0", (
   assert.equal(j.context_tokens, null);
   assert.equal(j.state, null);
   assert.equal(j.warn, 100_000);
-  assert.equal(j.stop, 130_000);
+  assert.equal(j.stop, 150_000);
 });
 
 test("a fixture config sets warn, stop and state", () => {

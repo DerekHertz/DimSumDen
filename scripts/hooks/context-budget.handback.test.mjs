@@ -63,56 +63,56 @@ const refuses = (r, label) => {
 
 // ---- Criterion 1: at or above the stop threshold, SubagentHandback is allowed ----
 
-test("SubagentHandback is allowed at and above the stop threshold (architect: 80k, 120k)", () => {
-  silent(run(80_000, "architect"), "architect 80k");
-  silent(run(95_000, "architect"), "architect 95k");
+test("SubagentHandback is allowed at and above the stop threshold (architect: 150k, 170k)", () => {
+  silent(run(150_000, "architect"), "architect 150k");
+  silent(run(170_000, "architect"), "architect 170k");
 });
 
 test("SubagentHandback is allowed at and above the stop threshold of developer and qa", () => {
   for (const role of ["developer", "qa"]) {
-    silent(run(130_000, role), `${role} 130k`);
     silent(run(150_000, role), `${role} 150k`);
+    silent(run(170_000, role), `${role} 170k`);
   }
 });
 
-test("SubagentHandback is allowed at stop for the 80k roles beyond architect", () => {
-  for (const role of ["security", "designer", "scout"]) {
-    silent(run(80_000, role), `${role} 80k`);
+test("SubagentHandback is allowed at stop for the other roles too", () => {
+  for (const role of ["security", "designer", "scout", "product", "herald"]) {
+    silent(run(150_000, role), `${role} 150k`);
   }
 });
 
 // ---- Criterion 2: at or above stop, non-wrap-up calls are still refused ----
 
 test("Read and Grep are still refused at and above the stop threshold", () => {
-  refuses(run(80_000, "architect", { tool: "Read", toolInput: { file_path: "/repo/apps/ui/src/big.jsx" } }), "architect Read 80k");
-  refuses(run(85_000, "architect", { tool: "Grep", toolInput: { pattern: "x" } }), "architect Grep 85k");
-  refuses(run(130_000, "qa", { tool: "Read", toolInput: { file_path: "/repo/README.md" } }), "qa Read 130k");
-  refuses(run(150_000, "developer", { tool: "Grep", toolInput: { pattern: "x" } }), "developer Grep 150k");
+  refuses(run(150_000, "architect", { tool: "Read", toolInput: { file_path: "/repo/apps/ui/src/big.jsx" } }), "architect Read 150k");
+  refuses(run(155_000, "architect", { tool: "Grep", toolInput: { pattern: "x" } }), "architect Grep 155k");
+  refuses(run(150_000, "qa", { tool: "Read", toolInput: { file_path: "/repo/README.md" } }), "qa Read 150k");
+  refuses(run(160_000, "developer", { tool: "Grep", toolInput: { pattern: "x" } }), "developer Grep 160k");
 });
 
 test("only the SubagentHandback tool itself is wrap-up: lookalike tool names are still refused at stop", () => {
   for (const tool of ["SubagentHandbackExtra", "subagenthandback", "mcp__x__SubagentHandback", "Agent", "SendMessage"]) {
-    refuses(run(85_000, "architect", { tool, toolInput: REPORT }), `architect ${tool}`);
+    refuses(run(155_000, "architect", { tool, toolInput: REPORT }), `architect ${tool}`);
   }
 });
 
 test("the existing wrap-up calls and refusals still hold alongside the new allowance", () => {
-  const ok = run(85_000, "architect", { tool: "Bash", toolInput: { command: "npm run board -- release organism-infra/194-handback-allowed-at-stop --keep-status" } });
+  const ok = run(155_000, "architect", { tool: "Bash", toolInput: { command: "npm run board -- release organism-infra/194-handback-allowed-at-stop --keep-status" } });
   assert.equal(ok.status, 0, ok.stderr);
-  refuses(run(85_000, "architect", { tool: "Bash", toolInput: { command: "npm test" } }), "architect npm test");
+  refuses(run(155_000, "architect", { tool: "Bash", toolInput: { command: "npm test" } }), "architect npm test");
 });
 
 // ---- Criterion 3: below the threshold, and for the orchestrator, behaviour is unchanged ----
 
 test("below the warn threshold, SubagentHandback and other calls pass silently", () => {
   silent(run(60_000, "architect"), "architect handback 60k");
-  silent(run(60_000, "architect", { tool: "Read", toolInput: { file_path: "/repo/a.mjs" } }), "architect Read 60k");
-  silent(run(69_999, "qa"), "qa handback 69,999");
+  silent(run(99_999, "architect", { tool: "Read", toolInput: { file_path: "/repo/a.mjs" } }), "architect Read 99,999");
+  silent(run(99_999, "qa"), "qa handback 99,999");
 });
 
 test("between warn and stop, calls (SubagentHandback included) are allowed with the checkpoint warning", () => {
-  warnsAndAllows(run(75_000, "architect"), "architect handback 75k");
-  warnsAndAllows(run(75_000, "architect", { tool: "Read", toolInput: { file_path: "/repo/a.mjs" } }), "architect Read 75k");
+  warnsAndAllows(run(105_000, "architect"), "architect handback 105k");
+  warnsAndAllows(run(149_999, "architect", { tool: "Read", toolInput: { file_path: "/repo/a.mjs" } }), "architect Read 149,999");
   warnsAndAllows(run(110_000, "developer"), "developer handback 110k");
 });
 
