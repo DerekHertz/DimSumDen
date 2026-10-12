@@ -3174,3 +3174,9 @@
 {"kind":"usage","ts":"2026-10-12T06:34:12Z","five_hour":36,"weekly":27,"event":"merge","ticket":null,"cell":"orchestrator"}
 {"kind":"context","ts":"2026-10-12T06:34:12Z","session":"2a892319-20ca-4785-a460-ce9953c3a149","context_tokens":76767,"percent":7.68,"event":"merge"}
 {"kind":"spend","ts":"2026-10-12T06:34:12.361Z","session":"2a892319-20ca-4785-a460-ce9953c3a149","role":"orchestrator","input_tokens":42,"cache_creation_input_tokens":26928,"cache_read_input_tokens":1293349,"output_tokens":18264}
+{"kind":"jev","ts":"2026-10-12T06:42:48.380Z","ticket":"queue/01-queue-design","point":"route","pick":"architect","actual":"orchestrator","cost":0.000042588000000000006,"conf":0.97,"mode":"advisory","fallback":null,"floor":null,"ms":667,"model":"jev-1.13.0","variant":"new"}
+{"kind":"jev-order","ts":"2026-10-12T06:42:49.091Z","actual":["queue/01-queue-design"],"wouldHave":["queue/01-queue-design"],"same":true}
+{"kind":"jg","ts":"2026-10-12T06:42:54.540Z","ticket":"queue/01-queue-design","bytes":0,"files":0,"ms":0,"skipped":"non-code type (design)","fallback":null}
+{"kind":"usage","ts":"2026-10-12T06:43:11Z","five_hour":37,"weekly":28,"event":"dispatch","ticket":"queue/01-queue-design","cell":"architect"}
+{"kind":"context","ts":"2026-10-12T06:43:11Z","session":"2a892319-20ca-4785-a460-ce9953c3a149","context_tokens":38622,"percent":3.86,"event":"dispatch"}
+{"kind":"spend","ts":"2026-10-12T06:43:11.920Z","session":"2a892319-20ca-4785-a460-ce9953c3a149","role":"orchestrator","ticket":"queue/01-queue-design","input_tokens":16,"cache_creation_input_tokens":34508,"cache_read_input_tokens":454581,"output_tokens":5924}

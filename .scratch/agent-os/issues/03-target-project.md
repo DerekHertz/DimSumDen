@@ -39,3 +39,5 @@ Then:
 
 - 2026-10-10, plain session (Opus 5.5): filed from the approved agent-os spec. Not started. Nobody has looked inside the target repo yet.
 - **orchestrator, 2026-10-11:** Blocker changed from agent-os/02 to agent-os/04 (user, 2026-10-11): 04 delivered the ceilings and the wall. The host list criterion and any web use in the live run still wait on 02.
+- **orchestrator, 2026-10-12:** The user read PR #229 and said it is good (2026-10-12). Criterion 1's read is done; the decisions on the split, settings.json, the target CLAUDE.md and the clone path are still to be put to them.
+- **orchestrator, 2026-10-12:** User rulings (2026-10-12): merge PR #229; split 03 into A / B / C as the architect proposed; a target's CLAUDE.md stays unloaded. Still open: whether den tasks on this repo also stop loading .claude/settings.json (the user asked for a clearer explanation), and the path of the safety-aware-route-planner clone.
