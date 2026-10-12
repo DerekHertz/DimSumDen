@@ -31,3 +31,10 @@ Mid-flight handoff, written at about 77k context before asking the user to `/com
 - When both tickets resolve: retro is not yet due (2 resolved since the last), write the session handoff, and tell the user to start a fresh session. Next proposal: queue/04, then 05, 07, 08.
 
 Usage: 5h 34% (resets 13:20 PDT), weekly 33%. Context about 77k.
+
+## Update after both qa verifies returned (context about 86k, waiting on /compact)
+- **queue/03: qa light verify PASS** at b9b5403 (`03-qa-verify-2.md`). Next: scout `npm run risk-check` on `tests/queue-03-admission-gate`, then full `security` (required by the ticket), then PR.
+- **queue/06: qa light verify PASS** at 6d1098f (`06-qa-verify.md`). Next: scout risk-check; clean exit skips `security`; then PR.
+- Both qa verify worktrees removed. No locks held. No cells running.
+- **Environment issue to raise with the user (not yet agreed):** the qa genome lists Grep, but the tool was unavailable in two qa cells; both used bash grep. Incident row logged.
+- Both verify cells noted that light verify step 1 says "run npm test" while the dispatch line says not to re-run; they followed the dispatch (organism-infra/198 intends this).
