@@ -8,7 +8,7 @@
 
 **Blocked by:** 140
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** Den loop steps 3-4: the user can reach every agent in the system from the Den.
 

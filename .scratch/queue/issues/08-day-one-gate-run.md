@@ -35,3 +35,4 @@ The Queue goes live. The orchestrator runs this with the user in one session; it
 ## Comments
 
 - **orchestrator, 2026-10-12:** published from the architect's breakdown (Q7) on the user's approval. agent-os/03 resumes after this ticket (spec decision 15).
+- **orchestrator, 2026-10-12:** steps 1 and 2 done: Class backfill written on the user's approval (221 pipeline, 128 product; organism-infra 107, 152, 153, 154, 196 classed product as exceptions), commit 33fdd08. Paused at step 3 by the user ("not urgent, finish the main product"): 21 tickets still fail the dry run; `gate --apply` and the active feature wait until the user resumes.
