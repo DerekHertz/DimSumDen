@@ -43,3 +43,4 @@ Questions the design must answer:
 ## Comments
 
 - 2026-10-12, orchestrator: filed at the user's choice ("Merge, then design it") after PR #240 merged. Proposed cell: architect.
+- **orchestrator, 2026-10-12:** User read the design summary and answered all seven decisions with option (a), 2026-10-12. ADR 0022 marked accepted (128d1ca), PR 241. Slice 1 filed as 231, 232, 233.
