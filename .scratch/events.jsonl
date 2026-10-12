@@ -2640,3 +2640,5 @@
 {"seq":1991,"ts":"2026-10-12T05:54:50.725Z","feature":"agent-os","ticket":"11-main-git-rule-followups","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":1992,"ts":"2026-10-12T06:00:41.070Z","feature":"agent-os","ticket":"11-main-git-rule-followups","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":1993,"ts":"2026-10-12T06:00:41.091Z","feature":"agent-os","ticket":"11-main-git-rule-followups","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":1994,"ts":"2026-10-12T06:10:13.105Z","feature":"agent-os","ticket":"03-target-project","cell":"architect","mode":null,"op":"claim","from_status":"ready-for-agent","to_status":"claimed"}
+{"seq":1995,"ts":"2026-10-12T06:15:34.713Z","feature":"agent-os","ticket":"03-target-project","cell":"architect","op":"release","from_status":"claimed","to_status":"in-review","force":false}

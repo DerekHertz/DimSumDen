@@ -6,7 +6,7 @@
 
 **Blocked by:** agent-os/04 (resolved, PR #220). The host list criterion and any web use in the live run wait on agent-os/02.
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** agent-os step 3 (ADR 0021 decision 14; ADR 0019 decision 9, the testbed). User story 6.
 
