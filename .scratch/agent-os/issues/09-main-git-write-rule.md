@@ -6,7 +6,7 @@
 
 **Blocked by:** 07
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Serves:** ADR 0021 Amendment 2 (decision 17; accepted by the user on 2026-10-11). It closes the hole the agent-os/07 live probe found: a den agent in a worktree can create, move or delete branches (`main` included) and repoint `HEAD` in the main checkout.
 
@@ -36,3 +36,6 @@ Blocked by 07 because both change the adapter; this runs right after 07 merges.
 
 - 2026-10-11, orchestrator: filed on the user's answers (2026-10-11): accept detached worktrees; build the rule in a new ticket after 07; defer the sibling-worktree deny (agent-os/10). Den-spawned agents stay off real work in this repo until 07 and this ticket have both merged. The ADR amendment is on branch `architect/agent-os-07-git-rule` (e368a13), still worded "proposed"; the user's acceptance is recorded here.
 - **orchestrator, 2026-10-12:** user decision (2026-10-11): the four bash startup files security found grantable on agent-os/07 (.bash_profile, .bash_login, .bash_logout, .bash_aliases) are refused in this ticket; criterion added. agent-os/07 merged (PR #226), so this ticket is unblocked. ADR 0021 Amendment 2 merged in PR #225.
+- **qa, 2026-10-12:** qa verify (light): suite from /tmp/09-tests.txt 4286/4286, 0 skipped; specify tests unedited. Criterion 4 human-verified (live probe, developer-run; the specify marker was missing from Comments). Escalated to full verify: criterion 6 is process only, and the host-level preflight refusal (502) has no test. See handoff.
+- **qa, 2026-10-12:** qa full verify: QA pass. Suite 4286/4286, 0 skipped; specify tests unedited; all criteria covered or human-verified. Host preflight refusal (502) has no committed test but works (hand-probed); follow-up test suggested. risk-check hits go to full security. See 09-qa-verify-2.md.
+- **security, 2026-10-12:** Security pass. No critical or high. gitleaks clean; no dep/CI change. Medium: claude-runtime.mjs:59 drops the mainGit denies silently if the repo path has a space or other non-plain char (fails open); host 502 preflight refusal has no test. Low: publish() runs rev-parse in an agent-controlled dir; pack-refs rewrite race. See 09-security.md.
