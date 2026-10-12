@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** claimed
+**Status:** in-review
 
 **Serves:** `.scratch/queue/spec.md` (confirmed by the user 2026-10-12), "Amends" and "Open for the architect".
 
