@@ -4,7 +4,7 @@
 
 **Priority:** P1
 
-**Status:** in-review
+**Status:** resolved
 
 **Source:** architect
 

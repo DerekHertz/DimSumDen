@@ -2776,3 +2776,7 @@
 {"seq":2127,"ts":"2026-10-12T22:32:41.396Z","feature":"organism-infra","ticket":"227-snapshot-capacity-and-gate","cell":"security","op":"comment","text":"Security pass (batch 226-227). No blocking findings. See 227-security.md and 226-security.md.","verdict":"pass"}
 {"seq":2128,"ts":"2026-10-12T22:32:43.554Z","feature":"organism-infra","ticket":"226-dispatch-capacity-rule","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":2129,"ts":"2026-10-12T22:32:43.936Z","feature":"organism-infra","ticket":"227-snapshot-capacity-and-gate","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
+{"seq":2130,"ts":"2026-10-12T22:38:57.146Z","feature":"organism-infra","ticket":"226-dispatch-capacity-rule","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
+{"seq":2131,"ts":"2026-10-12T22:38:57.171Z","feature":"organism-infra","ticket":"226-dispatch-capacity-rule","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":2132,"ts":"2026-10-12T22:38:57.190Z","feature":"organism-infra","ticket":"227-snapshot-capacity-and-gate","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
+{"seq":2133,"ts":"2026-10-12T22:38:57.210Z","feature":"organism-infra","ticket":"227-snapshot-capacity-and-gate","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
