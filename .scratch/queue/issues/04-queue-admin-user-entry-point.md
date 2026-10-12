@@ -10,7 +10,7 @@
 
 **Blocked by:** 02
 
-**Status:** claimed
+**Status:** in-review
 
 **Serves:** `.scratch/queue/spec.md` decisions 3, 7 (admit); ADR 0015 Amendment 3.
 
@@ -38,3 +38,4 @@ Only the user sets the active feature or admits a refused ticket, through `npm r
 - **orchestrator, 2026-10-12:** published from the architect's breakdown (Q3) on the user's approval. Do not run at the same time as ticket 03. The user ruled that den-v1 is the active feature; it is set in ticket 08, not here.
 - **orchestrator, 2026-10-12:** user rulings on the three scope questions in `04-qa-specify.md`, settled before the developer starts. (1) `admit` refuses a `<ref>` that is not a real ticket: it writes nothing and exits nonzero. (2) The Queue ignores a `queue_active` or `queue-admit` row that does not carry `by: "user"`. (3) With no `--root`, `queue-admin` writes to the main checkout, resolved the way the board resolves it; `--root` still wins. The qa specify tests do not cover (1) and (2) and pin cwd for (3): the developer adds or adjusts those tests test-first and names each change in the handoff, and qa verify checks them.
 - **qa, 2026-10-12:** QA bounce (light verify): scripts/queue-admin.test.mjs:96 loosens the .scratch listing check via the allow list. Make it exact after putTicket. Details in handoffs/04-qa-verify.md.
+- **qa, 2026-10-12:** QA pass (light verify, round 2). Step 1 saved suite 4382 pass, 0 fail, 0 skipped. Step 2: no removed or loosened assertion; the round 1 allow list is now an exact .scratch snapshot (scripts/queue-admin.test.mjs:99). Step 3: every criterion and ruling mapped. Step 4: scripts/queue.test.mjs is outside scope (by:user fixtures only). Handoff 04-qa-verify-2.md.
