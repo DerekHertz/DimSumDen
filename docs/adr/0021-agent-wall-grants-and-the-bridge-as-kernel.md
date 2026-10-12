@@ -138,6 +138,52 @@ The production runtime does not pass `wall` yet. That is agent-os/02.
     - **If the user will not detach.** The fallback inside the sandbox is: keep the named branch and deny `HEAD`, `packed-refs`, `index`, `refs/tags`, `refs/remotes` and `refs/stash` (each must exist). `refs/heads` stays writable, so an agent can move or create any branch, `main` included. The bridge then treats every branch as untrusted (Amendment 1) and takes the sha from the worktree's `HEAD`, not from a ref. The stronger fallback is decision 2's container per agent.
     - **Always-on.** The denies apply to every task that spawns in a worktree, with or without grants. They are keyed on a new compile option for the main `.git` path, separate from `root`, so a task without grants gets them and the agent-os/02 grant rules keep their meaning.
 
+## Amendment 3 (proposed by the architect for agent-os/03 on 2026-10-11, pending the user's acceptance): running a task on another repo
+
+Answers the two unknowns of agent-os/03: how a role loads when the agent's working directory is another repo (decision 14, "Also not known" above), and where the board sits and how the bridge finds it.
+
+**What was found (live prototype, real CLI 2.1.293, Haiku, a throwaway target repo holding hostile content, the child started in a worktree of it under `.claude/worktrees/`).** The target had a `SessionStart` hook that creates a file, a same-named role `probe` and an extra role `evil`, a skill `evil`, a `CLAUDE.md`, and an `.mcp.json`. The control directory had its own `probe` role and a skill.
+
+| Flags | Result |
+|---|---|
+| The bridge's today: `--setting-sources project,local --agent probe` | **Everything of the target loaded.** The hook fired, `evil` role and skill were listed, the target's `probe` replaced ours (the reply carried the target role's token), and the target's `CLAUDE.md` was in context (found by walking up from the worktree). |
+| `--setting-sources ""` alone | The hook, target roles, skills and `CLAUDE.md` are gone, and `--agent probe` fails: `not found`. The role has to come from somewhere else. |
+| `--setting-sources ""` plus `--agents '{"probe":{...}}'` | Clean: no hook, no target role, skill or `CLAUDE.md`; our role text was used. Inline roles carry no skills. |
+| `--setting-sources ""` plus `--add-dir <control>` | Skills did not load. It would also give the agent write access to the control checkout. Rejected. |
+| `--setting-sources ""` plus `--plugin-dir <control>/.claude` (a `.claude-plugin/plugin.json` there), `--agent den:probe` | **Clean, and complete.** The role loads as `den:probe` and the skills as `den:<name>`; nothing of the target loaded. |
+
+Not shown: that a genome's `skills:` preload works under the plugin namespace. A bare name (`organism-protocol`) and a prefixed one (`den:organism-protocol`) both left the skill listed but not preloaded. The skills are reachable through the Skill tool, so the prompt names them. The real genomes (`tools: Agent(scout)`, `isolation`, `maxTurns`) were not run as plugin roles; the first test must.
+
+**Decision 18. Roles and settings come from this repo, and the target's `.claude/` and `CLAUDE.md` are never loaded.**
+- The bridge starts every child with `--setting-sources ""` and `--plugin-dir <control>/.claude`, and the role is `den:<role>` (`--agent den:<role>`). `<control>` is this repo's checkout, taken from the bridge module's own location, never from a working directory or a client string. `--strict-mcp-config` stays, so the target's `.mcp.json` is ignored.
+- This repo gains `.claude/.claude-plugin/plugin.json` (`{"name":"den","version":"0.0.1"}`). It is under `.claude/`, so it ships as a gated patch for the user.
+- One rule for every target, this repo included. A den task on this repo no longer loads `.claude/settings.json` (its hooks and its allow rules such as `Bash(npm run board:*)`). The wall and the inline settings are the boundary (decision 1), and board calls ask until step 4. This is the cost of one rule instead of two paths.
+- The prompt template stops saying "Read `.claude/agents/<role>.md`": in a target worktree that path is the target's own file, which is the hostile route, or is absent. The template names the skill to invoke (`den:organism-protocol`) instead.
+- The target's `CLAUDE.md` is data, not instructions: the agent may Read it, nothing loads it. Task context for a target belongs in the ticket. This costs the agent the project's own conventions until the user decides otherwise.
+- The adapter stays the only place flags are built (decision 3). `buildClaudeArgs` gains a `control` option (a plain absolute path), checked like `worktree`.
+
+**Decision 19. The board is the target's `.scratch/`, and the bridge's root is the target.**
+- The layout is unchanged: `<target>/.scratch/<feature>/issues`, and the ledger, `sessions.jsonl`, usage, events and requests beside it. The board service already takes a root, so nothing in it changes. The bridge finds the board because it was started against the target: `root` is the target's path.
+- `.scratch/` must not show up in the target's `git status`. At start the bridge appends `.scratch/` to `<target>/.git/info/exclude` if it is missing. No tracked file of the target changes. (`info` is writable by an agent, per Amendment 2; the worst case is untracked noise.)
+- The agent's board CLI is not `npm run board`: a Python target has no `package.json`. The prompt names `node <control>/apps/organism-infra/board.mjs`, built by the bridge from its own location. Run in the target's worktree it already resolves the target's main checkout (`resolveRoot` takes the first entry of `git worktree list`), so no variable is passed. These writes are outside the wall and raise requests, as the ticket says, until step 4.
+- The ticket file the agent may Read (the one allow in the inline settings) is the target's, under `root`. No change.
+
+**Decision 20. Two roots.**
+- `control` is this repo (bridge code, `governance.json`, role files, project host lists). `root` is the target, defaulting to `control`, so a bridge started as today behaves as today.
+- Worktrees, `den/` branches, `prepareMainGit` and the Amendment 2 denies all key on `root`, so they work unchanged on the target's `.git`. The target's checked-out `HEAD` is the base; uncommitted changes in it are not in the worktree.
+- The governance denies are paths relative to the worktree, so they apply to the target too: an agent cannot write the target's `.claude/` or `.github/workflows/`.
+- **The bridge takes the target at start and refuses before listening** when the target is not a git repository (`git rev-parse --show-toplevel` is not the path), when its `.git` is not a directory (a linked worktree or submodule), or when its path is not plain. Plain means the set `isWorktreePath` accepts. The same check runs on `control` and `$HOME`.
+
+**Decision 21. A project's host list is one file in this repo.**
+- `apps/bridge/cells/projects.json`: `{ "<slug>": { "hosts": ["pypi.org", ...] } }`. The slug is given at start with the target. Every host passes `isWallHost`. The bridge reads it at start; no agent can reach it. The file joins `governance.json`'s guardrail paths, so changing it is the user's gate (decision 10), and a project with no entry gets no hosts. This is consumed by agent-os/02's grants; this ticket adds the file and the lookup only.
+
+**What this closes from agent-os/11.** A target at a path with a space would have refused every spawn with a 502 (the `mainGit` rule fails closed). The start check refuses once, with the reason, instead. Because `root`, `control` and `$HOME` are checked at start, `root` and `home` can no longer be dropped silently by the runtime. Security's low finding (an `undefined` `mainGit` still spawns without the denies) becomes live now that callers are added: the runtime should throw when `cwd` is a worktree and `mainGit` is missing.
+
+**Consequences.**
+- The first live target is not on this machine: `safety-aware-route-planner` has to be cloned (plain path) before the live run. Whether its Python tooling runs inside the wall (package hosts, a virtualenv outside the worktree) is unknown and is the friction the live run is for.
+- A role that needs a skill's text at start (the `skills:` preload) gets it by the prompt naming it, one tool call later, until a preload under a plugin namespace is shown to work.
+- Step 4 (board calls through the bridge) removes the `board.mjs` path from the prompt and the requests it raises.
+
 ## Consequences
 
 - den-v1/14 (allowlist, then auto mode) is replaced by the wall spike. Auto mode is not adopted: inside the wall no decision is needed, and crossing it reaches the user, not a classifier.
