@@ -10,7 +10,7 @@
 
 **Blocked by:** 03, 04
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** `.scratch/queue/spec.md` decisions 8 (a pick resets decay), 9, 10; ADR 0015 Amendment 3.
 
@@ -36,3 +36,4 @@ Tickets that sit in the Queue decay and are parked, and unplanned work is capped
 - **developer, 2026-10-12:** developer: test 5 in queue-decay.test.mjs (line 138) looks wrong: expects the picked ticket's decayLeft 5, but a resolved row at 10-07T12:00 is after the pick at 10-07T00:00, so 4 is correct. I did not edit it. qa to fix (pick ts 10-08, or expect 4). Everything else passes; see handoffs/05-developer.md.
 - **developer, 2026-10-12:** qa test 5 asserts a wrong decayLeft; qa must fix, implementation done at a8ffdbe
 - **qa, 2026-10-12:** QA pass (light verify at 5ed03a2): npm test 4403 pass, 0 fail, 0 skipped; test 5 pick ts only, no assertion loosened; all four criteria mapped to tests; no out-of-scope files. Handoff 05-qa-verify.md.
+- **security, 2026-10-12:** Security pass at 5ed03a21b328. No critical/high. Two low notes in handoff 05-security.md. gitleaks clean, no dependency or CI changes.
