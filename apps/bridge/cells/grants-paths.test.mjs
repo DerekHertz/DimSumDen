@@ -93,6 +93,42 @@ describe("a path grant inside the main checkout meets the governance denies", ()
   });
 });
 
+// agent-os/02, user decision 2026-10-11 after qa verify bounce 1: the main checkout's .git is never grantable. It is a governed
+// path (governance.json guardrailPaths), so a grant naming it or anything under it meets the deny and forbid beats permit.
+describe("the main checkout's .git is never grantable", () => {
+  for (const [name, p, denied] of [
+    ["the .git directory", `${ROOT}/.git`, `${ROOT}/.git`],
+    ["its config file", `${ROOT}/.git/config`, `${ROOT}/.git/config`],
+    ["its hooks directory", `${ROOT}/.git/hooks`, `${ROOT}/.git/hooks`],
+    ["a worktree admin directory", `${ROOT}/.git/worktrees/den-fx-01-abcd1234`, `${ROOT}/.git/worktrees/den-fx-01-abcd1234`],
+  ]) {
+    for (const role of ["developer", "qa", "security"]) {
+      test(`${role}: a grant on ${name} is denied for Write, Edit and shell writes`, () => {
+        const { deny, denyWrite } = denyOf(role, [path_(p)]);
+        assert.ok(deny.includes(`Write(/${denied}/**)`), JSON.stringify(deny));
+        assert.ok(deny.includes(`Edit(/${denied}/**)`), JSON.stringify(deny));
+        assert.ok(denyWrite.includes(denied), JSON.stringify(denyWrite));
+      });
+    }
+  }
+
+  test("a grant above .git cannot be made without containing the worktree, so it is a TypeError", () => {
+    assert.throws(() => compile("developer", [path_(ROOT)]), TypeError);
+  });
+
+  test("a grant on .gitignore is not caught by the .git deny", () => {
+    const { deny } = denyOf("developer", [path_(`${ROOT}/.gitignore`)]);
+    assert.equal(deny.some((r) => r.includes(`/${ROOT}/`) && !r.includes(WT)), false, JSON.stringify(deny));
+  });
+
+  test("with no grant, the ceiling denies .git writes under the worktree too", () => {
+    const s = settingsOf({ compiled: compile("developer", []) });
+    assert.ok(s.permissions.deny.includes("Write(.git/**)"), JSON.stringify(s.permissions.deny));
+    assert.ok(s.permissions.deny.includes("Edit(.git/**)"));
+    assert.ok(s.sandbox.filesystem.denyWrite.includes(`${WT}/.git`), JSON.stringify(s.sandbox.filesystem.denyWrite));
+  });
+});
+
 describe("a path grant that contains the worktree", () => {
   const reaching = [
     ["the main checkout", ROOT],

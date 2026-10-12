@@ -124,6 +124,15 @@ describe("task grants compile into the recorded settings", () => {
     }
   });
 
+  test("a ceiling with no grants has no sandbox.filesystem.allowWrite (qa verify bounce 1, finding 2)", () => {
+    for (const role of ["scout", ...ROLES_WITH_GRANTS]) {
+      for (const grants of role === "scout" ? [undefined, []] : [undefined, [], [{ kind: "host", value: "registry.npmjs.org" }]]) {
+        const s = settingsFor(role, grants);
+        assert.equal(s.sandbox.filesystem?.allowWrite, undefined, `${role}: no allowWrite without a path grant`);
+      }
+    }
+  });
+
   test("grants touch the settings value only: the rest of the argv is the plain template", () => {
     const plain = need("buildClaudeArgs")({ sessionId: SID, agent: "developer" });
     const walled = argvFor("developer", [{ kind: "host", value: "api.example.com" }, { kind: "path", value: "/srv/shared/data" }]);
