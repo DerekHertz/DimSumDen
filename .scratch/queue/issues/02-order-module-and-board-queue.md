@@ -10,7 +10,7 @@
 
 **Blocked by:** none
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** `.scratch/queue/spec.md` decisions 1, 2, 4 (order), 5, 12, 14; ADR 0015 Amendment 3.
 
@@ -40,3 +40,4 @@
 - **developer, 2026-10-12:** qa CLI test expects planned 2 but fixture seed makes it 3; qa to fix test
 - **qa, 2026-10-12:** QA pass (light verify, e8aa3dd): saved developer run 4327 pass, 0 fail, 0 skipped; all six criteria map to passing tests. Changed planned count at frontier-queue.test.mjs:302 (2 to 3) rests on the resolved no-Origin reading; see handoff 02-qa-verify.md.
 - **orchestrator, 2026-10-12:** user ruling 2026-10-12: a ticket with no Origin line counts as planned, resolved tickets included; merge as built. risk-check hit on frontier-queue.mjs and its test (board code), so full security runs before the PR.
+- **security, 2026-10-12:** Security pass. gitleaks clean, no dependency or CI changes, read-only module with no shell/network. Two low notes (terminal control chars in P0-reason output; symlinked ticket files), non-blocking. See handoffs/02-security.md.
