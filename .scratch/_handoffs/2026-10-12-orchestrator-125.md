@@ -18,7 +18,7 @@ Several agents controlled from the Den: 226, 227, 228 are merged. The user's own
 
 ## Next
 1. The user's `/compact` first (context 111k).
-2. Ask the user whether the Den feedback above becomes a ticket (asked at the end of this session; read their answer).
+2. The Den feedback is filed as organism-infra/230 (the user chose "One ticket, designer"). It needs a designer spec with the user: print its `dispatch-prompt.mjs` output for a terminal run. It can run beside 229.
 3. 229: `board pick`, `jev.mjs route --mode advisory`, then propose the architect and wait for the user's approval of the ticket. An architect on a design question may need the user; print its dispatch prompt for a terminal run if it must ask questions.
 4. Step 7 remains the user's: restart from main (`npm run ui` in the main checkout), start two or three agents, check message, approve and transcript on each.
 
