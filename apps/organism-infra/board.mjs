@@ -17,6 +17,7 @@ import {
   BoardError,
 } from "./board-service.mjs";
 import { audit } from "./board-audit.mjs";
+import { loadSnapshot, buildQueue, formatQueue } from "./frontier-queue.mjs";
 
 // organism-infra/18: `allowed` declares a subcommand's flag set; any other
 // `--flag` is a hard error naming the bad flag, never silently absorbed as
@@ -192,6 +193,14 @@ async function main() {
       if (flags.json) console.log(JSON.stringify(findings, null, 2));
       else for (const f of findings) console.log(`${f.ref} ${f.kind} ${f.detail}`);
       process.exitCode = findings.length ? 1 : 0;
+      return;
+    }
+    case "queue": {
+      // queue/02: the frontier in its computed order, read only (ADR 0015 Amendment 3).
+      const { positional } = parseFlags(rest, { allowed: [] });
+      if (positional.length) throw new BoardError(`queue takes no arguments: ${positional.join(" ")}`);
+      const snapshot = await loadSnapshot(root);
+      console.log(formatQueue(buildQueue(snapshot), snapshot));
       return;
     }
     default:
