@@ -45,7 +45,9 @@
       "mcp__plugin_engineering_github",
       "mcp__plugin_engineering_pagerduty",
       "Bash(git worktree remove --force:*)",
-      "Bash(git worktree remove -f:*)"
+      "Bash(git worktree remove -f:*)",
+      "Bash(npm run queue-admin:*)",
+      "Bash(node scripts/queue-admin.mjs:*)"
     ]
   },
   "statusLine": {
