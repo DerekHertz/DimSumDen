@@ -75,5 +75,16 @@ export function createBridgeClient({ fetch }) {
       if (body == null) throw failure(200, "The bridge sent an unreadable answer.");
       return body;
     },
+    // organism-infra/228: run one frontier ticket as one role. One request per call: a refusal (409, 429, 503) rejects
+    // { status, reason } with the bridge's text and is never retried here; pressing Run again is the retry.
+    async dispatch(ref, { role } = {}) {
+      const body = await call("/agents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ref, role }),
+      });
+      if (body == null) throw failure(200, "The bridge sent an unreadable answer.");
+      return body;
+    },
   };
 }

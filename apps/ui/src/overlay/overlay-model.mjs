@@ -141,7 +141,7 @@ export function stepRequest(requests, key, dir) {
   return keyOf(requests[(i + dir + requests.length) % requests.length]);
 }
 
-/** Pills for the open stations and the dormant ones, the "N open · M ready" summary, and the first three queue rows. */
+/** Pills for the open stations and the dormant ones, the "N open · M ready" summary, and every frontier row (228: the list scrolls, it is not cut). */
 export function stationsModel(snapshot) {
   const cells = snapshot ? sceneFromState(snapshot) : [];
   const count = {};
@@ -159,11 +159,12 @@ export function stationsModel(snapshot) {
     text: id === "cubs" ? `${count.cubs ?? 0} asleep` : "coming online",
   }));
   const queue = snapshot ? queueModel(snapshot).frontier : [];
+  const types = new Map((snapshot?.tickets ?? []).map((t) => [t.ref, t.type]));
   return {
     open,
     dormant,
     summary: `${open.length} open · ${queue.length} ready`,
-    next: queue.slice(0, 3).map((r) => ({ ref: r.ref, priority: r.priorityLabel, title: r.title })),
+    next: queue.map((r) => ({ ref: r.ref, priority: r.priorityLabel, title: r.title, type: types.get(r.ref) ?? null })),
   };
 }
 
