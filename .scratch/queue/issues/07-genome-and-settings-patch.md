@@ -10,7 +10,7 @@
 
 **Blocked by:** 02, 03, 04, 05, 06
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 **Serves:** `.scratch/queue/spec.md` decision 11 (the orchestrator proposes the top of the Queue; a deviation is logged); ADR 0015 Amendment 3.
 
