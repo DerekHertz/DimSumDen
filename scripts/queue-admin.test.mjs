@@ -44,11 +44,15 @@ const REPO_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const SCRIPT = path.join(REPO_ROOT, "scripts", "queue-admin.mjs");
 
 // Run the script. `input: undefined` plus stdin "ignore" is a /dev/null stdin (what an agent's Bash call gives).
-function admin(args, { input = "", devnull = false, cwd } = {}) {
+// `env` is added to the inherited environment, but ORGANISM_ROOT is always removed first, so the developer's own shell
+// cannot leak in.
+function admin(args, { input = "", devnull = false, cwd, env = {} } = {}) {
+  const { ORGANISM_ROOT: _drop, ...inherited } = process.env;
   const r = spawnSync(process.execPath, [SCRIPT, ...args], {
     cwd: cwd ?? tmpdir(),
     encoding: "utf8",
     timeout: 15000,
+    env: { ...inherited, ...env },
     ...(devnull ? { stdio: ["ignore", "pipe", "pipe"] } : { input }),
   });
   return { code: r.status, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
@@ -79,7 +83,7 @@ const PRIOR = [
 // Assert the script wrote nothing: the usage file is byte-identical to before (or still absent).
 // `r` is the script's result. The script must have actually run (a missing module would exit nonzero and write nothing,
 // which would pass vacuously), and a refusal says something. `prompt` names text the prompt/message must mention.
-async function assertUntouched(root, before, ctx, r, prompt) {
+async function assertUntouched(root, before, ctx, r, prompt, { allow = [] } = {}) {
   if (r) {
     assert.notEqual(r.code, 0, `exit is nonzero (${ctx})`);
     assert.doesNotMatch(r.stderr, /Cannot find module|MODULE_NOT_FOUND/, `the script exists (${ctx})`);
@@ -89,7 +93,7 @@ async function assertUntouched(root, before, ctx, r, prompt) {
   assert.equal(await readUsage(root), before, `usage.jsonl unchanged (${ctx})`);
   assert.deepEqual(
     (await readdir(path.join(root, ".scratch"))).sort(),
-    before === null ? [] : ["usage.jsonl"],
+    [...(before === null ? [] : ["usage.jsonl"]), ...allow].sort(),
     `no other file appears under .scratch (${ctx})`
   );
 }
@@ -219,6 +223,7 @@ test("active with no feature, or an unknown subcommand, writes nothing and exits
 
 test("admit <ref> --reason with y on stdin appends exactly one queue-admit row by the user", async () => {
   await withRoot(async (root) => {
+    await putTicket(root, "den-v1", "05-thing"); // developer change: admit now needs a real ticket (ruling 1)
     const t0 = Date.now();
     const r = admin(["--root", root, "admit", "den-v1/05-thing", "--reason", "needed for the demo"], { input: "y\n" });
     const t1 = Date.now();
@@ -239,6 +244,7 @@ test("admit <ref> --reason with y on stdin appends exactly one queue-admit row b
 test("admit keeps a reason with quotes, a backslash and unicode intact (one valid JSON line)", async () => {
   const reason = 'user said "ship it" \\ at 5é, {"kind":"config"}';
   await withRoot(async (root) => {
+    await putTicket(root, "den-v1", "05-thing");
     const r = admin(["--root", root, "admit", "den-v1/05-thing", "--reason", reason], { input: "y\n" });
     assert.equal(r.code, 0, r.stderr);
     const rows = rowsOf(await readUsage(root));
@@ -251,18 +257,20 @@ test("admit keeps a reason with quotes, a backslash and unicode intact (one vali
 for (const answer of ["n\n", "\n", "", "yes\n", "Y\n"]) {
   test(`admit with stdin ${JSON.stringify(answer)} writes nothing and exits nonzero`, async () => {
     await withRoot(async (root) => {
+      await putTicket(root, "den-v1", "05-thing");
       const r = admin(["--root", root, "admit", "den-v1/05-thing", "--reason", "why"], { input: answer });
       assert.notEqual(r.code, 0);
-      await assertUntouched(root, PRIOR, JSON.stringify(answer), r, "den-v1/05-thing");
+      await assertUntouched(root, PRIOR, JSON.stringify(answer), r, "den-v1/05-thing", { allow: ["den-v1"] });
     }, { usage: PRIOR });
   });
 }
 
 test("admit with a /dev/null stdin writes nothing and exits nonzero", async () => {
   await withRoot(async (root) => {
+    await putTicket(root, "den-v1", "05-thing");
     const r = admin(["--root", root, "admit", "den-v1/05-thing", "--reason", "why"], { devnull: true });
     assert.notEqual(r.code, 0);
-    await assertUntouched(root, null, "devnull", r, "den-v1/05-thing");
+    await assertUntouched(root, null, "devnull", r, "den-v1/05-thing", { allow: ["den-v1"] });
   });
 });
 
@@ -277,11 +285,76 @@ test("admit refuses a missing, empty or blank reason and a missing ref, even wit
   ];
   for (const args of cases) {
     await withRoot(async (root) => {
+      await putTicket(root, "den-v1", "05-thing");
       const r = admin(["--root", root, ...args], { input: "y\n" });
       assert.notEqual(r.code, 0, JSON.stringify(args));
-      await assertUntouched(root, PRIOR, JSON.stringify(args), r);
+      await assertUntouched(root, PRIOR, JSON.stringify(args), r, undefined, { allow: ["den-v1"] });
     }, { usage: PRIOR });
   }
+});
+
+// Developer addition (queue/04 ruling 1): admit refuses a ref that is not a real ticket.
+test("admit refuses a ref that names no ticket, or is not shaped like a ref, even with y", async () => {
+  const refs = [
+    "den-v1/99-missing", // well formed, no such file
+    "nofeature/01-thing", // no such feature
+    "den-v1/05", // the number alone is not the full ref
+    "05-thing",
+    "den-v1/05-thing/extra",
+    "../den-v1/05-thing",
+    "den-v1/../den-v1/05-thing",
+    "DEN-V1/05-thing",
+    "den-v1/05-thing.md",
+    "",
+  ];
+  for (const ref of refs) {
+    await withRoot(async (root) => {
+      await putTicket(root, "den-v1", "05-thing");
+      const r = admin(["--root", root, "admit", ref, "--reason", "why"], { input: "y\n" });
+      assert.notEqual(r.code, 0, JSON.stringify(ref));
+      await assertUntouched(root, PRIOR, JSON.stringify(ref), r, undefined, { allow: ["den-v1"] });
+    }, { usage: PRIOR });
+  }
+});
+
+// Developer addition (queue/04 ruling 3): with no --root the row goes to the main checkout, found as `board` finds it.
+test("with no --root, run from a worktree, the row is written in the main checkout", async () => {
+  const fx = await makeBoardFixture(SEED);
+  try {
+    const r = admin(["active", "den-v1"], { input: "y\n", cwd: fx.worktree });
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(rowsOf(await readUsage(fx.root))[0]?.queue_active, "den-v1", "main checkout has the row");
+    assert.equal(await readUsage(fx.worktree), null, "the worktree has no usage.jsonl");
+    const a = admin(["admit", "seed/09-seed", "--reason", "why"], { input: "y\n", cwd: fx.worktree });
+    assert.equal(a.code, 0, a.stderr);
+    assert.equal(rowsOf(await readUsage(fx.root)).at(-1)?.kind, "queue-admit");
+    assert.equal(await readUsage(fx.worktree), null, "still no usage.jsonl in the worktree");
+  } finally {
+    await fx.cleanup();
+  }
+});
+
+test("with no --root, $ORGANISM_ROOT is the main checkout, and --root still wins over it", async () => {
+  await withRoot(async (a) => {
+    await withRoot(async (b) => {
+      const viaEnv = admin(["active", "den-v1"], { input: "y\n", env: { ORGANISM_ROOT: a } });
+      assert.equal(viaEnv.code, 0, viaEnv.stderr);
+      assert.equal(rowsOf(await readUsage(a))[0]?.queue_active, "den-v1");
+      const both = admin(["--root", b, "active", "beta"], { input: "y\n", env: { ORGANISM_ROOT: a } });
+      assert.equal(both.code, 0, both.stderr);
+      assert.equal(rowsOf(await readUsage(b))[0]?.queue_active, "beta", "--root wins");
+      assert.equal(rowsOf(await readUsage(a)).length, 1, "the env root got nothing more");
+    });
+  });
+});
+
+test("with no --root, outside any checkout and with no $ORGANISM_ROOT, it refuses and writes nothing", async () => {
+  await withRoot(async (root) => {
+    const r = admin(["active", "den-v1"], { input: "y\n", cwd: root });
+    assert.notEqual(r.code, 0);
+    assert.doesNotMatch(r.stderr, /Cannot find module|MODULE_NOT_FOUND/, "the script exists");
+    assert.equal(await readUsage(root), null);
+  });
 });
 
 // --- the Queue reads both rows ------------------------------------------------------------------------------------
@@ -400,4 +473,34 @@ test("loadSnapshot and gateRefusals: a queue-admit row admits exactly the ticket
     await writeFile(usagePath(root), JSON.stringify(row) + "\n", "utf8");
     assert.deepEqual(await refs(), ["lone/02-bare"]);
   });
+});
+
+// Developer additions (queue/04 ruling 2): the Queue ignores a row that does not carry by:"user".
+const withBy = (row, by) => JSON.stringify(by === undefined ? row : { ...row, by }) + "\n";
+
+test("loadSnapshot ignores a queue-admit row without by:user", async () => {
+  for (const by of [undefined, "orchestrator", "User", "", null]) {
+    await withRoot(async (root) => {
+      await putTicket(root, "lone", "01-bare");
+      const row = { kind: "queue-admit", ts: "2026-10-12T01:00:00Z", ref: "lone/01-bare", reason: "agent said so" };
+      await writeFile(usagePath(root), withBy(row, by), "utf8");
+      assert.deepEqual(gateRefusals(await loadSnapshot(root)).map((x) => x.ref), ["lone/01-bare"], `by=${JSON.stringify(by)}`);
+    });
+  }
+});
+
+test("loadSnapshot ignores a queue_active row without by:user, and a later user row still wins", async () => {
+  for (const by of [undefined, "orchestrator", "User", ""]) {
+    await withRoot(async (root) => {
+      const base = { kind: "config", ts: "2026-10-12T01:00:00Z", queue_active: "intruder" };
+      await writeFile(usagePath(root), withBy(base, by), "utf8");
+      assert.equal((await loadSnapshot(root)).active, null, `by=${JSON.stringify(by)}`);
+      const user = { kind: "config", ts: "2026-10-12T02:00:00Z", queue_active: "alpha", by: "user" };
+      await writeFile(usagePath(root), withBy(base, by) + withBy(user), "utf8");
+      assert.equal((await loadSnapshot(root)).active, "alpha");
+      // an agent row AFTER the user's row does not displace it
+      await writeFile(usagePath(root), withBy(user) + withBy({ ...base, ts: "2026-10-12T03:00:00Z" }, by), "utf8");
+      assert.equal((await loadSnapshot(root)).active, "alpha", "a later non-user row is ignored");
+    });
+  }
 });
