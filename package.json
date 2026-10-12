@@ -19,6 +19,7 @@
     "queue": "node scripts/queue.mjs",
     "spend": "node scripts/spend.mjs",
     "apply-gated": "node scripts/apply-gated.mjs",
+    "queue-admin": "node scripts/queue-admin.mjs",
     "next-session": "node scripts/next-session.mjs",
     "session-check": "node scripts/session-check.mjs",
     "bridge": "node apps/bridge/server.mjs",

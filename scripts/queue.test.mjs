@@ -103,7 +103,7 @@ test("Q6 a locked ticket is in flight, so it takes no rank and does not shift th
 
 test("Q6 the active feature comes before the rest, wherever its tickets sit on P and unblock count", () => {
   const root = mixedBoard();
-  usage(root, [{ kind: "config", ts: "2026-10-12T00:00:00.000Z", queue_active: "alpha" }]);
+  usage(root, [{ kind: "config", ts: "2026-10-12T00:00:00.000Z", queue_active: "alpha", by: "user" }]);
   const q = readJson(root);
   assert.deepEqual(refs(q.ready), [
     "alpha/302-second",
@@ -118,7 +118,7 @@ test("Q6 the active feature comes before the rest, wherever its tickets sit on P
 test("Q6 a P0 with a P0-reason leads even outside the active feature; a bare P0 does not", () => {
   const root = mixedBoard();
   ticket(root, "beta/302-outage", { priority: "P0", title: "Outage", headers: ["**P0-reason:** production is down"] });
-  usage(root, [{ kind: "config", ts: "2026-10-12T00:00:00.000Z", queue_active: "alpha" }]);
+  usage(root, [{ kind: "config", ts: "2026-10-12T00:00:00.000Z", queue_active: "alpha", by: "user" }]);
   const q = readJson(root);
   assert.equal(q.ready[0].ref, "beta/302-outage");
   assert.deepEqual(refs(q.ready).slice(1), [
@@ -187,7 +187,7 @@ test("Q6 no usage.jsonl still gives the Queue's order, not a crash and not an un
 
 test("Q6 an active-feature row naming a feature with no ready ticket changes nothing", () => {
   const root = mixedBoard();
-  usage(root, [{ kind: "config", ts: "2026-10-12T00:00:00.000Z", queue_active: "nowhere" }]);
+  usage(root, [{ kind: "config", ts: "2026-10-12T00:00:00.000Z", queue_active: "nowhere", by: "user" }]);
   assert.deepEqual(refs(readJson(root).ready), MIXED_QUEUE_ORDER);
 });
 

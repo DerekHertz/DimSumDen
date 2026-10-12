@@ -8,7 +8,9 @@
 //   { active: "<feature>" | null, activeSince?: "<ts>",
 //     tickets: [{ ref, feature, num, status, priority: 0..3, blockedBy: [full refs],
 //                 origin: "spec" | "added" | null, p0Reason: string | null, readySince?: "<ts>" }],
-//     resolved?: [{ ts }], picks?: [{ ts, picked }] }
+//     resolved?: [{ ts }], picks?: [{ ts, picked }],
+//     admitted?: [ref] }   refs the user admitted past the gate (queue-admit rows with by:"user"; queue/04)
+// loadSnapshot reads queue_active and queue-admit rows only when they carry by:"user".
 //
 // Order: tier (P0 with a reason, then the active feature, then the rest); inside a tier, unblock count (most first),
 // then the P line (lowest first), then the lowest ticket number. Scope is not used.
@@ -206,11 +208,14 @@ export function checkAdmission(ticket, snapshot) {
   return { ok: reasons.length === 0, reasons };
 }
 
-// The tickets the gate would park: every ready-for-agent ticket checkAdmission refuses.
+// The tickets the gate would park: every ready-for-agent ticket checkAdmission refuses, except one the user admitted
+// (a `queue-admit` row, written by `queue-admin admit`; the snapshot lists the admitted refs).
 export function gateRefusals(snapshot) {
   const refused = [];
+  const admitted = new Set(snapshot.admitted ?? []);
   for (const t of snapshot.tickets ?? []) {
     if (t.status !== "ready-for-agent") continue;
+    if (admitted.has(t.ref)) continue;
     const r = checkAdmission(t, snapshot);
     if (!r.ok) refused.push({ ref: t.ref, reasons: r.reasons });
   }
@@ -279,11 +284,16 @@ export async function loadSnapshot(root) {
   let active = null;
   let activeSince;
   for (const row of usage) {
+    // Only the user's rows count (queue/04 ruling 2): `queue-admin` writes by:"user"; a row without it is ignored.
+    if (row.by !== "user") continue;
     if (row.kind === "config" && typeof row.queue_active === "string" && FEATURE_RE.test(row.queue_active)) {
       active = row.queue_active;
       activeSince = row.ts;
     }
   }
+  const admitted = new Set(
+    usage.filter((r) => r.kind === "queue-admit" && r.by === "user" && typeof r.ref === "string").map((r) => r.ref)
+  );
   const resolved = usage.filter((r) => r.kind === "resolved" && typeof r.ts === "string").map((r) => ({ ts: r.ts }));
   const picks = usage
     .filter((r) => r.kind === "queue-pick" && typeof r.ts === "string" && typeof r.picked === "string")
@@ -361,7 +371,7 @@ export async function loadSnapshot(root) {
     .filter((t) => t.status === "parked" && parkReason.get(t.ref)?.startsWith(GATE_PREFIX))
     .map((t) => ({ ref: t.ref, reason: parkReason.get(t.ref).slice(GATE_PREFIX.length) }));
 
-  return { active, activeSince, tickets, resolved, picks, specs, incidents, gateParks };
+  return { active, activeSince, tickets, resolved, picks, specs, incidents, gateParks, admitted: [...admitted] };
 }
 
 // --- the printed form ------------------------------------------------------------------------------------------
