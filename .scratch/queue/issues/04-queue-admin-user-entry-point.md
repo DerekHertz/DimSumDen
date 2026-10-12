@@ -36,3 +36,4 @@ Only the user sets the active feature or admits a refused ticket, through `npm r
 ## Comments
 
 - **orchestrator, 2026-10-12:** published from the architect's breakdown (Q3) on the user's approval. Do not run at the same time as ticket 03. The user ruled that den-v1 is the active feature; it is set in ticket 08, not here.
+- **orchestrator, 2026-10-12:** user rulings on the three scope questions in `04-qa-specify.md`, settled before the developer starts. (1) `admit` refuses a `<ref>` that is not a real ticket: it writes nothing and exits nonzero. (2) The Queue ignores a `queue_active` or `queue-admit` row that does not carry `by: "user"`. (3) With no `--root`, `queue-admin` writes to the main checkout, resolved the way the board resolves it; `--root` still wins. The qa specify tests do not cover (1) and (2) and pin cwd for (3): the developer adds or adjusts those tests test-first and names each change in the handoff, and qa verify checks them.
