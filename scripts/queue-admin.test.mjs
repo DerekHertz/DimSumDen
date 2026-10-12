@@ -83,7 +83,10 @@ const PRIOR = [
 // Assert the script wrote nothing: the usage file is byte-identical to before (or still absent).
 // `r` is the script's result. The script must have actually run (a missing module would exit nonzero and write nothing,
 // which would pass vacuously), and a refusal says something. `prompt` names text the prompt/message must mention.
-async function assertUntouched(root, before, ctx, r, prompt, { allow = [] } = {}) {
+// `scratch` is the sorted .scratch listing taken after the fixture was set up and before the script ran; the listing must equal it exactly.
+const snapshotScratch = async (root) => (await readdir(path.join(root, ".scratch"))).sort();
+
+async function assertUntouched(root, before, ctx, r, prompt, { scratch } = {}) {
   if (r) {
     assert.notEqual(r.code, 0, `exit is nonzero (${ctx})`);
     assert.doesNotMatch(r.stderr, /Cannot find module|MODULE_NOT_FOUND/, `the script exists (${ctx})`);
@@ -93,7 +96,7 @@ async function assertUntouched(root, before, ctx, r, prompt, { allow = [] } = {}
   assert.equal(await readUsage(root), before, `usage.jsonl unchanged (${ctx})`);
   assert.deepEqual(
     (await readdir(path.join(root, ".scratch"))).sort(),
-    [...(before === null ? [] : ["usage.jsonl"]), ...allow].sort(),
+    scratch ?? (before === null ? [] : ["usage.jsonl"]),
     `no other file appears under .scratch (${ctx})`
   );
 }
@@ -258,9 +261,10 @@ for (const answer of ["n\n", "\n", "", "yes\n", "Y\n"]) {
   test(`admit with stdin ${JSON.stringify(answer)} writes nothing and exits nonzero`, async () => {
     await withRoot(async (root) => {
       await putTicket(root, "den-v1", "05-thing");
+      const scratch = await snapshotScratch(root);
       const r = admin(["--root", root, "admit", "den-v1/05-thing", "--reason", "why"], { input: answer });
       assert.notEqual(r.code, 0);
-      await assertUntouched(root, PRIOR, JSON.stringify(answer), r, "den-v1/05-thing", { allow: ["den-v1"] });
+      await assertUntouched(root, PRIOR, JSON.stringify(answer), r, "den-v1/05-thing", { scratch });
     }, { usage: PRIOR });
   });
 }
@@ -268,9 +272,10 @@ for (const answer of ["n\n", "\n", "", "yes\n", "Y\n"]) {
 test("admit with a /dev/null stdin writes nothing and exits nonzero", async () => {
   await withRoot(async (root) => {
     await putTicket(root, "den-v1", "05-thing");
+    const scratch = await snapshotScratch(root);
     const r = admin(["--root", root, "admit", "den-v1/05-thing", "--reason", "why"], { devnull: true });
     assert.notEqual(r.code, 0);
-    await assertUntouched(root, null, "devnull", r, "den-v1/05-thing", { allow: ["den-v1"] });
+    await assertUntouched(root, null, "devnull", r, "den-v1/05-thing", { scratch });
   });
 });
 
@@ -286,9 +291,10 @@ test("admit refuses a missing, empty or blank reason and a missing ref, even wit
   for (const args of cases) {
     await withRoot(async (root) => {
       await putTicket(root, "den-v1", "05-thing");
+      const scratch = await snapshotScratch(root);
       const r = admin(["--root", root, ...args], { input: "y\n" });
       assert.notEqual(r.code, 0, JSON.stringify(args));
-      await assertUntouched(root, PRIOR, JSON.stringify(args), r, undefined, { allow: ["den-v1"] });
+      await assertUntouched(root, PRIOR, JSON.stringify(args), r, undefined, { scratch });
     }, { usage: PRIOR });
   }
 });
@@ -310,9 +316,10 @@ test("admit refuses a ref that names no ticket, or is not shaped like a ref, eve
   for (const ref of refs) {
     await withRoot(async (root) => {
       await putTicket(root, "den-v1", "05-thing");
+      const scratch = await snapshotScratch(root);
       const r = admin(["--root", root, "admit", ref, "--reason", "why"], { input: "y\n" });
       assert.notEqual(r.code, 0, JSON.stringify(ref));
-      await assertUntouched(root, PRIOR, JSON.stringify(ref), r, undefined, { allow: ["den-v1"] });
+      await assertUntouched(root, PRIOR, JSON.stringify(ref), r, undefined, { scratch });
     }, { usage: PRIOR });
   }
 });
