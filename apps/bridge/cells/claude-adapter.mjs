@@ -77,6 +77,8 @@ const isForbidList = (list, re) => isDense(list) && list.length <= FORBID_MAX &&
 }
 const isForbid = (f) => isPlainObject(f) && Object.keys(f).length === 2 && isForbidList(f.write, FORBID_PATH_RE) && isForbidList(f.run, FORBID_RUN_RE);
 const baseOf = (entry) => entry.replace(/\/\*\*$/, "");
+/** The governed paths of a checkout (guardrail and CI), relative and without a trailing /** (agent-os/07: a path grant on one is a 400). */
+export const GOVERNED_BASES = Object.freeze([...new Set([...GOVERNANCE.guardrailPaths, ...GOVERNANCE.ciPaths].map(baseOf))]);
 
 // agent-os/02 (ADR 0021 decision 3): task grants, data in a fixed shape: { kind: "host", value: <host name> } or
 // { kind: "path", value: <absolute or ~/ path of plain segments> }, at most six. Nothing else is accepted, and the error
@@ -189,11 +191,14 @@ export function grantContainsWorktrees(grant, { root, home, worktree } = {}) {
 function governedUnder(grant, root, worktree) {
   if (!grant.startsWith("/") || (worktree !== undefined && covers(worktree, grant))) return [];
   const out = [];
+  // Compared in lower case (agent-os/07: macOS volumes are case-insensitive); the grant's own casing is what a deny names.
+  const g = grant.toLowerCase();
   for (const entry of [...GOVERNANCE.guardrailPaths, ...GOVERNANCE.ciPaths]) {
     const governed = `${root}/${baseOf(entry)}`;
-    if (grant === governed) out.push(`${root}/${entry}`);
-    else if (covers(governed, grant)) out.push(`${grant}/**`);
-    else if (covers(grant, governed)) out.push(`${root}/${entry}`);
+    const lowered = governed.toLowerCase();
+    if (g === lowered) out.push(`${root}/${entry}`, ...(grant === governed ? [] : [`${grant}/**`]));
+    else if (covers(lowered, g)) out.push(`${grant}/**`);
+    else if (covers(g, lowered)) out.push(`${root}/${entry}`);
   }
   return out;
 }
