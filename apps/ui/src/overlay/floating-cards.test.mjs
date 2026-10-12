@@ -88,6 +88,7 @@ function fixture() {
       ticket("06", "later-on", { status: "ready", ready: true, effectivePriority: "P2", priority: "P2" }),
     ],
     frontier: ["demo/05-next-up", "demo/06-later-on"],
+    capacity: { max: 8, cap: 8, load: 0, live: 0, room: 8, refs: [] }, // organism-infra/228: the bridge always sends it; Run is enabled, so the tab-order walk reaches it
   };
 }
 const quietSnapshot = () => ({ schema: 1, seq: 1, tickets: [], frontier: [], usage: null, requests: [] });

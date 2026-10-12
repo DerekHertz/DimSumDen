@@ -269,7 +269,38 @@ button.pill-station:hover { background: var(--surface-300); }
 .queue-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .queue-row { display: flex; align-items: center; gap: var(--space-2); padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--radius-m); }
 .pchip { flex: none; padding: 0 var(--space-1); border: 1px solid var(--ink); border-radius: var(--radius-s); font: 700 11px/14px var(--font-mono); }
-.queue-title { min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-title { min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+
+/* organism-infra/228: the slot strip and the Run control. Tokens only. lantern and alarm stay out of the strip; alarm is
+   only the refusal line (.gate-error). A running slot and a lock differ by glyph, word and border style, not hue alone. */
+.code-small { font: 500 12px/16px var(--font-mono); overflow-wrap: anywhere; }
+[data-overlay="needs-you"] { flex-shrink: 0; max-height: 55vh; } /* the request that waits on the user is never squeezed by the taller Stations card; its body scrolls past 55vh */
+.slots { position: sticky; top: 0; z-index: 1; flex: none; padding: var(--space-2) var(--space-3); background: var(--surface-100); border: 1px solid var(--line); border-radius: var(--radius-m); }
+.slots-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+.slots-head .ov { margin: 0; }
+.slot-rows { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.slot-row { display: flex; align-items: center; gap: var(--space-2); }
+.slot-pip { flex: none; width: 20px; height: 20px; display: grid; place-items: center; border-radius: var(--radius-full); font: 700 10px/1 var(--font-sans); }
+.slot-pip-live { background: var(--qi-fill); color: var(--on-qi); }
+.slot-pip-lock { border: 2px dashed var(--line-strong); color: var(--ink-muted); }
+.slot-ref { flex: 1 1 auto; min-width: 0; }
+.slot-tag { flex: none; padding: 0 var(--space-2); border-radius: var(--radius-full); font: 700 11px/16px var(--font-sans); }
+.slot-tag-live { color: var(--qi); border: 1px solid var(--qi); }
+.slot-tag-lock { color: var(--ink-muted); border: 1px dashed var(--line-strong); }
+.slots-note { margin: var(--space-2) 0 0; }
+.queue-rows-scroll { flex: 1 1 auto; min-height: 96px; overflow-y: auto; }
+.queue-rows-scroll .queue-row { flex-direction: column; align-items: stretch; gap: var(--space-2); padding: var(--space-3) 0 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+.queue-line { display: flex; align-items: center; gap: var(--space-2); }
+.queue-ref { margin-top: calc(var(--space-1) * -1); }
+.run { display: flex; flex-direction: column; gap: var(--space-1); }
+.run-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.run-label { flex: none; }
+.run-select { flex: 1 1 140px; min-width: 0; min-height: 36px; padding: 0 var(--space-2); background: var(--surface-200); color: var(--ink); border: 2px solid var(--line-strong); border-radius: var(--radius-m); font: 700 13px/18px var(--font-sans); }
+.run-select:disabled { opacity: var(--opacity-dim); }
+.run-btn { flex: 1 1 88px; transition: opacity var(--dur-fast); }
+.run-reason, .dispatch-line { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 599px) { .run-select, .run-btn { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .run-btn { transition: none !important; } }
 
 .zoom-switcher { left: 16px; bottom: 16px; display: flex; flex-direction: column; align-items: stretch; gap: var(--space-1); padding: var(--space-2) 6px; border-radius: var(--radius-l); border: 1px solid var(--line); background: var(--surface-glass); box-shadow: var(--shadow-panel); }
 .zoom-levels { display: flex; flex-direction: column; align-items: stretch; }
