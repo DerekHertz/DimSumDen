@@ -3432,3 +3432,7 @@
 {"kind":"spend","ts":"2026-10-12T18:37:47.364Z","session":"544882e4-da35-4d39-9e2b-341b4d8f576c","role":"orchestrator","ticket":"queue/05-decay-pick-and-unplanned-cap","input_tokens":12,"cache_creation_input_tokens":11766,"cache_read_input_tokens":313368,"output_tokens":5420}
 {"kind":"usage","ts":"2026-10-12T18:37:53Z","five_hour":75,"weekly":38,"event":"return","ticket":"queue/05-decay-pick-and-unplanned-cap","cell":"orchestrator"}
 {"kind":"context","ts":"2026-10-12T18:37:53Z","session":"544882e4-da35-4d39-9e2b-341b4d8f576c","context_tokens":58213,"percent":5.82,"event":"return"}
+{"kind":"jev","ts":"2026-10-12T18:39:23.143Z","ticket":"queue/07-genome-and-settings-patch","point":"route","pick":"other","actual":"orchestrator","cost":0.00005321400000000001,"conf":0.49,"mode":"advisory","fallback":null,"floor":null,"ms":579,"model":"jev-1.13.0","variant":"new"}
+{"kind":"usage","ts":"2026-10-12T18:39:29Z","five_hour":75,"weekly":38,"event":"dispatch","ticket":"queue/07-genome-and-settings-patch","cell":"orchestrator"}
+{"kind":"context","ts":"2026-10-12T18:39:29Z","session":"d2260a5d-2532-4841-8e57-1b63e2a4a1c9","context_tokens":29392,"percent":2.94,"event":"dispatch"}
+{"kind":"spend","ts":"2026-10-12T18:39:29.424Z","session":"d2260a5d-2532-4841-8e57-1b63e2a4a1c9","role":"orchestrator","ticket":"queue/07-genome-and-settings-patch","input_tokens":8,"cache_creation_input_tokens":19351,"cache_read_input_tokens":76224,"output_tokens":1023}
