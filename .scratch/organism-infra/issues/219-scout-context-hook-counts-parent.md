@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Token hygiene. Cells send verbose work (full test runs) to `scout` to keep their own context small. When the hook refuses the scout, the cell runs the suite in its own context.
 
@@ -26,3 +26,4 @@ The hook should count the scout's own transcript, not the transcript of the cell
 ## Comments
 
 - 2026-10-11, orchestrator: filed at the user's choice (environment issue from agent-os/02's developer, incident row in `.scratch/usage.jsonl`). This is likely a `.claude/` hook change; the relay's gated-file rule applies.
+- **orchestrator, 2026-10-12:** Parked: Held on the user's yes (2026-10-12 scope check): refocus guardrail, pipeline tickets only from a third repeat incident. Unpark when the cause repeats a third time.

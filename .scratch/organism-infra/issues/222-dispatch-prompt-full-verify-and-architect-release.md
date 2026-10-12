@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** parked
 
 **Serves:** Retro 2026-10-11 (agent-os/07 relay). The orchestrator pastes `dispatch-prompt.mjs` output as printed and never hand-writes those lines. Twice in one relay the printed lines were wrong and it had to work around them.
 
@@ -27,3 +27,4 @@
 
 - 2026-10-11, orchestrator: filed from the retro on the user's yes (2026-10-11). Two incident rows dated 2026-10-12 on agent-os/07-grant-hardening in `.scratch/usage.jsonl`.
 - 2026-10-12, orchestrator: widened from the retro on the user's yes (2026-10-12). The light verify escalated again on agent-os/09 for the same two reasons as on 07: a process-only criterion and an untested path that qa specify had flagged. The third criterion above makes the script choose full verify up front in those cases, so no Haiku cell is spent on an escalation.
+- **orchestrator, 2026-10-12:** Parked: Held on the user's yes (2026-10-12 scope check): refocus guardrail, pipeline tickets only from a third repeat incident. Unpark when the cause repeats a third time.
