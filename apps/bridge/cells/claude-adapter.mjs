@@ -10,7 +10,7 @@
 //                     whose id comes back on the child's replay of it and reads as message-applied
 import { readFileSync } from "node:fs";
 import { StringDecoder } from "node:string_decoder";
-import { COST_MAX_USD, MODEL_RE, REQUEST_ID_MAX, REQUEST_IDS_PER_AGENT, ROLES, UUID_RE } from "./policy.mjs";
+import { COST_MAX_USD, MODEL_RE, REQUEST_ID_MAX, REQUEST_IDS_PER_AGENT, ROLES, UUID_RE, WORKTREES_DIR } from "./policy.mjs";
 
 export const MAX_LINE_BYTES = 1_000_000; // ADR 0016 6.8: a stdout line over about 1 MB is dropped
 export const CLAUDE_MODELS = Object.freeze(["opus", "sonnet", "haiku"]); // the CLI's own aliases; nothing else reaches --model
@@ -105,9 +105,15 @@ export function parseGrants(grants) {
   return { hosts, paths };
 }
 
-const sandboxFor = (wall, worktree, forbid, writePaths, readLimit, ticketFile) => {
-  // Shell writes: the sandbox's own deny list, in the absolute form when the worktree is known.
-  const denyWrite = [...new Set((forbid?.write ?? []).map((p) => (worktree === undefined ? baseOf(p) : `${worktree}/${baseOf(p)}`)))];
+// Governed paths of the main checkout that a path grant reaches (compileCeiling's denyAbs): absolute, plain segments, an
+// optional trailing /**. A grant list is at most six and the governed list at most 40 a side, so the cap is generous.
+const DENY_ABS_RE = /^(?:\/[A-Za-z0-9._@+-]+)+(?:\/\*\*)?$/;
+const DENY_ABS_MAX = GRANTS_MAX * 2 * FORBID_MAX;
+
+const sandboxFor = (wall, worktree, forbid, writePaths, readLimit, ticketFile, denyAbs) => {
+  // Shell writes: the sandbox's own deny list, in the absolute form when the worktree is known, plus the governed paths of the
+  // main checkout that a path grant reaches.
+  const denyWrite = [...new Set([...(forbid?.write ?? []).map((p) => (worktree === undefined ? baseOf(p) : `${worktree}/${baseOf(p)}`)), ...(denyAbs ?? []).map(baseOf)])];
   const filesystem = { ...(denyWrite.length === 0 ? {} : { denyWrite }), ...(writePaths?.length ? { allowWrite: [...writePaths] } : {}),
     // The read limit for a shell command (live check, agent-os/02): the home directory is closed, the worktree, the ticket and granted paths re-opened.
     ...(readLimit === true ? { denyRead: ["~/"], allowRead: [...(worktree === undefined ? [] : [worktree]), ...(ticketFile === undefined ? [] : [`/${ticketFile}`.slice(1)]), ...(writePaths ?? [])] } : {}) };
@@ -122,7 +128,7 @@ const sandboxFor = (wall, worktree, forbid, writePaths, readLimit, ticketFile) =
 };
 // A file tool's rule for a path: `//abs` for an absolute one (the adapter's form), `~/x` for a home one.
 const ruleForm = (p) => (p.startsWith("/") ? `/${p}` : p);
-const settingsFor = ({ ticketFile, wall, worktree, forbid, writePaths, readLimit }) => {
+const settingsFor = ({ ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs }) => {
   const allow = [
     ...(ticketFile === undefined ? [] : [`Read(/${ticketFile})`]),
     ...(worktree === undefined ? [] : [`Write(/${worktree}/**)`, `Edit(/${worktree}/**)`]),
@@ -132,13 +138,14 @@ const settingsFor = ({ ticketFile, wall, worktree, forbid, writePaths, readLimit
   const deny = [
     ...DENY_RULES,
     ...denyPaths.flatMap((p) => [`Write(${p})`, `Edit(${p})`]),
+    ...(denyAbs ?? []).flatMap((p) => [`Write(${ruleForm(p)})`, `Edit(${ruleForm(p)})`]),
     // An infix rule, so a command wrapped in a newline, $(...), backticks or <(...) is still caught. Words are joined by "*",
     // so `git -C dir push` and a doubled space match too.
     ...(forbid?.run ?? []).map((words) => `Bash(*${words.split(" ").join(" *")}*)`),
   ];
   return JSON.stringify({
-    permissions: { deny: [...new Set(deny)], ...(allow.length === 0 ? {} : { allow }), ...(readLimit === true ? { blockReadsOutsideWorkingDirectories: true } : {}) },
-    ...(wall === undefined ? {} : { sandbox: sandboxFor(wall, worktree, forbid, writePaths, readLimit, ticketFile) }),
+    permissions: { deny: [...new Set(deny)], ...(allow.length === 0 ? {} : { allow }), ...(readLimit === true ? { blockReadsOutsideWorkingDirectories: true, ...(ticketFile === undefined ? {} : { additionalDirectories: [ticketFile.slice(0, ticketFile.lastIndexOf("/"))] }) } : {}) },
+    ...(wall === undefined ? {} : { sandbox: sandboxFor(wall, worktree, forbid, writePaths, readLimit, ticketFile, denyAbs) }),
   });
 };
 
@@ -163,6 +170,34 @@ export const ceilingOf = (role) => (Object.hasOwn(CEILINGS, role) ? { takesGrant
 
 const covers = (grant, file) => file === grant || file.startsWith(`${grant}/`);
 
+/** A grant as an absolute path: "~/x" becomes "<home>/x" when home is known; otherwise it is returned as it is. */
+const expandHome = (grant, home) => (grant.startsWith("~/") && home !== undefined ? `${home}${grant.slice(1)}` : grant);
+
+/**
+ * Whether a path grant contains an agent's worktree: the worktree itself, or the worktrees directory of the main checkout
+ * (so the main checkout, its .claude and any parent are included). Such a grant would open the main checkout and the
+ * sibling worktrees, where the governance denies do not reach. A "~/" grant is checked when home is given.
+ */
+export function grantContainsWorktrees(grant, { root, home, worktree } = {}) {
+  const p = expandHome(grant, home);
+  if (!p.startsWith("/")) return false;
+  return [worktree, root === undefined ? undefined : `${root}/${WORKTREES_DIR}`].some((dir) => dir !== undefined && covers(p, dir));
+}
+
+// The governed paths (absolute, in the main checkout) that one path grant reaches: the grant itself when it is inside a governed
+// directory, the governed path when the grant is above it. A grant in the agent's own worktree is left to the relative denies.
+function governedUnder(grant, root, worktree) {
+  if (!grant.startsWith("/") || (worktree !== undefined && covers(worktree, grant))) return [];
+  const out = [];
+  for (const entry of [...GOVERNANCE.guardrailPaths, ...GOVERNANCE.ciPaths]) {
+    const governed = `${root}/${baseOf(entry)}`;
+    if (grant === governed) out.push(`${root}/${entry}`);
+    else if (covers(governed, grant)) out.push(`${grant}/**`);
+    else if (covers(grant, governed)) out.push(`${root}/${entry}`);
+  }
+  return out;
+}
+
 /**
  * The buildClaudeArgs options for a role's ceiling plus its task grants: the wall with the ceiling's hosts and the granted
  * ones, Write and Edit allow rules for the worktree when the role writes and for each granted path, and the governance
@@ -172,8 +207,10 @@ const covers = (grant, file) => file === grant || file.startsWith(`${grant}/`);
  * worktree undefined leaves the write rules out (the wall stays, the Write request stays). Any grant outside the fixed shape,
  * any grant for a role that cannot write, and a path grant that contains the worktree are TypeErrors.
  */
-export function compileCeiling(role, { worktree, grants } = {}) {
+export function compileCeiling(role, { worktree, grants, root, home } = {}) {
   const { hosts: grantHosts, paths } = parseGrants(grants);
+  if (root !== undefined && !isWorktreePath(root)) throw new TypeError("compileCeiling: root must be a plain absolute path");
+  if (home !== undefined && !isWorktreePath(home)) throw new TypeError("compileCeiling: home must be a plain absolute path");
   const ceiling = Object.hasOwn(CEILINGS, role) ? CEILINGS[role] : undefined;
   if (ceiling === undefined) {
     if (grantHosts.length + paths.length > 0) throw new TypeError("compileCeiling: this role takes no grants");
@@ -186,14 +223,18 @@ export function compileCeiling(role, { worktree, grants } = {}) {
     options.worktree = worktree;
   }
   // A grant above the worktree would open the main checkout and its sibling worktrees, where the governance denies do not reach.
-  if (worktree !== undefined && paths.some((p) => p.startsWith("/") && worktree.startsWith(`${p}/`))) throw new TypeError("compileCeiling: a path grant may not contain the worktree");
+  if (paths.some((p) => grantContainsWorktrees(p, { root, home, worktree }))) throw new TypeError("compileCeiling: a path grant may not contain the worktree");
   const lifted = (entry) =>
     options.worktree !== undefined && GOVERNANCE.ciGrantRoles.includes(role) && paths.some((p) => p.startsWith("/") && covers(p, `${options.worktree}/${baseOf(entry)}`));
+  // A path grant inside the main checkout: the governed paths it reaches are denied in absolute form. The CI exception is not
+  // carried over; it is for the role's own worktree only.
+  const denyAbs = root === undefined ? [] : [...new Set(paths.flatMap((g) => governedUnder(expandHome(g, home), root, worktree)))];
   const hosts = [...new Set([...ceiling.hosts, ...grantHosts])];
   return {
     wall: { hosts },
     ...options,
     forbid: { write: [...GOVERNANCE.guardrailPaths, ...GOVERNANCE.ciPaths.filter((e) => !lifted(e))], run: [...GOVERNANCE.denyRun] },
+    ...(denyAbs.length === 0 ? {} : { denyAbs }),
     ...(paths.length === 0 ? {} : { writePaths: paths }),
     ...(hosts.length === 0 ? {} : { readLimit: true }),
   };
@@ -209,15 +250,16 @@ export function compileCeiling(role, { worktree, grants } = {}) {
 export function buildClaudeArgs(options) {
   if (!isPlainObject(options)) throw new TypeError("buildClaudeArgs needs { sessionId, agent, model?, ticketFile?, wall?, worktree? }");
   for (const key of Object.keys(options)) {
-    if (!["sessionId", "agent", "model", "ticketFile", "wall", "worktree", "forbid", "writePaths", "readLimit"].includes(key)) throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
+    if (!["sessionId", "agent", "model", "ticketFile", "wall", "worktree", "forbid", "writePaths", "readLimit", "denyAbs"].includes(key)) throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
   }
-  const { sessionId, agent, model, ticketFile, wall, worktree, forbid, writePaths, readLimit } = options;
+  const { sessionId, agent, model, ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs } = options;
   if (wall !== undefined && !isWall(wall)) throw new TypeError("buildClaudeArgs: wall must be { hosts: [plain host names] }");
   // agent-os/02: the governance denies, task-granted write paths and the read limit all come from compileCeiling and need the wall.
   if (forbid !== undefined && !isForbid(forbid)) throw new TypeError("buildClaudeArgs: forbid must be { write: [plain paths], run: [plain words] }");
   if (writePaths !== undefined && !(isDense(writePaths) && writePaths.length <= GRANTS_MAX && writePaths.every(isGrantPath))) throw new TypeError("buildClaudeArgs: writePaths must be plain absolute or ~/ paths");
   if (readLimit !== undefined && readLimit !== true) throw new TypeError("buildClaudeArgs: readLimit must be true");
-  if (wall === undefined && (forbid !== undefined || writePaths !== undefined || readLimit !== undefined)) throw new TypeError("buildClaudeArgs: forbid, writePaths and readLimit need the wall");
+  if (denyAbs !== undefined && !(isDense(denyAbs) && denyAbs.length <= DENY_ABS_MAX && denyAbs.every((p) => typeof p === "string" && DENY_ABS_RE.test(p) && !p.split("/").some((part) => part === "." || part === "..")))) throw new TypeError("buildClaudeArgs: denyAbs must be plain absolute paths");
+  if (wall === undefined && (forbid !== undefined || writePaths !== undefined || readLimit !== undefined || denyAbs !== undefined)) throw new TypeError("buildClaudeArgs: forbid, writePaths, readLimit and denyAbs need the wall");
   if (worktree !== undefined && !isWorktreePath(worktree)) throw new TypeError("buildClaudeArgs: worktree must be a plain absolute path");
   if (ticketFile !== undefined && !isTicketFilePath(ticketFile)) throw new TypeError("buildClaudeArgs: ticketFile must be a plain absolute path to a board ticket");
   if (typeof sessionId !== "string" || !UUID_RE.test(sessionId)) throw new TypeError("buildClaudeArgs: sessionId must be a UUID");
@@ -235,7 +277,7 @@ export function buildClaudeArgs(options) {
     ...(model === undefined ? [] : ["--model", model]),
     "--setting-sources", "project,local",
     "--strict-mcp-config",
-    "--settings", settingsFor({ ticketFile, wall, worktree, forbid, writePaths, readLimit }),
+    "--settings", settingsFor({ ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs }),
   ];
 }
 
