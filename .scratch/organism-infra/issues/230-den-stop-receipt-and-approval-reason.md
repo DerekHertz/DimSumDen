@@ -8,7 +8,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 **Serves:** Den loop: the user can tell what a running agent wants and can stop it from the Den.
 
