@@ -3047,3 +3047,10 @@
 {"kind":"usage","ts":"2026-10-12T01:52:07Z","five_hour":71,"weekly":21,"event":"merge","ticket":"organism-infra/221-retro-review-step","cell":"orchestrator"}
 {"kind":"context","ts":"2026-10-12T01:52:07Z","session":"a30c03d0-7944-4c0d-9d94-b3a351461352","context_tokens":36426,"percent":3.64,"event":"merge"}
 {"kind":"spend","ts":"2026-10-12T01:52:07.984Z","session":"a30c03d0-7944-4c0d-9d94-b3a351461352","role":"orchestrator","ticket":"agent-os/07-grant-hardening","input_tokens":6,"cache_creation_input_tokens":26408,"cache_read_input_tokens":178541,"output_tokens":3805}
+{"kind":"usage","ts":"2026-10-12T01:53:33Z","five_hour":71,"weekly":21,"event":"dispatch","ticket":"agent-os/07-grant-hardening","cell":"architect"}
+{"kind":"context","ts":"2026-10-12T01:53:33Z","session":"a30c03d0-7944-4c0d-9d94-b3a351461352","context_tokens":43488,"percent":4.35,"event":"dispatch"}
+{"kind":"cell","ts":"2026-10-12T02:08:10.461Z","ticket":"agent-os/07-grant-hardening","cell":"architect","model":"sonnet","tokens":120735,"ms":868299,"outcome":"design done: detached worktrees plus always-on main .git denies; ADR 0021 amendment 2 proposed; 2 open user questions","context":110000,"input_tokens":74,"cache_creation_input_tokens":118994,"cache_read_input_tokens":3146331,"output_tokens":1655}
+{"kind":"spend","ts":"2026-10-12T02:08:10.461Z","session":"agent-accd5b1d15dced373","role":"architect","ticket":"agent-os/07-grant-hardening","input_tokens":74,"cache_creation_input_tokens":118994,"cache_read_input_tokens":3146331,"output_tokens":1655}
+{"kind":"usage","ts":"2026-10-12T02:08:10Z","five_hour":78,"weekly":22,"event":"return","ticket":"agent-os/07-grant-hardening","cell":"architect"}
+{"kind":"context","ts":"2026-10-12T02:08:10Z","session":"a30c03d0-7944-4c0d-9d94-b3a351461352","context_tokens":48347,"percent":4.83,"event":"return"}
+{"kind":"spend","ts":"2026-10-12T02:08:10.516Z","session":"a30c03d0-7944-4c0d-9d94-b3a351461352","role":"orchestrator","ticket":"agent-os/07-grant-hardening","input_tokens":24,"cache_creation_input_tokens":11387,"cache_read_input_tokens":454227,"output_tokens":6176}
