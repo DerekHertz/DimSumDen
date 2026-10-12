@@ -30,3 +30,4 @@ When `--branch` is absent for qa `specify`, derive the branch as `tests/<feature
 ## Comments
 
 - **orchestrator, 2026-10-12:** filed from pipeline-retro on the user's yes (third-repeat rule met: four incidents).
+- **orchestrator, 2026-10-12:** Retro 2026-10-12 (user yes): widen this ticket. The same exit 2 happened a fourth time on a developer-direct dispatch (queue/07, no qa specify, so no tests branch). When a developer gets no `--branch` and the ticket has no tests branch, derive `feat/<feature>-<NN-slug>`.

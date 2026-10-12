@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** parked
+**Status:** ready-for-agent
 
 **Serves:** Retro 2026-10-09 (212 relay). The documented `!npm run apply-gated` path failed twice in one ticket.
 
@@ -28,3 +28,4 @@
 - **orchestrator, 2026-10-11:** Parked: 2026-10-10 agent-system grill: tooling for the desktop relay, which the bridge relay replaces; revisit after the bridge relay exists
 - **orchestrator, 2026-10-12:** Unparked: Retro 2026-10-11: recurred on organism-infra/220; user yes to bring it back
 - **orchestrator, 2026-10-12:** Parked: Held on the user's yes (2026-10-12 scope check): refocus guardrail, pipeline tickets only from a third repeat incident. Unpark when the cause repeats a third time.
+- **orchestrator, 2026-10-12:** Unparked: Retro 2026-10-12, user yes: the cause recurred on queue/07; the orchestrator had to ask how the apply-gated commit (fd42037) should reach origin.

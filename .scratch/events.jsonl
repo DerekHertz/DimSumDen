@@ -2744,3 +2744,4 @@
 {"seq":2095,"ts":"2026-10-12T18:46:22.609Z","feature":"queue","ticket":"07-genome-and-settings-patch","cell":"qa","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":2096,"ts":"2026-10-12T18:50:06.525Z","feature":"queue","ticket":"07-genome-and-settings-patch","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":2097,"ts":"2026-10-12T18:50:23.813Z","feature":"queue","ticket":"07-genome-and-settings-patch","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":2098,"ts":"2026-10-12T18:53:14.154Z","feature":"organism-infra","ticket":"214-apply-gated-yes-and-branch","cell":"orchestrator","op":"unpark","from":"parked","to":"ready-for-agent","reason":"Retro 2026-10-12, user yes: the cause recurred on queue/07; the orchestrator had to ask how the apply-gated commit (fd42037) should reach origin."}
