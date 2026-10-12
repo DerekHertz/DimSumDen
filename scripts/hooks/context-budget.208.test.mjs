@@ -48,6 +48,10 @@ function fixture(tokens, session = uniqueSession()) {
 function runHook(f, toolName, toolInput, who = CELL) {
   const env = { ...process.env, HOME: f.home, ORGANISM_ROOT: path.join(f.home, "main") };
   delete env.CLAUDE_CODE_SESSION_ID;
+  // organism-infra/220: mechanics at 70k/80k through the config seam (shipped numbers: tiers test).
+  const cfg = path.join(f.home, "mechanics-budget.json");
+  writeFileSync(cfg, JSON.stringify({ default: { warn: 70_000, stop: 80_000 }, cells: {}, orchestrator: { warn: 70_000, stop: 80_000 } }));
+  env.CONTEXT_BUDGET_CONFIG = cfg;
   const input = { session_id: f.session, cwd: f.wt, hook_event_name: "PreToolUse", tool_name: toolName, tool_input: toolInput, ...who };
   return spawnSync("node", [SCRIPT], { cwd: f.wt, env, input: JSON.stringify(input), encoding: "utf8", timeout: 15000 });
 }

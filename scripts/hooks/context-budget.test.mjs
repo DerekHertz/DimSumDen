@@ -65,6 +65,11 @@ const CELL = { agent_id: "agent-a", agent_type: "security" }; // organism-infra/
 function runHook(f, toolName, toolInput, who = CELL, { rawStdin = null } = {}) {
   const env = { ...process.env, HOME: f.home, ORGANISM_ROOT: path.join(f.home, "main") };
   delete env.CLAUDE_CODE_SESSION_ID;
+  // organism-infra/220: the shipped cell numbers moved to 100k/150k. This file tests the hook's mechanics at
+  // 70k/80k through the config seam; the shipped numbers are pinned in context-budget.tiers.test.mjs.
+  const cfg = path.join(f.home, "mechanics-budget.json");
+  writeFileSync(cfg, JSON.stringify({ default: { warn: 70_000, stop: 80_000 }, cells: {}, orchestrator: { warn: 70_000, stop: 80_000 } }));
+  env.CONTEXT_BUDGET_CONFIG = cfg;
   const input = { session_id: SESSION, cwd: f.wt, hook_event_name: "PreToolUse", tool_name: toolName, tool_input: toolInput, ...who };
   return spawnSync("node", [SCRIPT], {
     cwd: f.wt,

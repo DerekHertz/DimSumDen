@@ -52,23 +52,21 @@ const FIXTURE = {
   orchestrator: { warn: 20_000, stop: 25_000 },
 };
 
-// organism-infra/210 (user, 2026-10-09): developer, qa and designer warn at 100k and stop at 130k.
-// (208 had set every cell to 70k/80k; about 40 cell runs finished past 80k anyway.)
-test("shipped config: developer, qa and designer get 100k warn / 130k stop", () => {
-  for (const role of ["developer", "qa", "designer"]) {
-    assert.deepEqual(budgetFor(role), { warn: 100_000, stop: 130_000 }, role);
+// organism-infra/220 (user, 2026-10-11): every cell role warns at 100k and stops at 150k; the orchestrator
+// keeps 70k / 80k. (Supersedes 210's 130k for developer, qa, designer and 208's 70k/80k for the rest.)
+test("shipped config: every cell role gets 100k warn / 150k stop", () => {
+  for (const role of ["developer", "qa", "designer", "architect", "security", "scout", "product", "herald"]) {
+    assert.deepEqual(budgetFor(role), { warn: 100_000, stop: 150_000 }, role);
   }
 });
 
-test("shipped config: security, architect, scout and the orchestrator stay at 70k / 80k", () => {
-  for (const role of ["security", "architect", "scout", "orchestrator"]) {
-    assert.deepEqual(budgetFor(role), { warn: 70_000, stop: 80_000 }, role);
-  }
+test("shipped config: the orchestrator stays at 70k / 80k", () => {
+  assert.deepEqual(budgetFor("orchestrator"), { warn: 70_000, stop: 80_000 });
 });
 
-test("shipped config: an unknown role and no role fall back to 70k / 80k", () => {
-  assert.deepEqual(budgetFor("herald"), { warn: 70_000, stop: 80_000 });
-  assert.deepEqual(budgetFor(undefined), { warn: 70_000, stop: 80_000 });
+test("shipped config: an unknown role and no role get 100k / 150k", () => {
+  assert.deepEqual(budgetFor("some-future-cell"), { warn: 100_000, stop: 150_000 });
+  assert.deepEqual(budgetFor(undefined), { warn: 100_000, stop: 150_000 });
 });
 
 test("the config file is the single source: CONTEXT_BUDGET_CONFIG changes every role's numbers", () => {

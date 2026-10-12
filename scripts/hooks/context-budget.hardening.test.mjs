@@ -60,6 +60,10 @@ function hook(f, tool, toolInput, { sessionId = SESSION, organismRoot = null } =
   const env = { ...process.env, HOME: f.home };
   delete env.CLAUDE_CODE_SESSION_ID;
   delete env.ORGANISM_ROOT;
+  // organism-infra/220: mechanics at 70k/80k through the config seam (shipped numbers: tiers test).
+  const cfg = path.join(f.home, "mechanics-budget.json");
+  writeFileSync(cfg, JSON.stringify({ default: { warn: 70_000, stop: 80_000 }, cells: {}, orchestrator: { warn: 70_000, stop: 80_000 } }));
+  env.CONTEXT_BUDGET_CONFIG = cfg;
   if (organismRoot) env.ORGANISM_ROOT = organismRoot;
   const input = { session_id: sessionId, cwd: f.wt, hook_event_name: "PreToolUse", tool_name: tool, tool_input: toolInput, agent_id: "agent-a", agent_type: "security" };
   return spawnSync("node", [SCRIPT], { cwd: f.wt, env, input: JSON.stringify(input), encoding: "utf8", timeout: 15000 });

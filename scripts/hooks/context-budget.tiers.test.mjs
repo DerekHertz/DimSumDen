@@ -2,8 +2,8 @@
 // cell's agent_type, instead of the fixed 70k/80k.
 //
 // Seam: the hook CLI, as in context-budget.test.mjs (PreToolUse JSON on stdin, HOME=<fixture>).
-// With the shipped config (CONTEXT_BUDGET_CONFIG unset): developer, qa and designer warn at 100k and
-// refuse at 130k (organism-infra/210); every other cell warns at 70k and refuses at 80k.
+// With the shipped config (CONTEXT_BUDGET_CONFIG unset): every cell role warns at 100k and refuses at
+// 150k (organism-infra/220, superseding 210's 130k and 208's 70k/80k); the orchestrator keeps 70k/80k.
 // With CONTEXT_BUDGET_CONFIG=<fixture file> the numbers come from that file, so none is hard-coded.
 // The warning and refusal texts name the cell's own limits, not "80k".
 //
@@ -67,27 +67,24 @@ const refuses = (r, label) => {
   return r.stderr;
 };
 
-for (const role of ["developer", "qa", "designer"]) {
-  test(`${role}: 100k warn / 130k stop`, () => {
+for (const role of ["developer", "qa", "designer", "architect", "security", "scout", "product", "herald"]) {
+  test(`${role}: 100k warn / 150k stop (organism-infra/220)`, () => {
     silent(run(99_999, role), `${role} 99,999`);
     warns(run(100_000, role), `${role} 100k`);
-    warns(run(129_999, role), `${role} 129,999`);
-    refuses(run(130_000, role), `${role} 130k`);
+    warns(run(149_999, role), `${role} 149,999`);
+    refuses(run(150_000, role), `${role} 150k`);
   });
 }
 
-for (const role of ["security", "architect", "scout"]) {
-  test(`${role}: keeps 70k warn / 80k stop`, () => {
-    silent(run(69_999, role), `${role} 69,999`);
-    warns(run(70_000, role), `${role} 70k`);
-    warns(run(79_999, role), `${role} 79,999`);
-    refuses(run(80_000, role), `${role} 80k`);
-  });
-}
+test("an agent_type with no config entry gets 100k warn / 150k stop (organism-infra/220)", () => {
+  silent(run(85_000, "some-future-cell"), "unknown 85k");
+  warns(run(100_000, "some-future-cell"), "unknown 100k");
+  refuses(run(150_000, "some-future-cell"), "unknown 150k");
+});
 
-test("an agent_type with no config entry gets the default 70k / 80k", () => {
-  warns(run(75_000, "herald"), "herald 75k");
-  refuses(run(85_000, "herald"), "herald 85k");
+test("a cell role is no longer stopped at the old 80k or 130k lines (organism-infra/220)", () => {
+  warns(run(130_000, "developer"), "developer 130k");
+  warns(run(125_000, "security"), "security 125k");
 });
 
 test("warning text names the cell's own limit, not 80k", () => {
@@ -108,9 +105,9 @@ test("refusal text names the cell's own limit and still tells it how to wrap up"
   assert.match(text, /outcome: partial/);
 });
 
-test("the wrap-up calls stay allowed at and above the developer's 130k stop", () => {
+test("the wrap-up calls stay allowed at and above the developer's 150k stop", () => {
   for (const command of ["git add scripts/a.mjs", 'git commit -m "WIP: budget"', "npm run board -- release organism-infra/145-cell-context-hook --keep-status", "node scripts/context.mjs --self"]) {
-    const r = run(140_000, "developer", { tool: "Bash", toolInput: { command } });
+    const r = run(160_000, "developer", { tool: "Bash", toolInput: { command } });
     assert.equal(r.status, 0, `${command}: exit ${r.status}\n${r.stderr}`);
   }
 });
