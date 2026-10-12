@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **What to build:** A decision, as an ADR, on how to stop a cell from rewriting its own permission surface. ADR 0016 decision 6.10 ships only a speed bump: a deny rule on the editor tools for `.claude/**` does not stop a Bash command from writing the same files, so an unattended cell can still add allow rules to the worktree's settings. Security's review (finding M6) deferred the real fix because it changes how every cell runs, not only cells the bridge spawns.
 
 The architect compares: running cells under an OS sandbox, making the worktree's `.claude/` read-only, or a clean worktree check at hand-back (a diff of `.claude/` that fails the release). It names cost, what it breaks (the orchestrator edits `.claude/` with the user's permission, and the repo's tooling writes under it), and which cell types it covers.

@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **Blocked by:** None
 
 **Status:** ready-for-agent

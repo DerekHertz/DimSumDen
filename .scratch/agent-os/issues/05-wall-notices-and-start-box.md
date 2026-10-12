@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **Blocked by:** agent-os/07
 
 **Status:** ready-for-agent

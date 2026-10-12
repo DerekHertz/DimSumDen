@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **What to build:** One command (e.g. `npm run smoke:ui`) that starts the bridge on a fixture `.scratch/` tree, loads the UI with `apps/ci-cd/smoke.mjs`, and checks the scene count, queue order, a chart, and one Approve round trip. Wire it into CI if cheap.
 
 **Blocked by:** 08, 10, 11

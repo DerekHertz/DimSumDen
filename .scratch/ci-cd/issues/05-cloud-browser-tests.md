@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:** Cloud sessions have Chromium 1194 at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`, but Playwright 1.63 looks for 1243, so 5 browser smoke tests always fail in cloud `npm test` (smoke --url x3, smoke:ui, smoke). Add an environment variable (for example `PW_CHROMIUM_PATH`) that `apps/ci-cd/smoke-ui.mjs` and the other browser launchers honour: set, it launches that executable with `--use-angle=swiftshader --enable-unsafe-swiftshader`; unset, behaviour is unchanged. Document the one line for the cloud environment setup in `docs/agents/cloud-sessions.md`.
 
 **Blocked by:** None

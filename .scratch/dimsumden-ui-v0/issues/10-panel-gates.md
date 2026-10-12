@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** product
+
 **What to build:** Buttons on tickets awaiting a merge or dispatch decision POST a Gate request; pending requests show as pending until handled. Designer reviews after qa.
 
 **Blocked by:** 06, 09

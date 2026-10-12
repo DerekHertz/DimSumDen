@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:** A session-start prelude script for the orchestrator that decides every code-decidable wake condition itself and calls Jev's `wake` point only for ambiguous new inputs (ADR 0015 decision 6). Held until security (67) rules on sending comment and gate-request text.
 
 Source: `.scratch/organism-infra/spec.md`, ADR 0015.

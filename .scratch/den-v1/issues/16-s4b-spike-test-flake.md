@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** product
+
 **Blocked by:** none
 
 **Status:** ready-for-agent

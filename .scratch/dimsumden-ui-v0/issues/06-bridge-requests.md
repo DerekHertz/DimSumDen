@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** product
+
 **What to build:** `POST /requests` validates and appends a Gate request `{id, ts, kind, ref, note?}` (kind: merge-approve, merge-reject, dispatch-approve, dispatch-reject) to `.scratch/_requests/requests.jsonl`. Add `scripts/requests.mjs` with `--list` (pending) and `--handle <id> --outcome <text>` for the orchestrator. Nothing executes.
 
 **Blocked by:** 04

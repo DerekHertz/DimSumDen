@@ -1,5 +1,7 @@
 # 12: Harden `board comment` against forged stamps, plus lock-file hygiene
 
+**Class:** pipeline
+
 **What to build:** `board comment` keeps free text from forging another cell's attributed comment line. Today, embedded newlines let a caller write a fake `- **security, <date>:** Security pass` into the comment trail. Also re-check containment at write time, to close the realpath check-then-write window, and clean up reclaim tombstones.
 
 **Blocked by:** None (can start immediately)

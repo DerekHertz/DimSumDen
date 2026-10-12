@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** pipeline
+
 **What to build:** Today a bad State block is accepted by `board handoff` and only rejected later by `board release`, so the cell has already moved on. Happened 3 times in session 8 (45 developer, 45 qa verify, 49 qa specify). `board handoff <ref> --from <file> --name <n>` runs `validateState` from `apps/organism-infra/schemas.mjs` before publishing. On failure it publishes nothing, exits non-zero, and prints each problem plus the schema example from the `handoff` skill. From pipeline-retro, 2026-09-29.
 
 **Blocked by:** None (can start immediately).

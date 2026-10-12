@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **What to build:** Replace the pagoda slate with a stone stele: an upright engraved stone tablet on a low stone base, no roof or posts. Place it on the leafy mound behind Bao, to his right, raised up the slope and smaller than today, so no stall, cell, label, Bao or the table sits behind it from the default camera. The three charts show on its face as glowing qi-teal lines, like carved characters catching light; "spills" stays. Click or Enter still opens the dashboard in the panel without scrolling the page; the label pill stays "Tally".
 
 **Blocked by:** None

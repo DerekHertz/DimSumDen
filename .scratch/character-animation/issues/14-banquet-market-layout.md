@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **What to build:** Decide how the character director places cells in the new layout (ADR 0013, proposed). Bao sits behind a round banquet table as host. Only the 3 Pass cells ride on Bao: orchestrator on the crown, product on the left shoulder, architect on the right shoulder. Steamers (back-left), Front of House (back-right), Tea (front-left) and Pantry (front-right) are pagoda-roofed market stalls around the table. The lazy susan on the table is the ready queue: one steamer basket per ready ticket, and the basket turned to face a stall is being worked there. A cub basket for new cells sits front centre on the grass; Today's board stands front right. Answer: where stall anchors, stall widening, and the turntable live relative to the director and the scene; how the two place kinds (perch on Bao, slot in a stall) share one API; what replaces ticket 05's perch regions.
 
 **Blocked by:** None (can start immediately)

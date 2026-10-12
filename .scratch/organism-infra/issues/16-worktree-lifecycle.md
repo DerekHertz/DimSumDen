@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** A worktree lifecycle so a finished ticket leaves no worktrees behind. This builds on 05, which added worktree-gc and the dispatch rules. Today gc runs only after a merge, and dirty worktrees stall it. ci-cd/04 alone left 7 worktrees. 3 older ones were "dirty" only because of handoff copies identical to main's, or a dead `launch.json` entry.
 
 1. **Reviewer worktrees:** qa verify and security run on a detached SHA. The orchestrator removes their worktree as soon as the handback arrives.

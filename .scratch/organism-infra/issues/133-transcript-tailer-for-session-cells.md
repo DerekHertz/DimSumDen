@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:** After ADR 0016's slice 1, the UI shows only cells it started itself, because it reads each one's own output stream. Relays the orchestrator runs inside the user's desktop-app session are subagents with no stream the bridge owns, so they stay invisible. The user decided on 2026-09-28 that the event source is transcript tailing, and on 2026-10-01 accepted the child's stdout as the primary source for UI-started cells, with tailing kept for these other cells.
 
 Build the transcript tailer: it follows the session transcript and the subagent transcripts beside it (an incremental read, not polling the whole file), feeds the same line parser as ticket 86, and surfaces those cells in the snapshot's `cells` with the same state and tool fields, marked as having no stop, approve or message capability (the bridge does not own them). Cell output stays untrusted: the path is built only from a validated session id and checked to stay under the user's transcript directory, and malformed, oversize and path-traversal input are dropped.

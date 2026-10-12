@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **Blocked by:** None (can start immediately; build and test on fixture events, live stream checked when organism-infra/106 lands)
 
 **Status:** resolved

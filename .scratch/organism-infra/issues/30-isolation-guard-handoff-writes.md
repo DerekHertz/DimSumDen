@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** Claude Code's built-in worktree guard rejects a cell's Write to the main checkout's handoff path. That guard is part of the harness and outside this repo, so it can't be relaxed. Every relay this session hit it: security on 35, developer and security on 44, and all four cells on 26. Close the gap organism-protocol already names: add `board handoff <ref> --from <file>`. It copies a handoff the cell wrote in its own scratchpad or worktree into `<main checkout>/.scratch/<feature>/handoffs/`, found through the board's main-checkout resolution (no ORGANISM_ROOT). It rejects any destination outside that directory. Also run the handoff gate on `board release --keep-status`: security released that way on 44 before its handoff existed. Then update organism-protocol and the handoff skill: write the handoff locally and publish it with `board handoff`; drop the shell-write exception. The skill edits are `.claude/`, so they need the orchestrator's (user-approved) edit after merge.
 
 **Blocked by:** None (can start immediately).

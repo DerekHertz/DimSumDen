@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** Cut the tool definitions loaded into every Agent Office session and cell. Today a session carries about 16k tokens of MCP tool definitions and about 31k of built-in tool definitions on every turn. Most of the MCP ones don't serve this project: Gmail, Drive, Calendar, Chrome, computer-use, Figma, the job-search connector, and unauthenticated design and engineering plugins.
 
 Keep the tools cells actually use: Blender for the developer and designer, and the Browser pane for the designer. Say where each setting lives (project `.claude/settings.json`, per-genome `tools:` lists, or the user's claude.ai connector settings) and who changes it.

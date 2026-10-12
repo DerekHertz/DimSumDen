@@ -2,6 +2,8 @@
 
 **Type:** design-question
 
+**Class:** pipeline
+
 **What to build:** Most organism rules are prose that the model enforces on itself: brain gates, usage % in every proposal, timeouts, scope in ticket Comments, the relay order. The `incident` lines in `.scratch/usage.jsonl` show those rules being skipped.
 
 Following "encode the rule twice" (guide + check), pick the 3-5 rules with the most incidents or the highest cost, and design a check for each that the agent can't bypass. Also extend the `cell` log line into a change receipt.

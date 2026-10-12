@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** product
+
 **What to build:** SSE stream: snapshot first, then change events when board issues, handoffs, `events.jsonl` or `usage.jsonl` change, per the 01 ADR.
 
 **Blocked by:** 04

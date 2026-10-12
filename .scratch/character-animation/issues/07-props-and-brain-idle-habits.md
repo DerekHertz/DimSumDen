@@ -1,5 +1,7 @@
 # 07: Props on sockets + Brain idle habits
 
+**Class:** product
+
 **What to build:** Cells carry their identity. Props and hats attach to the paw and hat sockets by name, as separate assets, and stay attached through every clip. A working orchestrator, product or architect cell loops its type's idle habit with its prop, as described in `cell-types.md` (fan tap and point, scroll unroll, blueprint unroll).
 
 **Blocked by:** 04

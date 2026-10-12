@@ -2,6 +2,8 @@
 
 **Type:** task (it changes docs and genomes: brain gate)
 
+**Class:** pipeline
+
 **What to build:** Short, enforceable rules in `organism-protocol`, the genomes and `CLAUDE.md`:
 1. **Run cells on their genome's model.** Start the orchestrator with `claude --agent orchestrator` (Sonnet, medium effort), not a default Opus session. Opus is only for the designer and the debugger. Dispatches through a generic agent type (the workaround until `05`) pass the genome's model and effort explicitly.
 2. **Cap the report.** A cell's final report to the orchestrator stays under about 300 words: the verdict, the branch, the numbers and a pointer. Details go in the handoff file.

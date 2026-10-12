@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:**
 - `board release --keep-status` from a qa `specify` claim restores the ticket's status from before the claim (normally `ready-for-agent`), not `claimed`. Today the orchestrator resets it by hand with claim, handoff and release.
 - A designer claim can use `--mode review|spec|critique|direction`, and `board comment --verdict pass|bounce` is accepted from a designer review, the same as from qa and security.

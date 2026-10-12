@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** A measured go/no-go on moving the organism from Windows to WSL2 Ubuntu. Most incidents in `.scratch/usage.jsonl` are Windows-specific: rm/cp prompts, heredoc parsing, PowerShell BOMs, CRLF warnings, npm shims. Linux-first tools (jevgrep, Ollama) run natively there.
 
 1. Clone the repo into the Ubuntu filesystem (`~/`), not `/mnt/c`. Run `npm ci` and `npm test`.

@@ -2,6 +2,8 @@
 
 **Type:** design-question
 
+**Class:** pipeline
+
 **What to build:** An ADR that decides whether, and where, the organism calls Jev (TypeSafe's typed-decision model) for cheap yes/no, classify and rank decisions before a Claude cell spends tokens. The ADR is backed by a small measured trial.
 
 Candidate call sites:

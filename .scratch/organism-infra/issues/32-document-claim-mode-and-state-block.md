@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:** Cells hit two undocumented requirements: `board claim` needs `--mode` for qa (specify|verify) and likely other moded cells, and `board release` refuses a handoff without a valid State block. Document both in organism-protocol and docs/agents/issue-tracker.md, and include them in the orchestrator's dispatch prompt template. Edits under `.claude/` need the user's OK.
 
 **Blocked by:** None (can start immediately).

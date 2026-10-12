@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:** Almost every cell's first `board handoff` on 2026-09-30 failed State-block validation (missing ticket name, `pending` as strings instead of `{item, owner}`, missing required keys), about 9 wasted calls. Add `board handoff <ref> --template [--cell <c>] [--mode <m>]` that prints a State block skeleton that already passes validation (ticket filled from the ref, cell/mode from the lock when held, every required key present, one example `pending` entry). Point the `handoff` skill at it with one line.
 
 **Blocked by:** None

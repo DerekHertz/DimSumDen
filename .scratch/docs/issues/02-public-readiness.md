@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **What to build:** From the public-readiness audit on 2026-09-29, which found no credentials in the history of any branch:
 1. Add a root `LICENSE` (MIT, copyright Derek Hertzell 2026) and a short `NOTICE` crediting the vendored mattpocock/skills (see `.claude/skills/VENDORED.md`). Add a courtesy note that the panda base mesh was generated with Meshy AI on a paid plan.
 2. Remove `.scratch/_handoffs/refs/2026-09-27-creator-post.png` and `...creator-office-floor.webp` if they're on main. They're third-party content, and the board branch has already dropped them.

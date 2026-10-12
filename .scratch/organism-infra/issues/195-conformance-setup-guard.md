@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **Blocked by:** None (can start immediately)
 
 **Status:** resolved

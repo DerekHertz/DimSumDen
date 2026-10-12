@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **Blocked by:** None
 
 **Status:** resolved

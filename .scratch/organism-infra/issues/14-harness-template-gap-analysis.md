@@ -2,6 +2,8 @@
 
 **Type:** design-question
 
+**Class:** pipeline
+
 **What to build:** A gap analysis that compares https://github.com/walkinglabs/learn-harness-engineering/blob/main/skills/harness-creator/templates/agents.md with how our cells are defined today: `CLAUDE.md`, `.claude/agents/*.md`, the `organism-protocol` skill, the board and handoffs. It ends with a proposal of concrete edits.
 
 The template's sections are startup workflow, working rules, required artifacts, definition of done, end of session, verification commands, and escalation.

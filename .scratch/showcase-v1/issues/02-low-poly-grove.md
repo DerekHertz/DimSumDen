@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** product
+
 **What to build:** Replace the paper-cut backdrop with a moderately geometric 3D grove (mockup "Level 1"): instanced bamboo stalks (cylinders with node rings) in far, mid and near layers, simple leaf clusters, a leafy mound behind Bao, a grass ground plane with a few tufts, soft fog for depth. Colours from the grove-* tokens (grove-mist #e3efd6, grove-far #b7d39d, grove-mid #7fae62, grove-hill #8cc070, grove-grass #9fcc80, grove-near #4f8a3c). Static or swaying no faster than dur-breath (2800ms); still under prefers-reduced-motion.
 
 **Blocked by:** None

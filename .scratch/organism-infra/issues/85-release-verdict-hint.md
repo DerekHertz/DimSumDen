@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **What to build:** Cells reach for `board release <ref> --verdict ...`, which is not a flag (72 qa, 07-ui-shell), then fumble reclaims and force releases. `board release` given `--verdict` exits non-zero before changing anything, and its message names the right sequence: `board comment <ref> --verdict <v>` while claimed, then `board release`.
 
 **Blocked by:** none

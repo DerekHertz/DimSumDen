@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **What to build:** Run herald for post 1 of the Dim Sum Den series: "Inspiration: why Dim Sum Den exists". Follow the sources the spec lists for this post, and write it in the voice guide's style.
 
 **Blocked by:** 01, 02

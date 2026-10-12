@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:** Add `priority` (mismatch flags only) and `scope` points to `jev.mjs` in shadow (ADR 0015 decision 4). Ordered after 69/70 because they share `jev.mjs` and `jev-report.mjs` (spec: no file overlap with S2).
 
 Source: `.scratch/organism-infra/spec.md`, ADR 0015.

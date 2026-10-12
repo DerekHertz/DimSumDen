@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:** The residual from ADR 0016 decision 3 (security finding H1). The orchestrator genome still treats a `dispatch-approve` line in the requests file as the user's answer, and any cell on the same account can append such a line, so a prompt-injected cell can talk the orchestrator into acting. The bridge signs each line it writes (a keyed hash under a key the cells cannot read), and the orchestrator accepts only signed lines. A test proves that a line the bridge wrote is not re-actionable by the orchestrator after it is marked handled.
 
 The key must not be readable by a cell: that is the design question to settle first (an architect step, or a short design section in this ticket's handoff), since a same-account file is readable by cells and an in-memory key means the orchestrator needs another way to verify. The orchestrator genome change that makes it accept only signed lines is the orchestrator's to make, and only with the user's permission; this ticket proposes the wording and does not edit `.claude/`.

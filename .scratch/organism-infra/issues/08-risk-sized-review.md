@@ -2,6 +2,8 @@
 
 **Type:** task (it changes genomes, so every change is a brain gate)
 
+**Class:** pipeline
+
 **What to build:** Run the full `security` cell only when a diff touches something risky:
 - dependencies or the lockfile
 - CI workflows or branch protection

@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **What to build:** Model the banquet market set: four pagoda-roofed stalls (one per station, in its `station-*` hue, with a paper lantern on the roof that lights only for waiting cells), the round banquet table with a turning lazy susan and steamer baskets, and the cub basket. Roof tiles are `panda-ink`; nothing uses lantern yellow or alarm red except the waiting lantern.
 
 **Blocked by:** 14

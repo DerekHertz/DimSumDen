@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:** From 67's security review (`handoffs/67-security.md`, "Required new ticket"). Add `scripts/exposure.mjs` exporting `DENIED_PATHS`, `isDenied(path)` and `hasSecret(text)`. `hasSecret` wraps `SECRET_PATTERNS` (`scripts/risk-check.mjs`) and adds the missing shapes: unquoted `NAME_KEY=value` env lines, `Authorization: Bearer`, JWT, `sk_live_`, `github_pat_`, `gho_`/`ghs_`, `npm_`, URL credentials, `aws_secret_access_key = ...`. Folds in ticket 46's pattern gaps (`gh*_`, Slack) and its dead release-gate cleanup.
 
 `jev.mjs` and the jg wrapper import it. Each Jev point sends only its allowlisted inputs: tier = ticket; verify = ticket + `--tests`; route-new = ticket; route-bounce = ticket + bounce comment; wake = ticket header + new comment.

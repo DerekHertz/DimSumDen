@@ -2,6 +2,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **What to build:** Bao feels alive but calm. Bao uses the shared rig at 11x scale. Its belly breathes slowly all the time, its head drifts in a slow sway, and it blinks occasionally. While any approval waits, Bao glances toward the Approval Inbox. After the organism has been idle for a while it yawns once, then dozes if it stays idle. With reduced motion, Bao holds still.
 
 **Priority:** P1

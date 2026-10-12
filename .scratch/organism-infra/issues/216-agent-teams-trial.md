@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **Blocked by:** None. Wait for the weekly usage reset (2026-10-12 04:59 PDT) first.
 
 **Status:** needs-triage

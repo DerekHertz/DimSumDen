@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **Blocked by:** 01
 
 **Status:** closed

@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:** Rules that let the orchestrator group small tickets that touch the same area into one batch, run by one relay (one qa specify, one developer, one qa verify, one risk-check, one PR).
 
 Source: user decision, 2026-09-30.

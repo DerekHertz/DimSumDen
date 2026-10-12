@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **Blocked by:** 105, 138, 139, 140, 141, 142, 143
 
 **Status:** resolved

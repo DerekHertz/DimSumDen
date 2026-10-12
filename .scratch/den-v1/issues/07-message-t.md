@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **Blocked by:** None (can start immediately; den-layout/03 resolved)
 
 **Status:** resolved

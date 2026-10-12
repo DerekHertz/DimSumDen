@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** product
+
 **What to build:** `dev-scene.mjs` sizes its renderer on the first frame, not only at load and on resize, so a newly opened Browser pane doesn't render an empty canvas.
 
 Source: split from character-animation/11 (design sweep, 2026-09-30).

@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:** Judge Jev's two existing points against ADR 0010's exit criteria and record a verdict for each (live, stay shadow, or drop). Blocks nothing in shadow; it gates S5 (via the jg route) and S6.
 
 Source: `.scratch/organism-infra/spec.md`, ADR 0015.

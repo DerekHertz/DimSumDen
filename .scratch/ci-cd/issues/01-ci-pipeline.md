@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** A GitHub Actions workflow that runs on every pull request to `main` and on every push to `main`. It gates merges with a test stage, specified by `qa`, and a security stage, specified by `security`. It also includes a proposal for branch protection on `main`. `security` owns the workflow after this ticket lands.
 
 Test stage (qa):

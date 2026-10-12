@@ -2,6 +2,8 @@
 
 **Type:** bug
 
+**Class:** pipeline
+
 **What to build:** From 48's security review and a repeat incident on 41 and 48.
 - **Verdict roles (MEDIUM):** `board comment --verdict` is accepted only from a `qa`, `security` or `orchestrator` author. A developer or other cell is refused and nothing is written.
 - **Specify claim on in-review:** a qa `specify` claim on an `in-review` ticket keeps it `in-review`, as a verify claim does (ADR 0008 decision 10). `--keep-status` then leaves it `in-review`. Today it resets to `claimed`, and only a qa verify release can restore it.

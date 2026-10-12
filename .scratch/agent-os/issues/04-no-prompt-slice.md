@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **Blocked by:** none (PR #217 merged 2026-10-11)
 
 **Status:** resolved

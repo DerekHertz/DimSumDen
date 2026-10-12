@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **What to build:** The board audit (81) flags every `in-review` ticket with no `.lock`, but that is the normal state while a ticket waits for qa verify. Flag it only when the ticket has had no activity (status row, comment, or handoff) for 24 hours. Keep the threshold a named constant.
 
 **Blocked by:** 81

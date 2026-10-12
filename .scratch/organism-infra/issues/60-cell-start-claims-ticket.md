@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:** `node scripts/cell-start.mjs ... --ticket <ref> --cell <type> [--mode <m>]` runs `board claim` itself after setting up the worktree, before the cell does any work, and exits non-zero if the claim fails. Without `--ticket`, behaviour is unchanged.
 
 **Blocked by:** None

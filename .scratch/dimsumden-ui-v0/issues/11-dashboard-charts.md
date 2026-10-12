@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **What to build:** Inline-SVG charts, no chart dependency, following the `dataviz` skill: throughput per 5-hour window, tokens per resolved ticket by cell type, incidents per ticket by tool; plus a usage tile. Data from metrics as the 01 ADR decides. Designer reviews after qa.
 
 **Blocked by:** 03, 07

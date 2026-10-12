@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **Serves:** Refocus goal: Jev routes each relay step, judged by bounce rate and tokens (ADR 0019; ADR 0010/0015 amendments from 136).
 
 **What to build:** Turn the wake check live via a `config` row; any user-authored comment wakes the orchestrator; picks below 0.9 are informational only; trial judged on safety only. Touches `scripts/jev-wake-prelude.mjs`, `scripts/jev.mjs`.

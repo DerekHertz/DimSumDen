@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:** Cloud sessions have no `~/.claude/.credentials.json`, so `scripts/usage.mjs` fails and the user reports cloud credits by hand. Session transcripts do carry per-message `usage` for the main session and every subagent, under `~/.claude/projects/<cwd-slug>/**/*.jsonl`.
 1. A script (for example `scripts/usage-estimate.mjs`) that sums price-weighted tokens from those transcripts: input 1, cache write 1.25, cache read 0.1, output 5. It calibrates against the `cloud_credits` readings in `.scratch/usage.jsonl` (weighted tokens per credit, fitted over the readings in the window) and prints JSON: `{"source":"estimate","weighted_tokens","tokens_per_credit","credits_used_est","credits_left_est","last_reading":{"ts","cloud_credits"}}`.
 2. `usage.mjs`: when credentials are missing and `CLAUDE_CODE_REMOTE` is set, fall back to the estimate instead of failing. The orchestrator logs it as `cloud_credits_est` next to any manual reading.

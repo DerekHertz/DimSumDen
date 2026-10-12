@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **What to build:** Per `.scratch/herald/spec.md`: `.claude/agents/herald.md`, a Front of House cell on Sonnet. It reads the repo only, plus Write for the draft and Agent for scout. It has no Bash, web or GitHub write tools, so it can't publish. It runs on demand, reads `docs/agents/herald-voice.md`, and writes one 1-3 paragraph draft outside the repo, with a source header. Also a draft-shape check script with tests: the header is present, there are at most 3 paragraphs, sources are listed, and there are no emails or secrets. There is also a test on the genome's tool list.
 
 **Blocked by:** None

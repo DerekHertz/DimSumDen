@@ -2,6 +2,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:** A minimal daemon process that owns the board, per 01's ADR. It serves the `board` CLI over the chosen local IPC transport, serializes every operation, and appends each change to the event log. It also streams events to subscribers. When the daemon is up, the CLI routes through it; when it's down, the CLI falls back to the direct-file backend from ticket 02.
 
 **Blocked by:** 01, 02

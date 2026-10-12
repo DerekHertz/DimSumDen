@@ -2,6 +2,8 @@
 
 **Type:** design-direction
 
+**Class:** product
+
 **What to build:** A direction brief (no assets, no code) that re-themes the office around Bao as a dim sum restaurant in a bamboo forest:
 1. **Setting:** the kitchen/dining layout. Map the organs onto the places, for example the Brain as the head chef's pass, Muscles at the steamers and prep stations, Immune as the tasters or the tea master, and Skin as the front of house. Place the boards (issues, PRs, queue) as order tickets or menu boards.
 2. **Tool-call animations, re-themed for Bao:** read, edit, test/build, web search, fail twice, waiting on the user, done, and the merge celebration. For example, done might become a steamer lid lifting with a puff of steam instead of confetti, and merge might ring a restaurant bell instead of a gong.

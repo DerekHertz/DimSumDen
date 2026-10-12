@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **What to build:** `CLAUDE.md` still says "No app code exists yet" and describes a planned TypeScript stack. Rewrite it, short as before, to state:
 - the real stack: Node ESM scripts, React plus React Three Fiber in `apps/ui`, the board CLI, and the bridge;
 - the stations (the Pass, Steamers, Tea & Pantry, Front of House) and the herald;

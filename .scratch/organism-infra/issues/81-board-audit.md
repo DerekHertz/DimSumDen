@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:** A read-only `board audit` command that scans every feature's tickets, locks and handoffs and prints the inconsistencies a session would otherwise find by hand. `pipeline-retro` runs it at every session end.
 
 Source: user request, 2026-09-30 (batch A).

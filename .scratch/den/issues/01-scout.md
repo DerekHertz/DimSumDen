@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **Status:** closed
 
 **Source:** den

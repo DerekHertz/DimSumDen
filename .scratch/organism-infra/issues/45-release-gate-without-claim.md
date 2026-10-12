@@ -2,6 +2,8 @@
 
 **Type:** bug
 
+**Class:** pipeline
+
 **What to build:** On ticket 38, the fix-round developer ran `board release --status in-review` before publishing its handoff, and the release passed. The likely path: with no claim lock, `release()` skips the cell/mode/age binding, which security noted as LOW on 35 (ADR 0008 decision 11). Make a release with no lock either fail ("claim first") or require a handoff newer than the ticket's last release event. Also, from 38's security review, add `ghp_`, `sk-` and `xox[abp]-` token shapes to `SECRET_PATTERNS` in `scripts/risk-check.mjs`. Build any test fixtures at runtime, because CI gitleaks scans every commit in the PR.
 
 **Blocked by:** None (can start immediately).

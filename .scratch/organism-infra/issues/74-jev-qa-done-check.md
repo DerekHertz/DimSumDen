@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **What to build:** A Jev qa done-check point, shadow-first. Criteria are written when it unblocks (spec: S6 to S8 carry their own criteria then).
 
 Source: `.scratch/organism-infra/spec.md`, ADR 0015.

@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **What to build:** A button on Today's board that refreshes plan usage. It calls a bridge endpoint that runs `node scripts/usage.mjs` (the same OAuth usage source `/usage` reads), appends the usage row, and updates the plan-usage bar. `/usage` itself can't be triggered from outside Claude Code. In a cloud session (no credentials) the button says to paste `/usage` instead.
 
 **Blocked by:** None

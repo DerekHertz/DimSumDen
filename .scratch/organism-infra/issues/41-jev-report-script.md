@@ -2,6 +2,8 @@
 
 **Type:** feature
 
+**Class:** pipeline
+
 **What to build:** Join jev rows with cell and resolved rows in usage.jsonl, project counterfactual tokens and print the exit-criteria table from ADR 0010. Design: docs/adr/0010-jev-precheck-tier-and-verify-depth.md.
 
 **Blocked by:** 38

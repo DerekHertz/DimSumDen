@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **What to build:** Bring the app in line with the updated design system: display face Long Cang (scene names, the title, board headings only; UI stays Nunito), the new `station-*` and `grove-*` tokens, and the Dim Sum Den name in the UI.
 
 **Blocked by:** None (can start immediately)

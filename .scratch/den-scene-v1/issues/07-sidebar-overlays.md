@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **Blocked by:** 05, den-iso-v1/01
 
 **Status:** resolved

@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** A single small module (e.g. `apps/organism-infra/schemas.mjs`) exporting `validateContract`, `validateState`, `validateReceipt`, one per JSON shape defined in ADR 0009 decisions 3-5. Each validator takes a parsed object and returns `{ok: true}` or `{ok: false, errors: [string]}` — no throwing, so callers (the board CLI, the orchestrator's handback step, CI) can report cleanly. This is the shared seam every other ticket in this batch depends on; it has no behavior of its own beyond shape-checking.
 
 Schemas (see ADR 0009 for the authoritative JSON shape and field meanings):

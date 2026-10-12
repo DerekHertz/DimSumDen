@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:** In session 8, 12 of 14 cell hops had Bash calls refused by the worktree isolation guard: about 22 refusals, each costing a turn. The rule was in organism-protocol as wording, was widened, and still failed, so pipeline-retro sends it to code. Add a script `scripts/hooks/bash-guard.mjs` and register it as a project `PreToolUse` hook on `Bash` in `.claude/settings.json`. When the session cwd is under `.claude/worktrees/`, it rejects a command containing `&&`, `||`, `;`, a heredoc (`<<`), a leading `cd`, or a `$` variable in arguments. It exits with the hook's block code and a one-line reason quoting the organism-protocol rule and the Write-a-script alternative. Outside worktrees it allows everything. Read the Claude Code hooks docs for the exact input JSON and exit-code contract. Don't guess it.
 
 The `.claude/settings.json` change is user-gated. The PR merge is that gate.

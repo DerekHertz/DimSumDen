@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** Agent-tool worktrees always start at `main`, so each relay hop must first merge or branch from the prior hop's commit by hand (the orchestrator puts `git merge --ff-only <sha>` or `git switch -c <branch> <sha>` in every prompt). Make the base commit part of dispatch: a documented dispatch step or a helper script that prepares the worktree at the right commit, so cells don't depend on prompt wording. From ticket 27's migration checklist, item 4.
 
 **Blocked by:** None (can start immediately).

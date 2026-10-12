@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **What to build:** Rework the paper-cut grove backdrop (dimsumden-ui-v0/14) into a green, living grove: pale mist behind, far bamboo at low contrast, mid bamboo with leaf clusters, a leafy mound behind Bao, a grass floor with tufts, and dark framing bamboo at the scene edges. Colours come from the new `grove-*` tokens. Scenery never animates faster than `dur-breath`.
 
 **Blocked by:** None (can start immediately)

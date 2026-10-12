@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** pipeline
+
 **Blocked by:** None
 
 **Status:** resolved

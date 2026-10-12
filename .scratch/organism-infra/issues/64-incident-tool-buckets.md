@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **What to build:** `scripts/metrics.mjs` maps free-text incident `tool` values onto 11 buckets by exact match, so "other" swallows most rows (15 literal `other` plus ~70 free-text misses on 2026-09-30). Normalize before matching (lowercase, spaces to dashes: `board release` → `board-release`), add buckets for what actually occurs (`cell-start`, `risk-check`, `jev`, `usage`, `browser`, `dispatch`, `guard`, `shell`, `process` for judgment/rule mistakes), validate `tool` against the enum when incidents are written, and keep TOOLS in step with `scripts/log-cell.mjs`.
 
 **Blocked by:** None

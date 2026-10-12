@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **What to build:** Title the app Dim Sum Den (page title and header). Load Long Cang from Google Fonts for display text only (scene labels, the header title, board heading); UI copy stays Nunito. Station labels over the grove sit on a rice-paper pill.
 
 **Blocked by:** None

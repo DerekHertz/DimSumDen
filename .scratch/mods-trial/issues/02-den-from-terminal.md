@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **Blocked by:** den-v1/06, den-v1/07, den-v1/09 (north star first)
 
 **Status:** parked

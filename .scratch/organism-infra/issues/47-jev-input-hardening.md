@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:** From 41's security review (all LOW) and a session-8 incident. In `scripts/jev-report.mjs`:
 - Skip a valid-JSON line that is not an object, such as `null`, instead of throwing (~line 32).
 - Look up `pick` weights with `Object.hasOwn`, so values like `constructor` or `toString` can't produce NaN (~56-57).

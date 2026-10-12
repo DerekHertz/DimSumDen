@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **Blocked by:** organism-infra/95-context-size-gate-counts-binaries
 
 **Status:** resolved

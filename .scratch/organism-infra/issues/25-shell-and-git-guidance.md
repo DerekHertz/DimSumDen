@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** A short "Shell and git" section in organism-protocol, plus mechanical checks where cheap. It comes from the 2026-09-28 incident analysis (`.scratch/usage.jsonl`): 5 shell incidents and 3 git slips, all fixable friction.
 
 1. Don't write prose with shell heredocs, because quotes and backticks break parsing. Use the Write tool, or node `fs.writeFileSync`.

@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** product
+
 **What to build:** Panel per `.scratch/dimsumden-ui-v0/spec.md`: the queue in frontier order with priority and bump markers, the selected ticket's latest handoff, and a usage meter. Designer reviews after qa.
 
 **Blocked by:** 07

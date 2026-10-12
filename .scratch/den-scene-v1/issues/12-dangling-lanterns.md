@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **Design refs:** the user's inspiration `.scratch/den-scene-v1/refs/lantern-stall-inspo.png` (the user likes the dangling ones). Design system https://claude.ai/artifact/SCTwbsRq3wEcoYbiYYUUK7, frames https://claude.ai/artifact/AFEGyVKV5s6GbTFraA5U3G.
 
 **What to build:** User notes (2026-10-01): "the lanterns aren't really giving lanterns, more like black boxes." 03 gave each kiosk one lantern at the front eave corner, unlit in `surface-200`. At Level 1 it reads as a dark box.

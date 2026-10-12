@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** When `playwright` or its Chromium binary is missing, `apps/ci-cd/smoke.test.mjs` fails fast with one clear line, for example `smoke: playwright not installed, run npm install && npx playwright install chromium`, instead of a raw `ERR_MODULE_NOT_FOUND` stack.
 
 Fresh agent worktrees never have `node_modules`. Cells called this failure "pre-existing, unrelated" 3+ times on 2026-09-28 without naming the cause (see the `incident` line in `.scratch/usage.jsonl`).

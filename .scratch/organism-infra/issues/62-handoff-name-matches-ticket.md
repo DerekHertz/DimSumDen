@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** pipeline
+
 **What to build:** `board handoff <ref> --from <file> --name <name>` publishes to `.scratch/<feature>/handoffs/<name>`. Today a `--name` whose `NN-` prefix is another ticket's number is accepted and silently overwrites that ticket's published handoff (showcase-v1/08's developer passed `--name 01-developer.md` and replaced ticket 01's handoff). Refuse any `--name` whose `NN-` prefix differs from the ref's ticket number, with an error that names the expected prefix. Also refuse to overwrite an existing handoff published under a different claim (someone else's file), keeping 51's own-draft overwrite rule.
 
 **Blocked by:** None

@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** product
+
 **What to build:** Per `.scratch/dimsumden-ui-v0/spec.md`: print throughput (tickets resolved per 5-hour window), tokens per resolved ticket by cell type, incidents per ticket by tool (map older free-text tools onto the fixed list in `scripts/log-cell.mjs`), and the latest usage %. Derive from `usage.jsonl` and `events.jsonl` only. Text output without `--json`.
 
 **Blocked by:** None (can start immediately).

@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **Blocked by:** organism-infra/90 (both edit genomes; sequence 90 first)
 
 **Status:** parked

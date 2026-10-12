@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:** When `board handoff` or `board release` rejects a handoff's State block (`apps/organism-infra/board-service.mjs`, the "must name ticket" and "no valid handoff State block" errors), print a filled-in fenced json skeleton for that ticket, cell and mode, with every required field (`ticket`, `cell`, `mode` for moded cells, `current_step`, `artifacts`, `decisions`, `failures`, `pending` as `{item, owner}`), so the cell can fix it in one retry. Also make `release` refuse when no valid handoff was published after the claim (the designer's release went through without one on 2026-09-29).
 
 **Blocked by:** None

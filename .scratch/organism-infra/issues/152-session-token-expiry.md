@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **Blocked by:** 139
 
 **Status:** ready-for-agent

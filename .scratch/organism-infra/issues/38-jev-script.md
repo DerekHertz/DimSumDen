@@ -2,6 +2,8 @@
 
 **Type:** feature
 
+**Class:** pipeline
+
 **What to build:** Build `node scripts/jev.mjs <tier|verify>` per ADR 0010: inputs, 16k truncation, secret-pattern block, 10 s timeout, fallback exits 0, $0.50/day cap from today's jev rows, row append. Tests via decide() with a fake transport. First check TypeSafe primary docs for plain HTTP; a dependency or TYPESAFE_API_KEY setup needs the user's yes. Design: docs/adr/0010-jev-precheck-tier-and-verify-depth.md.
 
 **Blocked by:** None (can start immediately).

@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **Blocked by:** organism-infra/97-jg-resource-limit-full-root (same file; sequence after batch K merges)
 
 **Status:** resolved

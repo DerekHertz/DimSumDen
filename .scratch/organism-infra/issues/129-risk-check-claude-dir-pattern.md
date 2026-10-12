@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:** `npm run risk-check` currently has no pattern for `.claude/**`, so a diff that edits a genome, a skill or the settings file exits clean and skips `security`. Add one, so any such diff is a hit and dispatches `security`. This is the detection step of ADR 0016 decision 6.10: a daemon-spawned cell can edit its own permission surface, and the review must see it. It is also useful for interactive cells today.
 
 **Blocked by:** None

@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **Status:** resolved
 
 **Serves:** the v1 den loop (refocus 2026-10-02): start a Claude agent from the den and follow it to its result with no terminal after the bridge is up.

@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:** Apply 67's required jg control (`handoffs/67-security.md`), then let `scout` use jg as an opt-in search.
 
 1. A jg wrapper (e.g. `scripts/jg.mjs`) that always passes `--exclude` for `.scratch/` and `.claude/`, refuses a root inside `.scratch` or `.claude`, and refuses `--hidden`, `--no-ignore`, `--include-sensitive` and `--include-dependencies`. It runs the query through `exposure.mjs` `hasSecret` before sending.

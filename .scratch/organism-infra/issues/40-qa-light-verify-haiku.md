@@ -2,6 +2,8 @@
 
 **Type:** chore
 
+**Class:** pipeline
+
 **What to build:** Edit .claude/agents/qa.md so light and full verify have written scopes that a haiku run can follow. .claude edit needs the user's permission. Design: docs/adr/0010-jev-precheck-tier-and-verify-depth.md.
 
 **Blocked by:** None (can start immediately).

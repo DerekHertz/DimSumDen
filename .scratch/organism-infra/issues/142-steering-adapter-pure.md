@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **Blocked by:** 138, 140 (and the user's S8/S4b/S6b results recorded on 138)
 
 **Status:** resolved

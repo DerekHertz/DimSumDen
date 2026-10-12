@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **Blocked by:** den-scene-v1/07-sidebar-overlays
 
 **Status:** parked

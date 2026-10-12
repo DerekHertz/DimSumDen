@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **Blocked by:** 02, den-scene-v1/07
 
 **Status:** closed

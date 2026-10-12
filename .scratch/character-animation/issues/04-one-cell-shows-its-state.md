@@ -1,5 +1,7 @@
 # 04: One cell shows its state
 
+**Class:** product
+
 **What to build:** A cell in the scene shows its state through body language. The character director (a pure module per 02's ADR) maps each of the 8 states (idle, working, waiting_on_user, blocked, done, failed, throttled, terminated) to a looping clip, an entry one-shot, a face frame, and a held pose for reduced motion. State changes cross-fade immediately (`dur-fast`), even mid one-shot. The director is wired into the scene, where a mock state source or dev control switches one cell's state. The state's icon and word are shown alongside the pose.
 
 **Blocked by:** 03

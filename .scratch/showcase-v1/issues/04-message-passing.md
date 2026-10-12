@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** product
+
 **What to build:** Show work moving between stations. The bridge sends ticket change events; derive a handoff when a ticket's active cell type (and so its station) changes, e.g. qa specify to developer. On a handoff, that ticket's basket on the lazy susan turns from the old stall to the new one over dur-slow, the sender plays its point pose if available, and the receiver gets a heart bubble. When any cell is waiting_on_user, its stall's roof lantern lights (lantern token) and the service bell on Bao's crown glows. Reduced motion: the basket jumps, no turn.
 
 **Blocked by:** 01

@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:** Add the `route` point to `jev.mjs` for new tickets (label set `product | architect | designer | qa-specify | developer-direct | user | other`), in shadow, plus per-point reserved budget inside the shared $0.50 cap (ADR 0015 decisions 3 and 7; spec open question 4 resolved: floors ride with this slice). New-ticket route sends the ticket only, which ADR 0010 already allows, so it does not wait on 67. The bounce half is ticket 70.
 
 Source: `.scratch/organism-infra/spec.md`, ADR 0015.

@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **What to build:** A command that builds the UI, starts the bridge, and saves Playwright screenshots (desktop and mobile widths, both themes) plus the browser console log, so a designer cell in WSL can review without browser tools. Deferred: visual checks cost tokens and the user does visual review for now.
 
 **Blocked by:** None (can start immediately).

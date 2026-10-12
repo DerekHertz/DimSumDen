@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** product
+
 **What to build:** Architect resolves the three seams in `.scratch/dimsumden-ui-v0/spec.md` as an ADR: the bridge HTTP/SSE surface (routes, event shapes), the state snapshot JSON shape, and the scene-from-state contract (`{ref, cellType, status, perch, pose}`). Also decide the `apps/ui` package and build layout (how the bridge serves the built UI, dev loop), whether metrics ride in the snapshot or come from `GET /metrics`, and list any new dependency for the user's gate.
 
 **Blocked by:** None (can start immediately).

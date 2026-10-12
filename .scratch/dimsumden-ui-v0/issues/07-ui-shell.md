@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** product
+
 **What to build:** Create the `apps/ui` app per the 01 ADR: React + React Three Fiber, served by the bridge, desktop layout with the scene left and panel right, subscribed to `/events`. Any new dependency is a brain gate: propose it in the handoff before installing.
 
 **Blocked by:** 01, 05

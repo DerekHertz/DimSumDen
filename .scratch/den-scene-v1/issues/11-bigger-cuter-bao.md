@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **Design refs:** the user's screenshot `.scratch/den-scene-v1/refs/bao-perched-pass-2026-10-01.png`. Design system https://claude.ai/artifact/SCTwbsRq3wEcoYbiYYUUK7, frames https://claude.ai/artifact/AFEGyVKV5s6GbTFraA5U3G.
 
 **What to build:** User notes (2026-10-01): "bao should be bigger and cuter! the two pandas on his shoulders are just floating there but he can also be larger."

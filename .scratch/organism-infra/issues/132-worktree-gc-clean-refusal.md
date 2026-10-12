@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **What to build:** Passing a `--root` that is not a git repository makes `worktree-gc` throw an uncaught exception with a stack trace instead of printing a one-line refusal and exiting non-zero. Found as a Low by security on ticket 82 (it predates that change). The tool should print a short message naming the path, exit non-zero, and change nothing, the same way it already refuses a path that is not the main checkout.
 
 **Blocked by:** None

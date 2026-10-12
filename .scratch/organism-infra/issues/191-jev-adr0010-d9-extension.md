@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **Serves:** Refocus goal: Jev routes each relay step, judged by bounce rate and tokens (ADR 0019; ADR 0010/0015 amendments from 136).
 
 **What to build:** Architect extends ADR 0010 decision 9 in writing for 74 criteria (escalate-only done-check), bounce routing, handoff trimming and diff input, after the user rules on 42 (retention, handoffs and diffs). Carry 42 security conditions (`scripts/exposure.mjs` pattern and per-file deny gaps, diff scope) into build tickets. Touches `docs/adr/0010-jev-precheck-tier-and-verify-depth.md`.

@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** `apps/ci-cd/smoke.test.mjs` fails on `main` with `ERR_MODULE_NOT_FOUND` (from `node:internal/modules/package_json_reader`), independent of any branch. Separately, `gh pr checks 17` reports no checks on `claude/organism-infra-05-tests`. Find the cause of each, then fix it or report it.
 
 **Blocked by:** None (can start immediately)

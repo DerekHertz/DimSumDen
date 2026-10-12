@@ -2,6 +2,8 @@
 
 **Type:** task (the user does the move; a cell prepares and checks it)
 
+**Class:** pipeline
+
 **What to build:** Move the main checkout from `D:\claude_sessions\agent_office` (a WD 2 TB spinning HDD) to the Samsung 990 PRO NVMe on `C:` (about 670 GB free). Every worktree, `npm install`, test run, `git` command and Blender export in the organism runs off this disk. On the HDD, making one worktree means writing about 190 files.
 
 Steps:

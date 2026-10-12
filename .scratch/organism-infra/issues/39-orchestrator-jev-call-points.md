@@ -2,6 +2,8 @@
 
 **Type:** chore
 
+**Class:** pipeline
+
 **What to build:** Edit .claude/agents/orchestrator.md and docs/agents: run jev.mjs before developer dispatch (tier) and before qa verify (verify), pass the Agent model override for light verify, log the jev row kind. .claude edit needs the user's permission. Design: docs/adr/0010-jev-precheck-tier-and-verify-depth.md.
 
 **Blocked by:** 38

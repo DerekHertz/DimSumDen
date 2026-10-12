@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **What to build:** From 45's security review (all LOW). In `scripts/risk-check.mjs`, extend `SECRET_PATTERNS` to cover `gho_`, `ghs_`, `ghu_`, `github_pat_` and Slack `xoxr-`/`xoxs-`/`xoxe-` shapes, and match a `ghp_`-style token glued to a word character or underscore (e.g. `GH_ghp_...`) without matching prose. In `apps/organism-infra/board-service.mjs` (~877-880), remove the `claimMtimeMs === undefined ? undefined : {...}` branch, which the new no-lock guard made dead. Build any test fixtures at runtime, because CI gitleaks scans every commit in the PR.
 
 **Blocked by:** None (can start immediately).

@@ -2,6 +2,8 @@
 
 **Type:** feature
 
+**Class:** pipeline
+
 **What to build:** In session 8 the orchestrator skipped every `cell` and `resolved` row in `.scratch/usage.jsonl`, and jev-report then saw no data. Move these rows out of genome prose and into code:
 - `board release --status resolved` appends `{"kind":"resolved","ts","ticket","pr","bounces"}` itself. It takes `--pr <n>`, required for code tickets, and counts bounces from the ticket's board events or comments. Document where the count comes from.
 - A new `scripts/log-cell.mjs --ticket <ref> --cell <type> [--mode <m>] --tokens <n> --ms <n> --outcome <text>` appends one validated `cell` row. It rejects an unknown ticket and non-numeric tokens.

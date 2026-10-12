@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:** The orchestrator merged PR 96 with a red test job by chaining `gh pr checks --watch` and `gh pr merge` without checking the result, and hid a release failure behind `tail -1`. Add `scripts/merge-on-green.mjs --pr <n>` that reads `gh pr checks <n>` as data, refuses (non-zero exit, names the failing or pending checks) unless every required check passed, refuses if `git merge-tree --write-tree origin/main <head>` reports conflicts, and otherwise runs the merge and prints the merge commit. `gh` calls go through an injectable runner so tests need no network. Update the orchestrator genome's stage 5 to merge only through this script (a `.claude/` edit: developer writes the diff into its handoff for the user to apply).
 
 **Blocked by:** none

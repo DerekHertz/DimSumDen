@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** worktree-gc (ticket 16) forgives an untracked file only if main's committed tree has a byte-identical file at that path. Cells write handoffs to the main checkout without committing them, so a worktree's leftover handoff copy blocks cleanup. After PR #25 merged, 2 of 4 worktrees stayed dirty for this reason alone.
 
 1. Also forgive an untracked file that is byte-identical to the same path on disk in the main checkout.

@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** Three gaps in the board CLI that cells hit on 2026-09-28. qa left them out of 18's scope (see `.scratch/organism-infra/handoffs/18-qa-specify.md`).
 
 1. A comment shows its author as "unknown" when no claim lock exists at comment time. Use the caller's cell name, from `--as` or the lock, and reject the comment if there's neither.

@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** A reliable way for the orchestrator to send a cell to continue, or review, an existing branch. That covers fix rounds, qa verify and security review. It also needs a worktree lifecycle so finished worktrees don't pile up.
 
 Today:

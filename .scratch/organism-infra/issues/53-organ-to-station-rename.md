@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:** The user renamed "organ" to **station** (2026-09-29). `design-brief.md` and `CONTEXT.md` are already done; use CONTEXT.md's Station entry and the table in `design-brief.md` §4.2 as the source of truth. Carry the rename through everything else:
 - The genome frontmatter `organism.organ:` field becomes `station:`, with values `pass`, `steamers`, `tea-pantry`, `front-of-house`. Update whatever parses it (`apps/organism-infra/schemas.mjs` and friends) and the tests.
 - Genome and skill prose: "Brain cell", "Muscles cell", "Immune cell", "Skin cell" become "Pass cell" and so on, in the genomes, `organism-protocol`, the other skills and `CLAUDE.md`'s Cells section.

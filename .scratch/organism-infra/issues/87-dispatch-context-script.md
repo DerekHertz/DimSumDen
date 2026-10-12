@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:** Build `scripts/dispatch-context.mjs` per ADR 0014 decisions 3 and 7 (docs/adr/0014-jevgrep-context-supply-at-dispatch.md): run `jg` once per ticket on its What-to-build text through the `scripts/jg.mjs` wrapper, write a context file, and print only its path for the dispatch prompt. The `.claude` edits (orchestrator relay step, scout pull line if 80's line doesn't already cover it, `jg` usage kind) go in the developer handoff as a diff for the user to apply. Before dispatch, the user runs `jg auth` and `jg doctor` in this environment.
 
 **Blocked by:** none

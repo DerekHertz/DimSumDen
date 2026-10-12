@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **Blocked by:** 02, 04, organism-infra/106
 
 **Status:** parked

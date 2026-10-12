@@ -2,6 +2,8 @@
 
 **Type:** design-question
 
+**Class:** pipeline
+
 **What to build:** An ADR amending ADR 0003. It records how cells stop writing board files directly and instead go through a single writer:
 - The board service lives in the daemon.
 - Cells reach it through a `board` CLI over local IPC: named pipes on Windows, Unix sockets elsewhere, or localhost HTTP with a token. Pick one and give the reasons.

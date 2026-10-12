@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **What to build:** Jev filtering in the handoff/scout step only. Shadow-first; criteria written when it unblocks.
 
 Source: `.scratch/organism-infra/spec.md`, ADR 0015.

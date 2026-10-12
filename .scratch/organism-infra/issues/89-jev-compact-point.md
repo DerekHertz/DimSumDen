@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:** The orchestrator genome now says: from 120k context, finish the relay steps in flight and start no new tickets; at 150k or more, write the session handoff and ask the user to run `/compact` (PR 115). That fixed line doesn't know how far along a relay is. A 130k session one qa verify away from a merge should finish it; one about to start a developer hop should hand off now. Add a Jev point that advises on this, in shadow mode first (ADR 0015's rollout: shadow, then advisory).
 
 - New point `compact` in `scripts/jev.mjs`: `node scripts/jev.mjs compact --context <tokens> [--mode shadow|advisory]`. It reads the in-flight relays from the board (ticket, stage, cell running) and the latest usage row, and returns one label: `continue`, `finish-in-flight` or `handoff-now`, with a confidence and a one-line reason.

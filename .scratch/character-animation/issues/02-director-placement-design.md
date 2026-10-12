@@ -2,6 +2,8 @@
 
 **Type:** design-question
 
+**Class:** product
+
 **What to build:** An architecture decision, recorded as an ADR, that answers: where the character director (a pure module: state changes, handoff events, perch anchors, reduced-motion flag and time in; clip, face-frame and root-transform commands out) lives relative to the scene renderer; what the first UI package layout is in the planned TypeScript monorepo; and whether distant cells (Level 1, up to 30) update animation at a reduced rate, and how.
 
 **Blocked by:** None (can start immediately)

@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** product
+
 **What to build:** The page follows `prefers-color-scheme` only. Add an in-page switch (system / light / dark) that sets `data-theme` on the root, remembered per viewer, and recolours the 3D scene without a remount.
 
 **Blocked by:** none

@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** product
+
 **Blocked by:** 06, 07, 08
 
 **Status:** parked

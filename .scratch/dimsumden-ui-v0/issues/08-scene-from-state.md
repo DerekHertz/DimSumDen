@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** product
+
 **What to build:** Pure scene-from-state function and renderer per `.scratch/dimsumden-ui-v0/spec.md`: active tickets only (claimed, in-review, blocked, waiting frontier), perch and pose from the existing character-animation spec and asset contract. Nothing new is animated. Designer reviews after qa.
 
 **Blocked by:** 07

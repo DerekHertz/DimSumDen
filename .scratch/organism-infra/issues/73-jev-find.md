@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **What to build:** `jev.mjs find --file <path> --ask "<need>"`. ADR 0015 decision 9 recommends NOT building this as specified: keep it blocked on the jg trial verdict (ADR 0014 decision 8), and if jg is go, drop it or re-scope it to in-file lookups only, judged on the decision 9 evidence. If jg is no-go, re-argue from scratch rather than unblocking automatically.
 
 Source: `.scratch/organism-infra/spec.md`, ADR 0015.

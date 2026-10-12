@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** `ORGANISM_ROOT` is unset in cell shells under WSL. Board commands fall back to `git worktree list`, but security exported it by hand each call. Set it at dispatch (session env or settings) so every cell sees the main checkout path.
 
 **Blocked by:** None

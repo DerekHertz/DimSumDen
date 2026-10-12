@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **Blocked by:** organism-infra/96-test-fixture-fake-keys-at-runtime
 
 **Status:** resolved

@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **What to build:** A pagoda-roofed slate board stands on the grass front right. It shows the three Dashboard charts small (reuse dashboard-model). Clicking it, or pressing Enter when focused, opens the existing Dashboard panel. Label "Today's board"; incidents read as "spills" on the board face only.
 
 **Blocked by:** 01

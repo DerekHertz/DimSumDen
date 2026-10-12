@@ -1,5 +1,7 @@
 # 02: Headless UI smoke check
 
+**Class:** pipeline
+
 **What to build:** A script that loads each dev page (e.g. `apps/ui/src/scene/dev-scene.html`) in a headless browser and fails on any console error, failed module import, or failed asset load. It gives `scout` and CI a browser smoke check. Ticket 07's `node:fs` bug is the case it must catch.
 
 **Blocked by:** None (can start immediately)

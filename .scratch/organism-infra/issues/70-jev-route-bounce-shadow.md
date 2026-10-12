@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:** Extend `route` to bounces (label set `developer | qa | architect | user | other`), in shadow. Held until security (67) rules on sending handoff text; build to whatever input 67 allows (for example the bounce verdict comment plus the ticket).
 
 Source: `.scratch/organism-infra/spec.md`, ADR 0015.

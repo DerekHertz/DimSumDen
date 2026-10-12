@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** product
+
 **Blocked by:** organism-infra/107, 09
 
 **Status:** closed

@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **Blocked by:** agent-os/04 (resolved, PR #220). The host list criterion and any web use in the live run wait on agent-os/02.
 
 **Status:** in-review

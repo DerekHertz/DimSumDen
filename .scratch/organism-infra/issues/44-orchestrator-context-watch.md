@@ -2,6 +2,8 @@
 
 **Type:** feature
 
+**Class:** pipeline
+
 **What to build:** `node scripts/context.mjs` prints the current main session's context size as JSON: `{"session","context_tokens","percent"}`. It reads the newest top-level transcript in `~/.claude/projects/<project>/` and adds up input, cache_creation and cache_read tokens from the last assistant usage. The orchestrator runs it at every usage check and logs a `{"kind":"context",...}` row to usage.jsonl.
 
 **Blocked by:** None (can start immediately).

@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:** After 5 shadow tickets, run jev-report with the user and decide per call point: go live, adjust, or drop. Design: docs/adr/0010-jev-precheck-tier-and-verify-depth.md.
 
 **Blocked by:** 38, 39, 41

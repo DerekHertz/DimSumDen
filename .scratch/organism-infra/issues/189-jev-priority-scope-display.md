@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **Serves:** Refocus goal: Jev routes each relay step, judged by bounce rate and tokens (ADR 0019; ADR 0010/0015 amendments from 136).
 
 **What to build:** Advisory mode: Jev priority and scope flags shown at the frontier proposal, never feeding the order; report the promotion bars (70% over 10 flags; 60% tercile over 20; no small ticket in the top tercile). Touches `scripts/jev.mjs`.

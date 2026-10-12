@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:** Cloud sessions have Chromium 1194 at `/opt/pw-browsers` but Playwright 1.63 looks for 1243, so `smoke:ui` and the browser tests fail and the designer can't see UI. Orchestrator probe (2026-09-29): launching `/opt/pw-browsers/chromium-1194/chrome-linux/chrome` via `executablePath` with `--use-angle=swiftshader --enable-unsafe-swiftshader` works and WebGL2 is available.
 1. (Moved to 05a.)
 2. A screenshot script: starts the UI dev server, opens the default camera, saves PNGs at desktop and mobile widths, both themes, reduced motion, into a given directory.

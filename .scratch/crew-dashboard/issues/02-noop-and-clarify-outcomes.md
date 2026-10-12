@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **Blocked by:** organism-infra/98 (both change the board CLI; sequence 98 first)
 
 **Status:** parked

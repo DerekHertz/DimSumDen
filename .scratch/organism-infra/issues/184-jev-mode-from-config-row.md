@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **Serves:** Refocus goal: Jev routes each relay step, judged by bounce rate and tokens (ADR 0019; ADR 0010/0015 amendments from 136).
 
 **What to build:** `scripts/jev.mjs` resolves each use case mode (shadow, advisory, live) from its latest `config` row in `.scratch/usage.jsonl`; `decide` already receives `usageRows`. Add a regression test that `effective` equals today rule in every mode and every fallback reason. Touches `scripts/jev.mjs`, `scripts/jev.test.mjs`.

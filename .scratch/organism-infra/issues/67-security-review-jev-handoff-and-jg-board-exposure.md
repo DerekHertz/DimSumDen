@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **What to build:** Per ADR 0015 decision 8 and its Status line, `security` reviews the Data exposure section before route's bounce half (70) or the wake-up gate (72) make any call, shadow included. Two questions: (1) may `jev.mjs` send handoff text (bounce routing) and ticket comment / gate-request text (wake) to TypeSafe's API, or should it be narrowed (for example to the bounce verdict comment plus the ticket)? (2) ad hoc `jg` calls by cells are not excluded from `.scratch/` (tracked), so tickets, handoffs and `usage.jsonl` can reach jg's provider: must cells pass the exclusion (wrapper, ignore file, genome line), or may the board go to jg's provider? Output is a verdict with any required narrowing; no code change in this ticket (fixes it names become their own tickets).
 
 Source: `.scratch/organism-infra/spec.md`, ADR 0015.

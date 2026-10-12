@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **What to build:** The dashboard becomes a slate specials board under a small two-tier pagoda roof, standing on the grass front right. It shows the three existing Dashboard charts (served per 5-hour window, tokens per dish by cell, spills per dish by tool) in one qi series. Clicking it opens the same charts full size in a panel. Kitchen words are fine in the scene; "spills" means incidents.
 
 **Blocked by:** 14

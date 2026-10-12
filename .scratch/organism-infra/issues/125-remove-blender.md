@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **Blocked by:** 116 (it removes the Blender MCP tools and designer critique mode from the role files in its patch)
 
 **Status:** ready-for-agent

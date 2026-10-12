@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **Blocked by:** agent-os/01 (a go)
 
 **Status:** resolved

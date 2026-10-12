@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **Blocked by:** den-v1/13 (merge of PR #214)
 
 **Status:** resolved

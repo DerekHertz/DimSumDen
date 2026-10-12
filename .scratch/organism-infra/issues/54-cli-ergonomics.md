@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **What to build:**
 - Add `scripts/board.mjs`, a thin shim that forwards its arguments and exit code to the real board CLI (`apps/organism-infra/board.mjs`). Three cells guessed this path in one session.
 - Add `npm run test:path -- <file|dir>...`, which expands each directory to its `*.test.mjs` files and runs `node --test` on them. Node 22 rejects directory arguments, and three cells hit this.

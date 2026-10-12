@@ -1,5 +1,7 @@
 # 03: Production rig, face atlas and asset contract
 
+**Class:** product
+
 **What to build:** The production panda asset that every later ticket builds on. It uses the shared hand-placed rig with paw L, paw R and hat sockets, and replaces the baked sleepy face with a face decal driven by a sprite atlas (eye and mouth frames). The state clips are sit-still, breathe, blink, paw-raise, arms-folded, slump, lean-back, doze and wave. Everything exports as one glb. An automated asset contract check loads the glb and verifies the required bones, sockets, clips and face frames, and that no looping clip is shorter than `dur-heartbeat`.
 
 The production mesh must give the arms geometry that's separate from the body (or topology/weighting that lets the arms lift cleanly) so raising a paw or waving shows no stretched or distorted skin between arm and belly. This is a direct requirement from the user's verdict on ticket 01 (motion test prototype): "the arm should be separate from the body. right now the skin stretches and makes a really ugly distorted look."

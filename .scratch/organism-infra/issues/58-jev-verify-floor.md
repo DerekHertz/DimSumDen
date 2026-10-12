@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** pipeline
+
 **What to build:** In live mode, `node scripts/jev.mjs verify` picked `light` (conf 0.71) for dimsumden-ui-v0/15, which had no qa specify hop. The orchestrator genome allows light verify only when qa ran specify. Make the script apply `minimum = full` when no `<NN>-qa-specify*.md` handoff exists for the ticket, and log the floor in the jev row.
 
 **Blocked by:** none

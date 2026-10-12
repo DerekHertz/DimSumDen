@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **Blocked by:** den-v1/05-transcript-f, den-v1/06-approve-deny, den-v1/07-message-t (run after the den-v1 loop works; user, 2026-10-05)
 
 **Status:** parked

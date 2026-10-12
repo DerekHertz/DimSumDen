@@ -2,6 +2,8 @@
 
 **Type:** bug
 
+**Class:** pipeline
+
 **What to build:** During ticket 34, the developer's `board release --status in-review` was logged at 22:25:30Z (events seq 164), but its handoff file's mtime is 22:25:45Z. `release` calls `validateHandoffState` (board-service.mjs:858) unless `--force`, and the event has no `force` field, so we can't tell whether the gate was bypassed or the handoff was rewritten after an earlier valid write. Record `force: true|false` on every release event, and find out which happened here (reproduce: release with no handoff file must fail without --force).
 
 **Blocked by:** None (can start immediately).

@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** product
+
 **What to build:** Pure functions (e.g. `apps/organism-infra/priority.mjs`) per `.scratch/dimsumden-ui-v0/spec.md` and `docs/agents/issue-tracker.md`: parse `**Priority:** P0-P3` (missing is P2), order the frontier by effective priority then age then number, and bump a ticket one level after it has waited through 3 orchestrator handoff files (`.scratch/_handoffs/*-orchestrator-*.md`).
 
 **Blocked by:** None (can start immediately).

@@ -4,6 +4,8 @@
 
 **Priority:** P0
 
+**Class:** product
+
 **What to build:** Node bridge (localhost only) per `.scratch/dimsumden-ui-v0/spec.md` and the 01 ADR: `GET /state` returns the snapshot (tickets with effective priority and bump flag, holder, latest handoff, usage, pending requests) read from a `.scratch/` root.
 
 **Blocked by:** 01, 02

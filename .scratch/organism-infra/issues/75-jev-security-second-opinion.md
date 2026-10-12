@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **What to build:** A Jev point that may escalate a risk-check-clean ticket to full `security`, never skip. Shadow-first; criteria written when it unblocks.
 
 Source: `.scratch/organism-infra/spec.md`, ADR 0015.

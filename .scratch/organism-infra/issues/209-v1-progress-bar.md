@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** pipeline
+
 **Blocked by:** organism-infra/167 (both edit `scripts/statusline.mjs`)
 
 **Status:** resolved

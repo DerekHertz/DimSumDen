@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **What to build:** Swap the Pass props from ticket 07 for kitchen props: orchestrator gets a ladle, product a menu, architect order slips on a clip. Chef's toques replace the old hats. Props are single-mesh socket props in the `station-pass` hue, following ticket 07's asset contract. Idle habits change to match cell-types.md in the design system (ladle tap and point, unfold menu, pin a slip on the rail).
 
 **Blocked by:** None (07 resolved)

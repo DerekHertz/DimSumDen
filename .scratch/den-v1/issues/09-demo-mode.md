@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **Blocked by:** None (can start immediately; den-v1/01-04 resolved)
 
 **Status:** resolved

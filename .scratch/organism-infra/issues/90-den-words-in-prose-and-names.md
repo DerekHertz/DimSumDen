@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** pipeline
+
 **Blocked by:** 116 (it rewrites the role files and the protocol skill this ticket renames)
 
 **Status:** parked

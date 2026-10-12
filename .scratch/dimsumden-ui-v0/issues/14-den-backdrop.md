@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **What to build:** A static, low-poly, geometric backdrop behind Bao and the plushes: a simple bamboo field, a tea house, and a few dim sum restaurant elements (for example steamer stacks, lanterns, a counter). Nothing animates. It must not hurt chip or plush legibility or frame rate. The designer sets the direction (`direction` mode) before the relay starts, and reviews it afterwards.
 
 **Blocked by:** 08

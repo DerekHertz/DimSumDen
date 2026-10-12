@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **Serves:** Refocus goal: Jev routes each relay step, judged by bounce rate and tokens (ADR 0019; ADR 0010/0015 amendments from 136).
 
 **What to build:** Lift the qa-unspecified floor: light verify at conf >= 0.8 with tests green and risk-check clean (risk-check runs before verify, user verdict on 136). Replay first with the 185 tool and report how many qa-unspecified tickets reach 0.8 (history: 0 of 52, max 0.74); if none, stop and ask the user about the floor. Touches `scripts/jev.mjs`.

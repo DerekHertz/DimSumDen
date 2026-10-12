@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **Serves:** Refocus goal: Jev routes each relay step, judged by bounce rate and tokens (ADR 0019; ADR 0010/0015 amendments from 136).
 
 **What to build:** Normalize advisory-outcome aliases (`qa`=`qa-specify`, `developer`=`developer-direct`); add a `security` label; build the `state` header in code (Type, files touched, gated-path flags, relay defaults); sharper criteria text; an atomic yes/no version composed in code. Build a replay tool (reused by 187 and 190) and replay both versions on the 39 labelled tickets. Touches `scripts/jev.mjs`, a new replay script under `scripts/`. Scopes from `.scratch/organism-infra/handoffs/136-architect-2.md` item A. Likely over 120k: split before dispatch if the size check says so.

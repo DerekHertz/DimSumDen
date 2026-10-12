@@ -2,6 +2,8 @@
 
 **Type:** task
 
+**Class:** pipeline
+
 **What to build:** Extend the `board` CLI (ADR 0008's module) with three validations, per ADR 0009 decision 2's ranked #1 rule (3 incidents: an unrecognized `--as` flag silently stored as comment text; `qa` set `in-review` during a `specify` claim; a `developer` ended twice without pushing or writing a handoff).
 
 1. **Reject unknown flags.** Every subcommand declares its flag set; an unrecognized flag is a hard error naming the bad flag, never silently consumed as positional/text content.

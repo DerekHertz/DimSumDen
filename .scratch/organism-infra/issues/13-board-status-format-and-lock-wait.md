@@ -1,5 +1,7 @@
 # 13: `board` corrupts real tickets' bold status line; bound the write-lock wait
 
+**Class:** pipeline
+
 **What to build:** `board` works on real board tickets. Every ticket writes its status as `**Status:** <value>`, but the parser matches `Status:\s*(\S+)`, so it reads `**` as the status and rewrites the line as `**Status: <new> <old>`. `board release` did exactly this on ticket 02 on 2026-09-27; the orchestrator repaired the line by hand. Also make write-lock contention behave well: a cell that hits a live write lock waits with a bounded, jittered backoff, then fails with a clear message and a distinct exit code. It never blocks for long, never spins, and never steals the lock. A taken claim lock still fails fast.
 
 **Blocked by:** None. Urgent: `organism-protocol` already tells cells to use `board`, so no cell that calls `claim` or `release` is dispatched until this merges.

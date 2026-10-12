@@ -2,6 +2,8 @@
 
 **Type:** feature
 
+**Class:** pipeline
+
 **What to build:**
 - **Verdict needs the lock (user decision, 2026-09-29):** `board comment --verdict` is refused unless the author holds that ticket's claim lock, with no exemption for the orchestrator. The author's cell (and mode, for qa) must match the lock. A comment without `--verdict` keeps today's rules. Update the existing no-lock `--as` verdict tests. From 49's security review, and a qa cell that posted a verdict without claiming.
 - **`log-cell --failures`:** `scripts/log-cell.mjs` takes an optional `--failures "<tool>:<what>;<tool>:<what>"`. It writes one `{"kind":"incident","ts","ticket","cell","tool","what","cost":null,"fix":null,"rule_change":null,"source":"cell-report"}` row per item after the cell row. `tool` must be one of a fixed list exported from the script: `bash-guard`, `board-claim`, `board-release`, `board-comment`, `board-handoff`, `handoff-state`, `git`, `npm`, `write`, `ci`, `other`. An unknown tool, an empty `what`, or `what` over 300 characters is refused, and nothing is written, not even the cell row.

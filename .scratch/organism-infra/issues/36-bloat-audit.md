@@ -2,6 +2,8 @@
 
 **Type:** research (scout, read-only)
 
+**Class:** pipeline
+
 **What to build:** Measure what each cell loads before doing any work, so the Jev/efficiency grill (ticket 04) has per-component numbers. For each cell type in `.claude/agents/`: genome size, preloaded skills (`skills:` frontmatter) and their sizes, CLAUDE.md, and any docs the genome tells it to read at start. Also size the typical handoffs and relay reports from tickets 26/28/34/35. Report in approx tokens (bytes/4), largest first, and flag duplicated text across genomes/skills.
 
 **Blocked by:** None (can start immediately).

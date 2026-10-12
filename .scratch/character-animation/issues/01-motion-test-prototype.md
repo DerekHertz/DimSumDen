@@ -2,6 +2,8 @@
 
 **Type:** prototype
 
+**Class:** product
+
 **What to build:** A throwaway motion test that confirms the shared rig and feel before the full clip library is built. Rig one plush panda in Blender with the hand-placed skeleton from the spec (root, body, head, ear L/R, arm L/R, leg L/R; paw L/R and hat sockets). Author breathe, paw-raise with bob, hop, and waddle. Export one glTF binary and show it in a bare three.js page that cycles every cell state (a rough pose or clip for each is fine) and plays one hop and one waddle between two perches. This also stands up the first three.js scene, since there is no app code yet.
 
 **Blocked by:** None (can start immediately)

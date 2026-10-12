@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **What to build:** Harness load is about 12–14k tokens per cell (ticket 36). Remove tools a cell rarely uses from `tools:` in `.claude/agents/*.md`, for example the Blender MCP tools in developer on non-asset tickets. Options: move them to an asset-only genome variant, or rely on deferred loading. Measure the first-turn context before and after.
 
 **Blocked by:** None (can start immediately).

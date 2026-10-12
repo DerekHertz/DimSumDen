@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **Serves:** Refocus goal: Jev routes each relay step, judged by bounce rate and tokens (ADR 0019; ADR 0010/0015 amendments from 136).
 
 **What to build:** Give the start-here file to full qa verify, security and scout via `scripts/dispatch-prompt.mjs` and the `scripts/dispatch-context.mjs` cell list; scout calls `jg` first.

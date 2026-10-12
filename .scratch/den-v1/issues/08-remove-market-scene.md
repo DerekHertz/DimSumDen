@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **Blocked by:** 01, 03 (batch D1: PR #151 must merge first)
 
 **Status:** resolved

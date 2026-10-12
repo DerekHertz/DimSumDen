@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **Serves:** Refocus goal: Jev routes each relay step, judged by bounce rate and tokens (ADR 0019; ADR 0010/0015 amendments from 136).
 
 **What to build:** Take the A1 winner live only if it reached 80% agreement, via a `config` row; then run a 10-ticket trial and report bounce rate and tokens. If below 80%, record that and stop. Touches `scripts/jev.mjs`, `.scratch/usage.jsonl`.

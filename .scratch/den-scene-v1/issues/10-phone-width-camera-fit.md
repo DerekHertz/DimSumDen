@@ -4,6 +4,8 @@
 
 **Priority:** P2
 
+**Class:** product
+
 **Blocked by:** 03, den-iso-v1/02
 
 **Status:** parked

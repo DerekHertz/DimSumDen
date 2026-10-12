@@ -4,6 +4,8 @@
 
 **Priority:** P1
 
+**Class:** product
+
 **What to build:** The user reports the page is slow with the live board (12 plushes). Profile first (frame time, GPU, draw calls, JS per frame). Then fix the biggest cost. Suspects, unverified: each plush loads or clones its furry glb separately; `stackChips` and projection run on every frame; shadows and fur shells.
 
 **Blocked by:** 13

@@ -4,6 +4,8 @@
 
 **Priority:** P3
 
+**Class:** pipeline
+
 **What to build:** The guard refuses commands whose text contains the word "git" anywhere, including inside a `node -e` string or a heredoc body ("names git in a form too complex to verify"). Match only git invoked as a command, not the word in data.
 
 **Blocked by:** None (can start immediately).
