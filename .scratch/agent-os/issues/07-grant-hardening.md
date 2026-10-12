@@ -6,7 +6,7 @@
 
 **Blocked by:** None
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** agent-os step 2 (ADR 0021). It closes the findings from the security review of agent-os/02 (`.scratch/agent-os/handoffs/02-security.md`, pass at 6ca76af, PR #222) before agent-os/05 puts a grants table in the Start box.
 
@@ -52,3 +52,4 @@ Security's own attempt at the refs probe was denied by the auto-mode classifier.
 - 2026-10-11, orchestrator: user decision (2026-10-11): keep the developer's extra refused entries (rc files `.zlogout`, `.login`, `.logout`, `.kshrc`, `.cshrc`, `.tcshrc`; system directories `bin`, `sbin`, `lib`, `lib32`, `lib64`, `boot`, `root`, `sys`, `proc`, `dev`, `system`, `library`, `/private/etc`). ADR 0021 Amendment 2 merged (PR #225).
 - 2026-10-11, orchestrator: criterion 6 reasons, copied from the developer's report so they stand on the ticket. (a) Ticket-directory read stays: the CLI's `additionalDirectories` takes directories only, the directory holds only den tickets, the shell sandbox already limits reads to the one ticket file, and a fix would break the unchanged `grants-paths.test.mjs`. (b) Shell-quoting bypass of `Bash(*git *push*)` and `gh api`: not fixed in the rules; GitHub hosts (`github.com`, `*.github.com`) are refused as grants with tests, so the wall blocks it. qa light verify gave no verdict and escalated to full verify on this criterion; full verify judges whether these reasons hold.
 - **qa, 2026-10-12:** qa full verify: QA pass at 69bdee9. Suite 4225 pass, 0 skipped; specify tests unchanged; every criterion mapped or human-verified; both criterion 6 reasons hold (note for security: a non-GitHub git host stays grantable). Details: handoffs/07-qa-verify-2.md
+- **security, 2026-10-12:** Security pass at 69bdee9. No critical/high. risk-check hit on governance.json only (expected); gitleaks clean; no dep/CI change. Medium: grant-policy.mjs:22 RC_FILES omits .bash_profile/.bash_login/.bash_logout/.bash_aliases (probed, accepted); follow-up, not a bounce. Low: resolveReal check-time only (accepted); non-GitHub git hosts grantable (no creds reachable in sandbox); ~/.aws, .gnupg, .netrc grantable (outside decided list). Details: handoffs/07-security.md

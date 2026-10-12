@@ -29,8 +29,10 @@ Blocked by 07 because both change the adapter; this runs right after 07 merges.
 - [ ] `workspace.test.mjs` and `host-workspace.test.mjs` assertions of one named branch per agent are rewritten for detached worktrees, and the bridge creates the branch at the final commit, with a test.
 - [ ] The agent-os/02 and agent-os/07 tests are unchanged and green.
 - [ ] The live probe is repeated through the real `createClaudeRuntime` and recorded on this ticket: every ref, `HEAD`, `packed-refs`, `git update-ref`, `git branch` and `git tag` write refused; `git commit` in the worktree succeeds; main `HEAD` and refs unchanged. `git gc --auto` and `git worktree add` are run and what they print is recorded.
+- [ ] A path grant on `~/.bash_profile`, `~/.bash_login`, `~/.bash_logout` or `~/.bash_aliases` gets a 400 from `POST /tasks`, with a test per entry (`RC_FILES` in `apps/bridge/cells/grant-policy.mjs`; security's medium finding in `.scratch/agent-os/handoffs/07-security.md`).
 - [ ] `npm test`, risk-check and gitleaks are green apart from known failures; full `security` reviews the branch.
 
 ## Comments
 
 - 2026-10-11, orchestrator: filed on the user's answers (2026-10-11): accept detached worktrees; build the rule in a new ticket after 07; defer the sibling-worktree deny (agent-os/10). Den-spawned agents stay off real work in this repo until 07 and this ticket have both merged. The ADR amendment is on branch `architect/agent-os-07-git-rule` (e368a13), still worded "proposed"; the user's acceptance is recorded here.
+- **orchestrator, 2026-10-12:** user decision (2026-10-11): the four bash startup files security found grantable on agent-os/07 (.bash_profile, .bash_login, .bash_logout, .bash_aliases) are refused in this ticket; criterion added. agent-os/07 merged (PR #226), so this ticket is unblocked. ADR 0021 Amendment 2 merged in PR #225.
