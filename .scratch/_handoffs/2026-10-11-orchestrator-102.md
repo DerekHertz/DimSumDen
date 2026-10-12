@@ -19,3 +19,8 @@ Mid-flight handoff near the 80k context gate. Same session as handoff 101; no re
 1. agent-os/02: qa verify return → security → PR → merge → resolve.
 2. Session wrap-up: `pipeline-retro`, `worktree-gc`, `npm run session-check`, final handoff.
 3. Fresh session: agent-os/03 (architect), agent-os/05 once 02 merges, organism-infra/219, organism-infra/107, den-v1/15.
+
+## Update: qa verify bounced 02 (bounce 1 of 2)
+- `02-qa-verify.md`: the `.git/config` probe of the main checkout is not done (ticket line 39) and has no test or human verification. A grant on `<main>/.git` is not denied (user decision asked). qa's own gap: no test pins that a bare ceiling has no `sandbox.filesystem.allowWrite` (grants.test.mjs near line 119).
+- Relaxed 04 assertions: qa says no 04 requirement is broken.
+- qa worktree removed; cell logged. Next after `/compact`: get the user's `.git` decision, then developer fix round (`route-bounce` first; `--continue`, base 7be73f3, handoff `02-developer-3.md`), then qa light verify again, then security.
