@@ -12,9 +12,9 @@
 //
 // Order: tier (P0 with a reason, then the active feature, then the rest); inside a tier, unblock count (most first),
 // then the P line (lowest first), then the lowest ticket number. Scope is not used.
-import { readdir, readFile, stat } from "node:fs/promises";
+import { lstat, readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { readStatus } from "./board-service.mjs";
+import { readStatus, TICKET_CLASSES, P0_REASONS } from "./board-service.mjs";
 import { parsePriority } from "./priority.mjs";
 import { compareRefs } from "../../packages/board-refs/src/compare-refs.mjs";
 
@@ -89,8 +89,132 @@ export function buildQueue(snapshot) {
     else row.planned += 1;
   }
 
-  // gated and expired stay empty until the admission gate and decay parking exist (queue/03, queue/05).
-  return { ordered, gated: [], expired: [], unplanned };
+  // gated: tickets the admission gate parked and that are still parked. expired stays empty until decay parking
+  // exists (queue/05).
+  const gated = (snapshot.gateParks ?? []).map((g) => ({ ref: g.ref, reasons: [g.reason] }));
+  return { ordered, gated, expired: [], unplanned };
+}
+
+// --- the admission gate (ADR 0015 Amendment 3 A and C, ADR 0019 decision 8) ------------------------------------
+//
+// Machine form of a Serves line (prose after the form is free):
+//   spec:<feature> "<heading text>"   a heading line of .scratch/<feature>/spec.md contains the text, case-insensitive
+//   incident:<ts>[, incident:<ts>...] each ts is a kind:"incident" row of usage.jsonl
+//   finding:<ref>                     that ticket exists
+// checkAdmission is pure: spec headings and incidents arrive in the snapshot (loadSnapshot reads them), so a path in
+// ticket text is never turned into a file read. The <feature> in a spec form is looked up as a key, nothing more.
+
+const GATE_PREFIX = "admission gate: ";
+const INCIDENT_TS = String.raw`\d{4}-\d{2}-\d{2}T[\d:.]+Z`;
+const SPEC_FORM_RE = /^spec:(\S+)\s+"([^"]*)"/;
+const INCIDENT_FORM_RE = new RegExp(String.raw`^incident:${INCIDENT_TS}(?:\s*,\s*incident:${INCIDENT_TS})*`);
+const FINDING_FORM_RE = /^finding:(\S+)/;
+const PIPELINE_INCIDENTS = 3;
+
+export const gateReason = (reasons) => `${GATE_PREFIX}${reasons.join("; ")}`;
+
+// A short, one-line, printable form of ticket text for use inside a reason.
+function quoted(text) {
+  const flat = String(text).replace(/[^\x20-\x7e]/g, "?");
+  return `"${flat.length > 60 ? `${flat.slice(0, 57)}...` : flat}"`;
+}
+
+// Checks the Serves line. Returns { reasons, incidentTs } where incidentTs are the incident rows it names (found or not).
+function checkServes(ticket, snapshot) {
+  const serves = typeof ticket.serves === "string" ? ticket.serves.trim() : "";
+  if (!serves) return { reasons: ["serves: no Serves line"], incidentTs: [] };
+
+  const spec = SPEC_FORM_RE.exec(serves);
+  if (spec) {
+    const [, feature, heading] = spec;
+    if (!FEATURE_RE.test(feature)) return { reasons: [`serves: spec feature ${quoted(feature)} is not a feature name`], incidentTs: [] };
+    if (!heading.trim()) return { reasons: ["serves: spec heading text is empty"], incidentTs: [] };
+    if (ticket.class !== "pipeline" && feature !== snapshot.active) {
+      return { reasons: [`serves: spec:${feature} is not the active feature's spec (active: ${snapshot.active ?? "none"})`], incidentTs: [] };
+    }
+    const headings = Object.hasOwn(snapshot.specs ?? {}, feature) ? snapshot.specs[feature] : null;
+    if (!headings) return { reasons: [`serves: spec:${feature} has no readable spec file`], incidentTs: [] };
+    const want = heading.trim().toLowerCase();
+    if (!headings.some((h) => h.toLowerCase().includes(want))) {
+      return { reasons: [`serves: no heading containing ${quoted(heading.trim())} in the ${feature} spec`], incidentTs: [] };
+    }
+    return { reasons: [], incidentTs: [] };
+  }
+
+  const incidents = INCIDENT_FORM_RE.exec(serves);
+  if (incidents) {
+    const incidentTs = [...incidents[0].matchAll(new RegExp(String.raw`incident:(${INCIDENT_TS})`, "g"))].map((m) => m[1]);
+    const known = new Set((snapshot.incidents ?? []).map((i) => i.ts));
+    const missing = [...new Set(incidentTs)].filter((ts) => !known.has(ts));
+    return {
+      reasons: missing.map((ts) => `incident: ${ts} is not an incident row of usage.jsonl`),
+      incidentTs,
+    };
+  }
+
+  const finding = FINDING_FORM_RE.exec(serves);
+  if (finding) {
+    const exists = (snapshot.tickets ?? []).some((t) => t.ref === finding[1]);
+    return { reasons: exists ? [] : [`serves: finding ${quoted(finding[1])} is not a ticket on the board`], incidentTs: [] };
+  }
+
+  return {
+    reasons: [`serves: not a machine form (spec:<feature> "<heading>", incident:<ts>, or finding:<ref>): ${quoted(serves)}`],
+    incidentTs: [],
+  };
+}
+
+// True when the pipeline ticket is listed in the Blocked by of an open active-feature ticket (ADR 0019 decision 8).
+function blocksActiveFeature(ticket, snapshot) {
+  if (!snapshot.active) return false;
+  return (snapshot.tickets ?? []).some(
+    (t) =>
+      t.feature === snapshot.active &&
+      t.status !== "resolved" &&
+      t.status !== "closed" &&
+      (t.blockedBy ?? []).includes(ticket.ref)
+  );
+}
+
+// Three distinct, existing incident rows that share one tool (a mechanical stand-in for "same cause").
+function threeIncidentsOfOneTool(incidentTs, snapshot) {
+  const toolOf = new Map();
+  for (const i of snapshot.incidents ?? []) if (!toolOf.has(i.ts)) toolOf.set(i.ts, i.tool ?? null);
+  const perTool = new Map();
+  for (const ts of new Set(incidentTs)) {
+    const tool = toolOf.get(ts);
+    if (typeof tool !== "string" || !tool) continue;
+    perTool.set(tool, (perTool.get(tool) ?? 0) + 1);
+  }
+  return [...perTool.values()].some((n) => n >= PIPELINE_INCIDENTS);
+}
+
+export function checkAdmission(ticket, snapshot) {
+  const reasons = [];
+  if (!TICKET_CLASSES.includes(ticket.class)) reasons.push("class: no Class line, or not product or pipeline");
+
+  const serves = checkServes(ticket, snapshot);
+  reasons.push(...serves.reasons);
+
+  if (ticket.class === "pipeline" && !blocksActiveFeature(ticket, snapshot) && !threeIncidentsOfOneTool(serves.incidentTs, snapshot)) {
+    reasons.push(`incident: a pipeline ticket needs ${PIPELINE_INCIDENTS} distinct incidents with the same tool, or to block an active-feature ticket`);
+  }
+
+  if (ticket.priority === 0 && !P0_REASONS.includes(ticket.p0Reason)) {
+    reasons.push(`p0: a P0 ticket needs a P0-reason of ${P0_REASONS.join("|")}`);
+  }
+  return { ok: reasons.length === 0, reasons };
+}
+
+// The tickets the gate would park: every ready-for-agent ticket checkAdmission refuses.
+export function gateRefusals(snapshot) {
+  const refused = [];
+  for (const t of snapshot.tickets ?? []) {
+    if (t.status !== "ready-for-agent") continue;
+    const r = checkAdmission(t, snapshot);
+    if (!r.ok) refused.push({ ref: t.ref, reasons: r.reasons });
+  }
+  return refused;
 }
 
 // --- the reader ------------------------------------------------------------------------------------------------
@@ -126,6 +250,25 @@ async function readJsonLines(file) {
     }
   }
   return rows;
+}
+
+// Heading texts of a spec file, '#' marks stripped, fenced code skipped. null when the file is missing, is not a plain
+// file (a symlink is not followed) or is too large to be a spec.
+const SPEC_MAX_BYTES = 1_000_000;
+async function readSpecHeadings(file) {
+  const info = await lstat(file).catch(() => null);
+  if (!info || !info.isFile() || info.size > SPEC_MAX_BYTES) return null;
+  const text = await readFile(file, "utf8").catch(() => null);
+  if (text === null) return null;
+  const headings = [];
+  let fenced = false;
+  for (const line of text.split(/\r?\n/)) {
+    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+    if (fenced) continue;
+    const m = /^#{1,6}[ \t]+(.*?)[ \t]*#*[ \t]*$/.exec(line);
+    if (m && m[1]) headings.push(m[1]);
+  }
+  return headings;
 }
 
 export async function loadSnapshot(root) {
@@ -174,6 +317,8 @@ export async function loadSnapshot(root) {
     const status = readStatus(r.markdown);
     const blockedText = /^\*\*Blocked by:\*\*(.*)$/m.exec(head)?.[1] ?? "";
     const origin = /^\*\*Origin:\*\*[ \t]*(spec|added)\b/m.exec(head)?.[1] ?? null;
+    const ticketClass = /^\*\*Class:\*\*[ \t]*(product|pipeline)[ \t]*$/m.exec(head)?.[1] ?? null;
+    const serves = /^\*\*Serves:\*\*[ \t]*(\S.*?)[ \t]*$/m.exec(head)?.[1] ?? null;
     const p0Reason = /^\*\*P0-reason:\*\*[ \t]*(\S.*?)[ \t]*$/m.exec(head)?.[1] ?? null;
     const ticket = {
       ref,
@@ -184,6 +329,8 @@ export async function loadSnapshot(root) {
       blockedBy: parseBlockedBy(blockedText, r.feature, byNum),
       origin,
       p0Reason,
+      class: ticketClass,
+      serves,
     };
     if (status === "ready-for-agent") {
       ticket.readySince = readyAt.get(ref) ?? new Date((await stat(r.file)).mtimeMs).toISOString();
@@ -191,7 +338,30 @@ export async function loadSnapshot(root) {
     tickets.push(ticket);
   }
 
-  return { active, activeSince, tickets, resolved, picks };
+  const incidents = usage
+    .filter((r) => r.kind === "incident" && typeof r.ts === "string")
+    .map((r) => ({ ts: r.ts, tool: typeof r.tool === "string" ? r.tool : null }));
+
+  // Spec headings, per feature. Only real files in real feature directories: the feature names come from the directory
+  // listing above (never from ticket text), and a symlinked directory or spec.md is not read.
+  const specs = {};
+  for (const feature of new Set(raw.map((r) => r.feature))) {
+    const headings = await readSpecHeadings(path.join(scratch, feature, "spec.md"));
+    if (headings) specs[feature] = headings;
+  }
+
+  // Tickets the gate parked and that are still parked: the last park event carries the gate's reason prefix.
+  const parkReason = new Map();
+  for (const e of events) {
+    const ref = `${e.feature}/${e.ticket}`;
+    if (e.op === "park") parkReason.set(ref, typeof e.reason === "string" ? e.reason : "");
+    else if (e.op === "unpark" || e.op === "reopen" || e.op === "close") parkReason.delete(ref);
+  }
+  const gateParks = tickets
+    .filter((t) => t.status === "parked" && parkReason.get(t.ref)?.startsWith(GATE_PREFIX))
+    .map((t) => ({ ref: t.ref, reason: parkReason.get(t.ref).slice(GATE_PREFIX.length) }));
+
+  return { active, activeSince, tickets, resolved, picks, specs, incidents, gateParks };
 }
 
 // --- the printed form ------------------------------------------------------------------------------------------
