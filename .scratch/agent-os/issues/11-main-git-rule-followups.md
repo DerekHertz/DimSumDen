@@ -29,3 +29,4 @@ Read security's handoff `.scratch/agent-os/handoffs/09-security.md` and qa's `.s
 ## Comments
 
 - **orchestrator, 2026-10-12:** filed on the user's decision (2026-10-12) to merge agent-os/09 (PR #227) and fix security's medium findings in a follow-up. Security's two low findings on 09 are not ticketed: `publish` runs `rev-parse HEAD` unsandboxed in a directory the agent controls, and `git pack-refs` in `prepareMainGit` can race a concurrent git command. The repo at `/home/dhertzell/dimsumden` has a plain path, so the rule holds here.
+- **orchestrator, 2026-10-12:** the user approved the relay with full verify (Sonnet) straight after the developer, skipping light verify, because light verify escalated on agent-os/07 and 09 over the same kind of process-only criterion (criterion 5 here).

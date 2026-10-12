@@ -6,7 +6,7 @@
 
 **Blocked by:** none
 
-**Status:** parked
+**Status:** closed
 
 **Serves:** Cells search their worktree with the Grep tool instead of falling back to `grep` through Bash.
 
@@ -27,3 +27,4 @@ Find why the Grep tool is unavailable in a cell (genome tool list, permissions, 
 
 - 2026-10-07 orchestrator: fresh-session retest on the MacBook (a different machine, fresh orchestrator session): the runtime tool list still has no Grep or Glob, although `.claude/agents/orchestrator.md` lists both. Next per handoff 59: the gated genome/protocol edit (search with grep/rg via Bash, quote globs).
 - **orchestrator, 2026-10-07:** Parked: User 2026-10-07: north star first (den v1 loop). Pipeline work waits; unpark after den-v1/07 or on a 3rd repeat incident that blocks the relay.
+- **orchestrator, 2026-10-12:** Closed: duplicate of organism-infra/215 (same cause: Grep tool missing in a cell)

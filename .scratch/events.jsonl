@@ -2626,3 +2626,5 @@
 {"seq":1977,"ts":"2026-10-12T05:24:39.870Z","feature":"agent-os","ticket":"09-main-git-write-rule","cell":"security","op":"release","from_status":"in-review","to_status":"in-review","force":false}
 {"seq":1978,"ts":"2026-10-12T05:31:02.883Z","feature":"agent-os","ticket":"09-main-git-write-rule","cell":"orchestrator","mode":null,"op":"claim","from_status":"in-review","to_status":"claimed"}
 {"seq":1979,"ts":"2026-10-12T05:31:02.916Z","feature":"agent-os","ticket":"09-main-git-write-rule","cell":"orchestrator","op":"release","from_status":"claimed","to_status":"resolved","force":false}
+{"seq":1980,"ts":"2026-10-12T05:38:01.349Z","feature":"organism-infra","ticket":"201-context-hook-scout-parent","cell":"orchestrator","op":"close","from":"parked","to":"closed","reason":"duplicate of organism-infra/219 (same cause: context hook counts the parent transcript against scout)"}
+{"seq":1981,"ts":"2026-10-12T05:38:01.501Z","feature":"organism-infra","ticket":"156-grep-tool-unavailable-in-cells","cell":"orchestrator","op":"close","from":"parked","to":"closed","reason":"duplicate of organism-infra/215 (same cause: Grep tool missing in a cell)"}
