@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 // organism-infra/212: the board's queue as buckets and as a text kanban. Board files and
 // .scratch/usage.jsonl only (no network); the root comes from ORGANISM_ROOT, else the cwd.
-//   readQueue(root) -> { inFlight, ready, waitingOnUser, blocked, proposed }
+//   readQueue(root) -> Promise<{ inFlight, ready, waitingOnUser, blocked, proposed }>
 // Row: { ref, title, priority }. inFlight adds { cell, mode } from the lock; blocked adds
-// { blockedBy }; ready rows carry { rank } and `proposed` lists { ref, title, rank } when the
-// latest `jev-order` row of usage.jsonl names them in `actual`.
+// { blockedBy }. The ready list is in the Queue's order (queue/06: buildQueue from
+// apps/organism-infra/frontier-queue.mjs); each ready row carries { rank }, its 1-based position, and
+// `proposed` lists the same tickets as { ref, title, rank }. A ready ticket buildQueue does not order
+// (a blocker closed or parked, or not on the board) follows the ordered ones, in board order.
 // CLI: `node scripts/queue.mjs [--json]`.
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildQueue, loadSnapshot } from "../apps/organism-infra/frontier-queue.mjs";
 
 const GONE = new Set(["resolved", "closed", "parked"]);
 const MAX_TITLE = 60;
@@ -83,31 +86,9 @@ function blockerRefs(ticket, byKey) {
   return out;
 }
 
-// The `actual` list of the last usable jev-order row, or null. Junk lines and other kinds are skipped.
-function proposedOrder(root) {
-  let text;
-  try {
-    text = readFileSync(path.join(root, ".scratch", "usage.jsonl"), "utf8");
-  } catch {
-    return null;
-  }
-  let latest = null;
-  for (const line of text.split("\n")) {
-    if (!line.includes("jev-order")) continue;
-    try {
-      const row = JSON.parse(line);
-      if (row && row.kind === "jev-order") latest = row;
-    } catch {
-      // not JSON
-    }
-  }
-  if (!latest || !Array.isArray(latest.actual)) return null;
-  return latest.actual;
-}
-
 const row = (t) => ({ ref: t.ref, title: t.title, priority: t.priority });
 
-export function readQueue(root) {
+export async function readQueue(root) {
   const tickets = loadBoard(root);
   const byKey = new Map();
   for (const t of tickets.values()) byKey.set(`${t.feature}#${t.num}`, t.ref);
@@ -132,19 +113,16 @@ export function readQueue(root) {
   }
 
   const byBoard = (a, b) => a.priority - b.priority || tickets.get(a.ref).feature.localeCompare(tickets.get(b.ref).feature) || tickets.get(a.ref).num - tickets.get(b.ref).num;
-  for (const list of [ready, inFlight, waitingOnUser, blocked]) list.sort(byBoard);
+  for (const list of [ready, inFlight, waitingOnUser, blocked]) list.sort(byBoard); // ready is re-sorted below
 
-  const proposed = [];
-  const order = proposedOrder(root);
-  if (order) {
-    const readyByRef = new Map(ready.map((r) => [r.ref, r]));
-    order.forEach((ref, i) => {
-      const r = typeof ref === "string" ? readyByRef.get(ref) : null;
-      if (!r || "rank" in r) return;
-      r.rank = i + 1;
-      proposed.push({ ref: r.ref, title: r.title, rank: r.rank });
-    });
-  }
+  // Ready tickets in the Queue's order; buildQueue's ordered list also holds locked tickets, which are in flight here.
+  const place = new Map((buildQueue(await loadSnapshot(root)).ordered).map((o, i) => [o.ref, i]));
+  const spot = (r) => place.get(r.ref) ?? Number.MAX_SAFE_INTEGER;
+  ready.sort((a, b) => spot(a) - spot(b));
+  ready.forEach((r, i) => {
+    r.rank = i + 1;
+  });
+  const proposed = ready.map((r) => ({ ref: r.ref, title: r.title, rank: r.rank }));
   return { inFlight, ready, waitingOnUser, blocked, proposed };
 }
 
@@ -164,6 +142,6 @@ export function renderKanban(q) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const q = readQueue(process.env.ORGANISM_ROOT || process.cwd());
+  const q = await readQueue(process.env.ORGANISM_ROOT || process.cwd());
   process.stdout.write(process.argv.includes("--json") ? `${JSON.stringify(q)}\n` : `${renderKanban(q)}\n`);
 }

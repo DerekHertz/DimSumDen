@@ -1,6 +1,6 @@
 // organism-infra/79: developer-owned tests for what the qa specify files leave open: advisory on the bounce
 // half of route, advisory refused for other points, and the log-only CLI points the orchestrator uses at the
-// dispatch step (advisory-outcome, order).
+// dispatch step (advisory-outcome).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -120,36 +120,5 @@ test("CLI priority-verdict refuses a verdict other than right or wrong", () => {
   const root = makeBoard();
   const r = runCli(root, ["priority-verdict", "--ticket", "feat/07-thing", "--verdict", "maybe"]);
   assert.equal(r.status, 2);
-  assert.equal(existsSync(usagePath(root)), false);
-});
-
-test("CLI order reads P-level, unblock count and scope from the board and logs a jev-order row", () => {
-  const root = makeBoard(
-    {
-      "01-a.md": "# 01\n\n**Priority:** P2\n\n**Status:** ready-for-agent\n",
-      "02-b.md": "# 02\n\n**Priority:** P2\n\n**Status:** ready-for-agent\n",
-      "03-c.md": "# 03\n\n**Priority:** P1\n\n**Status:** ready-for-agent\n",
-      "04-d.md": "# 04\n\n**Blocked by:** 02\n\n**Status:** ready-for-agent\n",
-      "05-e.md": "# 05\n\n**Blocked by:** feat/02, 12\n\n**Status:** ready-for-agent\n",
-      "06-f.md": "# 06\n\n**Blocked by:** 01\n\n**Status:** resolved\n",
-    },
-    [{ kind: "jev", ts: NOW.toISOString(), ticket: "feat/01-a", point: "scope", pick: "small", fallback: null }],
-  );
-  const r = runCli(root, ["order", "--actual", "feat/01-a,feat/02-b,feat/03-c"]);
-  assert.equal(r.status, 0, r.stderr);
-  const row = readRows(root).at(-1);
-  assert.equal(row.kind, "jev-order");
-  assert.deepEqual(row.actual, ["feat/01-a", "feat/02-b", "feat/03-c"]);
-  // P1 first; then 02 (unblocks 04 and 05) before 01 (its only dependent is resolved).
-  assert.deepEqual(row.wouldHave, ["feat/03-c", "feat/02-b", "feat/01-a"]);
-  assert.equal(row.same, false);
-  assert.deepEqual(JSON.parse(r.stdout), row);
-});
-
-test("CLI order refuses a missing or malformed --actual (exit 2, no row)", () => {
-  const root = makeBoard();
-  for (const argv of [["order"], ["order", "--actual", "feat/01-a,../x"], ["order", "--actual", "feat/01-a", "--ticket", "feat/01-a"]]) {
-    assert.equal(runCli(root, argv).status, 2, argv.join(" "));
-  }
   assert.equal(existsSync(usagePath(root)), false);
 });
