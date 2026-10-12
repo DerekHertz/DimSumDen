@@ -51,6 +51,7 @@ const argvFor = (agent, extra = {}, worktree = WT) =>
   need("buildClaudeArgs")({ sessionId: SID, agent, ...(need("compileCeiling")(agent, { worktree }) ?? {}), ...extra });
 const settingsOf = (argv) => JSON.parse(argv[argv.indexOf("--settings") + 1]);
 const sorted = (xs) => [...xs].sort();
+const noFs = (sandbox) => ({ ...sandbox, filesystem: undefined });
 
 describe("ceilings.json: one data file beside policy.mjs", () => {
   const ceilings = () => JSON.parse(readFileSync(path.join(HERE, "ceilings.json"), "utf8"));
@@ -68,7 +69,7 @@ describe("compileCeiling: the four ceilings", () => {
   for (const role of CEILING_ROLES) {
     test(`${role}: the wall is on with an empty host list, and the four deny rules stay`, () => {
       const settings = settingsOf(argvFor(role));
-      assert.deepEqual(settings.sandbox, WALL_NO_HOSTS);
+      assert.deepEqual(noFs(settings.sandbox), noFs(WALL_NO_HOSTS)); // agent-os/02: sandbox.filesystem (governance denyWrite) may now ride along
       for (const rule of DENY) assert.ok(settings.permissions.deny.includes(rule), `deny keeps ${rule}`);
     });
   }
@@ -82,7 +83,7 @@ describe("compileCeiling: the four ceilings", () => {
     test(`${role}: the ticket Read rule stays beside the worktree rules`, () => {
       const settings = settingsOf(argvFor(role, { ticketFile: TICKET }));
       assert.deepEqual(sorted(settings.permissions.allow), sorted([`Read(/${TICKET})`, `Write(/${WT}/**)`, `Edit(/${WT}/**)`]));
-      assert.deepEqual(settings.sandbox, WALL_NO_HOSTS);
+      assert.deepEqual(noFs(settings.sandbox), noFs(WALL_NO_HOSTS)); // agent-os/02: sandbox.filesystem (governance denyWrite) may now ride along
     });
   }
 

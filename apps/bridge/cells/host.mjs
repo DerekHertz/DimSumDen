@@ -9,6 +9,8 @@
 // All resolve { ok: true, status: 201, agent, usageUnknown? } or { ok: false, status, error }.
 // den-v1 loop S5: message(id, { text }) writes one user message to a running agent (see "messages" below).
 import { randomBytes, randomUUID } from "node:crypto";
+import { realpath } from "node:fs/promises";
+import { homedir } from "node:os";
 import path from "node:path";
 import { hasSecret } from "../../../scripts/exposure.mjs";
 import {
@@ -17,6 +19,7 @@ import {
   TRANSCRIPT_AGENTS, TRANSCRIPT_ENTRIES, TRANSCRIPT_RESULT_MAX, TRANSCRIPT_TEXT_MAX, REPLY_EXCERPT_MAX, USAGE_MESSAGES,
   MESSAGE_MAX_BYTES, MESSAGE_QUEUE_MAX, MESSAGE_SETTLE_MS,
 } from "./policy.mjs";
+import { ceilingOf, grantContainsWorktrees, parseGrants } from "./claude-adapter.mjs";
 import { createSessions } from "./sessions.mjs";
 import { createApprovalStore, cleanText } from "./approvals.mjs";
 import { createWorkspaces } from "./workspace.mjs";
@@ -224,7 +227,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
         stop: runtime.capabilities?.stop === true, approve: runtime.capabilities?.approve === true,
         send: runtime.capabilities?.send === true, handover: runtime.capabilities?.handover === true,
       },
-      resume: null, reason: null, proc: null, reportedState: "working", exited: false, killing: null, stopRequested: false, doneOk: null,
+      grants: Array.isArray(input.grants) ? input.grants : [], resume: null, reason: null, proc: null, reportedState: "working", exited: false, killing: null, stopRequested: false, doneOk: null,
     };
     agent.lastEventAt = agent.startedAt;
     agent.openTools = new Map(); // the runtime's tool id (or a local key) -> transcript entry id, while running
@@ -249,9 +252,32 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     directChain = run.catch(() => {});
     return run;
   }
+  // The main checkout's resolved path, once: the worktrees are made under it, and the adapter compares grants to it.
+  let realRootP;
+  const realRoot = () => (realRootP ??= realpath(root).catch(() => root));
+  const homeDir = () => {
+    try {
+      return homedir();
+    } catch {
+      return undefined;
+    }
+  };
   async function directOne(input) {
-    const { role, createTicket } = input && typeof input === "object" ? input : {};
+    const { role, createTicket, grants } = input && typeof input === "object" ? input : {};
     if (typeof role !== "string" || !ROLES.includes(role)) return refuse(400, `role must be one of: ${ROLES.join(", ")}`);
+    // agent-os/02: task grants are data in a fixed shape, checked before a ticket is written. The error never echoes a value.
+    let checked;
+    try {
+      checked = parseGrants(grants);
+    } catch (err) {
+      return refuse(400, err.message);
+    }
+    if (checked.hosts.length + checked.paths.length > 0 && !ceilingOf(role)?.takesGrants) return refuse(400, `a ${role} task takes no grants`);
+    // A path grant that contains the worktrees would open the main checkout and its sibling worktrees: refused here, not at spawn.
+    if (checked.paths.length > 0) {
+      const roots = [...new Set([root, await realRoot()])];
+      if (checked.paths.some((g) => roots.some((r) => grantContainsWorktrees(g, { root: r, home: homeDir() })))) return refuse(400, "a path grant may not contain the agent's worktree");
+    }
     const early = down() ?? overUsage(await readUsage()) ?? full();
     if (early) return early;
     let ref;
@@ -261,7 +287,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       console.error(`bridge: could not write a ticket for a ${role} task: ${err?.message ?? err}`);
       return refuse(500, "could not write the task's ticket");
     }
-    return { ...(await admit({ ref, role }, { entry: "direct" })), ticket: { ref } };
+    return { ...(await admit({ ref, role, grants: grants === undefined ? undefined : grants.map((g) => ({ kind: g.kind, value: g.value })) }, { entry: "direct" })), ticket: { ref } };
   }
 
   async function spawnAgent(agent, routeName, usageUnknown) {
@@ -280,6 +306,9 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     const args = {
       role: agent.role, ...(agent.mode ? { mode: agent.mode } : {}), ref: agent.ref, cwd: workspace.dir, sessionId: agent.sessionId,
       prompt: promptFor(agent), ticketFile: ticketFile(agent.ref),
+      // agent-os/02: data for the adapter, never in the prompt. The main checkout's path rides along so the adapter can deny
+      // the governed paths a path grant reaches there.
+      ...(agent.grants.length === 0 ? {} : { grants: agent.grants, root: await realRoot() }),
     };
     let proc;
     try {
