@@ -8,7 +8,7 @@
 
 **Blocked by:** none
 
-**Status:** in-review
+**Status:** resolved
 
 **Serves:** Den loop: the user starts the agent a ticket needs from the Den, and the next hop is routed without the user driving a terminal session.
 
