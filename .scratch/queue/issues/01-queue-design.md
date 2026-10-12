@@ -31,3 +31,4 @@ No product code. Docs only, on a branch, no PR merge.
 ## Comments
 
 - **orchestrator, 2026-10-12:** filed on the user's "Yes, go to the architect" after the grilling session. The breakdown in the handoff feeds /to-tickets; the user approves it before any ticket is published.
+- **orchestrator, 2026-10-12:** user rulings on the three questions: (1) den-v1 is the active feature; den-layout competes in the rest. (2) Keep ADR 0019 decision 8, checked in code (ticket 03). (3) The Class backfill rule is approved; the list is shown in ticket 08 before anything is written. Breakdown approved as seven tickets (Q1 to Q7), published as queue/02 to queue/08. The user asked why seven and was offered a four-ticket cut; they chose seven.
