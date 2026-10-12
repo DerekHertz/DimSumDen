@@ -2959,3 +2959,9 @@
 {"kind":"usage","ts":"2026-10-12T00:10:48Z","five_hour":42,"weekly":16,"event":"return","ticket":"agent-os/02-grants","cell":"qa"}
 {"kind":"context","ts":"2026-10-12T00:10:48Z","session":"42f9cc73-68e8-46c7-a47e-7e312c45880c","context_tokens":79080,"percent":7.91,"event":"return"}
 {"kind":"incident","ts":"2026-10-12T00:10:48Z","ticket":"agent-os/02-grants","cell":"qa","tool":"relay","what":"qa verify bounce 1: .git/config probe of the main checkout not done; a grant on <main>/.git is not denied","cost":"one developer round plus re-verify","fix":"pending user decision on .git grants","rule_change":null}
+{"kind":"jev","ts":"2026-10-12T00:17:41.925Z","ticket":"agent-os/02-grants","point":"route","pick":"developer","actual":"orchestrator","cost":0.00012734400000000002,"conf":0.5,"mode":"advisory","fallback":null,"floor":null,"ms":413,"model":"jev-1.13.0","variant":"bounce"}
+{"kind":"jev","ts":"2026-10-12T00:17:42.384Z","ticket":"agent-os/02-grants","point":"tier","pick":"opus","actual":"sonnet","cost":0.000122556,"conf":0.99,"mode":"shadow","fallback":null,"floor":null,"ms":288,"model":"jev-1.13.0"}
+{"kind":"usage","ts":"2026-10-12T00:17:42Z","five_hour":42,"weekly":17,"event":"dispatch","ticket":"agent-os/02-grants","cell":"developer"}
+{"kind":"context","ts":"2026-10-12T00:17:42Z","session":"42f9cc73-68e8-46c7-a47e-7e312c45880c","context_tokens":34762,"percent":3.48,"event":"dispatch"}
+{"kind":"spend","ts":"2026-10-12T00:17:42.728Z","session":"42f9cc73-68e8-46c7-a47e-7e312c45880c","role":"orchestrator","ticket":"agent-os/02-grants","input_tokens":16,"cache_creation_input_tokens":26936,"cache_read_input_tokens":397865,"output_tokens":4605}
+{"kind":"jg","ts":"2026-10-12T00:17:42.799Z","ticket":"agent-os/02-grants","bytes":0,"files":0,"ms":2242,"skipped":null,"fallback":"jg-exit-13"}

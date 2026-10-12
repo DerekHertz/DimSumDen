@@ -6,7 +6,7 @@
 
 **Blocked by:** agent-os/01 (a go)
 
-**Status:** in-review
+**Status:** claimed
 
 **Serves:** agent-os step 2 (ADR 0021 decisions 2 to 5). User stories 1 to 5.
 
@@ -73,3 +73,4 @@ The user decided that the skill-sources spec's Track C items that touch the wall
 - **orchestrator, 2026-10-11:** User decisions after the developer's partial return (2026-10-11): (1) hardware limits move to agent-os/06; (2) fix both path-grant gaps in this ticket, with tests: a path grant that contains the worktree is a 400 from POST /tasks, not a 502 at spawn, and a path grant inside the main checkout is covered by the governance denies (forbid beats permit); (3) the scout context-hook refusal is organism-infra/219; (4) a scout diagnoses the dispatch-context jg-exit-1 failure. Partial handoff: handoffs/02-developer.md. Host grants are not usable until the ticket-file read passes under the read limit.
 - **orchestrator, 2026-10-12:** Environment issue, agreed fix (user, 2026-10-11): dispatch-context's jg-exit-1 is jg itself exiting 1 for any query and any root (scout: likely a stale or missing key in the session env, about 60%, unverified; jg with only --max-output-bytes also exits 13, an unsettled top-level await in the jevgrep bin). The user restarts the app; the next session runs dispatch-context again and reports. No dispatch depends on it.
 - **qa, 2026-10-12:** QA bounce (light verify, 7be73f3). Suite green: 3998 pass, 0 skipped. Bounce: .git/config probe of main checkout not done (ticket line 39, no test). Also: no test pins bare-ceiling sandbox.filesystem (qa fix); .git governed-path decision for user. Details: 02-qa-verify.md.
+- **orchestrator, 2026-10-12:** User decisions after qa verify bounce 1 (2026-10-11): (1) the main checkout's .git is never grantable: add it to the governed deny list with a test, so a grant naming it or anything under it is refused. (2) One developer fix round does that change, runs the live .git/config probe of the main checkout and records the result, and adds the missing test that a ceiling with no grants has no sandbox.filesystem.allowWrite (grants.test.mjs near line 119). qa light verify then checks all three.
