@@ -1,0 +1,43 @@
+# 07: Grant hardening: refuse grants that can never be safe, and probe `.git/refs`
+
+**Type:** feature
+
+**Priority:** P1
+
+**Blocked by:** None
+
+**Status:** ready-for-agent
+
+**Serves:** agent-os step 2 (ADR 0021). It closes the findings from the security review of agent-os/02 (`.scratch/agent-os/handoffs/02-security.md`, pass at 6ca76af, PR #222) before agent-os/05 puts a grants table in the Start box.
+
+## What to build
+
+A path grant that could never be safe is rejected when the task is created, with a reason the Start box can show. Today such a grant is either accepted and then denied, or accepted and allowed.
+
+- **400 for a governed path (user, 2026-10-11).** A path grant on any governed path, the main checkout's `.git` included, gets a 400 from `POST /tasks`. Today it is accepted and then denied by the governed list. The deny rules stay as the second layer.
+- **Home and system paths (medium).** Path grants on `~/.ssh`, `~/.claude`, `~/.local/bin` and `/etc` are accepted today and become write allows (`GRANT_PATH_RE` and `parseGrants` in `claude-adapter.mjs`). Refuse them with a 400. Decide the full list with security's handoff in hand: home dotfiles and system directories at least.
+- **The worktree's `.git` pointer file (medium, unverified).** `.git/**` in `apps/bridge/cells/governance.json` may not cover a worktree's `.git` file for the Write tool. A repointed gitdir could run `core.fsmonitor` when git runs there. Add a bare `.git` entry and check it live.
+- **Live probe of `.git/refs` (medium; user, 2026-10-11: the developer runs it).** The agent-os/02 probe tried `.git/config` and `.git/hooks` only. Probe writes to the main checkout's `.git/refs` and `HEAD`, and `git update-ref`, from a worktree, with a real child in a throwaway repo the way agent-os/02's `.git/config` probe ran (`02-developer-3.md`). Record the result on this ticket. If a write succeeds, stop and report before building anything else.
+- **Low findings.** Fix these, or record on this ticket why each one stays:
+  - `.GIT` casing is not matched; the matcher is case-sensitive and macOS volumes are not.
+  - Containment is lexical, so a symlink to the main checkout is not seen.
+  - A host grant lets the agent read its whole ticket directory.
+  - `Bash(*git *push*)` rules are bypassed by shell quoting, and `gh api` can merge. The wall is the boundary, so GitHub hosts must not be grantable yet.
+
+Ticket line 29 of agent-os/02 says the main checkout's `.git` is writable from a worktree. The agent-os/02 live probe did not reproduce that for `config` and `hooks`; security trusts the probe.
+
+Security's own attempt at the refs probe was denied by the auto-mode classifier. If the developer's probe is denied too, report it as an environment issue; do not work around it.
+
+## Acceptance criteria
+
+- [ ] Failing tests first: a path grant on each governed path, and on the main checkout's `.git` and paths under it, gets a 400 from `POST /tasks` with a reason.
+- [ ] A path grant on `~/.ssh`, `~/.claude`, `~/.local/bin`, `/etc` and each other entry of the agreed list gets a 400, with a test per entry.
+- [ ] The deny rules of agent-os/02 are unchanged: the governed list still denies when a grant reaches the adapter by another route.
+- [ ] A bare `.git` entry covers the worktree's `.git` file, with a test and a live check recorded here.
+- [ ] The live probe of `.git/refs`, `HEAD` and `git update-ref` is recorded on this ticket with its result.
+- [ ] Each low finding is fixed with a test, or has a recorded reason to stay.
+- [ ] `npm test`, risk-check and gitleaks are green apart from known failures; full `security` reviews the branch.
+
+## Comments
+
+- 2026-10-11, orchestrator: filed after agent-os/02 merged (PR #222). User decisions (2026-10-11): merge agent-os/02 and fix the findings here; a grant on a governed path is a 400 up front; the developer runs the `.git/refs` probe.

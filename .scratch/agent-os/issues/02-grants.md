@@ -6,7 +6,7 @@
 
 **Blocked by:** agent-os/01 (a go)
 
-**Status:** claimed
+**Status:** resolved
 
 **Serves:** agent-os step 2 (ADR 0021 decisions 2 to 5). User stories 1 to 5.
 
@@ -74,3 +74,6 @@ The user decided that the skill-sources spec's Track C items that touch the wall
 - **orchestrator, 2026-10-12:** Environment issue, agreed fix (user, 2026-10-11): dispatch-context's jg-exit-1 is jg itself exiting 1 for any query and any root (scout: likely a stale or missing key in the session env, about 60%, unverified; jg with only --max-output-bytes also exits 13, an unsettled top-level await in the jevgrep bin). The user restarts the app; the next session runs dispatch-context again and reports. No dispatch depends on it.
 - **qa, 2026-10-12:** QA bounce (light verify, 7be73f3). Suite green: 3998 pass, 0 skipped. Bounce: .git/config probe of main checkout not done (ticket line 39, no test). Also: no test pins bare-ceiling sandbox.filesystem (qa fix); .git governed-path decision for user. Details: 02-qa-verify.md.
 - **orchestrator, 2026-10-12:** User decisions after qa verify bounce 1 (2026-10-11): (1) the main checkout's .git is never grantable: add it to the governed deny list with a test, so a grant naming it or anything under it is refused. (2) One developer fix round does that change, runs the live .git/config probe of the main checkout and records the result, and adds the missing test that a ceiling with no grants has no sandbox.filesystem.allowWrite (grants.test.mjs near line 119). qa light verify then checks all three.
+- **qa, 2026-10-12:** QA pass, light verify at 6ca76af. Suite 4014 pass, 0 skipped (developer's saved output, not re-run). Checks after bounce 1 pass: .git governed (grants-paths.test.mjs), .git/config probe recorded (human-verified), bare-ceiling test at grants.test.mjs:127. Security next for risk-check hits. Handoff 02-qa-verify-2.md.
+- **orchestrator, 2026-10-12:** qa light verify round 2 passed on 6ca76af (02-qa-verify-2.md). Note for security and for agent-os/05: a path grant on the main checkout's .git is accepted at POST /tasks and then denied by the governed list (forbid beats permit); it is not a 400. Open for the user: whether such a grant should be a 400 instead.
+- **security, 2026-10-12:** Security pass at 6ca76af. No critical or high. Medium: (1) no home-dotfile denylist for path grants (~/.ssh, ~/.claude, ~/.local/bin accepted), fix before agent-os/05 adds the grant box; (2) governed .git/** may not cover the worktree's .git pointer file for the Write tool, add bare .git (unverified); (3) .git probe covered config and hooks only, refs/HEAD/update-ref on main untested. Low: .GIT case, quoting bypass of denyRun, ticket dir read, lexical symlink containment. gitleaks on origin/main..6ca76af: no leaks. Details: 02-security.md.

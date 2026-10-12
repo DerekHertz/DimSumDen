@@ -4,7 +4,7 @@
 
 **Priority:** P1
 
-**Blocked by:** agent-os/02
+**Blocked by:** agent-os/07
 
 **Status:** ready-for-agent
 
@@ -31,3 +31,4 @@ The seams qa named for these tests are in `.scratch/agent-os/handoffs/02-qa-spec
 ## Comments
 
 - 2026-10-11, orchestrator: split from agent-os/02 (user, 2026-10-11). agent-os/02 keeps the adapter, the governance deny list, host checks, the read limit and `POST /tasks` grants.
+- 2026-10-11, orchestrator: agent-os/02 resolved (PR #222). Now blocked by agent-os/07 (grant hardening), so the security findings land before a grants table exists in the UI (user, 2026-10-11).
