@@ -32,7 +32,7 @@ Map each item to one tool from the fixed list in `scripts/log-cell.mjs`: `bash-g
 
 ## 3. Decide
 
-A cause is a candidate if it happened 2 or more times since the last retro, or if it has a `rule_change` from an earlier retro and happened again, which means that fix failed.
+A cause is a candidate if it has happened 3 or more times in all, counting incidents from before the last retro (refocus guardrail, user 2026-10-12: pipeline tickets only from a third repeat), or if it has a `rule_change` from an earlier retro and happened again, which means that fix failed.
 
 Pick the first fix that applies:
 
