@@ -19,6 +19,7 @@ import {
   REF_RE, ROLES, TRANSCRIPT_RESULT_MAX, TRANSCRIPT_TEXT_MAX, UUID_RE,
 } from "./policy.mjs";
 
+const PATCHABLE = ["status", "result", "note", "answeredAt"]; // the fields the host revises on an entry it already wrote
 const CLIP_NOTE = 80; // room for the "[clipped: n more characters]" line the host adds to a cut text
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const validTs = (v) => typeof v === "string" && v.length <= 40 && !Number.isNaN(Date.parse(v));
@@ -133,9 +134,9 @@ export function createConversations(root) {
         }
         if (!isObject(raw) || typeof raw.runId !== "string" || !Number.isInteger(raw.id)) continue;
         const key = `${raw.runId} ${raw.id}`;
-        // A patch never changes what an entry is or whose it is.
+        // A patch changes how an entry turned out (PATCHABLE), never what it is, whose it is or what it said.
         const known = folded.get(key);
-        folded.set(key, known ? { ...known, ...raw, kind: known.kind, at: known.at, ref: known.ref } : raw);
+        folded.set(key, known ? { ...known, ...Object.fromEntries(PATCHABLE.filter((k) => Object.hasOwn(raw, k)).map((k) => [k, raw[k]])) } : raw);
       }
       const all = [...folded.values()].map(validateEntry).filter(Boolean);
       const size = Number.isInteger(limit) && limit > 0 ? Math.min(limit, CONVERSATION_PAGE_MAX) : CONVERSATION_PAGE;

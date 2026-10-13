@@ -37,6 +37,8 @@ const EVENT_DRAIN_MS = 250; // how long to wait for the event stream to end afte
 
 const ENTRY_ROUTES = { dispatch: "POST /agents", start: "start()", direct: "POST /tasks" }; // the audit's `route`
 const CONVERSE_ROUTE = "POST /conversations/:role/message";
+const END_STATES = ["done", "failed", "terminated"];
+const UNVERIFIED = "bridge-restart-unverified"; // sessions.mjs: a replayed run with no end line
 const refuse = (status, error) => ({ ok: false, status, error });
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const nonNegative = (n) => typeof n === "number" && Number.isFinite(n) && n >= 0;
@@ -87,7 +89,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     startedAt: a.startedAt, lastEventAt: a.lastEventAt, tool: a.tool, tokens: a.tokens, capabilities: a.capabilities,
     resume: a.resume, reason: a.reason, worktree: a.worktree ?? null, branch: a.branch ?? null,
     model: a.model ?? null, usage: a.usage ?? null, costUsd: a.costUsd ?? null, reply: a.reply ?? null, durationMs: a.durationMs ?? null,
-    resumeOf: a.resumeOf ?? null, followUp: canContinue(a) && !(a.proc && !a.exited),
+    resumeOf: a.resumeOf ?? null, followUp: canContinue(a) && END_STATES.includes(a.state),
   });
   // A run whose session a follow-up could continue: the runtime can resume, and the run has a session and a worktree.
   const canContinue = (a) => runtime?.capabilities?.resume === true && typeof a.sessionId === "string" && UUID_RE.test(a.sessionId) && typeof a.worktree === "string";
@@ -764,6 +766,18 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     const notUp = down();
     if (notUp) return notUp;
     if (!canContinue(prev)) return refuse(409, "this run left no session to continue; start a new task instead");
+    // A run with no recorded end (the bridge died under it) may still be alive in this worktree. Its resource group is
+    // asked for by name; while it is there, or cannot be asked, nothing new starts on the session (security review, PR 243).
+    for (const a of agents.values()) {
+      if (a.sessionId !== prev.sessionId || a.proc || a.reason !== UNVERIFIED || typeof runtime.stillRunning !== "function") continue;
+      let alive = true;
+      try {
+        alive = (await runtime.stillRunning(a.resumeOf ? a.id : a.sessionId)) !== false;
+      } catch (err) {
+        console.error(`bridge: could not tell whether ${a.id} is still running: ${err?.message ?? err}`);
+      }
+      if (alive) return refuse(409, "an earlier run of this session may still be running since the bridge restarted; it must end before a follow-up");
+    }
     const grants = Array.isArray(prev.grants) ? prev.grants : [];
     const badGrants = await grantsRefused(prev.role, grants.length === 0 ? undefined : grants);
     if (badGrants) return refuse(409, `the earlier run's grants are no longer allowed (${badGrants.error}); start a new task instead`);
@@ -778,7 +792,8 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     // The same synchronous step as admit(): from here to the reservation there is no await.
     if (shuttingDown) return refuse(503, "the bridge is shutting down");
     if (liveByRef.has(prev.ref)) return refuse(409, "this ticket already has a live agent");
-    // A claim lock the earlier run left on its own ticket is this conversation's, not someone else's load.
+    // A claim lock on this ticket is not counted beside the run itself: once the run is live the capacity rule counts
+    // the ticket once, whoever holds its lock, and the earlier run usually left the lock there itself.
     const noRoom = full(locked.filter((ref) => ref !== prev.ref), prev.role);
     if (noRoom) return noRoom;
     const messageId = randomUUID();

@@ -18,7 +18,8 @@ import path from "node:path";
 import { startBridge } from "../server.mjs";
 import { CODE, login, authed, send } from "../bridge-auth-helpers.mjs";
 import { createFakeRuntime } from "./runtime.mjs";
-import { makeBridge, until, DISPATCH_REF, NO_GATE_REF, FEATURE, AGENT_ID_RE, UUID_RE } from "./host-test-helpers.mjs";
+import { makeBridge, until, seedSessions, DISPATCH_REF, NO_GATE_REF, FEATURE, AGENT_ID_RE, UUID_RE } from "./host-test-helpers.mjs";
+import { workspaceNames } from "./workspace.mjs";
 import { validateEntry } from "./conversations.mjs";
 
 const AWS_KEY = ["AKIA", "IOSFODNN7", "EXAMPLE"].join(""); // built here so the root secret scan does not flag the file
@@ -120,7 +121,8 @@ describe("the durable conversation of a role", () => {
       { ...base, id: 3, kind: "message", role: "root", text: "not a speaker" },
       { ...base, runId: "../../etc", id: 4, kind: "message", role: "agent", text: "bad run id" },
       { ...base, id: 5, kind: "tool", name: "Bash", summary: "ls", status: "running" },
-      { runId: base.runId, ref: "other/99-ticket", id: 5, status: "done", kind: "ended", at: "2030-01-01T00:00:00.000Z" },
+      { runId: base.runId, ref: "other/99-ticket", id: 5, status: "done", kind: "ended", at: "2030-01-01T00:00:00.000Z", name: "Forged", summary: "rm -rf /" },
+      { runId: base.runId, id: 1, role: "user", text: "words the agent never said" },
       "not json",
     ];
     await writeFile(file(t.fx.root, "scout"), lines.map((l) => (typeof l === "string" ? l : JSON.stringify(l))).join("\n") + "\n");
@@ -128,7 +130,8 @@ describe("the durable conversation of a role", () => {
     assert.equal(entries.length, 2);
     assert.deepEqual(Object.keys(entries[0]).sort(), ["at", "id", "kind", "ref", "role", "runId", "text"]);
     assert.ok(!entries[0].text.includes(AWS_KEY) && !entries[0].text.includes(BIDI), "a secret and a bidirectional override do not come back");
-    assert.deepEqual(entries[1], { ...base, id: 5, kind: "tool", name: "Bash", summary: "ls", status: "done" }, "a patch changes fields, never the kind, the time or the ticket");
+    assert.deepEqual(entries[1], { ...base, id: 5, kind: "tool", name: "Bash", summary: "ls", status: "done" }, "a patch changes how an entry turned out, never its kind, time, ticket, name or summary");
+    assert.equal(entries[0].role, "agent", "a patch cannot change who spoke or what was said");
     assert.equal(validateEntry({ ...base, id: -1, kind: "ended", state: "done" }), null);
   });
 });
@@ -271,6 +274,32 @@ describe("a follow-up to a run that has ended", () => {
     assert.equal(res.status, 409);
     assert.match(res.body.error, /worktree is gone; start a new task/);
     assert.equal((await t.state()).agents.filter((a) => a.state === "working").length, 0, "nothing was left reserved");
+  });
+
+  test("a run with no recorded end is not followed up while its resource group is still there, or cannot be asked", async () => {
+    const sessionId = "5d3c9a52-8f0e-4b7c-9a41-0e6f1c2b7d90";
+    const lost = "c-00000000000000aa";
+    const t = await setup({ preWrite: (root) => seedSessions(root, [{ ts: "2026-10-12T10:00:00.000Z", event: "spawn", agentId: lost, ref: DISPATCH_REF, role: "architect", sessionId, ...workspaceNames({ ref: DISPATCH_REF, agentId: lost }) }]) });
+    assert.deepEqual([(await t.agent(lost)).reason, (await t.agent(lost)).followUp], ["bridge-restart-unverified", true]);
+    const asked = [];
+    t.fake.stillRunning = async (id) => (asked.push(id), true);
+    const alive = await t.say("architect", { text: "still there?" });
+    assert.equal(alive.status, 409);
+    assert.match(alive.body.error, /may still be running since the bridge restarted/);
+    t.fake.stillRunning = async () => { throw new Error("no bus"); };
+    assert.match((await t.say("architect", { text: "still there?" })).body.error, /may still be running/, "an answer that cannot be read is not a no");
+    assert.deepEqual([asked, t.fake.spawns.length], [[sessionId], 0]);
+    // Gone: the follow-up goes on to its other checks (here the seeded run never had a worktree on disk).
+    t.fake.stillRunning = async () => false;
+    assert.match((await t.say("architect", { text: "still there?" })).body.error, /worktree is gone/);
+  });
+
+  test("a run that is still starting cannot be followed up", async () => {
+    const t = await setup({ runtimeConfig: { spawnDelayMs: 150 } });
+    const starting = t.bridge.host.start({ ref: DISPATCH_REF, role: "architect" });
+    await until(async () => (await t.state()).capacity?.refs?.length > 0 || t.fake.spawns.length > 0, { what: "the spawn to begin" });
+    const { agent } = await starting;
+    assert.equal(agent.followUp, false);
   });
 
   test("after a bridge restart the replayed run can still be followed up", async () => {

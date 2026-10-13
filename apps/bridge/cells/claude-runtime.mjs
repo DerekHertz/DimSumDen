@@ -57,6 +57,8 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
     capabilities: { ...CAPABILITIES },
     enforced: launcher.enforced === true,
     preflight: () => launcher.preflight(),
+    // den-mvp outcome 2: is the resource group of the run started under this id (its runId, else its sessionId) still there?
+    stillRunning: (id) => (typeof launcher.active === "function" ? launcher.active(id) : Promise.resolve(false)),
     resumeCommand: (sessionId) => (typeof sessionId === "string" && UUID_RE.test(sessionId) ? `claude --resume ${sessionId}` : null),
     // den-mvp outcome 2: `resume: true` continues the session `sessionId` (the cwd must be the one it ran in); `runId`
     // then names the resource group, so a follow-up never reuses the unit of the run before it. `promptId` gives the

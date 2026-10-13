@@ -11,7 +11,7 @@
 - Every transcript entry the host records is also appended to `.scratch/_run/conversations/<role>.jsonl` (directory 0700, file 0600, git-ignored), tagged with `runId` (the agent id) and `ref` (its ticket). A changed entry is appended again as a patch under the same `runId` and `id`. A run opens with `{ id: 0, kind: "run", mode, resumeOf }`.
 - The project is the bridge's root, so one file per role is one conversation per role and project. Two runs of a role stay apart by `runId`.
 - `GET /conversations/:role?before=&limit=` (token-gated) answers `{ entries, more, before }`: the newest page by default, the page above it with `before`. History is asked for; it does not ride the snapshot.
-- The files are untrusted input, like `sessions.jsonl`. A read checks every field against a per-kind list, cleans every string again, copies no unknown key, and folds patches without letting one change an entry's kind, time or ticket. Nothing read from them is authority: they are shown, never run. Only the newest 4 MiB of a file is read back.
+- The files are untrusted input, like `sessions.jsonl`. A read checks every field against a per-kind list, cleans every string again, copies no unknown key, and folds patches so that one can change only how an entry turned out (`status`, `result`, `note`, `answeredAt`), never its kind, time, ticket or text. Nothing read from them is authority: they are shown, never run. Only the newest 4 MiB of a file is read back.
 - A tool's input is not written there. A permission entry carries `approvalId`, then the user's `note` and `answeredAt`; the command and the reason stay on the approval, which the bridge holds in memory.
 
 ### 2. A message into a conversation
@@ -31,6 +31,8 @@
 - The user's text is the new run's first message. It carries a message id, so the same receipt applies: `queued`, then `applied` when the CLI replays it.
 - A follow-up that commits nothing publishes no branch. One that commits gets `den/<ref>-<its own short id>`.
 - `sessions.jsonl` spawn lines of a follow-up carry `resumeOf` and `origin`; replay keeps them only when both are bridge-minted ids and the worktree is the one derived from `origin`.
+- A run with no recorded end (the bridge died under it) may still be alive in the worktree. Before a follow-up on its session the host asks the runtime, by unit name, whether that run's resource group is still there (`runtime.stillRunning`). While it is, or the answer cannot be read, the follow-up is refused.
+- A claim lock on the follow-up's own ticket is not counted beside the run: once the run is live the capacity rule counts a ticket once, whoever holds its lock.
 - An ended run holds no slot while it waits for a follow-up. Unrelated work is a new task, with a fresh session and worktree.
 
 ### 4. Why an agent asks, and what a stop leaves (organism-infra/230)

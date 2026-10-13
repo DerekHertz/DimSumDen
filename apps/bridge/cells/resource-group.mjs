@@ -286,10 +286,27 @@ export function createResourceLauncher({ env = process.env, limits = LIMITS, sli
     return (probing ??= probe().finally(() => (probing = null)));
   }
 
+  // den-mvp outcome 2: whether a run's scope still exists, asked by its name (never by a stored pid). The host asks
+  // before a follow-up reuses the session of a run with no recorded end. An answer it cannot read rejects.
+  function active(id) {
+    if (typeof id !== "string" || !UNIT_ID_RE.test(id)) return Promise.reject(new TypeError("resource launcher: id must be a plain lower-case name"));
+    const bus = findUserBus(env);
+    if (!bus.env) return Promise.reject(new EnforcementError(bus.reason));
+    const unit = `den-run-${id}.scope`;
+    return new Promise((resolve, reject) =>
+      exec("systemctl", ["--user", "is-active", unit], { env: bus.env, timeout: SCOPE_WAIT_MS }, (_err, out) => {
+        const state = String(out ?? "").trim();
+        if (["inactive", "failed"].includes(state)) return resolve(false);
+        if (["active", "activating", "deactivating", "reloading"].includes(state)) return resolve(true);
+        reject(new EnforcementError(`could not tell whether ${unit} is still running`));
+      }));
+  }
+
   return {
     enforced: true,
     limits,
     preflight,
+    active,
     async launch({ slotClass, id, bin, args, cwd, env: childEnv }) {
       checkRun({ slotClass, id });
       const ready = await preflight();

@@ -159,6 +159,15 @@ describe("a host that cannot enforce the limits starts nothing", () => {
   });
 });
 
+describe("active(id) without a readable answer", () => {
+  test("no bus, or an answer that is not a state, rejects: unknown is never read as gone", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "den-nobus-"));
+    await assert.rejects(createResourceLauncher({ env: { PATH: process.env.PATH, HOME: dir, XDG_RUNTIME_DIR: dir } }).active("abc"), EnforcementError);
+    const odd = createResourceLauncher({ env: process.env, exec: (_f, _a, _o, cb) => cb(new Error("boom"), "", "Failed to connect to bus") });
+    if (findUserBus(process.env).env) await assert.rejects(odd.active("abc"), /could not tell whether den-run-abc\.scope is still running/);
+  });
+});
+
 describe("job storage: the monitor around a run's work area", () => {
   test("measureTree reads real disk use, and a directory that is not there is null", async () => {
     const dir = await mkdtemp(path.join(tmpdir(), "den-du-"));
@@ -240,6 +249,18 @@ describe("live: the launcher under reduced limits", { skip }, () => {
     assert.notEqual(cgroupOf(process.pid), cgroupOf(pids[0]), "the bridge's own process is outside the agents' group");
     run.group.kill();
     assert.equal(await run.group.settled(3000), true);
+  });
+
+  // den-mvp outcome 2: asked before a follow-up reuses the session of a run with no recorded end.
+  test("active(id) says whether a run's scope is still there, by name", async () => {
+    const run = await start("sleep 20");
+    const id = run.group.unit.replace(/^den-run-|\.scope$/g, "");
+    assert.equal(await launcher.active(id), true);
+    run.group.kill();
+    assert.equal(await run.group.settled(3000), true);
+    await until(async () => (await launcher.active(id)) === false, { what: "the scope to be gone" });
+    assert.equal(await launcher.active(`never-${process.pid}`), false);
+    await assert.rejects(launcher.active("A B"), TypeError);
   });
 
   test("a command that ends at once is still a start: the launcher saw it in its scope before it ran", async () => {

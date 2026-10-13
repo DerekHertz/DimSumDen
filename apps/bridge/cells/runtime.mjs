@@ -9,6 +9,8 @@
 //       capability is true; runId is the new run's own id; promptId is the id of the first message, which the runtime
 //       reports with a message-applied event once the child takes it)
 //     resumeCommand(sessionId) -> string          // shown to the user once an agent has ended; never run
+//     stillRunning?(id) -> Promise<boolean>       // is the run started under this id (runId, else sessionId) still alive?
+//                                                 // asked before a follow-up on a run with no recorded end; a reject means unknown
 //   }
 //   CellProcess = {
 //     handle: string, events: AsyncIterable<CellEvent>,
