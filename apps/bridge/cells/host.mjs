@@ -28,6 +28,8 @@ import {
   MESSAGE_MAX_BYTES, MESSAGE_QUEUE_MAX, MESSAGE_SETTLE_MS,
 } from "./policy.mjs";
 import { ceilingOf, grantContainsWorktrees, parseGrants } from "./claude-adapter.mjs";
+import { parseCatalog } from "../library/catalog.mjs";
+import { createLibrary } from "../library/library.mjs";
 import { grantRefusal } from "./grant-policy.mjs";
 import { capacity as capacityOf } from "./capacity.mjs";
 import { createSessions } from "./sessions.mjs";
@@ -84,7 +86,11 @@ function excerpt(value) {
   return flat.length > REPLY_EXCERPT_MAX ? `${flat.slice(0, REPLY_EXCERPT_MAX)}…` : flat;
 }
 
-export function createHost({ root, runtime, policy = {}, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], onChange = () => {}, recordRun = async () => {}, onEnd = async () => {} }) {
+const NO_CONNECTIONS = parseCatalog({ connections: [] });
+
+// den-mvp outcome 4: `library` is the catalog of connections and its record (library/library.mjs). Without one, an agent is
+// started with no connection and every connection tool is refused.
+export function createHost({ root, runtime, policy = {}, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], onChange = () => {}, recordRun = async () => {}, onEnd = async () => {}, library = createLibrary({ catalog: NO_CONNECTIONS }) }) {
   const maxConcurrent = Math.min(policy.maxConcurrent ?? MAX_CONCURRENT_AGENTS, SESSION_CAP);
   const sessionCap = Math.min(policy.sessionCap ?? SESSION_CAP, SESSION_CAP);
   const graceMs = policy.killGraceMs ?? KILL_GRACE_MS;
@@ -445,6 +451,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       console.error(`bridge: the main .git is not ready for ${agent.role} on ${agent.ref}: ${err?.message ?? err}`);
       return refuse(502, "the repository's git directory is not ready for the agent");
     }
+    const connections = await library.connectionsFor(agent.role);
     const args = {
       role: agent.role, ...(agent.mode ? { mode: agent.mode } : {}), ref: agent.ref, cwd: workspace.dir, sessionId: agent.sessionId,
       prompt: agent.followUp ? agent.followUp.text : promptFor(agent), ticketFile: ticketFile(agent.ref), mainGit,
@@ -452,6 +459,8 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       // agent-os/02: data for the adapter, never in the prompt. The main checkout's path rides along so the adapter can deny
       // the governed paths a path grant reaches there.
       ...(agent.grants.length === 0 ? {} : { grants: agent.grants, root: await realRoot() }),
+      // den-mvp outcome 4: the connections the catalog and the role file both give this role; data for the adapter.
+      ...(connections.length === 0 ? {} : { connections }),
     };
     let proc;
     try {
@@ -627,8 +636,24 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       return touch(agent);
     } else if (event.type === "resource-limit") {
       if (!noteLimit(agent, event.resource)) return;
+    } else if (event.type === "connections") {
+      if (library.noteStatus(agent.role, event.servers)) onChange({ type: "library" });
+      return;
     } else if (event.type === "permission-request") {
       if (!agent.capabilities.approve) return;
+      // den-mvp outcome 4: a connection's tool is answered from the catalog first. A tool the catalog does not give this
+      // role is refused here and never becomes a question, and so is a call whose input looks like a secret; a read with a
+      // short input is allowed; any other is asked as usual.
+      const verdict = library.decide(agent.role, event.tool, event.input);
+      if (verdict !== null) {
+        const decision = verdict.kind === "allow" ? "allowed" : verdict.kind === "ask" ? "asked" : "refused";
+        if (library.noteUse({ role: agent.role, runId: agent.id, connection: verdict.connection, tool: verdict.tool, decision })) onChange({ type: "library" });
+        if (verdict.kind !== "ask") {
+          // The thread already has the call as a tool entry; a refusal's reason comes back on it as the tool's result.
+          Promise.resolve(agent.proc.decide(event.requestId, verdict.kind === "allow" ? { allow: true } : { allow: false, reason: verdict.reason })).catch(() => {});
+          return touch(agent);
+        }
+      }
       approvals.hold(agent.id, event, { accepting: !agent.stopRequested && !shuttingDown, says: agent.said ?? null });
       return;
     } else if (event.type === "state") {

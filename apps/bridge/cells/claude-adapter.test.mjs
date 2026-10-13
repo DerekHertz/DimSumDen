@@ -1050,3 +1050,62 @@ describe("committed fixtures (ADR 0016 6.10 scrub step)", () => {
     }
   });
 });
+
+// ---- connections (den-mvp outcome 4) ----------------------------------------------------------
+
+describe("buildClaudeArgs: connections (den-mvp outcome 4)", () => {
+  const args = (connections) => need("buildClaudeArgs")({ sessionId: SID, agent: "scout", connections });
+  const configOf = (argv) => JSON.parse(argv[argv.indexOf("--mcp-config") + 1]);
+
+  test("the catalog's targets become the one --mcp-config value, beside --strict-mcp-config: an address, or this node running a script", () => {
+    const argv = args([{ name: "docs", url: "https://docs.example.com/mcp" }, { name: "notes", script: "/den/apps/bridge/library/test-server.mjs" }]);
+    assert.ok(argv.includes("--strict-mcp-config"));
+    assert.equal(argv.filter((a) => a === "--mcp-config").length, 1);
+    assert.deepEqual(configOf(argv), {
+      mcpServers: {
+        docs: { type: "http", url: "https://docs.example.com/mcp" },
+        notes: { command: process.execPath, args: ["/den/apps/bridge/library/test-server.mjs"] },
+      },
+    });
+  });
+
+  test("a target is a name and an address or a script, nothing more: no header, environment, command or argument", () => {
+    const ok = { name: "docs", url: "https://docs.example.com/mcp" };
+    for (const bad of [
+      { ...ok, headers: { Authorization: "x" } }, { ...ok, env: { KEY: "x" } }, { name: "docs", command: "sh", args: ["-c", "id"] }, { name: "docs" },
+      { name: "docs", script: "/den/x.mjs", args: ["--flag"] }, { name: "docs", script: "x.mjs" }, { name: "docs", script: "/den/../etc/x.mjs" },
+      { name: "docs", script: "/den/x.mjs --inspect" }, { name: "docs", script: "/den/x.sh" },
+      { name: "docs", url: "http://docs.example.com/mcp" }, { name: "docs", url: "https://u:p@docs.example.com/mcp" }, { name: "docs", url: "https://docs.example.com/mcp?k=v" },
+      { name: "docs", url: "https://localhost/mcp" }, { name: "docs", url: "https://192.168.1.4/mcp" }, { name: "docs", url: "https://docs.example.com:444/mcp" },
+      { name: "a__b", url: ok.url }, { name: "Docs", url: ok.url }, { name: "", url: ok.url }, "docs", null,
+    ]) {
+      assert.equal(need("isConnectionTarget")(bad), false, JSON.stringify(bad));
+      assert.throws(() => args([bad]), TypeError, JSON.stringify(bad));
+    }
+    assert.throws(() => args([ok, ok]), TypeError, "a name twice");
+    assert.throws(() => args([]), TypeError, "an empty list is left out, not passed");
+    assert.throws(() => args("docs"), TypeError);
+    assert.throws(() => args(Array.from({ length: 21 }, (_, i) => ({ name: `c${i}`, url: ok.url }))), TypeError, "more than the cap");
+  });
+});
+
+describe("parseClaudeLine: connection status on the start-up line (den-mvp outcome 4)", () => {
+  const parse = (o) => need("parseClaudeLine")(JSON.stringify(o));
+  const init = (mcp_servers) => ({ type: "system", subtype: "init", model: "claude-haiku-5-5", mcp_servers });
+
+  test("each named connection with the CLI's word for it; a word it does not know reads as unknown", () => {
+    const events = parse(init([{ name: "docs", status: "connected", source: "dynamic" }, { name: "notes", status: "failed" }, { name: "odd", status: "exploded" }]));
+    assert.deepEqual(events.find((e) => e.type === "connections"), {
+      type: "connections", servers: [{ name: "docs", status: "connected" }, { name: "notes", status: "failed" }, { name: "odd", status: "unknown" }],
+    });
+    assert.ok(events.some((e) => e.type === "model"));
+  });
+
+  test("no connection, no event; an entry that is not a plain name is dropped", () => {
+    assert.ok(!parse(init([])).some((e) => e.type === "connections"));
+    assert.ok(!parse(init(undefined)).some((e) => e.type === "connections"));
+    assert.ok(!parse(init("docs")).some((e) => e.type === "connections"));
+    const events = parse(init([{ name: "Bad Name", status: "connected" }, null, { name: 4 }, { name: "ok", status: "connected", url: "https://u:p@x.example.com" }]));
+    assert.deepEqual(events.find((e) => e.type === "connections").servers, [{ name: "ok", status: "connected" }]);
+  });
+});

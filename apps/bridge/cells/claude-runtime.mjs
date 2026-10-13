@@ -63,7 +63,8 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
     // den-mvp outcome 2: `resume: true` continues the session `sessionId` (the cwd must be the one it ran in); `runId`
     // then names the resource group, so a follow-up never reuses the unit of the run before it. `promptId` gives the
     // first message an id, and a message-applied event with that id follows once the child takes it.
-    async spawn({ role, cwd, prompt, sessionId, model, ticketFile, grants, root, mainGit, resume, runId, promptId } = {}) {
+    // den-mvp outcome 4: `connections` are the catalog's targets for this role; a list the adapter cannot write refuses the spawn.
+    async spawn({ role, cwd, prompt, sessionId, model, ticketFile, grants, root, mainGit, resume, runId, promptId, connections } = {}) {
       if (typeof cwd !== "string" || cwd === "") throw new TypeError("claude runtime: cwd must be a path");
       if (typeof prompt !== "string") throw new TypeError("claude runtime: prompt must be a string");
       // A ticket path the adapter cannot write as a rule is left out: that agent's ticket read stays a request.
@@ -81,7 +82,7 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
       const ceiling = compileCeiling(role, { worktree: isWorktreePath(cwd) ? cwd : undefined, grants, ...(isWorktreePath(root) ? { root } : {}), ...(mainGit !== undefined ? { mainGit } : {}), ...(home === undefined ? {} : { home }), ...(credentials.length === 0 ? {} : { credentials }) });
       // Every role has a ceiling (ceilings.json); one without would start with no wall, so it does not start.
       if (ceiling === null) throw new EnforcementError(`the ${role} role has no ceiling, so it cannot be started`);
-      const args = buildClaudeArgs({ sessionId, ...(resume === true ? { resume: true } : {}), agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}), ...(ceiling ?? {}) });
+      const args = buildClaudeArgs({ sessionId, ...(resume === true ? { resume: true } : {}), agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}), ...(ceiling ?? {}), ...(Array.isArray(connections) && connections.length > 0 ? { connections } : {}) });
       const bin = typeof env.DEN_CLAUDE_BIN === "string" && env.DEN_CLAUDE_BIN !== "" ? env.DEN_CLAUDE_BIN : "claude";
       // The child is inside its resource group, limits read back, before this resolves; a host that cannot do that starts nothing.
       const { child, group } = await launcher.launch({ slotClass: slotClassOf(role), id: runId ?? sessionId, bin, args, cwd, env: buildClaudeEnv(env) });

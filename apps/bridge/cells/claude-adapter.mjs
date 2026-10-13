@@ -280,6 +280,31 @@ export function compileCeiling(role, { worktree, grants, root, home, mainGit, cr
 
 // ---- argv ----------------------------------------------------------------------------------
 
+// ---- connections (den-mvp outcome 4, spec section 3) -------------------------------------------
+// A connection the child is started with: a name and either the https address of a remote server or the path of a
+// script in the den that the child runs with this process's own node. Nothing else is expressible: no command line, no
+// header, no environment value, so no secret and no arbitrary program reaches argv. The catalog (library/catalog.mjs)
+// decides which role gets which; this only checks the shape. An address is a public host name, as for the wall.
+export const CONNECTION_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+const CONNECTION_NAME_MAX = 32;
+const CONNECTION_URL_RE = /^https:\/\/([a-z0-9.-]+)((?:\/[A-Za-z0-9._~-]+)*\/?)$/;
+const CONNECTION_SCRIPT_RE = /^(?:\/[A-Za-z0-9._@+-]+)+\.mjs$/;
+const CONNECTIONS_MAX = 20;
+export const CONNECTION_STATES = Object.freeze(["connected", "failed", "needs-auth", "pending", "disabled"]); // the CLI's own words
+export function isConnectionTarget(target) {
+  if (!isPlainObject(target) || Object.keys(target).length !== 2) return false;
+  if (typeof target.name !== "string" || target.name.length > CONNECTION_NAME_MAX || !CONNECTION_NAME_RE.test(target.name)) return false;
+  if (typeof target.url === "string") {
+    const m = CONNECTION_URL_RE.exec(target.url);
+    return m !== null && target.url.length <= 300 && isWallHost(m[1]) && !m[2].split("/").some((part) => part === "." || part === "..");
+  }
+  return typeof target.script === "string" && CONNECTION_SCRIPT_RE.test(target.script) && !target.script.split("/").some((part) => part === "." || part === "..");
+}
+const mcpConfigFor = (connections) =>
+  JSON.stringify({
+    mcpServers: Object.fromEntries(connections.map((c) => [c.name, c.url !== undefined ? { type: "http", url: c.url } : { command: process.execPath, args: [c.script] }])),
+  });
+
 /**
  * The whole argv (no binary name) for one child. Rejects anything outside { sessionId, agent, model?, ticketFile?,
  * wall?, worktree? }. No passthrough parameter exists, so no permission-broadening flag can be constructed; ticketFile adds
@@ -288,9 +313,10 @@ export function compileCeiling(role, { worktree, grants, root, home, mainGit, cr
 export function buildClaudeArgs(options) {
   if (!isPlainObject(options)) throw new TypeError("buildClaudeArgs needs { sessionId, agent, model?, ticketFile?, wall?, worktree? }");
   for (const key of Object.keys(options)) {
-    if (!["sessionId", "resume", "agent", "model", "ticketFile", "wall", "worktree", "forbid", "writePaths", "readLimit", "denyAbs", "credentials"].includes(key)) throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
+    if (!["sessionId", "resume", "agent", "model", "ticketFile", "wall", "worktree", "forbid", "writePaths", "readLimit", "denyAbs", "credentials", "connections"].includes(key)) throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
   }
-  const { sessionId, resume, agent, model, ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs, credentials } = options;
+  const { sessionId, resume, agent, model, ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs, credentials, connections } = options;
+  if (connections !== undefined && !(isDense(connections) && connections.length > 0 && connections.length <= CONNECTIONS_MAX && connections.every(isConnectionTarget) && new Set(connections.map((c) => c.name)).size === connections.length)) throw new TypeError("buildClaudeArgs: connections must be catalog targets, each name once");
   if (resume !== undefined && resume !== true) throw new TypeError("buildClaudeArgs: resume must be true");
   if (credentials !== undefined && !(wall !== undefined && isDense(credentials) && credentials.every((p) => CREDENTIAL_PATHS.includes(p)))) throw new TypeError("buildClaudeArgs: credentials must be paths from governance.json, with the wall");
   if (wall !== undefined && !isWall(wall)) throw new TypeError("buildClaudeArgs: wall must be { hosts: [plain host names] }");
@@ -317,7 +343,9 @@ export function buildClaudeArgs(options) {
     "--agent", agent,
     ...(model === undefined ? [] : ["--model", model]),
     "--setting-sources", "project,local",
+    // den-mvp outcome 4: only what --mcp-config names is loaded, and it names only the catalog's connections for this role.
     "--strict-mcp-config",
+    ...(connections === undefined ? [] : ["--mcp-config", mcpConfigFor(connections)]),
     "--settings", settingsFor({ ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs, credentials }),
   ];
 }
@@ -509,7 +537,13 @@ export function parseClaudeLine(line) {
         });
     }
     if (obj.type === "system" && obj.subtype === "init") {
-      return typeof obj.model === "string" && MODEL_RE.test(obj.model) ? [{ type: "model", model: obj.model }] : [];
+      const events = typeof obj.model === "string" && MODEL_RE.test(obj.model) ? [{ type: "model", model: obj.model }] : [];
+      // den-mvp outcome 4: how each connection stood when the child started. Only a name and one of the known words are kept.
+      const servers = (Array.isArray(obj.mcp_servers) ? obj.mcp_servers.slice(0, CONNECTIONS_MAX) : [])
+        .filter((m) => isPlainObject(m) && typeof m.name === "string" && m.name.length <= CONNECTION_NAME_MAX && CONNECTION_NAME_RE.test(m.name))
+        .map((m) => ({ name: m.name, status: CONNECTION_STATES.includes(m.status) ? m.status : "unknown" }));
+      if (servers.length > 0) events.push({ type: "connections", servers });
+      return events;
     }
     if (obj.type === "result") {
       const done = { type: "done", ok: obj.subtype === "success" && obj.is_error !== true, ...totalsOf(obj) };

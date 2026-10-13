@@ -36,6 +36,7 @@ const CODE_RISK_PATTERNS = [
 const GUARDRAIL_PATHS = new Map([
   ["apps/bridge/cells/ceilings.json", "guardrail file changed (role ceilings: what a den agent may do)"],
   ["apps/bridge/cells/governance.json", "guardrail file changed (governance deny list: paths and commands no den agent may touch)"],
+  ["apps/bridge/library/connections.json", "guardrail file changed (connections catalog: the servers and tools a den agent is given)"],
 ]);
 
 function git(args) {
