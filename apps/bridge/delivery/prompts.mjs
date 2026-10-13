@@ -22,14 +22,14 @@ export function deliveryPrompt({ role, mode, ref, ticketFile, since, fix = false
     return (
       head +
       (fix ? "A review of the last commit asked for changes: read .den/findings.md first, and fix what it names. " : "") +
-      "Work test-first in this worktree, run the checks that cover your change, and commit your work here: the bridge publishes the branch from your last commit, and a run that commits nothing delivers nothing. " +
+      "Work test-first in this worktree, run the checks that cover your change (the full suite runs on the pull request), and commit your work here: the bridge publishes the branch from your last commit, and a run that commits nothing delivers nothing. " +
       "End with a short report of what you changed and which checks you ran and what they showed: that last message is your handoff."
     );
   }
   const scope = role === "security" ? "for security: what it lets an agent, a request or untrusted text do that it could not do before" : "against the ticket's acceptance criteria, independently of the developer's own report";
   return (
     head +
-    `Review the commit checked out here ${scope}. The change is \`git diff ${since}..HEAD\`. Run the checks yourself. ` +
+    `Review the commit checked out here ${scope}. The change is \`git diff ${since}..HEAD\`. Run the checks that cover the change yourself; the full suite runs on the pull request, so do not run it here. ` +
     "Change no file and commit nothing: a review that moves the commit is not counted. " +
     "End with your findings, each one concrete enough to fix, and then, on a line of its own, `VERDICT: pass` or `VERDICT: bounce`. That last message is your handoff."
   );
