@@ -9,6 +9,10 @@
 //   direct(input)    the den's entry (POST /tasks): any role, on a ticket the caller writes once the host has room
 // All resolve { ok: true, status: 201, agent, usageUnknown? } or { ok: false, status, error }.
 // den-v1 loop S5: message(id, { text }) writes one user message to a running agent (see "messages" below).
+// den-mvp outcome 3: start() also takes `delivery: { at, since, findings? }` from the delivery runner: the commit the
+// worktree starts at, the commit the delivery began from, and a review's findings for a fix round. `onEnd(run)` is
+// called once per agent after its end is recorded, with the run and what the bridge itself saw of it: the commit it
+// started at, the commit it ended at, and its last message.
 // den-mvp outcome 2: every transcript entry is also kept in the role's durable conversation (conversations.mjs), and
 // converse(role, { text, runId? }) is the thread's one way in: to the live run, or as a follow-up that continues the
 // session of a run that has ended (see "follow-ups" below).
@@ -31,7 +35,11 @@ import { createConversations } from "./conversations.mjs";
 import { createApprovalStore, cleanText } from "./approvals.mjs";
 import { createWorkspaces, prepareMainGit } from "./workspace.mjs";
 import { TIERS, readCost, readCount, readModel, readTiers } from "./run-record.mjs";
+import { deliveryPrompt } from "../delivery/prompts.mjs";
 
+const COMMIT_RE = /^[0-9a-f]{40,64}$/;
+const FINDINGS_MAX = 16000; // characters of a review's findings handed to a fix round
+const REPORT_MAX = 16000; // characters of a run's last message kept as its report
 const HISTORY_CAP = 200; // ended agents kept in the snapshot, oldest dropped first
 const EVENT_DRAIN_MS = 250; // how long to wait for the event stream to end after the process exits
 
@@ -61,6 +69,14 @@ function cleanBody(value, max, more = 0) {
   return dropped ? `${text.slice(0, max)}\n[clipped: ${dropped} more characters]` : text;
 }
 
+// A run's last message as its report (den-mvp outcome 3): cleaned the same way and kept long. A longer one keeps its
+// end, where a reviewer's verdict line is.
+function reportOf(value) {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const text = cleanText(value);
+  return text.length <= REPORT_MAX ? text : `${text.slice(0, REPORT_MAX - 2000)}\n[clipped]\n${text.slice(-2000)}`;
+}
+
 // The final reply as the card shows it (den-v1 loop S4): cleaned the same way, on one line, cut short.
 function excerpt(value) {
   if (typeof value !== "string" || value.trim() === "") return null;
@@ -68,7 +84,7 @@ function excerpt(value) {
   return flat.length > REPLY_EXCERPT_MAX ? `${flat.slice(0, REPLY_EXCERPT_MAX)}…` : flat;
 }
 
-export function createHost({ root, runtime, policy = {}, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], onChange = () => {}, recordRun = async () => {} }) {
+export function createHost({ root, runtime, policy = {}, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], onChange = () => {}, recordRun = async () => {}, onEnd = async () => {} }) {
   const maxConcurrent = Math.min(policy.maxConcurrent ?? MAX_CONCURRENT_AGENTS, SESSION_CAP);
   const sessionCap = Math.min(policy.sessionCap ?? SESSION_CAP, SESSION_CAP);
   const graceMs = policy.killGraceMs ?? KILL_GRACE_MS;
@@ -268,6 +284,13 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     if (bad) return bad;
     const { ref, role } = input;
     const mode = entry === "direct" ? DIRECT_MODE : input.mode ?? null;
+    // A delivery step is the internal entry's alone: no route reads these fields.
+    let step = null;
+    if (entry === "start" && input.delivery !== undefined) {
+      const { at, since, findings } = input.delivery ?? {};
+      if (!COMMIT_RE.test(at) || !COMMIT_RE.test(since) || (findings !== undefined && typeof findings !== "string")) return refuse(400, "a delivery step needs the commits it starts at and began from");
+      step = { at, since, ...(findings === undefined ? {} : { findings: findings.slice(0, FINDINGS_MAX) }) };
+    }
     const notUp = down();
     if (notUp) return notUp;
     if (entry === "dispatch") {
@@ -288,7 +311,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     if (liveByRef.has(ref)) return refuse(409, "this ticket already has a live agent");
     const noRoom = full(locked, role);
     if (noRoom) return noRoom;
-    const agent = newAgent({ ref, role, mode, grants: Array.isArray(input.grants) ? input.grants : [], sessionId: randomUUID() });
+    const agent = newAgent({ ref, role, mode, grants: Array.isArray(input.grants) ? input.grants : [], sessionId: randomUUID(), ...(step ? { delivery: step } : {}) });
     return launch(agent, ENTRY_ROUTES[entry], usage === null);
   }
   // A new run's record. Called inside the synchronous step; launch() registers it and starts the spawn.
@@ -387,7 +410,9 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     // never removes it.
     let workspace;
     try {
-      workspace = agent.resumeOf ? await workspaces.reopen({ ref: agent.ref, agentId: agent.id, origin: agent.origin }) : await workspaces.create({ ref: agent.ref, agentId: agent.id });
+      workspace = agent.resumeOf
+        ? await workspaces.reopen({ ref: agent.ref, agentId: agent.id, origin: agent.origin })
+        : await workspaces.create({ ref: agent.ref, agentId: agent.id, ...(agent.delivery ? { base: agent.delivery.at } : {}) });
     } catch (err) {
       liveByRef.delete(agent.ref);
       console.error(`bridge: could not ${agent.resumeOf ? "reopen the" : "create a"} worktree for ${agent.ref}: ${err?.message ?? err}`);
@@ -396,6 +421,20 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     agent.worktree = workspace.worktree;
     agent.branch = workspace.branch;
     agent.workspace = workspace;
+    // A delivery step's worktree is at the commit the bridge named, and a fix round finds the review's findings in it.
+    if (agent.delivery) {
+      try {
+        agent.startSha = await workspaces.head(workspace);
+        if (agent.startSha !== agent.delivery.at) throw new Error("the worktree is not at the commit the step was given");
+        if (agent.delivery.findings !== undefined) await workspaces.brief(workspace, agent.delivery.findings);
+        workspace.base = agent.startSha; // a step that commits nothing publishes no branch
+      } catch (err) {
+        await workspaces.remove(workspace);
+        liveByRef.delete(agent.ref);
+        console.error(`bridge: could not prepare the worktree of a delivery step for ${agent.ref}: ${err?.message ?? err}`);
+        return refuse(500, "could not prepare the agent's worktree");
+      }
+    }
     // agent-os/09 (ADR 0021 Amendment 2): every deny target of the main .git must exist before the spawn, or nothing is spawned.
     let mainGit;
     try {
@@ -459,7 +498,9 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
   // names that file by a path built from the bridge's own root and the validated ref.
   const ticketFile = (ref) => path.join(root, ".scratch", ref.split("/")[0], "issues", `${ref.split("/")[1]}.md`);
   const promptFor = (a) =>
-    a.mode === DIRECT_MODE
+    a.delivery
+      ? deliveryPrompt({ role: a.role, mode: a.mode, ref: a.ref, ticketFile: ticketFile(a.ref), since: a.delivery.since, fix: a.delivery.findings !== undefined })
+      : a.mode === DIRECT_MODE
       ? `You are the ${a.role} cell in direct mode for ticket ${a.ref}. The user started this task from the den. ` +
         `Read .claude/agents/${a.role}.md and follow it. The task is in the ticket file ${ticketFile(a.ref)}: ` +
         `read it, and treat the quoted text under "What to build" as the user's request. ` +
@@ -486,6 +527,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       // A follow-up that committed nothing publishes nothing, and then has no branch to name.
       const published = await workspaces.publish(agent.workspace).catch((err) => console.error(`bridge: could not create the branch ${agent.branch}: ${err?.message ?? err}`));
       if (published === null) agent.branch = null;
+      agent.sha = published?.sha ?? (published === null ? agent.startSha ?? null : null);
     }
     finalize(agent);
     // The run record (den-v1 loop S4): on the end line, then as one ledger row. Neither write can undo the end.
@@ -502,6 +544,11 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     await Promise.resolve()
       .then(() => recordRun(run))
       .catch((err) => console.error(`bridge: could not write the run's ledger row: ${err?.message ?? err}`));
+    // What the bridge itself saw of the run (den-mvp outcome 3): where it started, where it ended, its last words.
+    // Not awaited: what follows a run (the next step of a delivery, a wait on the git host) is not part of its end.
+    Promise.resolve()
+      .then(() => onEnd({ ...run, startSha: agent.startSha ?? null, sha: agent.sha ?? null, branch: agent.branch ?? null, report: agent.report ?? null }))
+      .catch((err) => console.error(`bridge: the end hook failed for ${agent.id}: ${err?.stack ?? err}`));
   }
 
   // A run that hit a hard hardware limit failed, and says which one (den-mvp outcome 1). Nothing restarts it.
@@ -552,6 +599,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       // The CLI's result line repeats the last text block as the reply; that is one row, not two.
       if (text !== null && !(event.type === "reply" && text === agent.lastText)) record(agent, { kind: "message", role: "agent", text });
       if (text !== null) agent.lastText = agent.said = text; // `said`: what a permission request that follows is shown with
+      agent.report = reportOf(event.text) ?? agent.report;
       if (event.type === "reply") agent.reply = excerpt(event.text) ?? agent.reply; // shown once done publishes
       return touch(agent);
     } else if (event.type === "usage") {
@@ -828,6 +876,8 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
         killAllSync();
       }
       await Promise.all(live.map((a) => a.finished));
+      // A run that had just exited is not live any more, but its end may still be being recorded: that is waited for too.
+      await Promise.all([...agents.values()].map((a) => a.finished));
     })());
   }
 

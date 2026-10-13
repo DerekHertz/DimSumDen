@@ -5,7 +5,7 @@
 // bridge-minted agent id; git runs through execFile with an argument list, never a shell.
 // A worktree is a working-directory convention, not a security boundary: nothing here confines the child.
 import { execFile } from "node:child_process";
-import { access, lstat, realpath } from "node:fs/promises";
+import { access, appendFile, lstat, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { AGENT_ID_RE, REF_RE, WORKSPACE_BRANCH_PREFIX, WORKTREES_DIR } from "./policy.mjs";
@@ -13,7 +13,9 @@ import { AGENT_ID_RE, REF_RE, WORKSPACE_BRANCH_PREFIX, WORKTREES_DIR } from "./p
 const execFileP = promisify(execFile);
 
 // The one shape a published branch may have: what workspaceNames derives (a ref's slashes kept, then "-" and 8 hex of the agent id).
-const PUBLISH_BRANCH_RE = new RegExp(`^${WORKSPACE_BRANCH_PREFIX}/[a-z0-9][a-z0-9-]*/\\d{2,}-[a-z0-9][a-z0-9-]*-[0-9a-f]{8}$`);
+export const PUBLISH_BRANCH_RE = new RegExp(`^${WORKSPACE_BRANCH_PREFIX}/[a-z0-9][a-z0-9-]*/\\d{2,}-[a-z0-9][a-z0-9-]*-[0-9a-f]{8}$`);
+
+const COMMIT_RE = /^[0-9a-f]{40,64}$/;
 
 /** { worktree, branch } for one agent: the worktree's repo-relative path and its branch. Throws on a bad ref or id. */
 export function workspaceNames({ ref, agentId } = {}) {
@@ -31,10 +33,31 @@ export function createWorkspaces(root, { exec = execFileP } = {}) {
   const git = (...args) => exec("git", ["-C", root, ...args]);
   return {
     // -> { dir, worktree, branch }: `dir` is the resolved absolute path the child runs in. `branch` is only the name to publish to.
-    async create({ ref, agentId } = {}) {
+    // den-mvp outcome 3: `base` is the commit a delivery step starts from (a full commit id the bridge recorded); without it, HEAD.
+    async create({ ref, agentId, base } = {}) {
       const { worktree, branch } = workspaceNames({ ref, agentId });
-      await git("worktree", "add", "--detach", path.join(root, ...worktree.split("/")), "HEAD");
+      if (base !== undefined && (typeof base !== "string" || !COMMIT_RE.test(base))) throw new TypeError("workspace: base must be a full commit id");
+      await git("worktree", "add", "--detach", path.join(root, ...worktree.split("/")), base ?? "HEAD");
       return { dir: await realpath(path.join(root, ...worktree.split("/"))), worktree, branch };
+    },
+    // The commit a worktree is at now. -> a full commit id.
+    async head({ dir } = {}) {
+      const sha = String((await exec("git", ["-C", dir, "rev-parse", "HEAD"])).stdout).trim();
+      if (!COMMIT_RE.test(sha)) throw new Error("workspace: the worktree has no commit");
+      return sha;
+    },
+    // den-mvp outcome 3: the bridge's note to a delivery step (a review's findings for a fix round), written to
+    // <worktree>/.den/findings.md. `.den/` is added once to the repository's own exclude file, so no commit carries it.
+    async brief({ dir } = {}, text) {
+      const common = String((await exec("git", ["-C", dir, "rev-parse", "--path-format=absolute", "--git-common-dir"])).stdout).trim();
+      const exclude = path.join(common, "info", "exclude");
+      const current = await readFile(exclude, "utf8").catch(() => "");
+      if (!current.split("\n").includes(".den/")) {
+        await mkdir(path.dirname(exclude), { recursive: true });
+        await appendFile(exclude, `${current === "" || current.endsWith("\n") ? "" : "\n"}.den/\n`);
+      }
+      await mkdir(path.join(dir, ".den"), { recursive: true });
+      await writeFile(path.join(dir, ".den", "findings.md"), text, { mode: 0o600 });
     },
     // den-mvp outcome 2: the worktree of an earlier run (`origin`), reopened for a follow-up by a new run. Nothing is created:
     // the directory must still be a worktree of this repository at the derived path, or this rejects. `base` is its HEAD
@@ -56,7 +79,7 @@ export function createWorkspaces(root, { exec = execFileP } = {}) {
       if (typeof branch !== "string" || !PUBLISH_BRANCH_RE.test(branch)) throw new TypeError("workspace: not a den agent branch name");
       if (typeof dir !== "string" || dir === "") throw new TypeError("workspace: publish needs the worktree directory");
       const sha = String((await exec("git", ["-C", dir, "rev-parse", "HEAD"])).stdout).trim();
-      if (!/^[0-9a-f]{40,64}$/.test(sha)) throw new Error("workspace: the worktree has no commit to publish");
+      if (!COMMIT_RE.test(sha)) throw new Error("workspace: the worktree has no commit to publish");
       if (base !== undefined && sha === base) return null;
       await git("branch", branch, sha);
       return { branch, sha };
