@@ -11,6 +11,7 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { startBridge } from "./server.mjs";
 import { ROUTES } from "./routes.mjs";
+import { execFileSync } from "node:child_process";
 import { makeStateFixture, FEATURE } from "./bridge-fixture.mjs";
 import { CODE, origin, send, login, authed } from "./bridge-auth-helpers.mjs";
 // The fake runtime serves the agent routes (organism-infra/140). Until cells/runtime.mjs exists the older rows
@@ -71,7 +72,24 @@ const BODIES = {
     bogus: { text: "something else entirely" },
     prepare: async () => ((await bridge.host.start({ ref: `${FEATURE}/34-auth-converse`, role: "herald" })), "herald"),
   },
+  // den-mvp outcome 3: a delivery is started on a frontier ticket; the steering rows need one that is running or waiting.
+  "POST /deliveries": {
+    real: { ref: `${FEATURE}/08-plain` },
+    bogus: { ref: `${FEATURE}/99-nope` },
+  },
+  "POST /deliveries/:id/stop": { real: {}, bogus: {}, prepare: () => delivery() },
+  "POST /deliveries/:id/resume": { real: {}, bogus: {}, prepare: () => delivery({ stopped: true }) },
+  "POST /deliveries/:id/close": { real: {}, bogus: {}, prepare: () => delivery({ stopped: true }) },
 };
+// A delivery on its own ticket, running (its developer never ends) or stopped. -> its id
+async function delivery({ stopped = false } = {}) {
+  const headers = authed(bridge, token);
+  const started = await send(bridge, { method: "POST", path: "/deliveries", headers, body: { ref: `${FEATURE}/07-bumpable` } });
+  assert.equal(started.status, 201, JSON.stringify(started.body));
+  const { id } = started.body.delivery;
+  if (stopped) assert.equal((await send(bridge, { method: "POST", path: `/deliveries/${id}/stop`, headers, body: {} })).status, 202);
+  return id;
+}
 // Path parameters: a registry path like "/cells/:id/stop" is exercised with each value.
 const fill = (pattern, value) => pattern.replace(/:\w+/g, value);
 
@@ -89,7 +107,9 @@ beforeEach(async () => {
   fx = await makeStateFixture({ git: true });
   file = path.join(fx.root, ".scratch", "_requests", "requests.jsonl");
   fake = createFakeRuntime?.({ send: true }) ?? null;
-  bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, ...(fake ? { runtime: fake } : {}) });
+  // The delivery rows never get past their first agent here, so the git host is only asked for the main branch's commit.
+  const gitHost = { mainSha: async () => execFileSync("git", ["-C", fx.root, "rev-parse", "HEAD"], { encoding: "utf8" }).trim() };
+  bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, gitHost, ...(fake ? { runtime: fake } : {}) });
   token = await login(bridge);
 });
 afterEach(async () => {

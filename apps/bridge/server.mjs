@@ -9,6 +9,10 @@ import { randomUUID } from "node:crypto";
 import os from "node:os";
 import { createHost } from "./cells/host.mjs";
 import { createLedger } from "./cells/ledger.mjs";
+import { createDelivery } from "./delivery/runner.mjs";
+import { createDeliveryBoard } from "./delivery/board.mjs";
+import { createGitHost } from "./delivery/git-host.mjs";
+import { createJobLog } from "./delivery/jobs.mjs";
 import { DEN_FEATURE, TASK_MAX_BYTES } from "./cells/policy.mjs";
 import { createTicket } from "../organism-infra/board-service.mjs";
 import { hasSecret } from "../../scripts/exposure.mjs";
@@ -51,17 +55,25 @@ function installProcessHandlers(host) {
 
 // runtime: a CellRuntime (organism-infra/140). With none, POST /agents is 503 and no process-level handler is
 // installed. policy: test-only overrides of cells/policy.mjs (the production entry point passes none).
-export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, auth: authOptions, runtime, policy } = {}) {
+// den-mvp outcome 3: gitHost is the bridge's git-host operations (delivery/git-host.mjs; a test passes a fake), and stateDir
+// is where the delivery log is kept. The production entry point passes a directory outside the repository; the default is
+// the bridge's run directory, which is outside every agent's worktree.
+export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, auth: authOptions, runtime, policy, gitHost, stateDir } = {}) {
   let actualPort = port;
   const auth = createAuth(authOptions);
   let host;
-  const hub = createHub(root, { agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts(), capacity: (lockedRefs) => host.capacity(lockedRefs) });
+  let delivery;
+  const hub = createHub(root, {
+    agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts(), capacity: (lockedRefs) => host.capacity(lockedRefs),
+    deliveries: () => delivery?.snapshot() ?? [],
+  });
   host = createHost({
     root,
     runtime,
     policy,
     onChange: (change) => hub.publish(change),
     recordRun: createLedger(root).record,
+    onEnd: (run) => delivery.onEnd(run),
     readUsage: async () => (await hub.snapshot()).usage?.fiveHour ?? null,
     // organism-infra/226: a dispatch needs the ticket to be in the frontier (ready, unblocked, unlocked), not to hold the gate.
     checkGate: async (ref) => {
@@ -71,6 +83,19 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     lockedRefs: async () => (await hub.snapshot()).tickets.filter((t) => t.holder).map((t) => t.ref),
   });
   await host.ready;
+  delivery = createDelivery({
+    host: { start: host.start, stop: host.stop },
+    board: createDeliveryBoard(root),
+    git: gitHost ?? createGitHost(root),
+    log: createJobLog(stateDir ?? path.join(root, ".scratch", "_run")),
+    onChange: (change) => hub.publish(change),
+    readTicket: async (ref) => {
+      const snap = await hub.snapshot();
+      const ticket = snap.tickets.find((t) => t.ref === ref);
+      return ticket ? { title: ticket.title, type: ticket.type, frontier: snap.frontier.includes(ref) } : null;
+    },
+  });
+  await delivery.ready;
   let postChain = Promise.resolve();
   await hub.ready;
   const server = http.createServer(async (req, res) => {
@@ -158,6 +183,10 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
       reply(res, page ? 200 : 404, page ?? { error: "no such role" });
     },
     "POST /conversations/:role/message": (req, res) => converse(req, res),
+    "POST /deliveries": (req, res) => postDelivery(req, res),
+    "POST /deliveries/:id/resume": (req, res) => steerDelivery(req, res, "resume"),
+    "POST /deliveries/:id/stop": (req, res) => steerDelivery(req, res, "stop"),
+    "POST /deliveries/:id/close": (req, res) => steerDelivery(req, res, "close"),
     "POST /approvals/:id": async (req, res) => {
       const body = await readJsonObject(req, res);
       if (!body) return;
@@ -281,6 +310,41 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     if (!result.ok) return reply(res, result.status, { error: result.error });
     reply(res, result.status, { ok: true, runId: result.runId, messageId: result.messageId, resumed: result.resumed, ...(result.agent ? { agent: result.agent } : {}), ...(result.usageUnknown ? { usageUnknown: true } : {}) });
   }
+  // POST /deliveries (den-mvp outcome 3): the user's approval of a ticket's delivery. Only `ref`, or `title` and `text`, are
+  // read. With a ref, that ticket is delivered. With text, the board service writes a ticket for it first (the same one
+  // Board write as POST /tasks), and that ticket is delivered. Nothing in the body reaches a prompt, argv or a branch name.
+  async function postDelivery(req, res) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    let ref = body.ref;
+    let ticket = {};
+    if (ref === undefined) {
+      const text = typeof body.text === "string" ? body.text.trim() : "";
+      const title = typeof body.title === "string" && body.title.trim() ? body.title.trim() : text.split("\n")[0].slice(0, 80);
+      if (!text) return reply(res, 400, { error: "ref, or text, must be given" });
+      if (Buffer.byteLength(text) > TASK_MAX_BYTES) return reply(res, 400, { error: `text must be at most ${TASK_MAX_BYTES} bytes` });
+      if (hasSecret(text) || hasSecret(title)) return reply(res, 400, { error: "text looks like it holds a secret; nothing was written" });
+      try {
+        ({ ref } = await createTicket(root, { feature: DEN_FEATURE, slug: "delivery", title, text, source: "den" }));
+      } catch (err) {
+        console.error(`bridge: could not write a ticket for a delivery: ${err?.message ?? err}`);
+        return reply(res, 400, { error: "could not write the ticket: the title must be one short line" });
+      }
+      ticket = { ticket: { ref } };
+    }
+    const result = await delivery.start({ ref });
+    if (!result.ok) return reply(res, result.status, { error: result.error, ...ticket });
+    reply(res, result.status, { delivery: result.delivery, ...ticket });
+  }
+  // POST /deliveries/:id/resume | stop | close. Resume reads `verdict` ("approve": the user's visual verdict) and nothing else.
+  async function steerDelivery(req, res, action) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    const id = new URL(req.url, "http://x").pathname.split("/")[2];
+    const result = action === "resume" ? await delivery.resume(id, body.verdict === undefined ? {} : { verdict: body.verdict }) : await delivery[action](id);
+    if (!result.ok) return reply(res, result.status, { error: result.error });
+    reply(res, result.status, { delivery: result.delivery });
+  }
   // Static UI build (ADR 0011 decision 2): unknown paths serve index.html; traversal is a 403.
   async function serveStatic(pathname, req, res) {
     let rel;
@@ -340,6 +404,8 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     host: { start: host.start, shutdown: host.shutdown },
     close: async () => {
       await host.shutdown();
+      await new Promise((resolve) => setImmediate(resolve)); // the runs' end hooks are queued behind the shutdown
+      await delivery.shutdown();
       uninstallProcessHandlers();
       await new Promise((resolve) => {
         hub.close();
@@ -355,7 +421,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const root = resolveRoot(process.cwd(), process.env);
   // The default runtime (organism-infra/143): the binary is DEN_CLAUDE_BIN, else `claude` on PATH.
   const { createClaudeRuntime } = await import("./cells/claude-runtime.mjs");
-  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env }) });
+  // The delivery log is kept outside the repository, so it is in no agent's worktree and under no path a task can be granted.
+  const { createHash } = await import("node:crypto");
+  const { realpathSync } = await import("node:fs");
+  const stateHome = process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
+  const stateDir = path.join(stateHome, "den", "projects", createHash("sha256").update(realpathSync(root)).digest("hex").slice(0, 16));
+  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env }), stateDir });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
   console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);

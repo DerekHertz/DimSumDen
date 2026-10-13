@@ -18,6 +18,8 @@ Relay autonomy (see `organism-protocol`): once the user approves a ticket, the o
 
 Direct work (`.scratch/den-mvp/spec.md`): the user may give any panda a focused job from the den without the relay, including developer, qa and security. The bridge starts every cell behind the wall and inside a resource group (`apps/bridge/cells/limits.json`), and refuses the run when it cannot enforce them. Push, PR and merge still need the delivery checks.
 
+Delivery (ADR 0024): Deliver on a ticket in the den runs developer, qa `verify`, the scripted checks and, on a hit, security; then the bridge pushes, opens the PR and merges on green checks. The bridge makes the board calls and holds the git-host login; a change to the bridge, a guardrail or CI is left for the user to merge.
+
 Run a cell as the main session with `claude --agent <cell-type>`. If a session is asked to act as a cell without that flag, read `.claude/agents/<cell-type>.md` first and follow it.
 
 ## Cloud sessions
