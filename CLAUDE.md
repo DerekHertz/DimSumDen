@@ -14,7 +14,9 @@ Cell types are defined by genomes in `.claude/agents/`, grouped into stations:
 
 Code tickets run a relay: qa `specify` writes failing tests, developer makes them pass, qa `verify` checks (light verify if qa specified, full otherwise), then `npm run risk-check`: a clean exit skips `security`, a hit dispatches it. The orchestrator opens the PR and merges on green CI. designer specs UI tickets with the user (a detailed spec plus low-cost mockups), and the user does all visual critique of UI and asset tickets until a cheaper automated critique exists. Every cell follows the `organism-protocol` skill: claim before working, stop at pass gates, hand off, then end.
 
-Relay autonomy (see `organism-protocol`): once the user approves a ticket, the orchestrator runs its relay end to end, PR and merge included. Other gates still apply. It stops for user verdicts, open scope questions, a twice-failed ticket, environment issues, 5-hour usage at 90%+, or a red or conflicted merge. Up to two cells run at once (`max_concurrent_cells: 2`), on different tickets with non-overlapping files.
+Relay autonomy (see `organism-protocol`): once the user approves a ticket, the orchestrator runs its relay end to end, PR and merge included. Other gates still apply. It stops for user verdicts, open scope questions, a twice-failed ticket, environment issues, 5-hour usage at 90%+, or a red or conflicted merge. Up to two worker cells run at once (`max_concurrent_cells: 2`), on different tickets with non-overlapping files; Bao and one scout each have a reserved slot beside them.
+
+Direct work (`.scratch/den-mvp/spec.md`): the user may give any panda a focused job from the den without the relay, including developer, qa and security. The bridge starts every cell behind the wall and inside a resource group (`apps/bridge/cells/limits.json`), and refuses the run when it cannot enforce them. Push, PR and merge still need the delivery checks.
 
 Run a cell as the main session with `claude --agent <cell-type>`. If a session is asked to act as a cell without that flag, read `.claude/agents/<cell-type>.md` first and follow it.
 
