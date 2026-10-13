@@ -22,6 +22,7 @@ import { meetingNote } from "./prompts.mjs";
 import { CHAIR, REJOIN_MS, SEATS_MAX, SPECIALISTS, TOPIC_MAX_BYTES } from "./types.mjs";
 
 const KEPT = 30; // meetings kept in the snapshot
+const NOTE_THREAD = 6; // follow-up entries the chair is given; older ones stay on the board
 const refuse = (status, error) => ({ ok: false, status, error });
 const CONTROL_RE = /[\u0000-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]+/g;
 const errorText = (err) => {
@@ -76,7 +77,7 @@ export function createMeetings({ host, store, log, readTicket, readUsage = async
   // 24 hours past a decision or a close, only the decision and a summary are kept (ADR 0017 decision 11).
   const summaryOf = (m) =>
     [
-      `# Summary: ${m.title}`, "",
+      `# Summary: ${m.title.replace(/^Meeting:\s*/, "")}`, "",
       `Meeting ${m.dir} about ${m.ref}, started ${m.startedAt}. Written by the den's bridge when the meeting was 24 hours past its end; the takes and the follow-ups were deleted then.`, "",
       "## The topic (the user's words)", "", ...m.topic.replace(CONTROL_RE, " ").split("\n").map((l) => `> ${l}`.trimEnd()), "",
       "## Who answered", "", ...m.seats.map((s) => `- ${s.role}: ${s.status === "taken" ? "gave a take" : s.status === "declined" ? `declined (${s.reason ?? "no reason given"})` : "gave no take"}`), "",
@@ -175,7 +176,7 @@ export function createMeetings({ host, store, log, readTicket, readUsage = async
     // A take reads the topic alone. The chair reads what is saved on the board: every take, the brief, the follow-ups.
     const saved = next.part === "take" ? {} : await store.read(m);
     const file = meetingNote({
-      part: next.part, ref: m.ref, topic: m.topic, takes: saved.takes, brief: saved.brief, thread: saved.thread,
+      part: next.part, ref: m.ref, topic: m.topic, takes: saved.takes, brief: saved.brief, thread: saved.thread?.slice(-NOTE_THREAD),
       declined: m.seats.filter((s) => s.status === "declined" || s.status === "failed").map((s) => ({ role: s.role, reason: s.status === "declined" ? `declined: ${s.reason ?? "no reason given"}` : "its run gave no take" })),
     });
     const started = await host.start({ ref: m.ref, role: next.role, meeting: { part: next.part, file } });

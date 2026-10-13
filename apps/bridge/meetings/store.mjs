@@ -60,7 +60,7 @@ export function createMeetingStore(root) {
     async writeMeeting(m) {
       const seat = (s) => `- ${s.role}: ${s.status === "taken" ? `take given${s.takes > 1 ? ` (${s.takes} takes)` : ""}` : s.status === "declined" ? `declined (${s.reason ?? "no reason given"})` : s.status === "failed" ? `no take (${s.reason ?? "the run failed"})` : "not asked yet"}`;
       const body = [
-        `# Meeting: ${m.title}`, "",
+        `# Meeting: ${m.title.replace(/^Meeting:\s*/, "")}`, "",
         `**Ticket:** ${m.ref}`, "",
         `**Status:** ${m.state === "running" || m.state === "paused" ? "open" : m.state}`, "",
         `**Depth:** quick`, "",
