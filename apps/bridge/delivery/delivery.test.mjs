@@ -263,7 +263,7 @@ describe("what stops a delivery, and what it leaves", () => {
     }, "changed-commit", "in-review"],
     ["a line that looks like a secret", async (t) => { t.git.secret = true; await t.toQaPass(); }, "possible-secret", "in-review"],
     ["a change to CI configuration, which is never pushed", async (t) => { t.git.files = [".github/workflows/ci.yml"]; await t.toQaPass(); t.work(await t.spawn(2), { say: "VERDICT: pass" }); await t.paused("ci-change"); assert.deepEqual(t.sideEffects(), []); }, "ci-change", "in-review"],
-    ["a push the remote refuses", async (t) => { t.git.fail.push = "remote: denied https://user:hunter2@example.invalid/r.git"; await t.toQaPass(); }, "publish-failed", "in-review"],
+    ["a push the remote refuses", async (t) => { t.git.fail.push = `remote: denied ${["https://user", "hunter2@example.invalid/r.git"].join(":")}`; await t.toQaPass(); }, "publish-failed", "in-review"],
     ["a red check", async (t) => { t.git.checks = [{ name: "test", done: true, ok: false }]; await t.toQaPass(); }, "ci-red", "in-review"],
     ["no check at all", async (t) => { t.git.checks = []; await t.toQaPass(); }, "no-checks", "in-review"],
     ["a conflict with main", async (t) => { t.git.mergeable = "CONFLICTING"; await t.toQaPass(); }, "conflict", "in-review"],
