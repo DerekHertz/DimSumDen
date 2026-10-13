@@ -111,6 +111,10 @@ The exclusive lock a cell takes on a ticket before working it.
 The short document a cell writes at the end of its work so the next cell can continue without its conversation.
 _Avoid_: Summary, progress note
 
+**Delivery**:
+The bridge's job that takes one ticket from a developer's commit, through an independent qa verify and the checks, to a merged pull request (ADR 0024). Starting one in the den is the user's approval of that path for the ticket. A delivery step's agent writes nothing on the board and pushes nothing; the bridge does both.
+_Avoid_: Relay (the terminal's hop sequence), pipeline
+
 ## Control
 
 **Pass gate**:
