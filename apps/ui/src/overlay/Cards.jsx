@@ -6,6 +6,7 @@ import { noteCounter, submitGate } from "../panel/gates-model.mjs";
 import { DemoBadge } from "../demo/DemoControls.jsx";
 import { createBridgeClient } from "../state/bridge-client.mjs";
 import { STATION_HUE, badgeModel, needsYouModel, stationsModel, stepRequest } from "./overlay-model.mjs";
+import { deliverState, deliveryRows } from "./delivery-model.mjs";
 import { ROLE_OPTIONS, capacityFromSnapshot, defaultRole, dispatchPrompt, runState, slotRows } from "./run-model.mjs";
 
 const isPhone = () => typeof matchMedia === "function" && matchMedia("(max-width: 599px)").matches;
@@ -174,7 +175,117 @@ export function useRunner(client) {
   return useMemo(() => ({ inflight, results, start, clear }), [inflight, results, start, clear]);
 }
 
+// den-mvp outcome 3: deliveries. One request per key (a ticket ref, a delivery id, or "new" for a typed task) at a time;
+// the last refusal for a key stays until its next press.
+export function useDeliveries(client) {
+  const pending = useRef(new Set());
+  const [inflight, setInflight] = useState(() => new Set());
+  const [results, setResults] = useState({});
+  const call = useCallback(async (key, fn) => {
+    if (pending.current.has(key)) return false;
+    pending.current.add(key);
+    setInflight(new Set(pending.current));
+    setResults((r) => without(r, (k) => k !== key));
+    try {
+      await fn();
+      return true;
+    } catch (e) {
+      setResults((r) => ({ ...r, [key]: { error: `Couldn't do that: ${e?.status ? `${e.status} ` : ""}${e?.reason ?? "the bridge refused the request."}` } }));
+      return false;
+    } finally {
+      pending.current.delete(key);
+      setInflight(new Set(pending.current));
+    }
+  }, []);
+  const deliver = useCallback((ref) => call(ref, () => client.deliver({ ref })), [call, client]);
+  const deliverText = useCallback((text) => call("new", () => client.deliver({ text })), [call, client]);
+  const steer = useCallback((id, action, options) => call(id, () => client.steerDelivery(id, action, options)), [call, client]);
+  return useMemo(() => ({ inflight, results, deliver, deliverText, steer }), [inflight, results, deliver, deliverText, steer]);
+}
+
 const idPart = (s) => String(s).replace(/[^A-Za-z0-9_-]/g, "-");
+
+/** Deliver for one ticket: the whole software path, started by this press. Shown only for a ticket that is software. */
+function DeliverControl({ scope, ticket, snapshot, steer, deliveries }) {
+  const inflight = deliveries.inflight.has(ticket.ref);
+  const state = deliverState({ ticket, snapshot, steer, inflight });
+  if (!state.show) return null;
+  const id = `${scope}-${idPart(ticket.ref)}-deliver`;
+  const error = deliveries.results[ticket.ref]?.error;
+  return (
+    <div className="run">
+      <div className="run-controls">
+        <button type="button" className="btn btn-outline run-btn" title="Developer, qa, the checks, a pull request, the merge" aria-label={`Deliver ${ticket.ref}`} aria-busy={inflight || undefined} aria-describedby={state.reason ? `${id}-reason` : undefined} disabled={!state.enabled} onClick={() => deliveries.deliver(ticket.ref)}>
+          {inflight ? "Starting…" : "Deliver"}
+        </button>
+      </div>
+      {state.reason && !inflight ? <p id={`${id}-reason`} className="small muted run-reason">{state.reason}</p> : null}
+      {error ? <p className="small gate-error" role="alert">{error}</p> : null}
+    </div>
+  );
+}
+
+// A delivery that waits on the user (Needs you). Resume asks the bridge to look again and go on; Close ends it for good.
+function DeliveryDecision({ request, steer, deliveries }) {
+  const off = steer.demo ? "Demo mode: actions are off" : steer.state === "none" ? "Not signed in to steer" : null;
+  const busy = deliveries.inflight.has(request.id);
+  const error = deliveries.results[request.id]?.error;
+  return (
+    <div aria-live="polite">
+      {request.next ? <p className="small needs-expires">{request.next}</p> : null}
+      {request.pr ? <p className="small"><a href={request.pr} target="_blank" rel="noreferrer noopener">Open pull request #{request.prNumber}</a></p> : null}
+      <div className="decision-buttons">
+        <button type="button" className="btn btn-outline" title={off ?? undefined} disabled={!!off || busy} onClick={() => deliveries.steer(request.id, "close")}>Close delivery</button>
+        <button type="button" className="btn btn-solid" title={off ?? undefined} disabled={!!off || busy} aria-busy={busy || undefined} onClick={() => deliveries.steer(request.id, request.primary.action, request.primary.verdict ? { verdict: request.primary.verdict } : undefined)}>
+          {request.primary.label}
+        </button>
+      </div>
+      {error ? <p className="small gate-error" role="alert">{error}</p> : null}
+    </div>
+  );
+}
+
+/** The deliveries under way and the newest ended, and a box to deliver a change that has no ticket yet. */
+function DeliveriesSection({ snapshot, steer, deliveries }) {
+  const rows = deliveryRows(snapshot);
+  const [text, setText] = useState("");
+  const off = steer.demo ? "Demo mode: actions are off" : steer.state === "none" ? "Couldn't send: not signed in to steer" : null;
+  const sending = deliveries.inflight.has("new");
+  const send = async () => {
+    if (await deliveries.deliverText(text)) setText("");
+  };
+  return (
+    <section className="deliveries" aria-label="Deliveries">
+      <div className="slots-head">
+        <span className="ov">Deliveries</span>
+        <span className="small">{rows.filter((r) => r.state === "running").length} running</span>
+      </div>
+      {rows.length > 0 ? (
+        <ul className="queue-rows">
+          {rows.map((r) => (
+            <li key={r.id} className="queue-row" data-delivery={r.state}>
+              <div className="queue-line">
+                <span className="queue-title">{r.title}</span>
+              </div>
+              <span className="code-small muted queue-ref">{r.ref}</span>
+              <p className="small">{r.line}{r.pr ? <> · <a href={r.pr} target="_blank" rel="noreferrer noopener">pull request #{r.prNumber}</a></> : null}</p>
+              {r.facts.length > 0 ? <p className="small muted">{r.facts.join(" · ")}</p> : null}
+              {r.canStop ? <button type="button" className="btn btn-outline run-btn" aria-label={`Stop delivery of ${r.ref}`} disabled={!!off || deliveries.inflight.has(r.id)} onClick={() => deliveries.steer(r.id, "stop")}>Stop delivery</button> : null}
+              {deliveries.results[r.id]?.error && r.state !== "paused" ? <p className="small gate-error" role="alert">{deliveries.results[r.id].error}</p> : null}
+            </li>
+          ))}
+        </ul>
+      ) : <p className="small muted">Nothing is being delivered.</p>}
+      <label className="note-label" htmlFor="deliver-new">Deliver a change with no ticket yet</label>
+      <textarea id="deliver-new" className="note-field" rows={2} maxLength={2000} value={text} disabled={!!off || sending} placeholder="What to build, and how you will know it is done" onChange={(e) => setText(e.target.value)} />
+      <p className="small muted">{off ?? "Writes a ticket, then runs developer, qa, the checks and the merge."}</p>
+      <div className="run-controls">
+        <button type="button" className="btn btn-outline run-btn" disabled={!!off || sending} aria-busy={sending || undefined} onClick={send}>{sending ? "Starting…" : "Deliver"}</button>
+      </div>
+      {deliveries.results.new?.error ? <p className="small gate-error" role="alert">{deliveries.results.new.error}</p> : null}
+    </section>
+  );
+}
 
 /** Role select, Run, and the lines under them for one ticket: the disabled reason, a refusal, the usage note. */
 function RunControl({ scope, ticket, capacity, steer, run }) {
@@ -250,7 +361,7 @@ function SlotStrip({ snapshot, capacity }) {
   );
 }
 
-export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder, session, onAnswer, onOpenThread = null, capacity = null, steer = { state: "ready" }, run = null }) {
+export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder, session, onAnswer, onOpenThread = null, capacity = null, steer = { state: "ready" }, run = null, deliveries = null }) {
   const { count, requests } = needsYouModel(snapshot, now);
   const [shown, setShown] = useState(null);
   const current = requests.find((r) => r.key === shown) ?? requests[0] ?? null;
@@ -299,11 +410,13 @@ export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder,
                 <p className="needs-title">{current.title}</p>
               </div>
             </div>
-            {current.reason ? <p className={`needs-reason${current.reasonFallback ? " muted needs-reason-none" : ""}`}>{current.reasonFallback ? current.reason : <q>{current.reason}</q>}</p> : null}
+            {current.reason ? <p className={`needs-reason${current.reasonFallback ? " muted needs-reason-none" : ""}`}>{current.reasonFallback || current.plain ? current.reason : <q>{current.reason}</q>}</p> : null}
             {current.preview.length > 0 ? <pre className="code-well" aria-label={current.detailLabel}><code>{current.preview.join("\n")}</code></pre> : null}
             {isDispatch && run ? <RunControl key={`run-${current.key}`} scope="dispatch" ticket={dispatchTicket} capacity={capacity} steer={steer} run={run} /> : null}
             {current.kind === "permission"
               ? <PermissionDecision key={current.key} request={current} onAnswer={onAnswer} onOpenThread={onOpenThread} />
+              : current.kind === "delivery"
+                ? (deliveries ? <DeliveryDecision key={current.key} request={current} steer={steer} deliveries={deliveries} /> : null)
               : prompt.show
                 ? <Decision key={current.key} ref={decision} request={current} session={session} />
                 : <p className="small muted dispatch-line">{prompt.line}</p>}
@@ -326,7 +439,7 @@ export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder,
   );
 }
 
-export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZoomStation, capacity = null, steer = { state: "ready" }, run = null }) {
+export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZoomStation, capacity = null, steer = { state: "ready" }, run = null, deliveries = null }) {
   const m = stationsModel(snapshot);
   const listed = new Set(m.next.map((r) => r.ref));
   const notes = run ? Object.entries(run.results).filter(([ref, v]) => v.notice && !listed.has(ref)) : []; // the row left the list: say it here instead
@@ -361,6 +474,7 @@ export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZo
         ))}
       </div>
       <SlotStrip snapshot={snapshot} capacity={capacity} />
+      {deliveries ? <DeliveriesSection snapshot={snapshot} steer={steer} deliveries={deliveries} /> : null}
       {notes.map(([ref, v]) => <p key={ref} className="small muted"><span className="code-small">{ref}</span> {v.notice}</p>)}
       <p className="ov">Next on the susan</p>
       {m.next.length === 0 ? (
@@ -375,6 +489,7 @@ export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZo
               </div>
               <span className="code-small muted queue-ref">{r.ref}</span>
               {run ? <RunControl scope="stations" ticket={{ ref: r.ref, type: r.type }} capacity={capacity} steer={steer} run={run} /> : null}
+              {deliveries ? <DeliverControl scope="stations" ticket={{ ref: r.ref, type: r.type }} snapshot={snapshot} steer={steer} deliveries={deliveries} /> : null}
             </li>
           ))}
         </ul>
@@ -396,6 +511,7 @@ export function Cards({ snapshot, now, connection, placeholder, camera, steering
   // 228: capacity is recomputed from the snapshot's agents and locks each render (the hub sends no capacity change frame).
   const client = useMemo(() => createBridgeClient({ fetch: steering.session.fetch }), [steering.session]);
   const run = useRunner(client);
+  const deliveries = useDeliveries(client);
   const capacity = capacityFromSnapshot(snapshot);
   const steer = { state: steering.state, demo };
 
@@ -410,8 +526,8 @@ export function Cards({ snapshot, now, connection, placeholder, camera, steering
   return (
     <div className="cards">
       {steering.message ? <p className="small muted session-none" data-session="none" role="status">{steering.message}</p> : null}
-      <NeedsYouCard snapshot={snapshot} now={now} open={needs} onToggle={toggleNeeds} busy={busy} placeholder={placeholder} session={steering.session} onAnswer={onAnswer} onOpenThread={onOpenThread} capacity={capacity} steer={steer} run={run} />
-      <StationsCard snapshot={snapshot} open={stationsOpen} onToggle={toggleStations} busy={busy} placeholder={placeholder} onZoomStation={(id) => camera.goToStation(id)} capacity={capacity} steer={steer} run={run} />
+      <NeedsYouCard snapshot={snapshot} now={now} open={needs} onToggle={toggleNeeds} busy={busy} placeholder={placeholder} session={steering.session} onAnswer={onAnswer} onOpenThread={onOpenThread} capacity={capacity} steer={steer} run={run} deliveries={deliveries} />
+      <StationsCard snapshot={snapshot} open={stationsOpen} onToggle={toggleStations} busy={busy} placeholder={placeholder} onZoomStation={(id) => camera.goToStation(id)} capacity={capacity} steer={steer} run={run} deliveries={deliveries} />
     </div>
   );
 }

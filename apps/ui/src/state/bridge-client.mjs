@@ -117,5 +117,25 @@ export function createBridgeClient({ fetch }) {
       if (body == null) throw failure(200, "The bridge sent an unreadable answer.");
       return body;
     },
+    // den-mvp outcome 3: deliver a ticket as software (developer, qa, the checks, a pull request, the merge). Pressing
+    // Deliver is the approval. With `text` and no ref, the bridge writes the ticket first. -> { delivery, ticket? }
+    async deliver({ ref, text } = {}) {
+      const trimmed = typeof text === "string" ? text.trim() : "";
+      if (!ref && !trimmed) throw failure(0, "Write what to build first.");
+      if (!ref && new TextEncoder().encode(trimmed).length > MESSAGE_MAX_BYTES) throw failure(0, `Tasks are limited to ${MESSAGE_MAX_BYTES} bytes.`);
+      const body = await call("/deliveries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ref ? { ref } : { text: trimmed }) });
+      if (body == null) throw failure(200, "The bridge sent an unreadable answer.");
+      return body;
+    },
+    // Resume, stop or close one delivery. `verdict: "approve"` on a resume is the user's visual verdict on a UI change.
+    async steerDelivery(id, action, { verdict } = {}) {
+      if (!["resume", "stop", "close"].includes(action)) throw failure(0, "Unknown action.");
+      const body = await call(`/deliveries/${encodeURIComponent(id)}/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action === "resume" && verdict ? { verdict } : {}),
+      });
+      return body ?? { ok: true };
+    },
   };
 }

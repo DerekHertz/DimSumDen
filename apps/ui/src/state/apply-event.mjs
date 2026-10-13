@@ -23,6 +23,14 @@ export function applyEvent(state, event) {
       next.approvals = found ? approvals.map((a) => (a.id === event.approval.id ? event.approval : a)) : [...approvals, event.approval];
       break;
     }
+    // den-mvp outcome 3: a delivery job and each change to it. An ended one is kept with its state, as the snapshot keeps it.
+    case "delivery": {
+      if (!event.delivery?.id) return null;
+      const deliveries = Array.isArray(state.deliveries) ? state.deliveries : [];
+      const found = deliveries.some((d) => d.id === event.delivery.id);
+      next.deliveries = found ? deliveries.map((d) => (d.id === event.delivery.id ? event.delivery : d)) : [...deliveries, event.delivery];
+      break;
+    }
     case "ticket": {
       const rest = state.tickets.filter((t) => t.ref !== event.ref);
       if (event.ticket) rest.push(event.ticket);

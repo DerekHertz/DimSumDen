@@ -2,6 +2,7 @@
 // passed in. Copy comes from docs/design/2026-10-01-iso-den.md section 4. Agent text (ticket titles) is untrusted:
 // the components render it as React text nodes only.
 import { gatesModel } from "../panel/gates-model.mjs";
+import { deliveryRequests } from "./delivery-model.mjs";
 import { queueModel } from "../panel/queue-model.mjs";
 import { cellTypeOf, sceneFromState } from "../scene/scene-from-state.mjs";
 import { stationOf } from "../scene/banquet-layout.mjs";
@@ -132,7 +133,8 @@ export function needsYouModel(snapshot, nowMs) {
       pending: card.pending,
     };
   });
-  const requests = [...permissionRequests(snapshot, nowMs), ...gates];
+  // den-mvp outcome 3: a delivery that waits on the user sits between the two.
+  const requests = [...permissionRequests(snapshot, nowMs), ...deliveryRequests(snapshot), ...gates];
   return { count: requests.length, requests };
 }
 
