@@ -32,7 +32,7 @@ describe("Needs you: a permission request the bridge holds", () => {
     assert.equal(r.role, "scout");
     assert.equal(r.station, "steamers");
     assert.equal(r.eyebrow, "Scout · den/02-scout");
-    assert.equal(r.title, "wants to Read");
+    assert.equal(r.title, "Wants to read a file"); // organism-infra/230: what is asked, in plain words
     assert.deepEqual(r.preview, ["/home/u/den/package.json"]);
     assert.equal(r.expires, "expires in 7 min"); // 7:55 left: whole minutes, never more than is left
     assert.equal(r.rowText, "02-scout · Read");
@@ -85,7 +85,7 @@ describe("Needs you: a permission request the bridge holds", () => {
 
   test("an untrusted tool name or summary stays plain text in the model", () => {
     const [r] = needsYouModel(snap({ approvals: [approval({ tool: "<b>Bash</b>", summary: "rm -rf <img>" })] }), NOW).requests;
-    assert.equal(r.title, "wants to <b>Bash</b>");
+    assert.equal(r.title, "Wants to use <b>Bash</b>");
     assert.deepEqual(r.preview, ["rm -rf <img>"]);
   });
 

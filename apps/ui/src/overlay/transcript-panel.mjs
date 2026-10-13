@@ -11,7 +11,9 @@ function toggle(state, card) {
   if (state.agentId) return closeTranscript();
   if (!card) return null;
   const f = card.actions?.R;
-  if (f?.enabled && card.agentId) return { agentId: card.agentId, notice: null };
+  // den-mvp outcome 2: a panda whose newest run has ended opens that run's thread (`threadId`), where it can be followed up.
+  const id = card.agentId ?? card.threadId ?? null;
+  if (f?.enabled && id) return { agentId: id, notice: null };
   return { agentId: null, notice: f?.reason ?? null };
 }
 

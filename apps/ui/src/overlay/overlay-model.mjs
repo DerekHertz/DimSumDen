@@ -5,6 +5,7 @@ import { gatesModel } from "../panel/gates-model.mjs";
 import { queueModel } from "../panel/queue-model.mjs";
 import { cellTypeOf, sceneFromState } from "../scene/scene-from-state.mjs";
 import { stationOf } from "../scene/banquet-layout.mjs";
+import { toolVerb, reasonText, detailLabel } from "./thread-model.mjs";
 
 export const STATION_NAME = {
   pass: "Pass", steamers: "Steamers", tea: "Tea", pantry: "Pantry", "front-of-house": "Front of House",
@@ -81,7 +82,10 @@ function permissionRequests(snapshot, nowMs) {
       role,
       station,
       eyebrow: [name, ref].filter(Boolean).join(" · "),
-      title: `wants to ${tool}`,
+      // organism-infra/230: the card leads with what is asked in plain words and why; the command is the detail under it.
+      title: `Wants to ${toolVerb(a.tool)}`,
+      ...(() => { const why = reasonText(a); return { reason: why.text, reasonFallback: why.fallback }; })(),
+      detailLabel: detailLabel(a.tool),
       rowText: [shortRef(ref), tool].filter(Boolean).join(" · "),
       preview: typeof a.summary === "string" && a.summary ? [a.summary] : [],
       expires: expiresText(a.expiresAt, nowMs),

@@ -64,12 +64,13 @@ function cardOf(nearest, approvals) {
   const actions = {
     // The QERT row (live den run, 2026-10-10): A and D walk, so no action sits on them.
     Q: action(permissionReason), E: action(permissionReason),
-    R: action(inactive),
+    // den-mvp outcome 2: the thread also opens on the newest run that has ended, so it can be read and followed up.
+    R: action(past ? null : inactive),
     T: action(start ? null : inactive || (agent.capabilities?.send !== true ? 'runtime cannot send messages' : null)),
   };
   return {
     id: nearest.id, name: nearest.name, role: nearest.role, station: nearest.station,
-    agentId: agent?.id ?? null, ref: agent?.ref ?? nearest.ref ?? null, start,
+    agentId: agent?.id ?? null, threadId: agent?.id ?? past?.id ?? null, ref: agent?.ref ?? nearest.ref ?? null, start,
     state, tool: agent ? agent.tool ?? null : nearest.agent ? null : nearest.tool ?? null, approval, actions,
     last: past ? {
       state: past.state, ref: typeof past.ref === 'string' ? past.ref : null, label: `Last task: ${LAST[past.state]}`,

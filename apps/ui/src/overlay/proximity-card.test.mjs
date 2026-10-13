@@ -79,7 +79,8 @@ test('permission actions need a pending request for this agent; ended agents ret
     assert.equal(card.agentId, null);
     assert.equal(card.state, 'resident');
     assert.equal(card.start, true, 'an ended agent leaves a resident that can be given a new task');
-    assert.equal(card.actions.R.reason, 'no agent running');
+    // den-mvp outcome 2: the ended run's thread still opens, so it can be read and followed up.
+    assert.deepEqual([card.actions.R.enabled, card.threadId], [true, 'c-qa']);
   }
 });
 

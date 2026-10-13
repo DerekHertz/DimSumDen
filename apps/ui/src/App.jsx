@@ -101,6 +101,8 @@ export function App() {
   const approval = useApprovalReview({ client: bridge, card: answerCard, exploring: engaged, cursorFree, demo: inDemo, snapshot, onOpen: onReviewOpen });
   const answerRequest = useCallback((card) => { if (card) approval.review.open(card, { mode: "card", demo: inDemo }); }, [approval.review, inDemo]);
   const answerAgent = useCallback((agentId) => answerRequest(requests.find((r) => r.card?.agentId === agentId)?.card), [answerRequest, requests]);
+  // organism-infra/230: "Open thread" on a Needs you card opens that agent's conversation, in or out of walk mode.
+  const openThread = useCallback((card) => { if (card?.agentId) transcript.openFor(card.agentId, { name: card.name, role: card.role, state: card.state }); }, [transcript.openFor]);
   // den-v1/07: T opens the message composer. A message the agent took shows on its transcript entry (den-v1 loop S5), which reaches the composer with each snapshot and frame.
   const message = useMessageComposer({ client: bridge, card: nearby, exploring: engaged, cursorFree, demo: inDemo, snapshot, transcripts: live.transcripts, onOpen: releaseCursor, blocked: approvalOpen });
   messageClose.current = message.composer.close;
@@ -168,7 +170,8 @@ export function App() {
           <MessageComposer composer={message.composer} state={message.state} />
         </div>
         <ApprovalPanel review={approval.review} state={approval.state} />
-        <TranscriptPanel tx={transcript} transcripts={denDemo.transcripts ?? live.transcripts} agents={snapshot?.agents} approvals={inDemo ? null : snapshot?.approvals} onAnswer={answerAgent} connection={denDemo.active ? { phase: "live" } : connection} />
+        <TranscriptPanel tx={transcript} transcripts={denDemo.transcripts ?? live.transcripts} agents={snapshot?.agents} approvals={inDemo ? null : snapshot?.approvals} onAnswer={answerAgent} connection={denDemo.active ? { phase: "live" } : connection}
+          client={bridge} signedIn={steering.state !== "none"} demo={inDemo} />
         <div className="den-crosshair" aria-hidden="true" hidden={!exploring || cursorFree}>+</div>
         {snapshot && cells.length === 0 ? <p className="scene-caption scene-empty">The den is quiet. No active tickets.</p> : null}
         {overflow > 0 ? <p className="scene-caption scene-more">+{overflow} more in queue</p> : null}
@@ -177,7 +180,7 @@ export function App() {
       <DemoButton ref={demoButton} state={denDemo} onToggle={denDemoMode.toggle} />
       {denDemo.active ? <DemoStrip loops={denDemo.loops} /> : null}
       <DemoAnnouncer text={denDemo.announcement} />
-      <Cards snapshot={snapshot} now={now} connection={connection} placeholder={placeholder} camera={camera} steering={steering} onAnswer={inDemo ? null : answerRequest} demo={inDemo} />
+      <Cards snapshot={snapshot} now={now} connection={connection} placeholder={placeholder} camera={camera} steering={steering} onAnswer={inDemo ? null : answerRequest} onOpenThread={inDemo ? null : openThread} demo={inDemo} />
       <div className="den-entry">
         <button type="button" className="btn btn-solid" aria-pressed={exploring} aria-disabled={!den || undefined}
           onClick={()=>{if(stage.explorer?.active)stage.explorer.exit();else stage.explorer?.enter();}}>

@@ -2,7 +2,7 @@
 // buffers = { [agentId]: { entries, dropped } }, oldest first; each entry carries n, its 1-based arrival number.
 export const TRANSCRIPT_CAP = 200;
 
-const KINDS = new Set(["message", "tool", "permission", "ended"]);
+const KINDS = new Set(["message", "tool", "permission", "ended", "stop"]); // stop: organism-infra/230, the trail of a stop
 
 const isObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 const readable = (entry) => (isObject(entry) && KINDS.has(entry.kind) ? entry : { kind: "unreadable", type: isObject(entry) && typeof entry.kind === "string" ? entry.kind : "unknown" });

@@ -14,10 +14,10 @@ const snapshot = () => ({
   tickets: [{ ref: 'den/02-scout', feature: 'den', title: '02: Den task for scout', type: 'task', status: 'ready-for-agent', ready: true, priority: 'P2', effectivePriority: 'P2', blockedBy: [], holder: null, gate: null }],
   agents: [{ id: AGENT, ref: 'den/02-scout', role: 'scout', mode: 'direct', runtime: 'claude', state: 'waiting_on_user', startedAt: new Date(Date.now() - 60000).toISOString(), lastEventAt: new Date().toISOString(),
     tool: { name: 'Read', summary: TARGET }, tokens: null, capabilities: { stop: true, approve: true, send: true, handover: false } }],
-  approvals: [{ id: APPROVAL, agentId: AGENT, tool: 'Read', summary: TARGET, inputLength: 37, truncated: false, ts: new Date().toISOString(), expiresAt: new Date(Date.now() + 8 * 60000 + 30000).toISOString(), state: 'pending' }],
+  approvals: [{ id: APPROVAL, agentId: AGENT, tool: 'Read', summary: TARGET, says: 'I need the scripts list before I pick a test command.', intent: null, inputLength: 37, truncated: false, ts: new Date().toISOString(), expiresAt: new Date(Date.now() + 8 * 60000 + 30000).toISOString(), state: 'pending' }],
   transcripts: { [AGENT]: { dropped: 0, entries: [
     { id: 1, at: new Date().toISOString(), kind: 'tool', name: 'Read', summary: TARGET, status: 'running' },
-    { id: 2, at: new Date().toISOString(), kind: 'permission', name: 'Read', status: 'pending' },
+    { id: 2, at: new Date().toISOString(), kind: 'permission', name: 'Read', status: 'pending', approvalId: APPROVAL },
     { id: 3, at: new Date().toISOString(), kind: 'tool', name: 'Bash', summary: 'rg -n claim docs', status: 'done', result: 'ok' },
   ] } },
 });
@@ -61,7 +61,7 @@ test('overview: a held permission request is shown and opens from Needs you, a c
     const needs = page.locator('[data-overlay=needs-you]');
     await needs.locator('[data-answer=allow]').waitFor();
     const needsText = await needs.innerText();
-    for (const part of ['Scout · den/02-scout', 'wants to Read', TARGET, 'expires in 8 min', 'Deny', 'Allow']) assert.ok(needsText.includes(part), `Needs you shows "${part}": ${needsText}`);
+    for (const part of ['Scout · den/02-scout', 'Wants to read a file', TARGET, 'expires in 8 min', 'Deny', 'Allow']) assert.ok(needsText.includes(part), `Needs you shows "${part}": ${needsText}`);
     const review = page.locator('.approval-panel');
     await needs.locator('[data-answer=allow]').click();
     await review.waitFor();
@@ -86,11 +86,19 @@ test('overview: a held permission request is shown and opens from Needs you, a c
     assert.match(await card.innerText(), /The Scout[\s\S]*Needs your answer[\s\S]*den\/02-scout[\s\S]*Waiting on you · Read/);
     assert.deepEqual(await card.locator('button[data-key]:not(:disabled)').evaluateAll(b => b.map(x => x.dataset.key)), ['Q', 'E', 'R', 'T']);
 
-    // 4. R opens the transcript; the waiting row names the target and has Deny and Allow, which open the review.
+    // 4. R opens the thread; the ask leads with the reason, keeps the target under "Show the file", and has Deny and Allow,
+    //    which open the review (organism-infra/230).
     await page.keyboard.press('KeyR');
     const asking = page.locator('.transcript-panel .transcript-asking');
     await asking.waitFor();
-    assert.match(await asking.innerText(), new RegExp(`Waiting on you\\s+Read ${TARGET}\\s+Deny\\s+Allow`));
+    assert.match(await asking.innerText(), /Asking to read a file · waiting on you · expires in \d+ min\s+I need the scripts list before I pick a test command\.\s+Show the file\s+Deny\s+Allow\s+Opens the full request first/);
+    await asking.locator('summary').click();
+    assert.ok((await asking.innerText()).includes(TARGET), 'the target is under "Show the file"');
+    // This page has no steering session: Stop and Send are shown switched off, with the reason as text.
+    const stopButton = page.locator('.thread-foot .thread-stop');
+    assert.deepEqual([await stopButton.innerText(), await stopButton.isDisabled()], ['Stop agent', true]);
+    assert.match(await page.locator('.thread-foot-note').innerText(), /not signed in to steer/);
+    assert.match(needsText, /I need the scripts list before I pick a test command\./, 'the Needs you card says why');
     assert.match(await page.locator('.transcript-panel .transcript-state').innerText(), /Needs your answer/);
     await asking.locator('[data-answer=deny]').click();
     await review.waitFor();

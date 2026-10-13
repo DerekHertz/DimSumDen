@@ -51,7 +51,7 @@ test("a permission request raised after the page loaded reaches the page, and it
   assert.deepEqual(shared(held), shared(await t.state()), "the page's state is the bridge's state");
   const [request] = needsYouModel(held, Date.now()).requests.filter((r) => r.kind === "permission");
   assert.ok(request, "Needs you lists the request");
-  assert.equal(request.title, "wants to Read");
+  assert.equal(request.title, "Wants to read a file");
   assert.deepEqual(request.preview, ["/outside/package.json"]);
   const row = held.agents.find((a) => a.id === agent.id);
   const card = cardFor([{ id: "architect", role: "architect", position: { x: 0, z: -1 }, agent: row }], held.approvals, { x: 0, z: 0, yaw: 0 });
