@@ -14,6 +14,7 @@ import { until } from "./host-test-helpers.mjs";
 import { makeStub, alive } from "./claude-stub.mjs";
 import { buildClaudeArgs } from "./claude-adapter.mjs";
 import { createClaudeRuntime } from "./claude-runtime.mjs";
+import { unconfinedLauncher } from "./launcher-test-helpers.mjs";
 
 const SESSION = "0b8f1c1e-5c1a-4c0e-9a55-3f2d9e7a4b10";
 const DENY = ["Write(.claude/**)", "Edit(.claude/**)", "Bash(git push:*)", "Bash(gh pr create:*)"];
@@ -34,7 +35,7 @@ afterEach(async () => {
 async function launch(role, { dirName = "den-wall-cwd-", extra = {} } = {}) {
   const stub = await makeStub({ mode: "hang" });
   const cwd = await mkdtemp(path.join(tmpdir(), dirName));
-  const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+  const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
   const proc = await runtime.spawn({ role, cwd, prompt: "do the thing", sessionId: SESSION, ...extra });
   cleanups.push(async () => {
     try {
@@ -80,12 +81,14 @@ describe("the runtime passes the wall for a role with a ceiling", () => {
   });
 });
 
-describe("a role with no ceiling starts as it does today", () => {
+describe("every role starts behind the wall (den-mvp outcome 1)", () => {
   for (const role of ["architect", "designer", "product", "herald", "orchestrator"]) {
-    test(`${role}: no sandbox and the unchanged argv`, async () => {
-      const { argv, settings } = await launch(role);
-      assert.equal(Object.hasOwn(settings, "sandbox"), false);
-      assert.deepEqual(argv, buildClaudeArgs({ sessionId: SESSION, agent: role }));
+    test(`${role}: the sandbox is on, strict, with no host`, async () => {
+      const { settings } = await launch(role);
+      assert.equal(settings.sandbox?.enabled, true);
+      assert.equal(settings.sandbox.failIfUnavailable, true);
+      assert.equal(settings.sandbox.allowUnsandboxedCommands, false);
+      assert.deepEqual(settings.sandbox.network, { allowedDomains: [], strictAllowlist: true });
     });
   }
 });

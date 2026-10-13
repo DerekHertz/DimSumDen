@@ -69,14 +69,19 @@ const FORBID_PATH_RE = /^(?!.*(?:^|\/)\.{1,2}(?:\/|$))[A-Za-z0-9._@-]+(?:\/[A-Za
 const FORBID_RUN_RE = /^[A-Za-z0-9._-]+(?: [A-Za-z0-9._-]+)*$/;
 const FORBID_MAX = 40;
 const isForbidList = (list, re) => isDense(list) && list.length <= FORBID_MAX && list.every((e) => typeof e === "string" && re.test(e));
+// den-mvp outcome 1 (spec section 3): where credentials are kept, as ~/ paths of plain segments. No agent reads or writes them.
+const CREDENTIAL_RE = /^~(?:\/[A-Za-z0-9._@+-]+)+$/;
+const isCredentialList = (list) => isForbidList(list, CREDENTIAL_RE) && list.every((p) => !p.split("/").some((part) => part === "." || part === ".."));
 {
-  const ok = isPlainObject(GOVERNANCE) && Object.keys(GOVERNANCE).length === 4 &&
+  const ok = isPlainObject(GOVERNANCE) && Object.keys(GOVERNANCE).length === 5 && isCredentialList(GOVERNANCE.credentialPaths) &&
     isForbidList(GOVERNANCE.ciPaths, FORBID_PATH_RE) && isForbidList(GOVERNANCE.guardrailPaths, FORBID_PATH_RE) &&
     isForbidList(GOVERNANCE.denyRun, FORBID_RUN_RE) && isDense(GOVERNANCE.ciGrantRoles) && GOVERNANCE.ciGrantRoles.every((r) => ROLES.includes(r));
   if (!ok) throw new Error("governance.json: bad governance data");
 }
 const isForbid = (f) => isPlainObject(f) && Object.keys(f).length === 2 && isForbidList(f.write, FORBID_PATH_RE) && isForbidList(f.run, FORBID_RUN_RE);
 const baseOf = (entry) => entry.replace(/\/\*\*$/, "");
+/** The credential stores of governance.json. The runtime passes the ones that exist to compileCeiling: a deny target must exist. */
+export const CREDENTIAL_PATHS = Object.freeze([...GOVERNANCE.credentialPaths]);
 /** The governed paths of a checkout (guardrail and CI), relative and without a trailing /** (agent-os/07: a path grant on one is a 400). */
 export const GOVERNED_BASES = Object.freeze([...new Set([...GOVERNANCE.guardrailPaths, ...GOVERNANCE.ciPaths].map(baseOf))]);
 
@@ -112,13 +117,13 @@ export function parseGrants(grants) {
 const DENY_ABS_RE = /^(?:\/[A-Za-z0-9._@+-]+)+(?:\/\*\*)?$/;
 const DENY_ABS_MAX = GRANTS_MAX * 2 * FORBID_MAX;
 
-const sandboxFor = (wall, worktree, forbid, writePaths, readLimit, ticketFile, denyAbs) => {
+const sandboxFor = (wall, worktree, forbid, writePaths, readLimit, ticketFile, denyAbs, credentials) => {
   // Shell writes: the sandbox's own deny list, in the absolute form when the worktree is known, plus the governed paths of the
   // main checkout that a path grant reaches.
   const denyWrite = [...new Set([...(forbid?.write ?? []).map((p) => (worktree === undefined ? baseOf(p) : `${worktree}/${baseOf(p)}`)), ...(denyAbs ?? []).map(baseOf)])];
   const filesystem = { ...(denyWrite.length === 0 ? {} : { denyWrite }), ...(writePaths?.length ? { allowWrite: [...writePaths] } : {}),
     // The read limit for a shell command (live check, agent-os/02): the home directory is closed, the worktree, the ticket and granted paths re-opened.
-    ...(readLimit === true ? { denyRead: ["~/"], allowRead: [...(worktree === undefined ? [] : [worktree]), ...(ticketFile === undefined ? [] : [`/${ticketFile}`.slice(1)]), ...(writePaths ?? [])] } : {}) };
+    ...(readLimit === true ? { denyRead: ["~/"], allowRead: [...(worktree === undefined ? [] : [worktree]), ...(ticketFile === undefined ? [] : [`/${ticketFile}`.slice(1)]), ...(writePaths ?? [])] } : credentials?.length ? { denyRead: [...credentials] } : {}) };
   return {
     enabled: true,
     failIfUnavailable: true,
@@ -130,8 +135,10 @@ const sandboxFor = (wall, worktree, forbid, writePaths, readLimit, ticketFile, d
 };
 // A file tool's rule for a path: `//abs` for an absolute one (the adapter's form), `~/x` for a home one.
 const ruleForm = (p) => (p.startsWith("/") ? `/${p}` : p);
-const settingsFor = ({ ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs }) => {
+const settingsFor = ({ ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs, credentials }) => {
   const allow = [
+    // A host the ceiling or a grant names may be fetched without a question; any other fetch is one (or is refused, see webRefusal).
+    ...(wall?.hosts ?? []).map((h) => `WebFetch(domain:${h})`),
     ...(ticketFile === undefined ? [] : [`Read(/${ticketFile})`]),
     ...(worktree === undefined ? [] : [`Write(/${worktree}/**)`, `Edit(/${worktree}/**)`]),
     ...(writePaths ?? []).flatMap((p) => [`Write(${ruleForm(p)}/**)`, `Edit(${ruleForm(p)}/**)`]),
@@ -141,13 +148,14 @@ const settingsFor = ({ ticketFile, wall, worktree, forbid, writePaths, readLimit
     ...DENY_RULES,
     ...denyPaths.flatMap((p) => [`Write(${p})`, `Edit(${p})`]),
     ...(denyAbs ?? []).flatMap((p) => [`Write(${ruleForm(p)})`, `Edit(${ruleForm(p)})`]),
+    ...(credentials ?? []).flatMap((p) => [`Read(${p})`, `Read(${p}/**)`, `Edit(${p})`, `Edit(${p}/**)`]),
     // An infix rule, so a command wrapped in a newline, $(...), backticks or <(...) is still caught. Words are joined by "*",
     // so `git -C dir push` and a doubled space match too.
     ...(forbid?.run ?? []).map((words) => `Bash(*${words.split(" ").join(" *")}*)`),
   ];
   return JSON.stringify({
     permissions: { deny: [...new Set(deny)], ...(allow.length === 0 ? {} : { allow }), ...(readLimit === true ? { blockReadsOutsideWorkingDirectories: true, ...(ticketFile === undefined ? {} : { additionalDirectories: [ticketFile.slice(0, ticketFile.lastIndexOf("/"))] }) } : {}) },
-    ...(wall === undefined ? {} : { sandbox: sandboxFor(wall, worktree, forbid, writePaths, readLimit, ticketFile, denyAbs) }),
+    ...(wall === undefined ? {} : { sandbox: sandboxFor(wall, worktree, forbid, writePaths, readLimit, ticketFile, denyAbs, credentials) }),
   });
 };
 
@@ -215,8 +223,9 @@ function governedUnder(grant, root, worktree) {
  * worktree undefined leaves the write rules out (the wall stays, the Write request stays). Any grant outside the fixed shape,
  * any grant for a role that cannot write, and a path grant that contains the worktree are TypeErrors.
  */
-export function compileCeiling(role, { worktree, grants, root, home, mainGit } = {}) {
+export function compileCeiling(role, { worktree, grants, root, home, mainGit, credentials } = {}) {
   const { hosts: grantHosts, paths } = parseGrants(grants);
+  if (credentials !== undefined && !(isDense(credentials) && credentials.every((p) => CREDENTIAL_PATHS.includes(p)))) throw new TypeError("compileCeiling: credentials must be paths from governance.json");
   if (root !== undefined && !isWorktreePath(root)) throw new TypeError("compileCeiling: root must be a plain absolute path");
   if (mainGit !== undefined && !isWorktreePath(mainGit)) throw new TypeError("compileCeiling: mainGit must be a plain absolute path");
   if (home !== undefined && !isWorktreePath(home)) throw new TypeError("compileCeiling: home must be a plain absolute path");
@@ -251,6 +260,7 @@ export function compileCeiling(role, { worktree, grants, root, home, mainGit } =
     ...(denyAbs.length === 0 ? {} : { denyAbs }),
     ...(paths.length === 0 ? {} : { writePaths: paths }),
     ...(hosts.length === 0 ? {} : { readLimit: true }),
+    ...(credentials?.length ? { credentials: [...credentials] } : {}),
   };
 }
 
@@ -264,9 +274,10 @@ export function compileCeiling(role, { worktree, grants, root, home, mainGit } =
 export function buildClaudeArgs(options) {
   if (!isPlainObject(options)) throw new TypeError("buildClaudeArgs needs { sessionId, agent, model?, ticketFile?, wall?, worktree? }");
   for (const key of Object.keys(options)) {
-    if (!["sessionId", "agent", "model", "ticketFile", "wall", "worktree", "forbid", "writePaths", "readLimit", "denyAbs"].includes(key)) throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
+    if (!["sessionId", "agent", "model", "ticketFile", "wall", "worktree", "forbid", "writePaths", "readLimit", "denyAbs", "credentials"].includes(key)) throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
   }
-  const { sessionId, agent, model, ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs } = options;
+  const { sessionId, agent, model, ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs, credentials } = options;
+  if (credentials !== undefined && !(wall !== undefined && isDense(credentials) && credentials.every((p) => CREDENTIAL_PATHS.includes(p)))) throw new TypeError("buildClaudeArgs: credentials must be paths from governance.json, with the wall");
   if (wall !== undefined && !isWall(wall)) throw new TypeError("buildClaudeArgs: wall must be { hosts: [plain host names] }");
   // agent-os/02: the governance denies, task-granted write paths and the read limit all come from compileCeiling and need the wall.
   if (forbid !== undefined && !isForbid(forbid)) throw new TypeError("buildClaudeArgs: forbid must be { write: [plain paths], run: [plain words] }");
@@ -291,8 +302,27 @@ export function buildClaudeArgs(options) {
     ...(model === undefined ? [] : ["--model", model]),
     "--setting-sources", "project,local",
     "--strict-mcp-config",
-    "--settings", settingsFor({ ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs }),
+    "--settings", settingsFor({ ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs, credentials }),
   ];
+}
+
+// ---- web destinations (den-mvp outcome 1, spec section 3) -------------------------------------
+// The shell sandbox does not cover the CLI's own web tools, so their permission requests are checked here. A fetch whose
+// destination is not a public host name (an IP literal, localhost, a private or single-label name, a non-http scheme) is
+// refused outright; anything else stays a question for the user unless an allow rule above already covers its host.
+const WEB_REFUSAL = "The den refuses web requests to local, private or numeric destinations.";
+/** The deny reason for a web tool's request, or null when the request may go on to the user. */
+export function webRefusal(tool, input) {
+  if (tool !== "WebFetch") return null;
+  let url;
+  try {
+    url = new URL(input?.url);
+  } catch {
+    return WEB_REFUSAL;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return WEB_REFUSAL;
+  if (url.username !== "" || url.password !== "") return WEB_REFUSAL;
+  return isWallHost(url.hostname.replace(/\.$/, "")) ? null : WEB_REFUSAL;
 }
 
 // ---- environment ---------------------------------------------------------------------------

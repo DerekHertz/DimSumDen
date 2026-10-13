@@ -39,12 +39,16 @@ const names = (rec) => rec.calls.map((c) => c.call);
 const at = (rec, call) => rec.calls.find((c) => c.call === call)?.at;
 
 describe("policy constants (cells/policy.mjs)", () => {
-  test("the caps, the grace and the relay-hop roles are the ones ADR 0016 and CLAUDE.md name", async () => {
+  test("the slots, the caps and the grace are the ones the den-mvp spec names: two workers, one Bao, one scout", async () => {
     const p = await loadPolicy();
-    assert.equal(p.MAX_CONCURRENT_AGENTS, 8); // organism-infra/226: raised from 2 (user, 2026-10-12)
-    assert.equal(p.SESSION_CAP, 8);
+    assert.deepEqual({ ...p.SLOTS }, { worker: 2, bao: 1, scout: 1 });
+    assert.equal(p.MAX_CONCURRENT_AGENTS, 2);
+    assert.equal(p.SESSION_CAP, 4);
     assert.equal(p.KILL_GRACE_MS, 5000);
-    assert.deepEqual([...p.RELAY_HOP_ROLES].sort(), ["developer", "qa", "security"]);
+    assert.equal(p.slotClassOf("orchestrator"), "bao");
+    assert.equal(p.slotClassOf("scout"), "scout");
+    for (const role of ["developer", "qa", "security", "product", "architect", "designer", "herald"]) assert.equal(p.slotClassOf(role), "worker", role);
+    assert.equal(p.RELAY_HOP_ROLES, undefined, "no role is refused by name any more");
   });
 });
 
@@ -55,7 +59,7 @@ describe("the fake runtime (cells/runtime.mjs)", () => {
     assert.equal(typeof fake.id, "string");
     for (const k of ["spawn", "stop", "approve", "send", "handover"]) assert.equal(typeof fake.capabilities[k], "boolean", k);
     assert.equal(fake.capabilities.spawn, true);
-    const proc = await fake.spawn({ role: "scout", ref: `${FEATURE}/21-x`, cwd: "/tmp", prompt: "p", sessionId: randomUUID() });
+    const proc = await fake.spawn({ role: "architect", ref: `${FEATURE}/21-x`, cwd: "/tmp", prompt: "p", sessionId: randomUUID() });
     assert.equal(typeof proc.handle, "string");
     assert.equal(typeof proc.closeInput, "function");
     assert.equal(typeof proc.signal, "function");
@@ -172,17 +176,17 @@ describe("dispatch: a fake-runtime agent starts, streams events, and is killed (
 
   test("a done with ok:false is failed; the slot is free again and the ref can be dispatched again", async () => {
     t = await makeBridge();
-    const { agent } = (await t.dispatch("scout")).body;
+    const { agent } = (await t.dispatch("architect")).body;
     t.fake.spawns[0].emit({ type: "done", ok: false });
     t.fake.spawns[0].exit({ code: 1 });
     await until(async () => (await t.agent(agent.id))?.state === "failed", { what: "failed" });
-    const again = await t.dispatch("scout");
+    const again = await t.dispatch("architect");
     assert.equal(again.status, 201, again.text);
   });
 
   test("a process that exits on its own is no longer live: its resume string is set", async () => {
     t = await makeBridge();
-    const { agent } = (await t.dispatch("scout")).body;
+    const { agent } = (await t.dispatch("architect")).body;
     t.fake.spawns[0].exit({ code: 0 });
     const a = await until(async () => {
       const x = await t.agent(agent.id);
@@ -306,8 +310,8 @@ describe("kill (criterion 4): stdin close, grace, SIGTERM, grace, SIGKILL", () =
 describe("shutdown (criterion 4): every child is stopped", () => {
   test("host.shutdown() runs the kill sequence on every live agent and refuses new ones afterwards", async () => {
     t = await makeBridge({ runtimeConfig: { stdinCloseEnds: false }, policy: { killGraceMs: 60, maxConcurrent: 4 } });
-    const a = (await t.bridge.host.start({ ref: `${FEATURE}/21-one`, role: "scout" })).agent;
-    const b = (await t.bridge.host.start({ ref: `${FEATURE}/22-two`, role: "scout" })).agent;
+    const a = (await t.bridge.host.start({ ref: `${FEATURE}/21-one`, role: "architect" })).agent;
+    const b = (await t.bridge.host.start({ ref: `${FEATURE}/22-two`, role: "architect" })).agent;
     await t.bridge.host.shutdown();
     for (const rec of t.fake.spawns) {
       assert.ok(rec.exited, "the child exited before shutdown() resolved");
@@ -315,7 +319,7 @@ describe("shutdown (criterion 4): every child is stopped", () => {
     }
     const snap = await t.state();
     for (const id of [a.id, b.id]) assert.equal(snap.agents.find((x) => x.id === id).state, "terminated");
-    const late = await t.bridge.host.start({ ref: `${FEATURE}/23-late`, role: "scout" });
+    const late = await t.bridge.host.start({ ref: `${FEATURE}/23-late`, role: "architect" });
     assert.equal(late.ok, false);
     assert.equal(late.status, 503);
     assert.equal(t.fake.spawns.length, 2);
@@ -374,20 +378,24 @@ describe("dispatch policy: refusals write nothing and start nothing", () => {
     assert.deepEqual(await readSessions(t), [], `${label}: nothing was written to sessions.jsonl`);
   };
 
-  test("relay-hop roles are 409 'dispatch the orchestrator' on the route (criterion 2)", async () => {
-    t = await makeBridge();
+  test("developer, qa and security start on the route like any role (den-mvp outcome 1: no relay refusal)", async () => {
     for (const role of ["developer", "qa", "security"]) {
+      t = await makeBridge();
       const res = await t.dispatch(role);
-      await refused(res, 409, role);
-      assert.match(res.body.error, /orchestrator/i);
+      assert.equal(res.status, 201, `${role}: ${res.text}`);
+      assert.equal(res.body.agent.role, role);
+      await t.close();
     }
+    t = null;
   });
 
-  test("the relay-hop 409 keys off the route, not the body: smuggled fields change nothing", async () => {
+  test("a direct start still checks the ticket: an unknown ref is 404 and a second start on a live ticket is 409", async () => {
     t = await makeBridge();
-    for (const extra of [{ relay: true }, { internal: true }, { via: "start" }, { hop: "developer" }, { sha: "abc", tier: "high" }]) {
-      await refused(await t.dispatch("developer", DISPATCH_REF, extra), 409, JSON.stringify(extra));
-    }
+    await refused(await t.dispatch("developer", `${FEATURE}/99-nope`), 404, "unknown ticket");
+    assert.equal((await t.dispatch("developer")).status, 201);
+    const again = await t.dispatch("qa");
+    assert.equal(again.status, 409, again.text);
+    assert.equal(t.fake.spawns.length, 1);
   });
 
   test("start() is not reachable from HTTP: no registry row exposes it, and /agents/start is a 404", async () => {
@@ -424,7 +432,7 @@ describe("dispatch policy: refusals write nothing and start nothing", () => {
     await refused(await t.dispatch("wizard"), 400, "unknown role");
     await refused(await t.dispatch(5), 400, "role not a string");
     await refused(await t.post("/agents", { ref: DISPATCH_REF }), 400, "role missing");
-    await refused(await t.post("/agents", { role: "scout" }), 400, "ref missing");
+    await refused(await t.post("/agents", { role: "architect" }), 400, "ref missing");
     await refused(await t.dispatch("scout", DISPATCH_REF, { mode: 5 }), 400, "mode not a string");
     for (const ref of ["../x", "-a/01-x", `${FEATURE}/2-short`, "FX/02-x", `${FEATURE}/02-ready-p0/../../x`, "fx/01-x y", ""]) {
       await refused(await t.dispatch("scout", ref), 400, `ref ${JSON.stringify(ref)}`);
@@ -444,7 +452,7 @@ describe("dispatch policy: refusals write nothing and start nothing", () => {
 
   test("a dispatched agent with no mode has mode null", async () => {
     t = await makeBridge();
-    assert.equal((await t.dispatch("scout")).body.agent.mode, null);
+    assert.equal((await t.dispatch("architect")).body.agent.mode, null);
   });
 
   test("herald dispatches from the route like the other non-relay roles (user, 2026-10-06)", async () => {
@@ -473,10 +481,10 @@ describe("dispatch policy: refusals write nothing and start nothing", () => {
   test("one live agent per ref: a second dispatch is 409 until the first ends", async () => {
     t = await makeBridge();
     assert.equal((await t.dispatch("architect")).status, 201);
-    await refused2(await t.dispatch("scout"), 409);
+    await refused2(await t.dispatch("architect"), 409);
     t.fake.spawns[0].exit();
     await until(async () => (await t.state()).agents.every((a) => a.state !== "working"), { what: "first agent ended" });
-    assert.equal((await t.dispatch("scout")).status, 201);
+    assert.equal((await t.dispatch("architect")).status, 201);
     function refused2(res, status) {
       assert.equal(res.status, status, res.text);
       assert.equal(t.fake.spawns.length, 1, "the refused dispatch spawned nothing");
@@ -489,11 +497,11 @@ describe("dispatch policy: refusals write nothing and start nothing", () => {
       await appendFile(`${root}/.scratch/usage.jsonl`, JSON.stringify({ kind: "usage", ts: "2026-09-29T09:00:00.000Z", five_hour: n, weekly: 10 }) + "\n");
     };
     t = await makeBridge({ preWrite: reading(89) });
-    assert.equal((await t.dispatch("scout")).status, 201);
+    assert.equal((await t.dispatch("architect")).status, 201);
     await t.close();
     for (const n of [90, 97, 100]) {
       t = await makeBridge({ preWrite: reading(n) });
-      const res = await t.dispatch("scout");
+      const res = await t.dispatch("architect");
       await refused(res, 429, `five_hour ${n}`);
       assert.match(res.body.error, /usage/i);
       await t.close();
@@ -504,7 +512,7 @@ describe("dispatch policy: refusals write nothing and start nothing", () => {
   test("usage gate: no reading allows the dispatch and says so in the response", async () => {
     const { writeFile } = await import("node:fs/promises");
     t = await makeBridge({ preWrite: (root) => writeFile(`${root}/.scratch/usage.jsonl`, JSON.stringify({ kind: "usage", note: "no numeric five_hour" }) + "\n") });
-    const res = await t.dispatch("scout");
+    const res = await t.dispatch("architect");
     assert.equal(res.status, 201, res.text);
     assert.equal(res.body.usageUnknown, true);
   });
@@ -512,12 +520,12 @@ describe("dispatch policy: refusals write nothing and start nothing", () => {
   test("a runtime that fails to spawn is a 5xx, leaves no agent, and does not leak the slot", async () => {
     t = await makeBridge({ runtimeConfig: { failSpawn: true } });
     for (let i = 0; i < 3; i++) {
-      const res = await t.dispatch("scout");
+      const res = await t.dispatch("architect");
       assert.ok(res.status >= 500, `${res.status} ${res.text}`);
     }
     assert.deepEqual((await t.state()).agents, []);
     t.fake.config.failSpawn = false;
-    assert.equal((await t.dispatch("scout")).status, 201, "the failed attempts released their reservations");
+    assert.equal((await t.dispatch("architect")).status, 201, "the failed attempts released their reservations");
   });
 });
 
@@ -526,18 +534,18 @@ describe("caps and the concurrent-dispatch race (criterion 3)", () => {
 
   test("max_concurrent_cells: two agents run, a third is 429, and an exit frees a slot (max 2 injected)", async () => {
     t = await makeBridge({ policy: { maxConcurrent: 2 } });
-    assert.equal((await t.bridge.host.start({ ref: `${FEATURE}/21-a`, role: "scout" })).status, 201);
-    assert.equal((await t.bridge.host.start({ ref: `${FEATURE}/22-b`, role: "scout" })).status, 201);
-    const third = await t.dispatch("scout");
+    assert.equal((await t.bridge.host.start({ ref: `${FEATURE}/21-a`, role: "architect" })).status, 201);
+    assert.equal((await t.bridge.host.start({ ref: `${FEATURE}/22-b`, role: "architect" })).status, 201);
+    const third = await t.dispatch("architect");
     assert.equal(third.status, 429, third.text);
     assert.equal(t.fake.spawns.length, 2);
     t.fake.spawns[0].exit();
-    await until(async () => (await t.dispatch("scout")).status === 201, { what: "a slot to free up" });
+    await until(async () => (await t.dispatch("architect")).status === 201, { what: "a slot to free up" });
   });
 
   test("six concurrent start() calls with max 2 injected: exactly two win, peak concurrency never passes two", async () => {
     t = await makeBridge({ runtimeConfig: { spawnDelayMs: 40 }, policy: { maxConcurrent: 2 } });
-    const results = await Promise.all(refs(6).map((ref) => t.bridge.host.start({ ref, role: "scout" })));
+    const results = await Promise.all(refs(6).map((ref) => t.bridge.host.start({ ref, role: "architect" })));
     assert.equal(results.filter((r) => r.status === 201).length, 2);
     assert.equal(results.filter((r) => r.status === 429).length, 4);
     assert.equal(t.fake.spawns.length, 2);
@@ -545,27 +553,27 @@ describe("caps and the concurrent-dispatch race (criterion 3)", () => {
     assert.equal((await t.state()).agents.length, 2);
   });
 
-  test("the 8-session cap is a hard ceiling that an override cannot raise: twelve racing starts, eight win", async () => {
+  test("the 4-session cap is a hard ceiling that an override cannot raise: twelve racing starts, four win", async () => {
     t = await makeBridge({ runtimeConfig: { spawnDelayMs: 30 }, policy: { maxConcurrent: 100, sessionCap: 100 } });
-    const results = await Promise.all(refs(12).map((ref) => t.bridge.host.start({ ref, role: "scout" })));
-    assert.equal(results.filter((r) => r.status === 201).length, 8);
-    assert.equal(results.filter((r) => r.status === 429).length, 4);
-    assert.ok(t.fake.peakLive <= 8, `peak ${t.fake.peakLive}`);
+    const results = await Promise.all(refs(12).map((ref) => t.bridge.host.start({ ref, role: "architect" })));
+    assert.equal(results.filter((r) => r.status === 201).length, 4);
+    assert.equal(results.filter((r) => r.status === 429).length, 8);
+    assert.ok(t.fake.peakLive <= 4, `peak ${t.fake.peakLive}`);
     t.fake.spawns[0].exit();
-    await until(async () => (await t.bridge.host.start({ ref: `${FEATURE}/60-late`, role: "scout" })).status === 201, { what: "a freed session" });
+    await until(async () => (await t.bridge.host.start({ ref: `${FEATURE}/60-late`, role: "architect" })).status === 201, { what: "a freed session" });
   });
 
   test("two near-simultaneous POST /agents on the same ref with a free slot: one 201, the rest 409, one spawn", async () => {
     t = await makeBridge({ runtimeConfig: { spawnDelayMs: 40 } });
-    const results = await Promise.all(Array.from({ length: 5 }, () => t.dispatch("scout")));
+    const results = await Promise.all(Array.from({ length: 5 }, () => t.dispatch("architect")));
     assert.deepEqual(results.map((r) => r.status).sort(), [201, 409, 409, 409, 409]);
     assert.equal(t.fake.spawns.length, 1);
   });
 
   test("an HTTP dispatch racing a start() for the last slot: exactly one wins (max 2 injected)", async () => {
     t = await makeBridge({ runtimeConfig: { spawnDelayMs: 40 }, policy: { maxConcurrent: 2 } });
-    assert.equal((await t.bridge.host.start({ ref: `${FEATURE}/21-held`, role: "scout" })).status, 201);
-    const [viaHttp, viaStart] = await Promise.all([t.dispatch("scout"), t.bridge.host.start({ ref: `${FEATURE}/22-racer`, role: "scout" })]);
+    assert.equal((await t.bridge.host.start({ ref: `${FEATURE}/21-held`, role: "architect" })).status, 201);
+    const [viaHttp, viaStart] = await Promise.all([t.dispatch("architect"), t.bridge.host.start({ ref: `${FEATURE}/22-racer`, role: "architect" })]);
     const wins = [viaHttp.status === 201, viaStart.status === 201].filter(Boolean).length;
     assert.equal(wins, 1, `${viaHttp.status} / ${viaStart.status}`);
     assert.equal(t.fake.spawns.length, 2);
@@ -575,7 +583,7 @@ describe("caps and the concurrent-dispatch race (criterion 3)", () => {
   test("the same ref through start() twice at once: one wins", async () => {
     t = await makeBridge({ runtimeConfig: { spawnDelayMs: 40 } });
     const ref = `${FEATURE}/21-same`;
-    const rs = await Promise.all([t.bridge.host.start({ ref, role: "scout" }), t.bridge.host.start({ ref, role: "scout" })]);
+    const rs = await Promise.all([t.bridge.host.start({ ref, role: "architect" }), t.bridge.host.start({ ref, role: "architect" })]);
     assert.deepEqual(rs.map((r) => r.status).sort(), [201, 409]);
     assert.equal(t.fake.spawns.length, 1);
   });

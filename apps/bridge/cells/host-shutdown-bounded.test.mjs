@@ -29,10 +29,10 @@ describe("shutdown waits a bounded time for a spawn in flight", () => {
 
   test("a slow spawn past the bound: shutdown resolves quickly, the live agent is SIGKILLed first, the late spawn is still ended", async () => {
     t = await makeBridge({ runtimeConfig: STUBBORN, policy: { spawnWaitMs: 200, killGraceMs: 100 } });
-    const first = await t.bridge.host.start({ ref: `${FEATURE}/21-one`, role: "scout" });
+    const first = await t.bridge.host.start({ ref: `${FEATURE}/21-one`, role: "architect" });
     assert.ok(first.ok, JSON.stringify(first));
     t.fake.config.spawnDelayMs = 1500;
-    const second = t.bridge.host.start({ ref: `${FEATURE}/22-two`, role: "scout" });
+    const second = t.bridge.host.start({ ref: `${FEATURE}/22-two`, role: "architect" });
     await until(() => t.fake.spawns.length === 2, { what: "the second spawn to be in flight" });
 
     const t0 = Date.now();
@@ -47,10 +47,10 @@ describe("shutdown waits a bounded time for a spawn in flight", () => {
 
   test("a spawn inside the bound: shutdown waits for it and both agents take the graceful path", async () => {
     t = await makeBridge({ runtimeConfig: { stdinCloseEnds: true }, policy: { spawnWaitMs: 800, killGraceMs: 100 } });
-    const first = await t.bridge.host.start({ ref: `${FEATURE}/21-one`, role: "scout" });
+    const first = await t.bridge.host.start({ ref: `${FEATURE}/21-one`, role: "architect" });
     assert.ok(first.ok, JSON.stringify(first));
     t.fake.config.spawnDelayMs = 50;
-    const second = t.bridge.host.start({ ref: `${FEATURE}/22-two`, role: "scout" });
+    const second = t.bridge.host.start({ ref: `${FEATURE}/22-two`, role: "architect" });
     await until(() => t.fake.spawns.length === 2, { what: "the second spawn to be in flight" });
     await t.bridge.host.shutdown();
     await second.catch(() => {});

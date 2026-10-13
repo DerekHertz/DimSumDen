@@ -1,5 +1,10 @@
 {
+  "orchestrator": { "write": "none", "hosts": [] },
   "scout": { "write": "none", "hosts": [] },
+  "product": { "write": "worktree", "hosts": [] },
+  "architect": { "write": "worktree", "hosts": [] },
+  "designer": { "write": "worktree", "hosts": [] },
+  "herald": { "write": "worktree", "hosts": [] },
   "developer": { "write": "worktree", "hosts": [] },
   "qa": { "write": "worktree", "hosts": [] },
   "security": { "write": "worktree", "hosts": [] }

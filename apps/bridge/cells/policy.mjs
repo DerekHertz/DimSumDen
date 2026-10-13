@@ -1,16 +1,19 @@
 // organism-infra/140 (ADR 0016 decision 3): the steering host's policy values and role table, in one place.
 // Mechanism lives in host.mjs; every number and allowlist a reviewer may want to change lives here.
 
-export const MAX_CONCURRENT_AGENTS = 8; // max_concurrent_cells (ADR 0002, ADR 0016 amendment 14); SESSION_CAP still bounds it
-export const SESSION_CAP = 8; // hard ceiling on live daemon-spawned sessions; a policy override can only lower it
+// den-mvp outcome 1 (spec section 2): two worker slots, plus one slot kept for Bao (the orchestrator) and one for a scout.
+// A reserved slot is never a third worker. Each class has its own hardware limits (limits.json, read by resource-group.mjs).
+export const SLOT_CLASSES = ["worker", "bao", "scout"];
+export const SLOTS = Object.freeze({ worker: 2, bao: 1, scout: 1 });
+export const slotClassOf = (role) => (role === "orchestrator" ? "bao" : role === "scout" ? "scout" : "worker");
+export const MAX_CONCURRENT_AGENTS = SLOTS.worker; // max_concurrent_cells (ADR 0002): worker agents plus foreign claim locks
+export const SESSION_CAP = SLOTS.worker + SLOTS.bao + SLOTS.scout; // hard ceiling on live daemon-spawned sessions; a policy override can only lower it
 export const KILL_GRACE_MS = 5000; // between stdin close, SIGTERM and SIGKILL
 export const SHUTDOWN_SPAWN_WAIT_MS = 3000; // organism-infra/143: how long shutdown waits for spawns in flight before it kills synchronously
 export const USAGE_REFUSE_AT = 90; // five-hour usage percent at which dispatch is refused (ADR 0002 auto-pause)
 
 // The nine known cells (CLAUDE.md).
 export const ROLES = ["product", "architect", "orchestrator", "developer", "scout", "qa", "security", "designer", "herald"];
-// Refused on the HTTP route ("dispatch the orchestrator"); only the internal start() entry may start them.
-export const RELAY_HOP_ROLES = ["developer", "qa", "security"];
 // mode reaches the prompt template, so it is an allowlist, never free text.
 export const MODES = ["specify", "verify", "review", "spec", "critique", "direction"];
 

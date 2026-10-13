@@ -27,6 +27,7 @@ import { makeBridge, openSse, until, sleep, seedSessions, DISPATCH_REF, UUID_RE 
 import { MESSAGE_MAX_BYTES, MESSAGE_QUEUE_MAX, MESSAGE_SETTLE_MS } from "./policy.mjs";
 import { transcriptView } from "../../ui/src/overlay/transcript-view.mjs";
 import { appendTranscript, entryFromFrame } from "../../ui/src/state/transcript-buffer.mjs";
+import { unconfinedLauncher } from "./launcher-test-helpers.mjs";
 
 const AWS_KEY = ["AKIA", "IOSFODNN7", "EXAMPLE"].join(""); // built here so the root secret scan does not flag the file
 const BIDI = String.fromCharCode(0x202e);
@@ -305,7 +306,7 @@ describe("a message through the real runtime, with the stub as the child", () =>
   test("the message is written to the child mid-turn, its replay marks it received, and the agent ends done", { timeout: 30000 }, async () => {
     const stub = await makeStub({ mode: "message" });
     const fx = await makeStateFixture({ git: true });
-    const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+    const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
     const bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, runtime, policy: { killGraceMs: 150 } });
     const headers = authed(bridge, await login(bridge));
     cleanups.push(async () => {

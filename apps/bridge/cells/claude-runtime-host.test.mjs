@@ -16,6 +16,8 @@ import { CODE, login, authed, send } from "../bridge-auth-helpers.mjs";
 import { DISPATCH_REF, until, sleep } from "./host-test-helpers.mjs";
 import { LIVE_STATES } from "./policy.mjs";
 import { makeStub, alive } from "./claude-stub.mjs";
+import { unconfinedLauncher } from "./launcher-test-helpers.mjs";
+import { cgroupOf, createResourceLauncher } from "./resource-group.mjs";
 
 const SERVER = fileURLToPath(new URL("../server.mjs", import.meta.url));
 const cleanups = [];
@@ -36,7 +38,7 @@ async function boot(stubOpts) {
   const createClaudeRuntime = await loadCreate();
   const stub = await makeStub(stubOpts);
   const fx = await makeStateFixture({ git: true });
-  const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+  const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
   const bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, runtime, policy: { killGraceMs: 150 } });
   const token = await login(bridge);
   const headers = authed(bridge, token);
@@ -95,7 +97,10 @@ describe("startBridge over the real Claude runtime", () => {
 });
 
 describe("the production entry (node apps/bridge/server.mjs)", () => {
-  test("wires the default Claude runtime: DEN_CLAUDE_BIN is honoured and dispatch is not a 503", { timeout: 30000 }, async () => {
+  // den-mvp outcome 1: the production entry has no unconfined path. Where the host can enforce the hardware limits the stub
+  // starts inside its resource group; where it cannot, the dispatch is refused with the reason and nothing is launched.
+  test("wires the default Claude runtime behind the enforced launcher: it starts in a resource group, or is refused and starts nothing", { timeout: 30000 }, async () => {
+    const enforceable = await createResourceLauncher({ env: { PATH: process.env.PATH, HOME: process.env.HOME } }).preflight();
     const stub = await makeStub({ mode: "hang" });
     const fx = await makeStateFixture({ git: true });
     const port = await new Promise((resolve) => {
@@ -125,9 +130,21 @@ describe("the production entry (node apps/bridge/server.mjs)", () => {
     const bridge = { port };
     const token = await login(bridge, m[1]);
     const res = await send(bridge, { method: "POST", path: "/agents", body: { ref: DISPATCH_REF, role: "architect" }, headers: authed(bridge, token) });
-    assert.notEqual(res.status, 503, `production dispatch answered 503: ${res.text}`);
+    if (!enforceable.ok) {
+      assert.equal(res.status, 503, `an unenforceable host must refuse: ${res.status} ${res.text}`);
+      assert.match(res.body.error, /^the run was refused: /);
+      assert.ok(res.body.error.includes(enforceable.reason.slice(0, 40)), `the refusal names the blocker: ${res.body.error}`);
+      await sleep(300);
+      assert.equal(await stub.start(), undefined, "the CLI was never launched");
+      const state = await send(bridge, { method: "GET", path: "/state", headers: authed(bridge, token) });
+      assert.deepEqual(state.body.agents, [], "no agent was recorded");
+      child.kill("SIGTERM");
+      return;
+    }
     assert.ok([201, 202].includes(res.status), `dispatch answered ${res.status} ${res.text}`);
     await until(async () => (await stub.start()) !== undefined, { ms: 5000, what: "the stub binary named by DEN_CLAUDE_BIN to be launched" });
+    const { pid } = await stub.start();
+    assert.match(cgroupOf(pid) ?? "", /\/den-agents\.slice\/den-run-[0-9a-f-]+\.scope$/, "the CLI runs in its own scope under the agents slice");
     await sleep(50);
     child.kill("SIGTERM");
   });

@@ -34,12 +34,12 @@ const TICKET = { ref: "f/05-target" };
 const run = (over) => need("runState")({ capacity: cap([]), ticket: TICKET, inflight: false, steer: READY, ...over });
 
 describe("ROLE_OPTIONS", () => {
-  test("lists orchestrator, architect, product, designer, scout, herald, in that order", () => {
-    assert.deepEqual(need("ROLE_OPTIONS"), ["orchestrator", "architect", "product", "designer", "scout", "herald"]);
+  test("lists all nine roles, the six earlier ones first and in their old order", () => {
+    assert.deepEqual(need("ROLE_OPTIONS"), ["orchestrator", "architect", "product", "designer", "scout", "herald", "developer", "qa", "security"]);
   });
 
-  test("never offers a relay-hop role", () => {
-    for (const role of ["developer", "qa", "security"]) assert.ok(!need("ROLE_OPTIONS").includes(role), `${role} must not be offered`);
+  test("offers developer, qa and security: a direct start no longer needs the orchestrator (den-mvp outcome 1)", () => {
+    for (const role of ["developer", "qa", "security"]) assert.ok(need("ROLE_OPTIONS").includes(role), `${role} must be offered`);
   });
 });
 
@@ -171,7 +171,7 @@ describe("runState", () => {
 });
 
 describe("capacityFromSnapshot (the UI recomputes between snapshots)", () => {
-  const working = (ref, id) => ({ id, ref, role: "scout", state: "working" });
+  const working = (ref, id) => ({ id, ref, role: "architect", state: "working" });
   const snapshot = (agents, tickets = []) => ({ capacity: { max: 2, cap: 8, load: 0, live: 0, room: 2, refs: [] }, agents, tickets });
 
   test("max and cap come from the last snapshot; live agents and ticket holders make the rest", () => {
@@ -242,7 +242,7 @@ describe("dispatchPrompt (the Needs you dispatch card)", () => {
   });
 
   test("the prompt comes back when an agent ends", () => {
-    const working = (ref, id, state = "working") => ({ id, ref, role: "scout", state });
+    const working = (ref, id, state = "working") => ({ id, ref, role: "architect", state });
     const snap = (agents) => ({ capacity: { max: 2, cap: 8, load: 2, live: 2, room: 0, refs: [] }, agents, tickets: [] });
     const prompt = (s) => need("dispatchPrompt")(need("capacityFromSnapshot")(s));
     assert.equal(prompt(snap([working("f/01-a", "c-1"), working("f/02-b", "c-2")])).show, false);
@@ -256,5 +256,40 @@ describe("the ready list shows every frontier ticket", () => {
     const m = stationsModel({ tickets, frontier: tickets.map((t) => t.ref), agents: [] });
     assert.deepEqual(m.next.map((r) => r.ref), tickets.map((t) => t.ref));
     assert.equal(m.summary, "5 open · 5 ready");
+  });
+});
+
+// den-mvp outcome 1 (spec section 2): two worker slots, plus one reserved for Bao (the orchestrator) and one for a scout.
+describe("reserved slots", () => {
+  const snap = (agents, holders = []) => ({
+    capacity: { max: 2, cap: 4 },
+    agents,
+    tickets: holders.map((ref) => ({ ref, holder: "someone" })),
+  });
+  const live = (ref, role) => ({ id: `c-${ref}`, ref, role, state: "working" });
+
+  test("Bao's and a scout's agents are not worker load, even when they hold their ticket's lock", () => {
+    const c = need("capacityFromSnapshot")(snap([live("f/01-a", "orchestrator"), live("f/02-b", "scout")], ["f/01-a", "f/02-b"]));
+    assert.deepEqual({ load: c.load, live: c.live, room: c.room }, { load: 0, live: 0, room: 2 });
+    assert.deepEqual(c.reserved, { bao: { max: 1, refs: ["f/01-a"] }, scout: { max: 1, refs: ["f/02-b"] } });
+  });
+
+  test("a second scout is refused with the slot's reason while a worker role may still run", () => {
+    const capacity = need("capacityFromSnapshot")(snap([live("f/02-b", "scout")]));
+    const ticket = { ref: "f/03-c" };
+    const steer = { state: "ok" };
+    assert.deepEqual(need("runState")({ capacity, ticket, steer, role: "scout" }), { enabled: false, reason: "The scout slot is in use: f/02-b" });
+    assert.equal(need("runState")({ capacity, ticket, steer, role: "developer" }).enabled, true);
+    assert.equal(need("runState")({ capacity, ticket, steer, role: "orchestrator" }).enabled, true);
+  });
+
+  test("full worker slots do not block Bao or a scout, and a reserved slot is never a third worker", () => {
+    const capacity = need("capacityFromSnapshot")(snap([live("f/01-a", "developer"), live("f/02-b", "qa")]));
+    const ticket = { ref: "f/03-c" };
+    const steer = { state: "ok" };
+    assert.equal(capacity.room, 0);
+    assert.equal(need("runState")({ capacity, ticket, steer, role: "architect" }).enabled, false);
+    assert.equal(need("runState")({ capacity, ticket, steer, role: "orchestrator" }).enabled, true);
+    assert.equal(need("runState")({ capacity, ticket, steer, role: "scout" }).enabled, true);
   });
 });

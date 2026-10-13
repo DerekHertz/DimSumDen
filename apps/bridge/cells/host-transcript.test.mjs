@@ -24,6 +24,7 @@ import { createClaudeRuntime } from "./claude-runtime.mjs";
 import { makeStub, alive } from "./claude-stub.mjs";
 import { appendTranscript, entryFromFrame, seedTranscripts } from "../../ui/src/state/transcript-buffer.mjs";
 import { transcriptView } from "../../ui/src/overlay/transcript-view.mjs";
+import { unconfinedLauncher } from "./launcher-test-helpers.mjs";
 
 const AWS_KEY = ["AKIA", "IOSFODNN7", "EXAMPLE"].join(""); // built here so the root secret scan does not flag the file
 const BIDI = String.fromCharCode(0x202e);
@@ -215,10 +216,10 @@ describe("the transcript buffer is small", () => {
   test("buffers are kept for the TRANSCRIPT_AGENTS most recent agents; a live agent's is never dropped", async () => {
     const t = await setup({ policy: { maxConcurrent: 2 } });
     const ids = [];
-    const first = (await t.bridge.host.start({ ref: `${FEATURE}/30-long`, role: "scout" })).agent;
+    const first = (await t.bridge.host.start({ ref: `${FEATURE}/30-long`, role: "architect" })).agent;
     t.fake.spawns[0].emit({ type: "text", text: "still here" });
     for (let i = 0; i < TRANSCRIPT_AGENTS + 1; i += 1) {
-      const { agent } = await t.bridge.host.start({ ref: `${FEATURE}/${40 + i}-short`, role: "scout" });
+      const { agent } = await t.bridge.host.start({ ref: `${FEATURE}/${40 + i}-short`, role: "architect" });
       ids.push(agent.id);
       const rec = t.fake.spawns.at(-1);
       rec.emit({ type: "text", text: `short ${i}` });
@@ -243,7 +244,7 @@ describe("replaying the recorded live run through the stub fills the transcript 
   async function boot() {
     const stub = await makeStub({ mode: "replay", replayFile: LIVE_FIXTURE.pathname });
     const fx = await makeStateFixture({ git: true });
-    const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+    const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
     const bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, runtime, policy: { killGraceMs: 150 } });
     const headers = authed(bridge, await login(bridge));
     const sse = openSse(bridge);

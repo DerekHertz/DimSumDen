@@ -33,7 +33,7 @@ const runtime = {
 
 const bridge = await startBridge({ root, port: 0, auth: { launchCode: "c0de".repeat(16) }, runtime, policy: { killGraceMs: 100 } });
 for (const ref of ["fx/21-one", "fx/22-two"]) {
-  const r = await bridge.host.start({ ref, role: "scout" });
+  const r = await bridge.host.start({ ref, role: "architect" });
   if (!r.ok) {
     writeSync(1, JSON.stringify({ error: `start refused: ${r.status} ${r.error}` }) + "\n");
     process.exit(2);

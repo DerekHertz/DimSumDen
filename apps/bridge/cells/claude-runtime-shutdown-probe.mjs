@@ -9,11 +9,12 @@ import { startBridge } from "../server.mjs";
 import { createClaudeRuntime } from "./claude-runtime.mjs";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { unconfinedLauncher } from "./launcher-test-helpers.mjs";
 
 const [, , root, stubBin, stubDir, mode] = process.argv;
-const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stubBin } });
+const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stubBin } });
 const bridge = await startBridge({ root, port: 0, auth: { launchCode: "c0de".repeat(16) }, runtime, policy: { killGraceMs: 100 } });
-const r = await bridge.host.start({ ref: "fx/21-one", role: "scout" });
+const r = await bridge.host.start({ ref: "fx/21-one", role: "architect" });
 if (!r.ok) {
   writeSync(1, JSON.stringify({ error: `start refused: ${r.status} ${r.error}` }) + "\n");
   process.exit(2);

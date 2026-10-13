@@ -405,7 +405,8 @@ export async function runLive(ctx, _outDir, { repo, exitWaitMs = 20_000, killGra
   const notes = [];
   const note = (obj) => notes.push({ t: Date.now(), raw: JSON.stringify(obj), obj });
   const tee = makeTee({ dir: work, realBin: ctx.bin, logFile, errFile });
-  const runtime = createClaudeRuntime({ env: { ...ctx.parentEnv, DEN_CLAUDE_BIN: tee } }); // the runtime applies the env allowlist
+  // The real run goes through the enforced launcher, like production; only the stub tests pass ctx.launcher.
+  const runtime = createClaudeRuntime({ env: { ...ctx.parentEnv, DEN_CLAUDE_BIN: tee }, ...(ctx.launcher ? { launcher: ctx.launcher } : {}) }); // the runtime applies the env allowlist
   let bridge;
   let sse;
   try {

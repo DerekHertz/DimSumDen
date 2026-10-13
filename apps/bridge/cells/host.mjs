@@ -3,8 +3,9 @@
 // the usage reading and the board gate are injected too, so this module knows nothing about files other than its own
 // registry, and nothing about HTTP. (den-v1 loop S4: `recordRun(run)` is injected as well; it is called once per agent,
 // after the end line is written, with the run record.) Three entries share one reservation:
-//   dispatch(input)  the route entry: relay-hop roles are refused, and the ticket must be in the frontier (organism-infra/226)
-//   start(input)     the internal entry (the relay runner): relay-hop roles allowed, no gate check; never a route
+//   dispatch(input)  the route entry: any role, and the ticket must be in the frontier (organism-infra/226; den-mvp
+//                    outcome 1 ended the refusal of developer, qa and security here)
+//   start(input)     the internal entry (the relay runner): no gate check; never a route
 //   direct(input)    the den's entry (POST /tasks): any role, on a ticket the caller writes once the host has room
 // All resolve { ok: true, status: 201, agent, usageUnknown? } or { ok: false, status, error }.
 // den-v1 loop S5: message(id, { text }) writes one user message to a running agent (see "messages" below).
@@ -14,7 +15,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { hasSecret } from "../../../scripts/exposure.mjs";
 import {
-  AGENT_ID_RE, KILL_GRACE_MS, LIVE_STATES, MAX_CONCURRENT_AGENTS, MODES, REF_RE, RELAY_HOP_ROLES, ROLES, SESSION_CAP,
+  AGENT_ID_RE, KILL_GRACE_MS, LIVE_STATES, MAX_CONCURRENT_AGENTS, MODES, REF_RE, ROLES, SESSION_CAP, SLOTS, slotClassOf,
   USAGE_REFUSE_AT, APPROVAL_TTL_MS, SHUTDOWN_SPAWN_WAIT_MS, DIRECT_MODE,
   TRANSCRIPT_AGENTS, TRANSCRIPT_ENTRIES, TRANSCRIPT_RESULT_MAX, TRANSCRIPT_TEXT_MAX, REPLY_EXCERPT_MAX, USAGE_MESSAGES,
   MESSAGE_MAX_BYTES, MESSAGE_QUEUE_MAX, MESSAGE_SETTLE_MS,
@@ -193,11 +194,33 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
   // The refusals that depend on no ticket. admit() applies them in this order; direct() asks them all before a
   // ticket is written.
   const down = () => (!runtime ? refuse(503, "no runtime is configured") : shuttingDown ? refuse(503, "the bridge is shutting down") : null);
+  // den-mvp outcome 1: a host that cannot enforce the hardware limits starts no agent, and the refusal says what is missing.
+  // Asked before a worktree or a ticket is made; the runtime checks again on its own launch path.
+  const RESOURCE_LIMITS = ["memory", "processes", "storage"];
+  const refused = (reason) => refuse(503, `the run was refused: ${clean(reason, 300) ?? "the hardware limits cannot be enforced"}`);
+  const unenforced = async () => {
+    if (typeof runtime?.preflight !== "function") return null;
+    try {
+      const check = await runtime.preflight();
+      return check?.ok === true ? null : refused(check?.reason);
+    } catch (err) {
+      console.error(`bridge: the enforcement preflight failed: ${err?.message ?? err}`);
+      return refused(null);
+    }
+  };
   const overUsage = (usage) =>
     typeof usage === "number" && usage >= USAGE_REFUSE_AT ? refuse(429, `five-hour usage is ${usage}% (limit ${USAGE_REFUSE_AT}%)`) : null;
   // The one capacity rule (organism-infra/226, ADR 0016 amendment 14): live agents plus foreign claim locks fill max;
   // live agents alone fill the session cap. `locked` is read before the synchronous step, never inside it.
-  const capacityNow = (locked) => capacityOf({ liveRefs: [...liveByRef.keys()], lockedRefs: locked, max: maxConcurrent, cap: sessionCap });
+  // den-mvp outcome 1: that rule counts the worker slots. Bao and a scout each have a reserved slot of their own: their
+  // agents (and the locks those agents hold) are not worker load, and no worker may take their slot.
+  const liveIn = (cls) => [...liveByRef.values()].filter((a) => slotClassOf(a.role) === cls);
+  const capacityNow = (locked) => {
+    const reservedRefs = new Set([...liveByRef.values()].filter((a) => slotClassOf(a.role) !== "worker").map((a) => a.ref));
+    const c = capacityOf({ liveRefs: liveIn("worker").map((a) => a.ref), lockedRefs: (locked ?? []).filter((ref) => !reservedRefs.has(ref)), max: maxConcurrent, cap: sessionCap });
+    const reserved = Object.fromEntries(Object.keys(SLOTS).filter((cls) => cls !== "worker").map((cls) => [cls, { max: SLOTS[cls], refs: liveIn(cls).map((a) => a.ref) }]));
+    return { ...c, reserved };
+  };
   const readLocked = async () => {
     try {
       const refs = await lockedRefs();
@@ -208,8 +231,10 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     }
   };
   const unreadable = () => refuse(503, "could not read the board's claim locks");
-  const full = (locked) => {
+  const full = (locked, role) => {
     const c = capacityNow(locked);
+    const cls = slotClassOf(role);
+    if (cls !== "worker") return c.reserved[cls].refs.length < c.reserved[cls].max ? null : refuse(429, `the ${cls} slot is in use: ${c.reserved[cls].refs.join(", ")}`);
     if (c.room > 0) return null;
     if (c.load >= c.max) return refuse(429, `max_concurrent_cells (${c.max}) reached: ${c.refs.map((r) => r.ref).join(", ")}`);
     return refuse(429, `the ${c.cap}-session cap is reached`);
@@ -224,7 +249,6 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     const notUp = down();
     if (notUp) return notUp;
     if (entry === "dispatch") {
-      if (RELAY_HOP_ROLES.includes(role)) return refuse(409, `${role} is a relay-hop role: dispatch the orchestrator, which runs the relay`);
       const gate = await checkGate(ref);
       if (gate === "unknown") return refuse(404, "no such ticket");
       if (gate !== "ok") return refuse(409, "the ticket is not in the frontier");
@@ -232,13 +256,15 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     const usage = await readUsage();
     const over = overUsage(usage);
     if (over) return over;
+    const noLimits = await unenforced();
+    if (noLimits) return noLimits;
     const locked = await readLocked();
     if (locked === null) return unreadable();
 
     // From here to the registration of the reservation there is no await: this is the one synchronous step.
     if (shuttingDown) return refuse(503, "the bridge is shutting down");
     if (liveByRef.has(ref)) return refuse(409, "this ticket already has a live agent");
-    const noRoom = full(locked);
+    const noRoom = full(locked, role);
     if (noRoom) return noRoom;
     const agent = {
       id: `c-${randomBytes(8).toString("hex")}`, ref, role, mode, runtimeId: runtime.id, sessionId: randomUUID(), state: "working",
@@ -302,11 +328,11 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     // reason, whatever its casing or symlinks. The governance denies in the adapter stay as the second layer.
     const refusal = await grantRefusal(checked, { roots: [...new Set([root, await realRoot()])], home: homeDir() });
     if (refusal !== null) return refuse(400, refusal);
-    const early = down() ?? overUsage(await readUsage());
+    const early = down() ?? overUsage(await readUsage()) ?? (await unenforced());
     if (early) return early;
     const lockedNow = await readLocked();
     if (lockedNow === null) return unreadable();
-    const noRoom = full(lockedNow);
+    const noRoom = full(lockedNow, role);
     if (noRoom) return noRoom;
     let ref;
     try {
@@ -356,7 +382,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       await workspaces.remove(workspace);
       liveByRef.delete(agent.ref);
       console.error(`bridge: runtime failed to spawn ${agent.role} for ${agent.ref}: ${err?.message ?? err}`);
-      return refuse(502, "the runtime failed to start the agent");
+      return err?.name === "EnforcementError" ? refused(err.reason) : refuse(502, "the runtime failed to start the agent");
     }
     agent.proc = proc;
     agents.set(agent.id, agent);
@@ -400,6 +426,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     })();
     const info = await agent.proc.exited.catch(() => null);
     agent.exitCode = info?.code ?? null;
+    noteLimit(agent, info?.resourceLimit);
     agent.exited = true;
     await Promise.race([consume, sleep(EVENT_DRAIN_MS)]);
     // agent-os/09: the agent committed on a detached HEAD; the bridge, not the agent, creates its branch at the final commit.
@@ -421,6 +448,15 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     await Promise.resolve()
       .then(() => recordRun(run))
       .catch((err) => console.error(`bridge: could not write the run's ledger row: ${err?.message ?? err}`));
+  }
+
+  // A run that hit a hard hardware limit failed, and says which one (den-mvp outcome 1). Nothing restarts it.
+  function noteLimit(agent, resource) {
+    if (!RESOURCE_LIMITS.includes(resource) || agent.stopRequested || agent.resourceLimit) return false;
+    agent.resourceLimit = resource;
+    agent.reason = `resource-limit: ${resource}`;
+    agent.doneOk = false;
+    return true;
   }
 
   // Running tokens by tier. A message is reported on several lines, so its last count replaces its earlier one.
@@ -485,6 +521,8 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       }
       revise(agent, entry, { status: "applied" });
       return touch(agent);
+    } else if (event.type === "resource-limit") {
+      if (!noteLimit(agent, event.resource)) return;
     } else if (event.type === "permission-request") {
       if (!agent.capabilities.approve) return;
       approvals.hold(agent.id, event, { accepting: !agent.stopRequested && !shuttingDown });
@@ -522,7 +560,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
   // The process has exited: only now is the agent over, the slot free and the resume string set.
   function finalize(agent) {
     // A done event is the cell's own verdict; with none, a clean exit is done and anything else failed.
-    const ok = agent.doneOk ?? agent.exitCode === 0;
+    const ok = agent.resourceLimit ? false : agent.doneOk ?? agent.exitCode === 0;
     agent.state = agent.stopRequested ? "terminated" : ok ? "done" : "failed";
     agent.tool = null;
     approvals.settleAgent(agent.id, "agent-exited");

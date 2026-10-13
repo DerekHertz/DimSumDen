@@ -266,7 +266,8 @@ describe("buildClaudeArgs: the wall (agent-os/01 spike)", () => {
   test("wall hosts are the allowed domains, in order, and the ticket file rule is kept beside them", () => {
     const file = "/home/u/den/.scratch/den/issues/01-scout.md";
     const got = settingsOf(build({ wall: { hosts: ["registry.npmjs.org", "example.com"] }, ticketFile: file }));
-    assert.deepEqual(got, { permissions: { deny: DENY_RULES, allow: [`Read(/${file})`] }, sandbox: sandbox(["registry.npmjs.org", "example.com"]) });
+    // den-mvp outcome 1: a host the wall allows may also be fetched by the CLI's own web tool without a question.
+    assert.deepEqual(got, { permissions: { deny: DENY_RULES, allow: ["WebFetch(domain:registry.npmjs.org)", "WebFetch(domain:example.com)", `Read(/${file})`] }, sandbox: sandbox(["registry.npmjs.org", "example.com"]) });
   });
 
   test("nothing but the --settings value changes", () => {

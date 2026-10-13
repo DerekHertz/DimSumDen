@@ -13,6 +13,7 @@ import { buildClaudeArgs, decodeControlRequest, parseClaudeLine } from "./claude
 import * as adapterAll from "./claude-adapter.mjs"; // agent-os/04: compileCeiling is read off the namespace so a missing export fails this test by name
 import { makeStub } from "./claude-stub.mjs";
 import { SPIKES, parseCli, setupProblems } from "./conformance.mjs";
+import { unconfinedLauncher } from "./launcher-test-helpers.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 async function load() {
@@ -367,7 +368,12 @@ describe("evaluateLive: the agent's own ticket file", () => {
   });
 });
 
-const stubCtx = (bin) => ({ bin, parentEnv: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_SECRET_CANARY: "must-not-reach-the-child" }, timeoutMs: 8000, model: "haiku" });
+// den-mvp outcome 1: the runtime closes the credential stores that exist under the home it was given.
+const liveCredentials = () => {
+  const credentials = adapterAll.CREDENTIAL_PATHS.filter((p) => existsSync(`${process.env.HOME}${p.slice(1)}`));
+  return credentials.length === 0 ? {} : { credentials };
+};
+const stubCtx = (bin) => ({ bin, launcher: unconfinedLauncher(), parentEnv: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_SECRET_CANARY: "must-not-reach-the-child" }, timeoutMs: 8000, model: "haiku" });
 
 describe("runLive", () => {
   test("drives one agent through the bridge: worktree cwd, production argv, held request, a message, allow over HTTP, done", async () => {
@@ -386,7 +392,7 @@ describe("runLive", () => {
     const sessionId = start.argv[start.argv.indexOf("--session-id") + 1];
     assert.equal(typeof adapterAll.compileCeiling, "function", "agent-os/04: claude-adapter.mjs must export compileCeiling");
     // agent-os/04: scout has a ceiling now, so the production argv carries the wall; the worktree is the child's cwd.
-    assert.deepEqual(start.argv, buildClaudeArgs({ sessionId, agent: LIVE_ROLE, ...adapterAll.compileCeiling(LIVE_ROLE, { worktree: setup.worktree, mainGit: path.join(path.dirname(path.dirname(path.dirname(setup.worktree))), ".git") }), ticketFile: path.join(repo.dir, ".scratch", "den", "issues", "01-live-check.md") }));
+    assert.deepEqual(start.argv, buildClaudeArgs({ sessionId, agent: LIVE_ROLE, ...adapterAll.compileCeiling(LIVE_ROLE, { ...liveCredentials(), worktree: setup.worktree, mainGit: path.join(path.dirname(path.dirname(path.dirname(setup.worktree))), ".git") }), ticketFile: path.join(repo.dir, ".scratch", "den", "issues", "01-live-check.md") }));
     assert.ok(!start.envKeys.includes("DEN_SECRET_CANARY"));
 
     // What the three captures hold: scrubbed, and every line a JSON object with a type.
