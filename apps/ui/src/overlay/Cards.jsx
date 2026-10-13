@@ -178,8 +178,8 @@ function RunControl({ scope, ticket, capacity, steer, run }) {
   const [role, setRole] = useState(() => defaultRole(ticket));
   const ref = ticket.ref;
   const inflight = run.inflight.has(ref);
-  const state = runState({ capacity, ticket, inflight, steer });
-  const settled = runState({ capacity, ticket, inflight: false, steer });
+  const state = runState({ capacity, ticket, inflight, steer, role });
+  const settled = runState({ capacity, ticket, inflight: false, steer, role });
   // The refusal clears when this row's state changes (an agent started or ended, the session ended), not only on the next press.
   const signature = `${settled.enabled}|${settled.reason}`;
   const seen = useRef(signature);

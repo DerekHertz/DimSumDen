@@ -2,12 +2,18 @@
 // createClaudeRuntime({ env }) is the default CellRuntime: it spawns the `claude` binary (env.DEN_CLAUDE_BIN, else "claude")
 // as a detached process-group leader over real pipes, decodes stdout through the pure half (claude-adapter.mjs), holds
 // permission requests until the host decides, and signals the whole group so no grandchild outlives a kill.
-import { spawn as spawnChild } from "node:child_process";
+// den-mvp outcome 1: the child is started by a launcher (resource-group.mjs) inside a resource group with hardware
+// limits; a kill goes to that group, and a hard limit that is hit ends the run with the limit named.
+import { existsSync } from "node:fs";
 import {
   MAX_LINE_BYTES, buildClaudeArgs, buildClaudeEnv, compileCeiling, createLineSplitter, decodeControlRequest, encodeControlResponse, encodeUserMessage, isTicketFilePath, isWorktreePath,
-  parseClaudeLine,
+  parseClaudeLine, CREDENTIAL_PATHS, webRefusal,
 } from "./claude-adapter.mjs";
-import { UUID_RE } from "./policy.mjs";
+import { UUID_RE, slotClassOf } from "./policy.mjs";
+import { EnforcementError, createResourceLauncher, watchStorage } from "./resource-group.mjs";
+
+const RESOURCE_POLL_MS = 500; // how often a run's control group is asked whether it hit a hard limit
+const GROUP_SETTLE_MS = 2000; // how long an exit waits for the group's last process to go
 
 // S8 outcome (c): the approval inbox is on. den-v1 loop S5: so is send, a user message line on the child's stdin
 // (spike S7: the child takes it into its running turn once the running tool call ends).
@@ -43,10 +49,14 @@ function createChannel() {
   };
 }
 
-export function createClaudeRuntime({ env = process.env } = {}) {
+// den-mvp outcome 1: `launcher` starts the child inside its resource group (resource-group.mjs). The default is the
+// enforced one and there is no switch for it; only a test passes another.
+export function createClaudeRuntime({ env = process.env, launcher = createResourceLauncher({ env }) } = {}) {
   return {
     id: "claude",
     capabilities: { ...CAPABILITIES },
+    enforced: launcher.enforced === true,
+    preflight: () => launcher.preflight(),
     resumeCommand: (sessionId) => (typeof sessionId === "string" && UUID_RE.test(sessionId) ? `claude --resume ${sessionId}` : null),
     async spawn({ role, cwd, prompt, sessionId, model, ticketFile, grants, root, mainGit } = {}) {
       if (typeof cwd !== "string" || cwd === "") throw new TypeError("claude runtime: cwd must be a path");
@@ -60,14 +70,16 @@ export function createClaudeRuntime({ env = process.env } = {}) {
       // (a space or other character outside the plain set) refuses the spawn; dropping it silently left refs, HEAD,
       // packed-refs and index writable. The host answers a spawn failure with its 502 and cleans up.
       if (mainGit !== undefined && !isWorktreePath(mainGit)) throw new TypeError("claude runtime: mainGit must be a plain absolute path; refusing to start without the main .git denies");
-      const ceiling = compileCeiling(role, { worktree: isWorktreePath(cwd) ? cwd : undefined, grants, ...(isWorktreePath(root) ? { root } : {}), ...(mainGit !== undefined ? { mainGit } : {}), ...(isWorktreePath(env.HOME) ? { home: env.HOME } : {}) });
+      // den-mvp outcome 1: the credential stores that exist now are closed to reads; a deny target must exist to be applied.
+      const home = isWorktreePath(env.HOME) ? env.HOME : undefined;
+      const credentials = home === undefined ? [] : CREDENTIAL_PATHS.filter((p) => existsSync(`${home}${p.slice(1)}`));
+      const ceiling = compileCeiling(role, { worktree: isWorktreePath(cwd) ? cwd : undefined, grants, ...(isWorktreePath(root) ? { root } : {}), ...(mainGit !== undefined ? { mainGit } : {}), ...(home === undefined ? {} : { home }), ...(credentials.length === 0 ? {} : { credentials }) });
+      // Every role has a ceiling (ceilings.json); one without would start with no wall, so it does not start.
+      if (ceiling === null) throw new EnforcementError(`the ${role} role has no ceiling, so it cannot be started`);
       const args = buildClaudeArgs({ sessionId, agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}), ...(ceiling ?? {}) });
       const bin = typeof env.DEN_CLAUDE_BIN === "string" && env.DEN_CLAUDE_BIN !== "" ? env.DEN_CLAUDE_BIN : "claude";
-      const child = spawnChild(bin, args, { shell: false, detached: true, cwd, env: buildClaudeEnv(env), stdio: ["pipe", "pipe", "pipe"] });
-      await new Promise((resolve, reject) => {
-        child.once("error", reject);
-        child.once("spawn", resolve);
-      });
+      // The child is inside its resource group, limits read back, before this resolves; a host that cannot do that starts nothing.
+      const { child, group } = await launcher.launch({ slotClass: slotClassOf(role), id: sessionId, bin, args, cwd, env: buildClaudeEnv(env) });
       child.on("error", () => {});
       child.stdin.on("error", () => {});
       child.stderr.resume(); // drained, never read: a full pipe must not block the child
@@ -90,6 +102,34 @@ export function createClaudeRuntime({ env = process.env } = {}) {
           // the group is already gone
         }
       };
+      // The resource group's own kill reaches a descendant that left the process group; the signal covers a launcher without one.
+      const killAll = () => {
+        group?.kill();
+        signalGroup("SIGKILL");
+      };
+      // A hard limit (memory, process count) ends the run with that reason; the host never restarts it.
+      let limitHit = null;
+      const monitor = group
+        ? setInterval(() => {
+            if (limitHit !== null || (limitHit = group.exhausted()) === null) return;
+            channel.push({ type: "resource-limit", resource: limitHit });
+            killAll();
+          }, RESOURCE_POLL_MS)
+        : null;
+      monitor?.unref?.();
+      // Job storage: the worktree is measured from outside, and a run that passes the bound ends the same way.
+      const stopStorage = group && launcher.limits
+        ? watchStorage({
+            dir: cwd,
+            limitBytes: launcher.limits.storage.jobMiB * 1024 * 1024,
+            onOver: () => {
+              if (limitHit !== null || exitedFlag) return;
+              limitHit = "storage";
+              channel.push({ type: "resource-limit", resource: limitHit });
+              killAll();
+            },
+          })
+        : null;
 
       const handleLine = (line) => {
         let obj;
@@ -100,7 +140,11 @@ export function createClaudeRuntime({ env = process.env } = {}) {
         }
         if (obj && obj.type === "control_request") {
           const d = decodeControlRequest(obj, seen);
-          if (d.kind === "approval") {
+          // A web fetch to a local, private or numeric destination is answered here; it never becomes a question for the user.
+          const refusal = d.kind === "approval" ? webRefusal(d.tool, d.input) : null;
+          if (refusal !== null) {
+            write(encodeControlResponse({ requestId: d.requestId, allow: false, reason: refusal })).catch(() => {});
+          } else if (d.kind === "approval") {
             held.set(d.requestId, d.input);
             channel.push({ type: "permission-request", requestId: d.requestId, tool: d.tool, input: d.input });
           } else if (d.kind === "deny") {
@@ -120,11 +164,15 @@ export function createClaudeRuntime({ env = process.env } = {}) {
       child.stdout.once("close", () => channel.end());
 
       const exited = new Promise((resolve) => {
-        child.once("exit", (code, signal) => {
+        child.once("exit", async (code, signal) => {
           exitedFlag = true;
+          clearInterval(monitor);
+          stopStorage?.();
           held.clear();
-          signalGroup("SIGKILL"); // the leader is gone: reap any grandchild left in its group
-          resolve({ code, signal });
+          limitHit ??= group?.exhausted() ?? null;
+          killAll(); // the leader is gone: reap any descendant left behind
+          if (group && !(await group.settled(GROUP_SETTLE_MS))) console.error(`bridge: processes are still in ${group.unit} after its kill`);
+          resolve({ code, signal, ...(limitHit === null ? {} : { resourceLimit: limitHit }) });
         });
       });
 
@@ -147,7 +195,8 @@ export function createClaudeRuntime({ env = process.env } = {}) {
         },
         signal(sig) {
           if (exitedFlag || (sig !== "SIGTERM" && sig !== "SIGKILL")) return;
-          signalGroup(sig);
+          if (sig === "SIGKILL") killAll();
+          else signalGroup(sig);
         },
         async send(messageId, text) {
           if (typeof messageId !== "string") throw new TypeError("claude runtime: a message needs an id");

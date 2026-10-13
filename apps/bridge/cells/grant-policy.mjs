@@ -5,10 +5,12 @@
 // Refused path grants: on or under a governed path of the main checkout (any case, any symlinked form); on or under a home
 // configuration path or a shell startup file; on or under a system directory; and one that contains the home directory.
 // Refused host grants: GitHub (the wall is the boundary, and `Bash(*git *push*)` rules do not parse shell quoting).
+// den-mvp outcome 1: also refused is a path grant on, under or above a credential store of governance.json; a grant must
+// not reopen what every role is denied.
 // A reason never echoes the grant value back.
 import { readlink, realpath } from "node:fs/promises";
 import path from "node:path";
-import { GOVERNED_BASES, grantContainsWorktrees } from "./claude-adapter.mjs";
+import { CREDENTIAL_PATHS, GOVERNED_BASES, grantContainsWorktrees } from "./claude-adapter.mjs";
 
 // Security's list from 02-security finding 1 (user decision 2026-10-11), by first path segment under the home directory.
 const HOME_DIRS = new Set([".ssh", ".claude", ".config", ".local"]);
@@ -25,6 +27,10 @@ const REASON_GOVERNED = "a path grant may not be on a governed path of the main 
 const REASON_HOME = "a path grant may not be on a home configuration path, a shell startup file or a system directory";
 const REASON_HOME_DIR = "a path grant may not contain the home directory";
 const REASON_WORKTREE = "a path grant may not contain the agent's worktree";
+const REASON_CREDENTIAL = "a path grant may not reach a credential store";
+// The stores in "~/" form, lower-cased; `touches` is true for a grant on, under or above one.
+const CREDENTIALS = CREDENTIAL_PATHS.map((p) => p.slice(1).toLowerCase());
+const touchesCredential = (home, form) => CREDENTIALS.some((c) => covers(`${home}${c}`, form) || covers(form, `${home}${c}`));
 const REASON_GITHUB = "a GitHub host cannot be granted yet";
 
 /** The path with every symlink resolved, through the nearest part that exists; what does not exist yet is appended as written. */
@@ -50,6 +56,7 @@ function refusalFor(form, { roots, homes }) {
   for (const h of homes) {
     if (covers(form, h)) return REASON_HOME_DIR;
     if (covers(h, form) && homeRefused(form.slice(h.length + 1).split("/"))) return REASON_HOME;
+    if (touchesCredential(h, form)) return REASON_CREDENTIAL;
   }
   if (systemRefused(form.slice(1).split("/"))) return REASON_HOME;
   return undefined;
@@ -68,6 +75,7 @@ export async function grantRefusal({ hosts, paths }, { roots, home }) {
     const absolute = grant.startsWith("~/") ? (home === undefined ? undefined : `${home}${grant.slice(1)}`) : grant;
     // A "~/" grant with no known home is judged by its first segment alone.
     if (absolute === undefined && homeRefused(grant.slice(2).toLowerCase().split("/"))) return REASON_HOME;
+    if (absolute === undefined && touchesCredential("~", grant.toLowerCase())) return REASON_CREDENTIAL;
     if (absolute === undefined) continue;
     for (const form of new Set([absolute, await resolveReal(absolute)])) {
       const why = refusalFor(form.toLowerCase(), ctx);

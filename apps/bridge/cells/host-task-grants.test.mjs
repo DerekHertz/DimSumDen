@@ -81,9 +81,9 @@ describe("POST /tasks grants", () => {
     assert.equal(t.fake.spawns.length, 0);
   });
 
-  test("a role with no ceiling takes no grant", async () => {
+  test("a role that writes nothing (Bao) takes no grant", async () => {
     t = await makeBridge();
-    const res = await t.post("/tasks", { role: "architect", text: TEXT, grants: [GOOD[0]] });
+    const res = await t.post("/tasks", { role: "orchestrator", text: TEXT, grants: [GOOD[0]] });
     assert.equal(res.status, 400, res.text);
     assert.equal(t.fake.spawns.length, 0);
   });

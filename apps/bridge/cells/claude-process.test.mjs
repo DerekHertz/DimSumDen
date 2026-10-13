@@ -1,7 +1,7 @@
 // organism-infra/143 (ADR 0016 decisions 2, 6.5, 6.6, 6.8; amendment 6): the process half of the Claude adapter.
 //
 // PINNED INTERFACE (what these tests hold the developer to):
-//   apps/bridge/cells/claude-runtime.mjs   export createClaudeRuntime({ env = process.env }) -> CellRuntime
+//   apps/bridge/cells/claude-runtime.mjs   export createClaudeRuntime({ launcher: unconfinedLauncher(), env = process.env }) -> CellRuntime
 //     - the binary is env.DEN_CLAUDE_BIN, else "claude"; it never comes from a spawn argument
 //     - spawn(args) runs  spawn(bin, buildClaudeArgs({ sessionId, agent: role, model? }), { shell: false, detached: true,
 //       cwd: args.cwd, env: buildClaudeEnv(env) })  and writes the prompt as ONE stdin line
@@ -24,6 +24,7 @@ import path from "node:path";
 import { until, sleep } from "./host-test-helpers.mjs";
 import { makeStub, collect, alive, UTF8_COMMAND } from "./claude-stub.mjs";
 import { buildClaudeArgs } from "./claude-adapter.mjs";
+import { unconfinedLauncher } from "./launcher-test-helpers.mjs";
 
 async function loadRuntimeModule() {
   try {
@@ -45,7 +46,7 @@ async function launch(stubOpts, { args = {}, env = {} } = {}) {
   assert.equal(typeof createClaudeRuntime, "function", "claude-runtime.mjs must export createClaudeRuntime");
   const stub = await makeStub(stubOpts);
   const cwd = await mkdtemp(path.join(tmpdir(), "den-claude-cwd-"));
-  const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin, ...env } });
+  const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin, ...env } });
   const proc = await runtime.spawn({ role: "architect", ref: "fx/02-ready-p0", cwd, prompt: "do the thing", sessionId: SESSION, ...args });
   const run = collect(proc);
   cleanups.push(async () => {
@@ -61,19 +62,25 @@ async function launch(stubOpts, { args = {}, env = {} } = {}) {
 describe("the runtime's declared shape", () => {
   test("capabilities: approve and send on, and a resume command naming the session", async () => {
     const { createClaudeRuntime } = await loadRuntimeModule();
-    const rt = createClaudeRuntime({ env: {} });
+    const rt = createClaudeRuntime({ launcher: unconfinedLauncher(), env: {} });
     assert.deepEqual(rt.capabilities, { spawn: true, stop: true, approve: true, send: true, handover: true });
     assert.equal(typeof rt.id, "string");
     assert.match(rt.resumeCommand(SESSION), new RegExp(`--resume ${SESSION}`));
   });
 });
 
+// den-mvp outcome 1: every role starts behind the wall, so the --settings value depends on the cwd and the host's home.
+// The rest of the argv is the fixed template; the settings are checked for what each test is about.
+const settingsOf = (argv) => JSON.parse(argv[argv.indexOf("--settings") + 1]);
+const template = (argv) => argv.filter((_, i) => i !== argv.indexOf("--settings") + 1);
+
 describe("what the child is launched with", () => {
   test("argv is exactly buildClaudeArgs, cwd is the given directory, and the prompt is the first stdin line", async () => {
     const { stub, cwd, proc } = await launch({ mode: "hang" });
     await until(async () => (await stub.stdinLines()).length >= 1, { what: "the prompt line" });
     const start = await stub.start();
-    assert.deepEqual(start.argv, buildClaudeArgs({ sessionId: SESSION, agent: "architect" }));
+    assert.deepEqual(template(start.argv), template(buildClaudeArgs({ sessionId: SESSION, agent: "architect" })));
+    assert.equal(settingsOf(start.argv).sandbox?.enabled, true, "the wall is on");
     assert.equal(await realpath(start.cwd), await realpath(cwd));
     const [first] = await stub.stdinLines();
     assert.deepEqual(first, { type: "user", message: { role: "user", content: "do the thing" } });
@@ -84,16 +91,16 @@ describe("what the child is launched with", () => {
     const file = "/repo/.scratch/den/issues/01-architect.md";
     const a = await launch({ mode: "hang" }, { args: { ticketFile: file } });
     await until(async () => (await a.stub.start()) !== undefined, { what: "the child to start" });
-    assert.deepEqual((await a.stub.start()).argv, buildClaudeArgs({ sessionId: SESSION, agent: "architect", ticketFile: file }));
+    assert.ok(settingsOf((await a.stub.start()).argv).permissions.allow.includes(`Read(/${file})`));
     const b = await launch({ mode: "hang" }, { args: { ticketFile: "/my repo/.scratch/den/issues/01-architect.md" } });
     await until(async () => (await b.stub.start()) !== undefined, { what: "the second child to start" });
-    assert.deepEqual((await b.stub.start()).argv, buildClaudeArgs({ sessionId: SESSION, agent: "architect" }), "the read stays a permission request");
+    assert.ok(!(settingsOf((await b.stub.start()).argv).permissions.allow ?? []).some((rule) => rule.startsWith("Read(")), "the read stays a permission request");
   });
 
   test("a model reaches --model only from the fixed list", async () => {
     const { stub } = await launch({ mode: "hang" }, { args: { model: "sonnet" } });
     await until(async () => (await stub.start()) !== undefined, { what: "the child to start" });
-    assert.deepEqual((await stub.start()).argv, buildClaudeArgs({ sessionId: SESSION, agent: "architect", model: "sonnet" }));
+    assert.deepEqual(template((await stub.start()).argv), template(buildClaudeArgs({ sessionId: SESSION, agent: "architect", model: "sonnet" })));
   });
 
   test("the child's environment is an allowlist: a secret in the bridge's env never reaches it", async () => {
@@ -116,7 +123,7 @@ describe("what the child is launched with", () => {
   test("a binary that cannot start makes spawn reject (the host then answers 502)", async () => {
     const { createClaudeRuntime } = await loadRuntimeModule();
     const missing = path.join(await mkdtemp(path.join(tmpdir(), "den-claude-none-")), "no-such-claude");
-    const rt = createClaudeRuntime({ env: { PATH: process.env.PATH, DEN_CLAUDE_BIN: missing } });
+    const rt = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, DEN_CLAUDE_BIN: missing } });
     await assert.rejects(rt.spawn({ role: "architect", ref: "fx/02-ready-p0", cwd: tmpdir(), prompt: "p", sessionId: SESSION }));
   });
 });

@@ -5,9 +5,10 @@
 // everything in its process group.
 // Part 2: `node apps/bridge/server.mjs` as a subprocess. The production entry must construct the default Claude runtime,
 // or POST /agents is 503 "no runtime is configured" in production (the gap 142 left). DEN_CLAUDE_BIN points at the stub.
-import { test, describe, afterEach } from "node:test";
+import { test, describe, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
 import { startBridge } from "../server.mjs";
@@ -16,6 +17,8 @@ import { CODE, login, authed, send } from "../bridge-auth-helpers.mjs";
 import { DISPATCH_REF, until, sleep } from "./host-test-helpers.mjs";
 import { LIVE_STATES } from "./policy.mjs";
 import { makeStub, alive } from "./claude-stub.mjs";
+import { unconfinedLauncher } from "./launcher-test-helpers.mjs";
+import { cgroupOf, createResourceLauncher, findUserBus } from "./resource-group.mjs";
 
 const SERVER = fileURLToPath(new URL("../server.mjs", import.meta.url));
 const cleanups = [];
@@ -32,11 +35,11 @@ async function loadCreate() {
 }
 
 // A bridge over the real Claude runtime, the stub as the binary.
-async function boot(stubOpts) {
+async function boot(stubOpts, { launcher = unconfinedLauncher() } = {}) {
   const createClaudeRuntime = await loadCreate();
   const stub = await makeStub(stubOpts);
   const fx = await makeStateFixture({ git: true });
-  const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+  const runtime = createClaudeRuntime({ launcher, env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
   const bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, runtime, policy: { killGraceMs: 150 } });
   const token = await login(bridge);
   const headers = authed(bridge, token);
@@ -94,8 +97,55 @@ describe("startBridge over the real Claude runtime", () => {
   });
 });
 
+// den-mvp outcome 1: the same wiring with the enforced launcher, on real control groups. Reduced limits and a slice of
+// this test's own, so the probes stay small; skipped, with the launcher's reason, where the host cannot enforce.
+const enforceEnv = { PATH: process.env.PATH, HOME: process.env.HOME };
+const enforceable = await createResourceLauncher({ env: enforceEnv }).preflight();
+const LIVE_LIMITS = { classes: { worker: { memoryMiB: 160, cpuPercent: 50, tasks: 48 }, bao: { memoryMiB: 160, cpuPercent: 50, tasks: 48 }, scout: { memoryMiB: 160, cpuPercent: 50, tasks: 48 } }, aggregate: { memoryMiB: 512, cpuPercent: 100, tasks: 160 }, storage: { jobMiB: 16, outputMiB: 1 } };
+const LIVE_SLICE = `den-test-h${process.pid}`;
+const processGroup = (pid) => Number(readFileSync(`/proc/${pid}/stat`, "utf8").replace(/^.*\) /, "").split(" ")[2]);
+
+describe("the Claude runtime behind the enforced launcher (live)", { skip: enforceable.ok ? false : `this host cannot enforce the limits: ${enforceable.reason}` }, () => {
+  const live = () => ({ launcher: createResourceLauncher({ env: enforceEnv, limits: LIVE_LIMITS, slice: LIVE_SLICE }) });
+  after(async () => {
+    for (const verb of ["revert", "stop"]) await new Promise((resolve) => execFile("systemctl", ["--user", verb, `${LIVE_SLICE}.slice`], { env: findUserBus(enforceEnv).env, timeout: 5000 }, () => resolve()));
+  });
+
+  test("a stop reaches a grandchild that left the process group: the whole resource group is gone", { timeout: 30000 }, async () => {
+    const t = await boot({ mode: "hang", grandchild: "detached", ignoreTerm: true }, live());
+    const res = await t.post("/agents", { ref: DISPATCH_REF, role: "architect" });
+    assert.equal(res.status, 201, res.text);
+    const { id, sessionId } = res.body.agent;
+    const gc = await until(() => t.stub.grandchildPid(), { ms: 5000, what: "the grandchild pid" });
+    const { pid } = await until(() => t.stub.start(), { what: "the child to start" });
+    const scope = `/${LIVE_SLICE}.slice/den-run-${sessionId}.scope`;
+    for (const p of [pid, gc]) assert.ok((cgroupOf(p) ?? "").endsWith(scope), `pid ${p} is in ${cgroupOf(p)}`);
+    assert.notEqual(processGroup(gc), processGroup(pid), "the grandchild is outside the child's process group");
+    assert.notEqual(cgroupOf(process.pid), cgroupOf(pid), "the bridge is outside the agents' group");
+    assert.equal((await t.post(`/agents/${id}/stop`, {})).status, 202);
+    await until(async () => (await t.agent(id)).state === "terminated", { ms: 6000, what: "the agent to be terminated" });
+    await until(() => !alive(pid) && !alive(gc), { ms: 3000, what: "the child and the detached grandchild to be gone" });
+    assert.equal((await t.agent(id)).reason, "stopped-by-user");
+  });
+
+  test("a child that passes its memory limit is killed by the kernel, and the agent fails with the limit named", { timeout: 30000 }, async () => {
+    const t = await boot({ mode: "hog" }, live());
+    const res = await t.post("/agents", { ref: DISPATCH_REF, role: "developer" });
+    assert.equal(res.status, 201, res.text);
+    const { id } = res.body.agent;
+    await until(async () => (await t.agent(id)).state === "failed", { ms: 20000, what: "the agent to fail" });
+    assert.equal((await t.agent(id)).reason, "resource-limit: memory");
+    const { pid } = await t.stub.start();
+    await until(() => !alive(pid), { ms: 3000, what: "the child to be gone" });
+    assert.equal((await t.state()).agents.filter((a) => LIVE_STATES.includes(a.state)).length, 0, "nothing restarted it");
+  });
+});
+
 describe("the production entry (node apps/bridge/server.mjs)", () => {
-  test("wires the default Claude runtime: DEN_CLAUDE_BIN is honoured and dispatch is not a 503", { timeout: 30000 }, async () => {
+  // den-mvp outcome 1: the production entry has no unconfined path. Where the host can enforce the hardware limits the stub
+  // starts inside its resource group; where it cannot, the dispatch is refused with the reason and nothing is launched.
+  test("wires the default Claude runtime behind the enforced launcher: it starts in a resource group, or is refused and starts nothing", { timeout: 30000 }, async () => {
+    const enforceable = await createResourceLauncher({ env: { PATH: process.env.PATH, HOME: process.env.HOME } }).preflight();
     const stub = await makeStub({ mode: "hang" });
     const fx = await makeStateFixture({ git: true });
     const port = await new Promise((resolve) => {
@@ -125,9 +175,21 @@ describe("the production entry (node apps/bridge/server.mjs)", () => {
     const bridge = { port };
     const token = await login(bridge, m[1]);
     const res = await send(bridge, { method: "POST", path: "/agents", body: { ref: DISPATCH_REF, role: "architect" }, headers: authed(bridge, token) });
-    assert.notEqual(res.status, 503, `production dispatch answered 503: ${res.text}`);
+    if (!enforceable.ok) {
+      assert.equal(res.status, 503, `an unenforceable host must refuse: ${res.status} ${res.text}`);
+      assert.match(res.body.error, /^the run was refused: /);
+      assert.ok(res.body.error.includes(enforceable.reason.slice(0, 40)), `the refusal names the blocker: ${res.body.error}`);
+      await sleep(300);
+      assert.equal(await stub.start(), undefined, "the CLI was never launched");
+      const state = await send(bridge, { method: "GET", path: "/state", headers: authed(bridge, token) });
+      assert.deepEqual(state.body.agents, [], "no agent was recorded");
+      child.kill("SIGTERM");
+      return;
+    }
     assert.ok([201, 202].includes(res.status), `dispatch answered ${res.status} ${res.text}`);
     await until(async () => (await stub.start()) !== undefined, { ms: 5000, what: "the stub binary named by DEN_CLAUDE_BIN to be launched" });
+    const { pid } = await stub.start();
+    assert.match(cgroupOf(pid) ?? "", /\/den-agents\.slice\/den-run-[0-9a-f-]+\.scope$/, "the CLI runs in its own scope under the agents slice");
     await sleep(50);
     child.kill("SIGTERM");
   });

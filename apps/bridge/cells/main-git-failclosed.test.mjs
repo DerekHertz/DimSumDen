@@ -24,6 +24,7 @@ import { makeBridge, sleep, until } from "./host-test-helpers.mjs";
 import { createClaudeRuntime } from "./claude-runtime.mjs";
 import { makeStub, alive } from "./claude-stub.mjs";
 import { createWorkspaces } from "./workspace.mjs";
+import { unconfinedLauncher } from "./launcher-test-helpers.mjs";
 
 const run = promisify(execFile);
 const git = async (root, ...args) => (await run("git", ["-C", root, ...args])).stdout;
@@ -44,7 +45,7 @@ const hasDenies = (settings, mainGit) => {
 };
 const stubRuntime = async (stubOpts = { mode: "hang" }) => {
   const stub = await makeStub(stubOpts);
-  const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+  const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
   cleanups.push(async () => {
     const start = await stub.start();
     if (start?.pid && alive(start.pid)) process.kill(start.pid, "SIGKILL");

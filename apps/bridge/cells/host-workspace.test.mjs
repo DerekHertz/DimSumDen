@@ -14,6 +14,7 @@ import { DISPATCH_REF, NO_GATE_REF, makeBridge, seedSessions, until } from "./ho
 import { buildClaudeArgs } from "./claude-adapter.mjs";
 import { createClaudeRuntime } from "./claude-runtime.mjs";
 import { makeStub, alive } from "./claude-stub.mjs";
+import { unconfinedLauncher } from "./launcher-test-helpers.mjs";
 
 const run = promisify(execFile);
 const git = async (root, ...args) => (await run("git", ["-C", root, ...args])).stdout;
@@ -29,7 +30,7 @@ async function boot(stubOpts = {}) {
   const fx = await makeStateFixture({ git: true });
   const outside = path.join(fx.root, "outside.txt");
   const stub = await makeStub({ ...stubOpts, writePath: outside });
-  const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+  const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
   const bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, runtime, policy: { killGraceMs: 150 } });
   const headers = authed(bridge, await login(bridge));
   cleanups.push(async () => {
@@ -75,10 +76,15 @@ describe("the child's working directory", () => {
     // The argv is still the fixed template: the worktree reaches the child as its cwd and nothing else. The one
     // path in it is the agent's own ticket file in the main checkout, inside the inline settings (amendment 13).
     const ticketFile = path.join(t.fx.root, ".scratch", "fx", "issues", "02-ready-p0.md");
-    assert.deepEqual(start.argv, buildClaudeArgs({ sessionId, agent: "architect", ticketFile }));
-    assert.ok(!start.argv.some((a) => a.includes(worktree)), "the worktree path is not in argv");
+    // den-mvp outcome 1: an architect starts behind the wall and may write in its own worktree, so the settings name it.
+    const at = start.argv.indexOf("--settings") + 1;
+    const settings = JSON.parse(start.argv[at]);
+    assert.deepEqual(start.argv.filter((_, i) => i !== at), buildClaudeArgs({ sessionId, agent: "architect", ticketFile }).filter((_, i) => i !== at));
+    assert.ok(settings.permissions.allow.includes(`Read(/${ticketFile})`));
+    assert.equal(settings.sandbox?.enabled, true);
+    assert.ok(!start.argv.some((a, i) => i !== at && a.includes(worktree)), "the worktree path is in the settings and nowhere else in argv");
     assert.deepEqual(start.argv.filter((a) => a.includes(root)), [start.argv.at(-1)], "the root appears only in the settings value");
-    assert.deepEqual(JSON.parse(start.argv.at(-1)).permissions.allow, [`Read(/${ticketFile})`]);
+    assert.deepEqual(JSON.parse(start.argv.at(-1)).permissions.allow, [`Read(/${ticketFile})`, `Write(/${start.cwd}/**)`, `Edit(/${start.cwd}/**)`]);
 
     const spawn = (await t.sessions()).find((l) => l.event === "spawn" && l.agentId === id);
     assert.equal(spawn.worktree, worktree);

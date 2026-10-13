@@ -43,9 +43,10 @@ const WALL_NO_HOSTS = {
   autoAllowBashIfSandboxed: true,
   network: { allowedDomains: [], strictAllowlist: true },
 };
-const WRITERS = ["developer", "qa", "security"];
-const CEILING_ROLES = ["developer", "qa", "scout", "security"];
-const NO_CEILING_ROLES = ["architect", "designer", "herald", "orchestrator", "product"];
+// den-mvp outcome 1: every role has a ceiling. Bao and a scout write nothing; the rest write in their worktree.
+const WRITERS = ["architect", "designer", "developer", "herald", "product", "qa", "security"];
+const CEILING_ROLES = ["architect", "designer", "developer", "herald", "orchestrator", "product", "qa", "scout", "security"];
+const NO_WRITE_ROLES = ["orchestrator", "scout"];
 
 const argvFor = (agent, extra = {}, worktree = WT) =>
   need("buildClaudeArgs")({ sessionId: SID, agent, ...(need("compileCeiling")(agent, { worktree }) ?? {}), ...extra });
@@ -56,7 +57,7 @@ const noFs = (sandbox) => ({ ...sandbox, filesystem: undefined });
 describe("ceilings.json: one data file beside policy.mjs", () => {
   const ceilings = () => JSON.parse(readFileSync(path.join(HERE, "ceilings.json"), "utf8"));
 
-  test("it gives scout, developer, qa and security a ceiling and nobody else", () => {
+  test("it gives every one of the nine roles a ceiling", () => {
     const data = ceilings();
     assert.ok(data !== null && typeof data === "object" && !Array.isArray(data), "a JSON object keyed by role");
     assert.deepEqual(Object.keys(data).sort(), CEILING_ROLES);
@@ -123,18 +124,18 @@ describe("compileCeiling: the four ceilings", () => {
   });
 });
 
-describe("compileCeiling: a role with no ceiling gets today's settings", () => {
-  for (const role of NO_CEILING_ROLES) {
-    test(`${role}: no ceiling, and the argv is exactly what buildClaudeArgs gives without one`, () => {
-      assert.ok(need("compileCeiling")(role, { worktree: WT }) == null, "null or undefined");
-      assert.deepEqual(argvFor(role), need("buildClaudeArgs")({ sessionId: SID, agent: role }));
+describe("compileCeiling: no role is left without a ceiling (den-mvp outcome 1)", () => {
+  test("every known role compiles to a wall, and the two that write nothing get no Write or Edit allow", () => {
+    assert.deepEqual(sorted(CEILING_ROLES), sorted(ROLES));
+    assert.deepEqual(sorted([...WRITERS, ...NO_WRITE_ROLES]), sorted(ROLES));
+    for (const role of ROLES) {
       const settings = settingsOf(argvFor(role, { ticketFile: TICKET }));
-      assert.equal(Object.hasOwn(settings, "sandbox"), false, "no wall");
-      assert.deepEqual(settings, { permissions: { deny: DENY, allow: [`Read(/${TICKET})`] } });
-    });
-  }
-
-  test("every role is either in the four or in the five: none was forgotten", () => {
-    assert.deepEqual(sorted([...CEILING_ROLES, ...NO_CEILING_ROLES]), sorted(ROLES));
+      assert.equal(settings.sandbox?.enabled, true, `${role} starts behind the wall`);
+      assert.equal(settings.sandbox.failIfUnavailable, true, role);
+    }
+    for (const role of NO_WRITE_ROLES) {
+      assert.deepEqual(settingsOf(argvFor(role, { ticketFile: TICKET })).permissions.allow, [`Read(/${TICKET})`], role);
+      assert.throws(() => need("compileCeiling")(role, { worktree: WT, grants: [{ kind: "host", value: "example.com" }] }), TypeError, `${role} takes no grants`);
+    }
   });
 });

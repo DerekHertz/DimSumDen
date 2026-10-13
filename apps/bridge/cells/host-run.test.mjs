@@ -28,6 +28,7 @@ import { LIVE_STATES, REPLY_EXCERPT_MAX } from "./policy.mjs";
 import { createClaudeRuntime } from "./claude-runtime.mjs";
 import { makeStub, alive } from "./claude-stub.mjs";
 import { cardFor } from "../../ui/src/overlay/proximity-card.mjs";
+import { unconfinedLauncher } from "./launcher-test-helpers.mjs";
 
 const AWS_KEY = ["AKIA", "IOSFODNN7", "EXAMPLE"].join(""); // built here so the root secret scan does not flag the file
 const BIDI = String.fromCharCode(0x202e);
@@ -298,7 +299,7 @@ describe("replaying the recorded live run: the card's cost is the CLI's own", ()
   test("cost, model and totals match the fixture's result line; the card shows the reply and the badge", { timeout: 30000 }, async () => {
     const stub = await makeStub({ mode: "replay", replayFile: LIVE_FIXTURE.pathname });
     const fx = await makeStateFixture({ git: true });
-    const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+    const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
     const bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, runtime, policy: { killGraceMs: 150 } });
     const headers = authed(bridge, await login(bridge));
     cleanups.push(async () => {

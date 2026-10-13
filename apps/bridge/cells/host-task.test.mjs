@@ -20,8 +20,9 @@ import { CODE, login, authed, send } from "../bridge-auth-helpers.mjs";
 import { makeBridge, until, AGENT_ID_RE, DISPATCH_REF } from "./host-test-helpers.mjs";
 import { makeStub, alive } from "./claude-stub.mjs";
 import { createClaudeRuntime } from "./claude-runtime.mjs";
-import { ROLES, RELAY_HOP_ROLES, TASK_MAX_BYTES, DEN_FEATURE } from "./policy.mjs";
+import { ROLES, TASK_MAX_BYTES, DEN_FEATURE } from "./policy.mjs";
 import { getStatus } from "../../organism-infra/board-service.mjs";
+import { unconfinedLauncher } from "./launcher-test-helpers.mjs";
 
 const TEXT = "Count the steamer baskets and tell me how many are chipped.";
 let t;
@@ -83,7 +84,7 @@ describe("POST /tasks starts a role on a ticket the route writes", () => {
   test("every role may be started, relay-hop roles included, and each task gets the next number", async () => {
     t = await makeBridge({ policy: { maxConcurrent: 8 } });
     const refs = [];
-    for (const role of [...RELAY_HOP_ROLES, "orchestrator"]) {
+    for (const role of ["developer", "qa", "security", "orchestrator"]) {
       const res = await t.post("/tasks", { role, text: `${TEXT} (${role})` });
       assert.equal(res.status, 201, `${role}: ${res.text}`);
       refs.push(res.body.ticket.ref);
@@ -92,11 +93,13 @@ describe("POST /tasks starts a role on a ticket the route writes", () => {
     assert.equal(t.fake.spawns.length, 4);
   });
 
-  test("direct mode is not a mode a client can ask POST /agents for, and relay-hop roles stay refused there", async () => {
+  test("direct mode is not a mode a client can ask POST /agents for; a developer starts there in the ordinary way", async () => {
     t = await makeBridge();
     assert.equal((await t.post("/agents", { ref: DISPATCH_REF, role: "architect", mode: "direct" })).status, 400);
-    assert.equal((await t.post("/agents", { ref: DISPATCH_REF, role: "developer" })).status, 409);
-    assert.equal(t.fake.spawns.length, 0);
+    const started = await t.post("/agents", { ref: DISPATCH_REF, role: "developer" });
+    assert.equal(started.status, 201, started.text);
+    assert.equal(started.body.agent.mode, null, "not direct mode");
+    assert.equal(t.fake.spawns.length, 1);
   });
 
   test("role and text are validated before anything is written", async () => {
@@ -127,18 +130,18 @@ describe("POST /tasks starts a role on a ticket the route writes", () => {
 
   test("the concurrency limit still applies, and a refused task writes no ticket (max 2 injected)", async () => {
     t = await makeBridge({ policy: { maxConcurrent: 2 } });
-    assert.equal((await t.post("/tasks", { role: "scout", text: TEXT })).status, 201);
+    assert.equal((await t.post("/tasks", { role: "product", text: TEXT })).status, 201);
     assert.equal((await t.dispatch("architect")).status, 201);
     const res = await t.post("/tasks", { role: "herald", text: TEXT });
     assert.equal(res.status, 429, res.text);
     assert.match(res.body.error, /max_concurrent_cells/);
-    assert.deepEqual(await tickets(t.fx.root), ["01-scout.md"]);
+    assert.deepEqual(await tickets(t.fx.root), ["01-product.md"]);
     assert.equal(t.fake.spawns.length, 2);
   });
 
   test("two tasks posted at once with one slot left: one starts, the other is refused and writes no ticket", async () => {
     t = await makeBridge({ policy: { maxConcurrent: 1 }, runtimeConfig: { spawnDelayMs: 30 } });
-    const both = await Promise.all([t.post("/tasks", { role: "scout", text: TEXT }), t.post("/tasks", { role: "herald", text: TEXT })]);
+    const both = await Promise.all([t.post("/tasks", { role: "product", text: TEXT }), t.post("/tasks", { role: "herald", text: TEXT })]);
     assert.deepEqual(both.map((r) => r.status).sort(), [201, 429]);
     assert.equal((await tickets(t.fx.root)).length, 1);
     assert.equal(t.fake.spawns.length, 1);
@@ -188,7 +191,7 @@ describe("POST /tasks over the real Claude runtime (claude-stub)", () => {
   test("a posted task gives a ticket file and a running stub agent whose prompt points at the ticket", async () => {
     const stub = await makeStub({ mode: "hang" });
     const fx = await makeStateFixture({ git: true });
-    const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+    const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
     const bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, runtime, policy: { killGraceMs: 150 } });
     cleanups.push(async () => {
       const start = await stub.start();

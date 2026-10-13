@@ -51,7 +51,7 @@ async function need(rel, names) {
   return mod;
 }
 export const loadRuntime = () => need("./runtime.mjs", ["createFakeRuntime"]);
-export const loadPolicy = () => need("./policy.mjs", ["MAX_CONCURRENT_AGENTS", "SESSION_CAP", "KILL_GRACE_MS", "RELAY_HOP_ROLES"]);
+export const loadPolicy = () => need("./policy.mjs", ["MAX_CONCURRENT_AGENTS", "SESSION_CAP", "KILL_GRACE_MS", "SLOTS", "slotClassOf"]);
 
 // A bridge over a disposable board, a fake runtime, a logged-in session, and shorthands.
 //   preWrite(root)  runs before the bridge starts (seed .scratch files)

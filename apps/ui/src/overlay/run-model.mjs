@@ -2,9 +2,10 @@
 // control on a frontier ticket and the slot strip. No DOM, no fetch; Cards.jsx renders what these return.
 // Contract and shapes: apps/ui/src/overlay/run-model.test.mjs.
 import { capacity as capacityOf } from "../../../bridge/cells/capacity.mjs";
+import { SLOTS, slotClassOf } from "../../../bridge/cells/policy.mjs";
 
-/** The roles Run offers. Never developer, qa or security: those are relay hops the orchestrator drives. */
-export const ROLE_OPTIONS = ["orchestrator", "architect", "product", "designer", "scout", "herald"];
+/** The roles Run offers: every role. den-mvp outcome 1: a developer, qa or security agent may be started directly. */
+export const ROLE_OPTIONS = ["orchestrator", "architect", "product", "designer", "scout", "herald", "developer", "qa", "security"];
 
 const DEFAULT_ROLE = { feature: "orchestrator", bug: "orchestrator", "design-question": "architect", spec: "product", ui: "designer", asset: "designer" };
 const ENDED = new Set(["done", "failed", "terminated"]);
@@ -38,15 +39,23 @@ export function slotRows(capacity, agents) {
 
 /**
  * Whether Run is enabled for a ticket, and the visible text under it. Reasons, first match wins: demo mode, no steering
- * session, capacity unknown, a start in flight for this ref, the ticket already has a live agent, no room.
+ * session, capacity unknown, a start in flight for this ref, the ticket already has a live agent, no room. `role` picks
+ * the slot: the orchestrator (Bao) and a scout each have one reserved slot; every other role takes a worker slot.
  */
-export function runState({ capacity, ticket, inflight, steer } = {}) {
+export function runState({ capacity, ticket, inflight, steer, role } = {}) {
   if (steer?.demo) return { enabled: false, reason: "Demo mode: actions are off" };
   if (steer?.state === "none") return { enabled: false, reason: "Couldn't send: not signed in to steer" };
   if (!capacity) return { enabled: false, reason: "Capacity unknown" };
   if (inflight) return { enabled: false, reason: "Starting…" };
   const rows = orderedRefs(capacity);
   if (rows.some((r) => r.ref === ticket?.ref && r.kind === "live")) return { enabled: false, reason: "Already running" };
+  const cls = typeof role === "string" ? slotClassOf(role) : "worker";
+  if (cls !== "worker") {
+    const slot = capacity.reserved?.[cls] ?? { max: SLOTS[cls], refs: [] };
+    if (slot.refs.includes(ticket?.ref)) return { enabled: false, reason: "Already running" };
+    if (slot.refs.length >= slot.max) return { enabled: false, reason: `The ${cls === "bao" ? "Bao" : cls} slot is in use: ${slot.refs.join(", ")}` };
+    return { enabled: true, reason: null };
+  }
   if (capacity.room <= 0) {
     // The session cap binds when it leaves less room than max does; then the count is live agents against the cap.
     const capBinds = capacity.cap - capacity.live <= capacity.max - capacity.load;
@@ -64,9 +73,13 @@ export function runState({ capacity, ticket, inflight, steer } = {}) {
 export function capacityFromSnapshot(snapshot) {
   const known = snapshot?.capacity;
   if (!known) return null;
-  const liveRefs = (snapshot.agents ?? []).filter((a) => a.ref && !ENDED.has(a.state)).map((a) => a.ref);
-  const lockedRefs = (snapshot.tickets ?? []).filter((t) => t.holder).map((t) => t.ref);
-  return capacityOf({ liveRefs, lockedRefs, max: known.max, cap: known.cap });
+  // Worker slots only: Bao's and a scout's agents (and the locks they hold) sit in their own reserved slots.
+  const live = (snapshot.agents ?? []).filter((a) => a.ref && !ENDED.has(a.state));
+  const reservedRefs = new Set(live.filter((a) => slotClassOf(a.role) !== "worker").map((a) => a.ref));
+  const liveRefs = live.filter((a) => !reservedRefs.has(a.ref)).map((a) => a.ref);
+  const lockedRefs = (snapshot.tickets ?? []).filter((t) => t.holder && !reservedRefs.has(t.ref)).map((t) => t.ref);
+  const reserved = Object.fromEntries(Object.keys(SLOTS).filter((cls) => cls !== "worker").map((cls) => [cls, { max: known.reserved?.[cls]?.max ?? SLOTS[cls], refs: live.filter((a) => slotClassOf(a.role) === cls).map((a) => a.ref) }]));
+  return { ...capacityOf({ liveRefs, lockedRefs, max: known.max, cap: known.cap }), reserved };
 }
 
 /** The Needs you dispatch prompt (note, Approve, Deny): hidden at room 0, with one line saying why. */
