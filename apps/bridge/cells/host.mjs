@@ -40,11 +40,10 @@ import { createApprovalStore, cleanText } from "./approvals.mjs";
 import { createWorkspaces, prepareMainGit } from "./workspace.mjs";
 import { TIERS, readCost, readCount, readModel, readTiers } from "./run-record.mjs";
 import { deliveryPrompt } from "../delivery/prompts.mjs";
-import { MEETING_PARTS, meetingPrompt } from "../meetings/prompts.mjs";
+import { MEETING_PARTS, NOTE_MAX as MEETING_FILE_MAX, meetingPrompt } from "../meetings/prompts.mjs";
 
 const COMMIT_RE = /^[0-9a-f]{40,64}$/;
 const FINDINGS_MAX = 16000; // characters of a review's findings handed to a fix round
-const MEETING_FILE_MAX = 300_000; // characters of the note a meeting run is given (the topic, the takes, the follow-ups)
 const REPORT_MAX = 16000; // characters of a run's last message kept as its report
 const HISTORY_CAP = 200; // ended agents kept in the snapshot, oldest dropped first
 const EVENT_DRAIN_MS = 250; // how long to wait for the event stream to end after the process exits

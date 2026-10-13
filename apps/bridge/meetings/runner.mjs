@@ -173,12 +173,15 @@ export function createMeetings({ host, store, log, readTicket, readUsage = async
       m.restedAt = new Date(now()).toISOString();
       return save(m);
     }
-    // A take reads the topic alone. The chair reads what is saved on the board: every take, the brief, the follow-ups.
-    const saved = next.part === "take" ? {} : await store.read(m);
-    const file = meetingNote({
-      part: next.part, ref: m.ref, topic: m.topic, takes: saved.takes, brief: saved.brief, thread: saved.thread?.slice(-NOTE_THREAD),
-      declined: m.seats.filter((s) => s.status === "declined" || s.status === "failed").map((s) => ({ role: s.role, reason: s.status === "declined" ? `declined: ${s.reason ?? "no reason given"}` : "its run gave no take" })),
-    });
+    // A take reads the topic alone, and a role asked again reads the follow-up it is asked for. The chair reads what is
+    // saved on the board: every take, the brief, the follow-ups.
+    const saved = next.part === "take" && m.round !== "answer" ? {} : await store.read(m);
+    const file = next.part === "take"
+      ? meetingNote({ part: "take", ref: m.ref, topic: m.topic, followUp: saved.thread?.findLast((e) => e.from === "user")?.text ?? null })
+      : meetingNote({
+        part: next.part, ref: m.ref, topic: m.topic, takes: saved.takes, brief: saved.brief, thread: saved.thread?.slice(-NOTE_THREAD),
+        absent: m.seats.filter((s) => s.status === "declined" || s.status === "failed").map((s) => ({ role: s.role, ...(s.status === "declined" ? { declined: s.reason ?? "no reason given" } : {}) })),
+      });
     const started = await host.start({ ref: m.ref, role: next.role, meeting: { part: next.part, file } });
     if (!started.ok) {
       const kind = started.status === 429 ? (/usage/.test(started.error) ? "usage" : "no-room") : started.status === 409 ? "busy" : "environment";
@@ -265,6 +268,7 @@ export function createMeetings({ host, store, log, readTicket, readUsage = async
     if (!m) return refuse(404, "no such meeting");
     if (m.state === "running") return refuse(409, "stop the meeting first");
     if (m.state === "closed") return refuse(409, "the meeting is already closed");
+    if (m.deciding) return refuse(409, "a decision is being recorded");
     if (m.state !== "decided" || !m.restedAt) m.restedAt = new Date(now()).toISOString(); // a decided meeting's 24 hours already run
     m.state = "closed";
     m.pause = null;
@@ -324,13 +328,24 @@ export function createMeetings({ host, store, log, readTicket, readUsage = async
     if (reask !== undefined && !m.seats.some((s) => s.role === reask)) return refuse(400, "reask must name a role seated in this meeting");
     if (m.retired || stale(m)) return refuse(409, "this meeting is past its 24 hours; start a new one");
     if (!resting(m) || !m.brief) return refuse(409, "a follow-up needs a meeting that has its brief and is not running");
+    // A choice is being written: the follow-up would start a run in a meeting that is about to be marked decided.
+    if (m.deciding) return refuse(409, "a decision is being recorded; ask again in a moment");
     if (closing) return refuse(503, "the bridge is shutting down");
     if ([...meetings.values()].some((x) => x !== m && x.ref === m.ref && live(x))) return refuse(409, "this ticket already has a meeting under way");
+    const before = { state: m.state, restedAt: m.restedAt, seat: reask === undefined ? null : { ...m.seats.find((s) => s.role === reask) } };
     m.state = "running"; // no await before this: two clicks ask once
     m.round = "answer";
     m.restedAt = null;
     if (reask !== undefined) Object.assign(m.seats.find((s) => s.role === reask), { status: "waiting", reason: null });
-    await store.appendThread(m, { from: "user", text });
+    try {
+      await store.appendThread(m, { from: "user", text });
+    } catch (err) {
+      // The follow-up was not saved, so nothing is asked: the meeting is put back as it was.
+      console.error(`bridge: could not save a follow-up for ${m.id}: ${err?.message ?? err}`);
+      Object.assign(m, { state: before.state, restedAt: before.restedAt, round: null });
+      if (before.seat) Object.assign(m.seats.find((s) => s.role === reask), before.seat);
+      return refuse(500, "could not save the follow-up; nothing was asked");
+    }
     m.thread += 1;
     await save(m);
     enqueue(m, () => advance(m));

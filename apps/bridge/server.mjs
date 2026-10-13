@@ -394,7 +394,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     const topic = typeof body.topic === "string" ? body.topic.trim() : "";
     if (!topic || Buffer.byteLength(topic) > TOPIC_MAX_BYTES) return reply(res, 400, { error: `topic must be text of at most ${TOPIC_MAX_BYTES} bytes` });
     if (hasSecret(topic)) return reply(res, 400, { error: "topic looks like it holds a secret; nothing was written" });
-    const title = `Meeting: ${topic.split("\n")[0].replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, " ").trim().slice(0, 90)}`;
+    const title = `Meeting: ${topic.split(/[\n\r\u0085\u2028\u2029]/)[0].replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, " ").trim().slice(0, 90)}`;
     const result = await meetings.start({
       ...(body.ref === undefined ? {} : { ref: body.ref }), topic, roles: body.roles,
       createTicket: async () => ({ title, ref: (await createTicket(root, { feature: DEN_FEATURE, slug: "meeting", title, text: topic, source: "den meeting", type: "discussion", status: "ready-for-human" })).ref }),
