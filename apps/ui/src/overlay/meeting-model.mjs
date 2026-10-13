@@ -1,0 +1,106 @@
+// den-mvp outcome 4: the pure pieces behind a meeting in the den. No DOM, no fetch; Meetings.jsx renders what these
+// return. A meeting is the bridge's job that asks a few roles for one take each and has Bao write a decision brief.
+// The words here say what the bridge recorded; a brief is shown as the chair's text and decides nothing by itself.
+import { CHAIR, SEATS_MAX, SPECIALISTS, TOPIC_MAX_BYTES } from "../../../bridge/meetings/types.mjs";
+
+export { SEATS_MAX, SPECIALISTS };
+const USAGE_LIMIT = 90; // the bridge refuses a new run at this five-hour usage (cells/policy.mjs)
+const LIVE = new Set(["running", "paused"]);
+const shortRef = (ref) => (typeof ref === "string" ? ref.slice(ref.indexOf("/") + 1) : "");
+const list = (snapshot) => (Array.isArray(snapshot?.meetings) ? snapshot.meetings.filter((m) => m && typeof m.id === "string" && Array.isArray(m.seats)) : []);
+const cap = (s) => `${s[0].toUpperCase()}${s.slice(1)}`;
+const bytes = (text) => new TextEncoder().encode(text).length;
+
+/** How many runs a meeting of these roles starts, in words: one take each, then the chair. */
+export const runsLine = (count) => (count === 0 ? "Pick who to ask." : `${count + 1} runs: ${count} take${count === 1 ? "" : "s"}, one at a time, then Bao's brief.`);
+
+/** Whether Start is offered, the line under it, and what the meeting will use. First match wins. */
+export function setupState({ topic = "", roles = [], usage = null, steer, inflight = false } = {}) {
+  const cost = `${runsLine(roles.length)} ${typeof usage === "number" ? `Five-hour usage is ${usage}%.` : "Usage reading unavailable."}`;
+  const off = (reason) => ({ enabled: false, reason, cost });
+  if (steer?.demo) return off("Demo mode: actions are off");
+  if (steer?.state === "none") return off("Couldn't send: not signed in to steer");
+  if (inflight) return off("Starting…");
+  if (typeof usage === "number" && usage >= USAGE_LIMIT) return off(`Five-hour usage is ${usage}%: nothing new starts at ${USAGE_LIMIT}% or more.`);
+  if (!topic.trim()) return off("Write the question first.");
+  if (bytes(topic.trim()) > TOPIC_MAX_BYTES) return off(`The question is limited to ${TOPIC_MAX_BYTES} bytes.`);
+  if (roles.length === 0) return off("Pick at least one role.");
+  if (roles.length > SEATS_MAX) return off(`At most ${SEATS_MAX} roles.`);
+  return { enabled: true, reason: null, cost };
+}
+
+/** Adds or removes a role, keeping the order the roles are listed in and the cap of six. */
+export function toggleRole(roles, role) {
+  if (roles.includes(role)) return roles.filter((r) => r !== role);
+  if (roles.length >= SEATS_MAX) return roles;
+  return SPECIALISTS.filter((r) => r === role || roles.includes(r));
+}
+
+/** One line for one seat. */
+export function seatLine(seat, meeting) {
+  if (seat.status === "taken") return seat.takes > 1 ? `gave ${seat.takes} takes` : "gave its take";
+  if (seat.status === "declined") return `declined: ${seat.reason || "no reason given"}`;
+  if (seat.status === "failed") return `no take: ${seat.reason || "the run failed"}`;
+  return meeting?.live?.role === seat.role ? "giving its take now" : "not asked yet";
+}
+
+/** One line saying where a meeting stands. */
+export function meetingLine(m) {
+  if (m?.state === "paused") return `Waiting: ${m.pause?.reason || "paused"}`;
+  if (m?.state === "running") {
+    if (!m.live) return "Starting the next run";
+    if (m.live.part === "take") return `${cap(m.live.role)} is giving its take`;
+    return m.live.part === "chair" ? "Bao is writing the brief" : "Bao is answering your follow-up";
+  }
+  const last = m?.decisions?.at(-1);
+  const tail = m?.retired ? " Only the summary and the brief are kept." : "";
+  if (m?.state === "briefed") return `The brief is ready: ${m.brief?.options?.length ?? 0} options, ${m.brief?.recommended ?? "?"} recommended. The choice is yours.`;
+  if (m?.state === "decided" && last) return `You chose option ${last.option}. Proposed work: ${last.ticket}.${tail}`;
+  if (m?.state === "closed") return `${last ? `Closed. You chose option ${last.option}: ${last.ticket}.` : "Closed without a choice."}${tail}`;
+  return "";
+}
+
+/** Can a follow-up be asked? Only of a meeting that has its brief, is not running, and still has its takes. */
+export const canAsk = (m) => ["briefed", "decided", "closed"].includes(m?.state) && !!m.brief && !m.retired;
+/** Can an option be chosen? Only for a brief that has no decision yet. */
+export const canDecide = (m) => m?.state === "briefed" && !!m.brief && !m.retired;
+
+/** The rows of the Meetings list: the ones under way or waiting for a choice first, then the newest ended. */
+export function meetingRows(snapshot, max = 5) {
+  const all = list(snapshot);
+  const open = (m) => LIVE.has(m.state) || m.state === "briefed";
+  const rows = [...all.filter(open), ...all.filter((m) => !open(m)).reverse()].slice(0, max);
+  return rows.map((m) => ({
+    id: m.id, ref: m.ref, title: m.title || shortRef(m.ref), state: m.state, line: meetingLine(m), stamp: m.updatedAt ?? "",
+    seats: m.seats.map((s) => ({ role: s.role, status: s.status, line: seatLine(s, m) })),
+    chair: m.live?.role === CHAIR ? "at work now" : m.brief ? `wrote brief ${m.brief.version}` : "after the takes",
+    options: (m.brief?.options ?? []).map((o) => ({ key: o.key, title: o.title, recommended: o.key === m.brief.recommended })),
+    decisions: (m.decisions ?? []).map((d) => ({ option: d.option, title: d.title, ticket: d.ticket })),
+    roles: m.seats.map((s) => s.role),
+    canStop: m.state === "running", canResume: m.state === "paused", canClose: m.state !== "running" && m.state !== "closed",
+    canAsk: canAsk(m), canDecide: canDecide(m), hasBrief: !!m.brief,
+    next: m.state === "paused" ? m.pause?.next || "" : "",
+  }));
+}
+
+// A wait that ends by itself is not the user's to answer.
+const SELF_ENDING = new Set(["no-room"]);
+
+/** A meeting that waits on the user, as a Needs you request (the shape overlay-model.mjs lists). Bao chairs, so it is Bao's card. */
+export function meetingRequests(snapshot) {
+  return list(snapshot)
+    .filter((m) => (m.state === "paused" && !SELF_ENDING.has(m.pause?.kind)) || m.state === "briefed")
+    .map((m) => {
+      const short = shortRef(m.ref);
+      const briefed = m.state === "briefed";
+      return {
+        key: `meeting:${m.id}`, kind: "meeting", id: m.id, ref: m.ref, short, role: CHAIR, station: "pass",
+        eyebrow: `Pass · Bao · ${short}`,
+        title: briefed ? "A meeting's brief is ready" : "A meeting is waiting",
+        reason: briefed ? meetingLine(m) : m.pause?.reason || "The meeting is paused.", reasonFallback: false, plain: true, // the bridge's own words
+        next: briefed ? "Read the brief and pick an option, or ask a follow-up." : m.pause?.next || "",
+        rowText: `${short} · meeting`, preview: [], detailLabel: "", age: null,
+        primary: briefed ? { action: "open", label: "Open the brief" } : { action: "resume", label: "Resume" },
+      };
+    });
+}

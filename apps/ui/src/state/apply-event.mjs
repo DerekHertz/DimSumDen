@@ -31,6 +31,14 @@ export function applyEvent(state, event) {
       next.deliveries = found ? deliveries.map((d) => (d.id === event.delivery.id ? event.delivery : d)) : [...deliveries, event.delivery];
       break;
     }
+    // den-mvp outcome 4: a meeting and each change to it, kept as the snapshot keeps it.
+    case "meeting": {
+      if (!event.meeting?.id) return null;
+      const meetings = Array.isArray(state.meetings) ? state.meetings : [];
+      const found = meetings.some((m) => m.id === event.meeting.id);
+      next.meetings = found ? meetings.map((m) => (m.id === event.meeting.id ? event.meeting : m)) : [...meetings, event.meeting];
+      break;
+    }
     // den-mvp outcome 4: something the library card shows has changed. The frame carries no data; the card reads GET /library.
     case "library":
       next.libraryRev = (state.libraryRev ?? 0) + 1;
