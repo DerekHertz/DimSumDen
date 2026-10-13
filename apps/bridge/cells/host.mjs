@@ -13,6 +13,8 @@
 // worktree starts at, the commit the delivery began from, and a review's findings for a fix round. `onEnd(run)` is
 // called once per agent after its end is recorded, with the run and what the bridge itself saw of it: the commit it
 // started at, the commit it ended at, and its last message.
+// den-mvp outcome 4: start() also takes `meeting: { part, file }` from the meeting runner: which part of a meeting the
+// run is (a take, the chair's brief, the chair's answer to a follow-up) and the note the bridge leaves in its worktree.
 // den-mvp outcome 2: every transcript entry is also kept in the role's durable conversation (conversations.mjs), and
 // converse(role, { text, runId? }) is the thread's one way in: to the live run, or as a follow-up that continues the
 // session of a run that has ended (see "follow-ups" below).
@@ -38,9 +40,11 @@ import { createApprovalStore, cleanText } from "./approvals.mjs";
 import { createWorkspaces, prepareMainGit } from "./workspace.mjs";
 import { TIERS, readCost, readCount, readModel, readTiers } from "./run-record.mjs";
 import { deliveryPrompt } from "../delivery/prompts.mjs";
+import { MEETING_PARTS, meetingPrompt } from "../meetings/prompts.mjs";
 
 const COMMIT_RE = /^[0-9a-f]{40,64}$/;
 const FINDINGS_MAX = 16000; // characters of a review's findings handed to a fix round
+const MEETING_FILE_MAX = 200_000; // characters of the note a meeting run is given (the topic, the takes, the follow-ups)
 const REPORT_MAX = 16000; // characters of a run's last message kept as its report
 const HISTORY_CAP = 200; // ended agents kept in the snapshot, oldest dropped first
 const EVENT_DRAIN_MS = 250; // how long to wait for the event stream to end after the process exits
@@ -297,6 +301,13 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       if (!COMMIT_RE.test(at) || !COMMIT_RE.test(since) || (findings !== undefined && typeof findings !== "string")) return refuse(400, "a delivery step needs the commits it starts at and began from");
       step = { at, since, ...(findings === undefined ? {} : { findings: findings.slice(0, FINDINGS_MAX) }) };
     }
+    // So is a meeting run. Its note is the bridge's own text: the topic and the takes are quoted in it as data.
+    let meeting = null;
+    if (entry === "start" && input.meeting !== undefined) {
+      const { part, file } = input.meeting ?? {};
+      if (step || !MEETING_PARTS.includes(part) || typeof file !== "string" || file.length > MEETING_FILE_MAX) return refuse(400, "a meeting run needs its part and its note");
+      meeting = { part, file };
+    }
     const notUp = down();
     if (notUp) return notUp;
     if (entry === "dispatch") {
@@ -317,7 +328,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     if (liveByRef.has(ref)) return refuse(409, "this ticket already has a live agent");
     const noRoom = full(locked, role);
     if (noRoom) return noRoom;
-    const agent = newAgent({ ref, role, mode, grants: Array.isArray(input.grants) ? input.grants : [], sessionId: randomUUID(), ...(step ? { delivery: step } : {}) });
+    const agent = newAgent({ ref, role, mode, grants: Array.isArray(input.grants) ? input.grants : [], sessionId: randomUUID(), ...(step ? { delivery: step } : {}), ...(meeting ? { meeting } : {}) });
     return launch(agent, ENTRY_ROUTES[entry], usage === null);
   }
   // A new run's record. Called inside the synchronous step; launch() registers it and starts the spawn.
@@ -442,6 +453,17 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
         return refuse(500, "could not prepare the agent's worktree");
       }
     }
+    if (agent.meeting) {
+      try {
+        await workspaces.brief(workspace, agent.meeting.file, "meeting.md");
+        agent.meeting = { part: agent.meeting.part }; // the note is in the worktree now; the run's record does not carry it
+      } catch (err) {
+        await workspaces.remove(workspace);
+        liveByRef.delete(agent.ref);
+        console.error(`bridge: could not prepare the worktree of a meeting run for ${agent.ref}: ${err?.message ?? err}`);
+        return refuse(500, "could not prepare the agent's worktree");
+      }
+    }
     // agent-os/09 (ADR 0021 Amendment 2): every deny target of the main .git must exist before the spawn, or nothing is spawned.
     let mainGit;
     try {
@@ -508,7 +530,9 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
   // names that file by a path built from the bridge's own root and the validated ref.
   const ticketFile = (ref) => path.join(root, ".scratch", ref.split("/")[0], "issues", `${ref.split("/")[1]}.md`);
   const promptFor = (a) =>
-    a.delivery
+    a.meeting
+      ? meetingPrompt({ role: a.role, part: a.meeting.part, ref: a.ref, ticketFile: ticketFile(a.ref) })
+      : a.delivery
       ? deliveryPrompt({ role: a.role, mode: a.mode, ref: a.ref, ticketFile: ticketFile(a.ref), since: a.delivery.since, fix: a.delivery.findings !== undefined })
       : a.mode === DIRECT_MODE
       ? `You are the ${a.role} cell in direct mode for ticket ${a.ref}. The user started this task from the den. ` +

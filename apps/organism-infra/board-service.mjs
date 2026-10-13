@@ -1619,7 +1619,11 @@ function quoteLines(text) {
     .join("\n");
 }
 
-export async function createTicket(root, { feature, slug, title, text, source, priority = "P2", class: ticketClass, origin, serves, p0Reason } = {}) {
+// den-mvp outcome 4: `type` and `status` let the bridge write a ticket that is not work for an agent yet: a meeting's
+// discussion ticket, and the work a chosen option proposes, both start at ready-for-human.
+const CREATE_STATUSES = ["ready-for-agent", "ready-for-human"];
+const TYPE_RE = /^[a-z][a-z-]{0,29}$/;
+export async function createTicket(root, { feature, slug, title, text, source, priority = "P2", class: ticketClass, origin, serves, p0Reason, type = "task", status = "ready-for-agent" } = {}) {
   for (const [value, name] of [[feature, "feature"], [slug, "slug"], [title, "title"], [text, "text"], [source, "source"], [serves, "serves"], [p0Reason, "p0 reason"]]) {
     checkArgLength(value, name);
   }
@@ -1630,6 +1634,8 @@ export async function createTicket(root, { feature, slug, title, text, source, p
   }
   if (typeof text !== "string" || !text.trim()) throw new BoardError("text must be a non-empty string");
   if (typeof priority !== "string" || !PRIORITY_RE.test(priority)) throw new BoardError(`invalid priority: ${priority}`);
+  if (typeof type !== "string" || !TYPE_RE.test(type)) throw new BoardError("invalid type");
+  if (!CREATE_STATUSES.includes(status)) throw new BoardError(`a ticket is created at one of: ${CREATE_STATUSES.join(", ")}`);
   if (source !== undefined && (typeof source !== "string" || !SOURCE_RE.test(source))) throw new BoardError("invalid source");
   if (ticketClass !== undefined && !TICKET_CLASSES.includes(ticketClass)) throw new BoardError(`invalid class: ${ticketClass} (product or pipeline)`);
   if (origin !== undefined && !TICKET_ORIGINS.includes(origin)) throw new BoardError(`invalid origin: ${origin} (spec or added)`);
@@ -1656,9 +1662,9 @@ export async function createTicket(root, { feature, slug, title, text, source, p
     const paths = boardPaths(root, feature, ticket);
     const content = [
       `# ${nn}: ${title}`, "",
-      "**Type:** task", "",
+      `**Type:** ${type}`, "",
       `**Priority:** ${priority}`, "",
-      "**Status:** ready-for-agent", "",
+      `**Status:** ${status}`, "",
       ...(source ? [`**Source:** ${source}`, ""] : []),
       ...(ticketClass ? [`**Class:** ${ticketClass}`, ""] : []),
       ...(originLine ? [`**Origin:** ${originLine}`, ""] : []),
@@ -1672,7 +1678,7 @@ export async function createTicket(root, { feature, slug, title, text, source, p
       "## Comments", "",
     ].join("\n");
     await commitWithEvent(paths.eventsPath, () => createExclusive(paths.ticketPath, content), {
-      feature, ticket, cell: null, mode: null, op: "create", from_status: null, to_status: "ready-for-agent",
+      feature, ticket, cell: null, mode: null, op: "create", from_status: null, to_status: status,
     });
     return { ref: `${feature}/${ticket}`, feature, ticket, path: paths.ticketPath };
   });
