@@ -9,4 +9,5 @@ One line per friction with the current infra: what, what it cost, what was done.
 - 2026-10-12: Jev's advisory route matched the orchestrator's pick on every ticket and changed nothing; two hand-run commands per ticket.
 - 2026-10-12: ADR 0019 decision 4 (slim relay, accepted 2026-10-03) was never applied to `CLAUDE.md` or the orchestrator genome, so the full relay kept running.
 - 2026-10-12: `log-cell --failures` splits on semicolons inside an item; one failed call and a retry.
-- 2026-10-12: the user's video breakdown of the inspiration was pasted into a session and never saved; no later session can find it.
+- 2026-10-12: the user's video breakdown of the inspiration lives outside the repo and no file in the repo pointed to it. A session searched for it and failed; the user had to give the path.
+- 2026-10-12: the auto-mode classifier blocked a session from drafting a `CLAUDE.md` change on a branch for the user's review (self-modification), and then blocked a read-only `git worktree list`. The user has to apply relay edits to `CLAUDE.md` by hand.
