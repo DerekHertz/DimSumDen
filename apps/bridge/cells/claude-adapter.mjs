@@ -191,6 +191,18 @@ const expandHome = (grant, home) => (grant.startsWith("~/") && home !== undefine
  * (so the main checkout, its .claude and any parent are included). Such a grant would open the main checkout and the
  * sibling worktrees, where the governance denies do not reach. A "~/" grant is checked when home is given.
  */
+/** True when a path grant is on, under or above a credential store of governance.json (any case). */
+export function grantTouchesCredential(grant, home) {
+  const g = grant.toLowerCase();
+  // A "~/" grant is compared in that form; an absolute one against the stores under home, when home is known.
+  const base = g.startsWith("~/") ? "~" : home?.toLowerCase();
+  if (base === undefined) return false;
+  return CREDENTIAL_PATHS.some((c) => {
+    const store = `${base}${c.slice(1).toLowerCase()}`;
+    return covers(store, g) || covers(g, store);
+  });
+}
+
 export function grantContainsWorktrees(grant, { root, home, worktree } = {}) {
   const p = expandHome(grant, home);
   if (!p.startsWith("/")) return false;
@@ -240,6 +252,8 @@ export function compileCeiling(role, { worktree, grants, root, home, mainGit, cr
     if (!isWorktreePath(worktree)) throw new TypeError("compileCeiling: worktree must be a plain absolute path");
     options.worktree = worktree;
   }
+  // den-mvp outcome 1: a grant on, under or above a credential store would reopen it to the shell; forbid beats permit.
+  if (paths.some((p) => grantTouchesCredential(p, home))) throw new TypeError("compileCeiling: a path grant may not reach a credential store");
   // A grant above the worktree would open the main checkout and its sibling worktrees, where the governance denies do not reach.
   if (paths.some((p) => grantContainsWorktrees(p, { root, home, worktree }))) throw new TypeError("compileCeiling: a path grant may not contain the worktree");
   const lifted = (entry) =>

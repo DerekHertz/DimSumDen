@@ -151,6 +151,31 @@ describe("credential stores are closed to every role", () => {
   });
 });
 
+describe("a grant cannot reopen a credential store", () => {
+  const TOUCHING = ["~/.aws", "~/.aws/credentials", "~/.codex", "~/.kube/config", "~/.gnupg", "~/.docker", "~/.netrc", "~/.npmrc", "~/.claude.json", "~/.AWS"];
+
+  test("the ceiling compiler refuses a path grant on, under or above a store, in either form", () => {
+    for (const value of [...TOUCHING, "/home/u/.aws", "/home/u/.codex", "/home/u/.kube/config"]) {
+      assert.throws(() => compileCeiling("developer", { worktree: WT, home: "/home/u", root: "/home/u/den", grants: [{ kind: "path", value }] }), /may not reach a credential store/, value);
+    }
+    for (const value of ["~/projects/data", "/home/u/projects/data", "/srv/data", "~/.awsome"]) {
+      assert.doesNotThrow(() => compileCeiling("developer", { worktree: WT, home: "/home/u", root: "/home/u/den", grants: [{ kind: "path", value }] }), value);
+    }
+  });
+
+  test("the host refuses such a task with a 400 that does not echo the path, and starts nothing", async () => {
+    t = await makeBridge();
+    for (const value of TOUCHING) {
+      const res = await t.post("/tasks", { role: "developer", text: "list the buckets", grants: [{ kind: "path", value }] });
+      assert.equal(res.status, 400, `${value}: ${res.text}`);
+      assert.match(res.body.error, /credential store|home configuration path/, value);
+      assert.ok(!res.body.error.includes(value.slice(2)), "the reason does not echo the grant");
+    }
+    assert.equal(t.fake.spawns.length, 0);
+    assert.deepEqual(await denTickets(t.fx.root), []);
+  });
+});
+
 describe("the CLI's own web tool", () => {
   test("a fetch to a local, private or numeric destination is refused outright", () => {
     for (const url of [
