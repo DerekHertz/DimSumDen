@@ -150,6 +150,14 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
       const approval = host.approval(new URL(req.url, "http://x").pathname.split("/")[2]);
       reply(res, approval ? 200 : 404, approval ?? { error: "no such approval" });
     },
+    // den-mvp outcome 2: a page of a role's durable conversation. `before` and `limit` are whole numbers or left out.
+    "GET /conversations/:role": async (req, res) => {
+      const url = new URL(req.url, "http://x");
+      const whole = (name) => (/^\d{1,9}$/.test(url.searchParams.get(name) ?? "") ? Number(url.searchParams.get(name)) : undefined);
+      const page = await host.conversation(url.pathname.split("/")[2], { before: whole("before"), limit: whole("limit") });
+      reply(res, page ? 200 : 404, page ?? { error: "no such role" });
+    },
+    "POST /conversations/:role/message": (req, res) => converse(req, res),
     "POST /approvals/:id": async (req, res) => {
       const body = await readJsonObject(req, res);
       if (!body) return;
@@ -262,6 +270,16 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     const result = await host.message(id, { text: body.text });
     if (!result.ok) return reply(res, result.status, { error: result.error });
     reply(res, result.status, { ok: true, messageId: result.messageId });
+  }
+  // POST /conversations/:role/message (den-mvp outcome 2): one message into a role's conversation. Only `text` and `runId`
+  // are read. The host sends it to the live run, or starts a follow-up run that continues an ended run's session.
+  async function converse(req, res) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    const role = new URL(req.url, "http://x").pathname.split("/")[2];
+    const result = await host.converse(role, { text: body.text, ...(body.runId === undefined ? {} : { runId: body.runId }) });
+    if (!result.ok) return reply(res, result.status, { error: result.error });
+    reply(res, result.status, { ok: true, runId: result.runId, messageId: result.messageId, resumed: result.resumed, ...(result.agent ? { agent: result.agent } : {}), ...(result.usageUnknown ? { usageUnknown: true } : {}) });
   }
   // Static UI build (ADR 0011 decision 2): unknown paths serve index.html; traversal is a 403.
   async function serveStatic(pathname, req, res) {

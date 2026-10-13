@@ -34,9 +34,12 @@ export function validateLine(raw) {
     if (!ROLES.includes(raw.role) || typeof raw.sessionId !== "string" || !UUID_RE.test(raw.sessionId)) return null;
     // The worktree and branch are kept only when they equal what the bridge derives from this ref and id, so the
     // file cannot make the UI name another path; a line from before worktrees existed has neither.
-    const names = workspaceNames({ ref: raw.ref, agentId: raw.agentId });
+    // den-mvp outcome 2: a follow-up run works in the worktree of the run that first opened the session (`origin`) and
+    // continues the run named by `resumeOf`; its branch is still its own. Both must be bridge-minted ids, or neither is kept.
+    const follows = AGENT_ID_RE.test(raw.origin) && AGENT_ID_RE.test(raw.resumeOf) ? { origin: raw.origin, resumeOf: raw.resumeOf } : {};
+    const names = { worktree: workspaceNames({ ref: raw.ref, agentId: follows.origin ?? raw.agentId }).worktree, branch: workspaceNames({ ref: raw.ref, agentId: raw.agentId }).branch };
     const own = raw.worktree === names.worktree && raw.branch === names.branch;
-    return { ...base, event: "spawn", role: raw.role, sessionId: raw.sessionId, worktree: own ? names.worktree : null, branch: own ? names.branch : null };
+    return { ...base, event: "spawn", role: raw.role, sessionId: raw.sessionId, worktree: own ? names.worktree : null, branch: own ? names.branch : null, ...(own ? follows : {}) };
   }
   if (raw.event === "stop") return { ...base, event: "stop" };
   if (raw.event === "end") {
@@ -76,7 +79,7 @@ export function createSessions(root) {
       chain = run.catch(() => {});
       return run;
     },
-    // -> [{ agentId, ref, role, sessionId, worktree, branch, startedAt, endedAt, state, reason }], oldest first. `state` is the end
+    // -> [{ agentId, ref, role, sessionId, worktree, branch, origin?, resumeOf?, startedAt, endedAt, state, reason }], oldest first. `state` is the end
     // state, or "terminated" with reason "bridge-restart-unverified" for a spawn that never got an end line. An agent
     // whose end line holds a run record also has those of model, usage, costUsd and durationMs that passed.
     async replay() {
@@ -101,6 +104,7 @@ export function createSessions(root) {
           if (!agents.has(line.agentId)) {
             agents.set(line.agentId, {
               agentId: line.agentId, ref: line.ref, role: line.role, sessionId: line.sessionId, worktree: line.worktree, branch: line.branch,
+              ...(line.origin ? { origin: line.origin, resumeOf: line.resumeOf } : {}),
               startedAt: line.ts, endedAt: null, state: "terminated", reason: "bridge-restart-unverified",
             });
           }

@@ -94,10 +94,12 @@ describe("R on a card with no agent does nothing and the reason stays visible", 
     assert.equal(state.notice, "no agent running");
   });
 
-  test("an agent that already ended has no transcript to open", () => {
+  // den-mvp outcome 2: the conversation outlives the run, so R opens the thread of the run that ended.
+  test("an agent that already ended still has its thread to open", () => {
     const card = live("c-1", { state: "done" });
-    assert.equal(card.actions.R.enabled, false);
-    assert.equal(key(initialTranscriptState(), "r", card).state.agentId, null);
+    assert.equal(card.agentId, null);
+    assert.equal(card.actions.R.enabled, true);
+    assert.equal(key(initialTranscriptState(), "r", card).state.agentId, "c-1");
   });
 
   test("R with no card in reach opens nothing and says nothing", () => {

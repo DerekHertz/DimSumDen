@@ -288,9 +288,10 @@ export function compileCeiling(role, { worktree, grants, root, home, mainGit, cr
 export function buildClaudeArgs(options) {
   if (!isPlainObject(options)) throw new TypeError("buildClaudeArgs needs { sessionId, agent, model?, ticketFile?, wall?, worktree? }");
   for (const key of Object.keys(options)) {
-    if (!["sessionId", "agent", "model", "ticketFile", "wall", "worktree", "forbid", "writePaths", "readLimit", "denyAbs", "credentials"].includes(key)) throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
+    if (!["sessionId", "resume", "agent", "model", "ticketFile", "wall", "worktree", "forbid", "writePaths", "readLimit", "denyAbs", "credentials"].includes(key)) throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
   }
-  const { sessionId, agent, model, ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs, credentials } = options;
+  const { sessionId, resume, agent, model, ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs, credentials } = options;
+  if (resume !== undefined && resume !== true) throw new TypeError("buildClaudeArgs: resume must be true");
   if (credentials !== undefined && !(wall !== undefined && isDense(credentials) && credentials.every((p) => CREDENTIAL_PATHS.includes(p)))) throw new TypeError("buildClaudeArgs: credentials must be paths from governance.json, with the wall");
   if (wall !== undefined && !isWall(wall)) throw new TypeError("buildClaudeArgs: wall must be { hosts: [plain host names] }");
   // agent-os/02: the governance denies, task-granted write paths and the read limit all come from compileCeiling and need the wall.
@@ -311,7 +312,8 @@ export function buildClaudeArgs(options) {
     "--verbose",
     "--replay-user-messages", // den-v1 loop S5: the child re-emits each stdin user message once it takes it
     "--permission-prompt-tool", "stdio",
-    "--session-id", sessionId,
+    // den-mvp outcome 2: a follow-up continues the earlier session under the same id; everything else is built afresh.
+    ...(resume === true ? ["--resume", sessionId] : ["--session-id", sessionId]),
     "--agent", agent,
     ...(model === undefined ? [] : ["--model", model]),
     "--setting-sources", "project,local",

@@ -71,7 +71,8 @@ describe("wiring", () => {
   test("the panel carries the spec's roles, labels and copy", () => {
     const all = sources();
     for (const text of [
-      'role="log"', 'role="complementary"', "Transcript for", "Close transcript", "Jump to latest",
+      'role="log"', 'role="complementary"', "Conversation with", "Close conversation", "Jump to latest",
+      "Stop this agent?", "Keep going", "Show earlier", "Opens the full request first",
       "Earlier entries were dropped", "Waiting for the agent's first message.", "Show details", "Hide details",
       "Waiting on you", "Unreadable event", "Agent ended:", "Reconnecting...", "Bridge offline: run npm run ui",
     ]) assert.ok(all.includes(text), `missing in overlay sources: ${text}`);

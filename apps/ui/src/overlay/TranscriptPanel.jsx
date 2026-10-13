@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { initialTranscriptState, transcriptKey, transcriptToggle, closeTranscript } from "./transcript-panel.mjs";
-import { transcriptView } from "./transcript-view.mjs";
+import { threadEntries, threadView, footModel, stopModel } from "./thread-model.mjs";
 
-const STATES = { working: "Working", "needs-you": "Needs your answer", waiting_on_user: "Needs your answer", blocked: "Blocked", done: "Done", failed: "Failed", terminated: "Terminated" };
+const STATES = { working: "Working", "needs-you": "Needs your answer", waiting_on_user: "Needs your answer", blocked: "Blocked", done: "Done", failed: "Failed", terminated: "Stopped" };
+const HISTORY_PAGE = 100;
+const NO_HISTORY = { entries: [], more: false, before: null, error: null, loading: false };
+const GLYPHS = { done: "✓", failed: "✕" };
 const BOTTOM_SLACK = 24;
 
 const timeOf = (at) => {
@@ -17,6 +20,7 @@ export function useTranscript({ card, exploring, onOpen, blocked }) {
   const [identity, setIdentity] = useState(null);
   const latest = useRef({});
   latest.current = { panel, card, exploring, onOpen, blocked };
+  const intercept = useRef(null); // the thread's own use for Esc (the stop confirm); true means Esc was taken
 
   const commit = useCallback((next) => {
     const { panel: previous, card: current } = latest.current;
@@ -41,6 +45,11 @@ export function useTranscript({ card, exploring, onOpen, blocked }) {
       if (latest.current.blocked?.current) return; // den-v1/06: the permission review owns the keys while it is open
       if (e.key !== "Escape" && e.target?.closest?.("input,select,textarea,[contenteditable]")) return;
       const { panel: current, card: nearby, exploring: walking } = latest.current;
+      if (e.key === "Escape" && current.agentId && intercept.current?.()) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
       const { state, handled } = transcriptKey(current, { key: e.key, card: nearby, mode: walking ? "walk" : "diorama" });
       if (!handled) return;
       e.preventDefault();
@@ -51,8 +60,9 @@ export function useTranscript({ card, exploring, onOpen, blocked }) {
     return () => document.removeEventListener("keydown", onKey, true);
   }, [commit]);
 
-  // Leaving the den closes the transcript (walk mode only); a different nearby card clears an old notice.
-  useEffect(() => { if (!exploring && latest.current.panel.agentId) commit(closeTranscript(latest.current.panel)); }, [exploring, commit]);
+  // Leaving the den closes the transcript, unless it was opened from a panel (Needs you), which needs no den at all;
+  // a different nearby card clears an old notice.
+  useEffect(() => { if (!exploring && latest.current.panel.agentId && !latest.current.panel.pinned) commit(closeTranscript(latest.current.panel)); }, [exploring, commit]);
   useEffect(() => { if (latest.current.panel.notice) commit({ ...latest.current.panel, notice: null }); }, [card?.id, commit]);
 
   return {
@@ -60,6 +70,21 @@ export function useTranscript({ card, exploring, onOpen, blocked }) {
     identity,
     toggle: useCallback((nearby) => commit(transcriptToggle(latest.current.panel, nearby)), [commit]),
     close: useCallback(() => commit(closeTranscript(latest.current.panel)), [commit]),
+    // den-mvp outcome 2: open the thread of one run from a panel (no card nearby), and move an open thread to the
+    // follow-up run that continues it. Both keep the panel open outside walk mode.
+    openFor: useCallback((agentId, who) => {
+      if (!agentId || latest.current.blocked?.current) return;
+      if (latest.current.panel.agentId) commit(closeTranscript(latest.current.panel));
+      latest.current.card = who ?? null;
+      commit({ agentId, notice: null, pinned: true });
+    }, [commit]),
+    follow: useCallback((agentId) => {
+      const current = latest.current.panel;
+      if (!agentId || !current.agentId || agentId === current.agentId) return;
+      latest.current.panel = { ...current, agentId };
+      setPanel(latest.current.panel);
+    }, []),
+    intercept,
   };
 }
 
@@ -82,50 +107,191 @@ function ToolRow({ row, onToggle }) {
   </li>;
 }
 
-function Row({ row, onToggle, onAnswer }) {
+function Chips({ chips }) {
+  if (!chips?.length) return null;
+  return <p className="thread-chips">{chips.map((c, i) => <span key={i} className={`thread-chip thread-chip-${c.state}`}>
+    {GLYPHS[c.state] ? <span aria-hidden="true">{GLYPHS[c.state]} </span> : null}{c.text}
+  </span>)}</p>;
+}
+
+// Every string a row shows (the agent's words, a reason, a note, a command) is untrusted and rendered as a text node.
+function Row({ row, onToggle, onAnswer, who }) {
   switch (row.kind) {
     case "message":
-      return <li className={`transcript-row transcript-message${row.speaker === "You" ? " transcript-you" : ""}`}>
-        <p className="transcript-speaker">{row.speaker} <time>{timeOf(row.at)}</time>{row.note ? <span className="transcript-note"> · {row.note}</span> : null}</p>
-        <p className="transcript-text">{row.text}</p>
+      return <li className="transcript-row transcript-message thread-agent">
+        <p className="transcript-speaker">{who} <time>{timeOf(row.at)}</time></p>
+        <p className="transcript-text thread-bubble">{row.text}</p>
+      </li>;
+    case "you":
+      return <li className="transcript-row thread-you">
+        <p className="transcript-speaker">You <time>{timeOf(row.at)}</time></p>
+        <p className="transcript-text thread-bubble thread-bubble-you">{row.text}</p>
+        <Chips chips={row.chips} />
+      </li>;
+    case "answer":
+      return <li className="transcript-row thread-you">
+        <p className="thread-system">{row.asked}</p>
+        <p className="transcript-speaker">You <time>{timeOf(row.at)}</time></p>
+        <p className="transcript-text thread-bubble thread-bubble-you">{row.text}{row.note ? <> <q>{row.note}</q></> : null}</p>
+        <Chips chips={row.chips} />
       </li>;
     case "tool":
       return <ToolRow row={row} onToggle={onToggle} />;
-    case "permission":
-      // Live den run, 2026-10-10: the request the agent is held on says what is asked and can be answered from here.
+    case "ask":
       // Both buttons open the permission review, which shows the full input and sends the answer.
-      if (row.answerable) return <li className="transcript-row transcript-permission transcript-asking">
-        <p className="transcript-waiting"><span className="transcript-glyph" aria-hidden="true" />{row.label}</p>
-        <p className="transcript-asked"><code>{row.detail}</code></p>
-        <div className="transcript-answer">
-          <button type="button" className="approval-deny" data-answer="deny" title="Opens the permission request" onClick={() => onAnswer?.()}>Deny</button>
-          <button type="button" className="approval-allow" data-answer="allow" title="Opens the permission request" onClick={() => onAnswer?.()}>Allow</button>
-        </div>
+      return <li className="transcript-row transcript-permission transcript-asking" role="group" aria-label={`${who} is asking to ${row.verb}`}>
+        <p className="transcript-waiting"><span className="transcript-glyph transcript-glyph-needs-you" aria-hidden="true" />{row.head}</p>
+        <p className={`thread-reason${row.reasonFallback ? " thread-reason-none" : ""}`}>{row.reasonFallback ? row.reason : <q>{row.reason}</q>}</p>
+        {row.intent ? <p className="thread-intent">Why this command: {row.intent}</p> : null}
+        {row.command ? <details className="thread-details">
+          <summary>Show the {row.detailLabel.toLowerCase()}</summary>
+          <pre className="transcript-well"><code>{row.command}</code></pre>
+        </details> : null}
+        {row.answerable ? <>
+          <div className="transcript-answer">
+            <button type="button" className="approval-deny" data-answer="deny" aria-label={`Deny ${row.verb}`} onClick={() => onAnswer?.()}>Deny</button>
+            <button type="button" className="approval-allow" data-answer="allow" aria-label={`Allow ${row.verb}`} onClick={() => onAnswer?.()}>Allow</button>
+          </div>
+          <p className="thread-hint">Opens the full request first</p>
+        </> : null}
       </li>;
-      return <li className="transcript-row transcript-permission"><code>{row.name}</code> {row.waiting ? <span className="transcript-waiting"><span className="transcript-glyph" aria-hidden="true" />{row.label}</span> : <span className="transcript-answered">{row.label}</span>}</li>;
+    case "asked":
+      return <li className="transcript-row thread-system">{row.waiting ? <span className="transcript-waiting"><span className="transcript-glyph" aria-hidden="true" />Waiting on you · </span> : null}{row.label}</li>;
+    case "run":
+      return <li className="transcript-row thread-system thread-run">{row.label} <time>{timeOf(row.at)}</time></li>;
     case "ended":
-      return <li className={`transcript-row transcript-ended transcript-ended-${row.state}`}>{row.label}</li>;
+      return <li className={`transcript-row transcript-ended thread-system transcript-ended-${row.state}`}>{row.label} <time>{timeOf(row.at)}</time></li>;
     default:
       return <li className="transcript-row transcript-unreadable">{row.label}{row.type ? ` (${row.type})` : ""}</li>;
   }
 }
 
-export function TranscriptPanel({ tx, transcripts, agents, approvals, onAnswer, connection }) {
+// The foot of the thread: one box, Send, and Stop with a one-step confirm. The box sends to the live run, or follows up
+// a run that has ended (the bridge continues its session in a new run, and the thread moves to it).
+function Foot({ tx, agent, role, client, connection, signedIn, demo, onAnnounce }) {
+  const foot = footModel({ agent, connection, signedIn, demo });
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState(null);
+  const [stop, setStop] = useState({ phase: "idle", error: null });
+  const keepRef = useRef(null);
+  const stopRef = useRef(null);
+  const boxRef = useRef(null);
+  const agentId = agent?.id ?? null;
+  useEffect(() => { setStop({ phase: "idle", error: null }); setSendError(null); }, [agentId]);
+  useEffect(() => { if (stop.phase === "confirm") keepRef.current?.focus({ preventScroll: true }); }, [stop.phase]);
+  // Esc belongs to the confirm while it is up: it keeps the agent going and leaves the thread open.
+  const cancel = useCallback(() => { setStop({ phase: "idle", error: null }); queueMicrotask(() => stopRef.current?.focus({ preventScroll: true })); }, []);
+  tx.intercept.current = stop.phase === "confirm" ? () => { cancel(); return true; } : null;
+  useEffect(() => () => { tx.intercept.current = null; }, [tx]);
+  const view = stopModel({ ...stop, agent });
+  useEffect(() => { if (view.announce) onAnnounce(view.announce); }, [view.announce, onAnnounce]);
+
+  const send = async (e) => {
+    e.preventDefault();
+    const body = text.trim();
+    if (!foot.canSend || sending || !body || !client?.converse) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      const sent = await client.converse(role, { text: body, runId: agentId });
+      setText("");
+      if (sent?.resumed && sent.agent?.id) tx.follow(sent.agent.id);
+    } catch (err) {
+      setSendError(`Couldn't send: ${err?.status || ""} ${err?.reason ?? ""}`.replace(/\s+/g, " ").trim());
+    } finally {
+      setSending(false);
+      boxRef.current?.focus({ preventScroll: true });
+    }
+  };
+  const doStop = async () => {
+    if (!client?.stopAgent || !agentId) return;
+    setStop({ phase: "sending", error: null });
+    try {
+      await client.stopAgent(agentId);
+      setStop({ phase: "sent", error: null });
+    } catch (err) {
+      setStop({ phase: "failed", error: { status: err?.status ?? 0, reason: err?.reason ?? "" } });
+    }
+  };
+
+  return <form className="thread-foot" onSubmit={send} aria-busy={view.busy || sending || undefined}>
+    {view.confirm ? <div className="thread-confirm" role="group" aria-label="Stop this agent?">
+      <p>Stop this agent?</p>
+      <button type="button" className="thread-stop" onClick={doStop}>Stop</button>
+      <button type="button" className="thread-keep" ref={keepRef} onClick={cancel}>Keep going</button>
+    </div> : <div className="thread-compose">
+      <input type="text" className="thread-box" ref={boxRef} value={text} maxLength={2048} placeholder={foot.placeholder} aria-label={foot.placeholder || "Message"}
+        readOnly={foot.readOnly} disabled={foot.mode === "off" || foot.mode === "ended"} onChange={(e) => setText(e.target.value)} />
+      <button type="submit" className="thread-send" disabled={!foot.canSend || sending || !text.trim()}>{sending ? "Sending…" : foot.sendLabel}</button>
+      {foot.stopShown ? <button type="button" className="thread-stop" ref={stopRef} disabled={!foot.canStop || view.busy} title={foot.canStop ? undefined : foot.reason ?? undefined} onClick={() => setStop({ phase: "confirm", error: null })}>Stop agent</button> : null}
+    </div>}
+    {foot.reason ? <p className="thread-foot-note">{foot.reason}</p> : null}
+    {view.chip ? <Chips chips={[view.chip]} /> : null}
+    {sendError ? <p className="thread-alert" role="alert">{sendError}</p> : null}
+    {view.alert ? <p className="thread-alert" role="alert">{view.alert}</p> : null}
+  </form>;
+}
+
+export function TranscriptPanel({ tx, transcripts, agents, approvals, onAnswer, connection, client = null, signedIn = true, demo = false }) {
   const { panel, identity } = tx;
   const agentId = panel.agentId;
   const buffer = agentId ? transcripts?.[agentId] : undefined;
+  const agent = agentId ? agents?.find((a) => a.id === agentId) ?? null : null;
+  const role = agent?.role ?? identity?.role ?? "";
   const [expanded, setExpanded] = useState([]);
   const [atBottom, setAtBottom] = useState(true);
   const [seenThrough, setSeenThrough] = useState(0);
+  const [history, setHistory] = useState(NO_HISTORY);
+  const [announcement, setAnnouncement] = useState("");
   const log = useRef(null);
   const bottomRef = useRef(true);
   const lastN = useRef(0);
-  const pending = agentId ? approvals?.find((a) => a?.agentId === agentId && (a.status ?? a.state ?? "pending") === "pending") ?? null : null;
-  const view = transcriptView(buffer, { expanded, atBottom, seenThrough, connection, pending });
+  const announced = useRef(new Set());
+  // Receipts change with time ("Still stopping…", "No reply yet"), so an open thread keeps its own one-second clock.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!agentId) return undefined;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [agentId]);
+  const list = threadEntries({ history: history.entries, buffer, agentId });
+  const view = threadView(list, { expanded, atBottom, seenThrough, connection, approvals, agents, now });
   lastN.current = view.rows.at(-1)?.n ?? 0;
 
   useEffect(() => { setExpanded([]); setAtBottom(true); setSeenThrough(0); bottomRef.current = true; }, [agentId]);
-  useEffect(() => { if (agentId) document.querySelector(".transcript-close")?.focus({ preventScroll: true }); }, [agentId]);
+  useEffect(() => { if (agentId) document.querySelector(".transcript-close")?.focus({ preventScroll: true }); }, [!!agentId]);
+
+  // The role's earlier runs (den-mvp outcome 2): asked from the bridge when the thread opens or moves to a new run, a
+  // page at a time. Demo mode and a page with no client read nothing.
+  const canRead = !!agentId && !!role && !demo && typeof client?.getConversation === "function";
+  useEffect(() => {
+    if (!canRead) { setHistory(NO_HISTORY); return undefined; }
+    let stale = false;
+    setHistory((h) => ({ ...h, loading: true, error: null }));
+    client.getConversation(role, { limit: HISTORY_PAGE }).then(
+      (page) => { if (!stale) setHistory({ entries: page.entries, more: page.more === true, before: page.before, error: null, loading: false }); },
+      (err) => { if (!stale) setHistory({ ...NO_HISTORY, error: err?.reason ?? "Could not load earlier messages." }); },
+    );
+    return () => { stale = true; };
+  }, [canRead, agentId, role, client]);
+  const loadEarlier = () => {
+    if (!canRead || history.loading || !history.more) return;
+    setHistory((h) => ({ ...h, loading: true }));
+    client.getConversation(role, { before: history.before, limit: HISTORY_PAGE }).then(
+      (page) => setHistory((h) => ({ entries: [...page.entries, ...h.entries], more: page.more === true, before: page.before, error: null, loading: false })),
+      (err) => setHistory((h) => ({ ...h, loading: false, error: err?.reason ?? "Could not load earlier messages." })),
+    );
+  };
+
+  // A new ask is announced once, in the polite region; the log itself stays quiet.
+  const name = identity?.name ?? (role ? role[0].toUpperCase() + role.slice(1) : agentId);
+  const asking = view.rows.findLast((row) => row.kind === "ask" && row.answerable);
+  useEffect(() => {
+    if (!asking || announced.current.has(asking.approvalId)) return;
+    announced.current.add(asking.approvalId);
+    setAnnouncement(`${name} is asking to ${asking.verb}`);
+  }, [asking?.approvalId]);
 
   // New events keep arriving; only a reader already at the bottom follows them (appending never moves focus).
   useLayoutEffect(() => {
@@ -154,33 +320,38 @@ export function TranscriptPanel({ tx, transcripts, agents, approvals, onAnswer, 
 
   const notice = panel.notice ? <p className="transcript-notice visually-hidden" role="status" aria-live="polite">{panel.notice}</p> : null;
   if (!agentId) return notice;
-  const agent = agents?.find((a) => a.id === agentId);
   const state = agent?.state ?? identity?.state ?? "";
-  const name = identity?.name ?? agentId;
+  const ref = typeof agent?.ref === "string" ? agent.ref.slice(agent.ref.indexOf("/") + 1) : "";
   return <>
     {notice}
-    <aside className="transcript-panel" role="complementary" aria-label={`Transcript for ${name}`}>
+    <aside className="transcript-panel thread-panel" role="complementary" aria-label={`Conversation with ${name}`}>
       <header className="transcript-head">
         <div>
-          <p className="transcript-overline">Transcript</p>
-          <h2>{name}</h2>
-          <p className="transcript-meta"><code>{agentId}</code>{identity?.role ? ` · ${identity.role}` : ""}</p>
+          <p className="transcript-overline">Conversation</p>
+          <h2>{[name, ref].filter(Boolean).join(" · ")}</h2>
+          <p className="transcript-meta"><code>{agentId}</code>{role && role !== name ? ` · ${role}` : ""}</p>
           <p className="transcript-state"><span className={`transcript-glyph transcript-glyph-${state}`} aria-hidden="true" />{STATES[state] ?? state}</p>
         </div>
-        <button type="button" className="transcript-close" aria-label="Close transcript" onClick={tx.close}>
+        <button type="button" className="transcript-close" aria-label="Close conversation" onClick={tx.close}>
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" fill="none" /></svg>
         </button>
       </header>
       {view.banner ? <p className="transcript-banner" role="status">{view.banner}</p> : null}
-      <div className="transcript-log" role="log" aria-live="off" aria-label="Transcript entries" tabIndex={0} ref={log} onScroll={onScroll}>
+      <div className="thread-body">
+      <div className="transcript-log" role="log" aria-live="off" aria-label={`Conversation with ${name}`} tabIndex={0} ref={log} onScroll={onScroll}>
+        {history.more ? <p className="thread-earlier"><button type="button" className="transcript-jump-button" disabled={history.loading} onClick={loadEarlier}>{history.loading ? "Loading…" : "Show earlier"}</button></p> : null}
+        {history.error ? <p className="transcript-dropped">Earlier messages could not be loaded: {history.error}</p> : null}
         {view.empty ? <p className="transcript-empty">{view.emptyText}</p> : <>
           {view.droppedNotice ? <p className="transcript-dropped">{view.droppedText}</p> : null}
-          <ul className="transcript-list">{view.rows.map((row) => <Row key={row.n} row={row} onToggle={toggleRow} onAnswer={() => onAnswer?.(agentId)} />)}</ul>
+          <ul className="transcript-list">{view.rows.map((row) => <Row key={row.n} row={row} who={name} onToggle={toggleRow} onAnswer={() => onAnswer?.(agentId)} />)}</ul>
         </>}
       </div>
       <div className="transcript-jump" aria-live="polite">
         {view.jumpLabel ? <button type="button" className="transcript-jump-button" onClick={jump}>{view.jumpLabel}</button> : null}
       </div>
+      </div>
+      <Foot tx={tx} agent={agent} role={role} client={client} connection={connection} signedIn={signedIn} demo={demo} onAnnounce={setAnnouncement} />
+      <p className="visually-hidden" role="status" aria-live="polite">{announcement}</p>
     </aside>
   </>;
 }

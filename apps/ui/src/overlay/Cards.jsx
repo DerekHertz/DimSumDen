@@ -124,12 +124,15 @@ const Decision = forwardRef(function Decision({ request, session }, ref) {
 
 // den-v1 loop: a permission request the bridge holds. Both buttons open the permission review, which shows the full
 // tool input and sends the answer (ADR 0016 decision 6); nothing is sent from this card. E and Q are bound in App.
-function PermissionDecision({ request, onAnswer }) {
+function PermissionDecision({ request, onAnswer, onOpenThread }) {
   // No onAnswer: Demo mode, where nothing can be answered.
   const hint = onAnswer ? "Opens the permission request" : "Demo mode: actions are off";
   return (
     <div aria-live="polite">
-      {request.expires ? <p className="small muted needs-expires">{request.expires}</p> : null}
+      <p className="small muted needs-expires">
+        {request.expires}
+        {onOpenThread ? <button type="button" className="btn btn-outline needs-thread" onClick={() => onOpenThread(request.card)}>Open thread</button> : null}
+      </p>
       <div className="decision-buttons">
         <button type="button" className="btn btn-outline" data-answer="deny" aria-keyshortcuts="q" title={hint} disabled={!onAnswer} onClick={() => onAnswer?.(request.card)}>
           Deny<kbd aria-hidden="true">Q</kbd>
@@ -247,7 +250,7 @@ function SlotStrip({ snapshot, capacity }) {
   );
 }
 
-export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder, session, onAnswer, capacity = null, steer = { state: "ready" }, run = null }) {
+export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder, session, onAnswer, onOpenThread = null, capacity = null, steer = { state: "ready" }, run = null }) {
   const { count, requests } = needsYouModel(snapshot, now);
   const [shown, setShown] = useState(null);
   const current = requests.find((r) => r.key === shown) ?? requests[0] ?? null;
@@ -296,10 +299,11 @@ export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder,
                 <p className="needs-title">{current.title}</p>
               </div>
             </div>
-            {current.preview.length > 0 ? <pre className="code-well"><code>{current.preview.join("\n")}</code></pre> : null}
+            {current.reason ? <p className={`needs-reason${current.reasonFallback ? " muted needs-reason-none" : ""}`}>{current.reasonFallback ? current.reason : <q>{current.reason}</q>}</p> : null}
+            {current.preview.length > 0 ? <pre className="code-well" aria-label={current.detailLabel}><code>{current.preview.join("\n")}</code></pre> : null}
             {isDispatch && run ? <RunControl key={`run-${current.key}`} scope="dispatch" ticket={dispatchTicket} capacity={capacity} steer={steer} run={run} /> : null}
             {current.kind === "permission"
-              ? <PermissionDecision key={current.key} request={current} onAnswer={onAnswer} />
+              ? <PermissionDecision key={current.key} request={current} onAnswer={onAnswer} onOpenThread={onOpenThread} />
               : prompt.show
                 ? <Decision key={current.key} ref={decision} request={current} session={session} />
                 : <p className="small muted dispatch-line">{prompt.line}</p>}
@@ -383,7 +387,7 @@ export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZo
  * The right-hand column. Needs you opens by itself while something waits, until the user toggles it; Stations & queue
  * starts closed. Under 600 px both start closed and opening one closes the other.
  */
-export function Cards({ snapshot, now, connection, placeholder, camera, steering, onAnswer, demo = false }) {
+export function Cards({ snapshot, now, connection, placeholder, camera, steering, onAnswer, onOpenThread = null, demo = false }) {
   const [needsOpen, setNeedsOpen] = useState(null); // null: follow the data
   const [stationsOpen, setStationsOpen] = useState(false);
   const waiting = needsYouModel(snapshot, now).count;
@@ -406,7 +410,7 @@ export function Cards({ snapshot, now, connection, placeholder, camera, steering
   return (
     <div className="cards">
       {steering.message ? <p className="small muted session-none" data-session="none" role="status">{steering.message}</p> : null}
-      <NeedsYouCard snapshot={snapshot} now={now} open={needs} onToggle={toggleNeeds} busy={busy} placeholder={placeholder} session={steering.session} onAnswer={onAnswer} capacity={capacity} steer={steer} run={run} />
+      <NeedsYouCard snapshot={snapshot} now={now} open={needs} onToggle={toggleNeeds} busy={busy} placeholder={placeholder} session={steering.session} onAnswer={onAnswer} onOpenThread={onOpenThread} capacity={capacity} steer={steer} run={run} />
       <StationsCard snapshot={snapshot} open={stationsOpen} onToggle={toggleStations} busy={busy} placeholder={placeholder} onZoomStation={(id) => camera.goToStation(id)} capacity={capacity} steer={steer} run={run} />
     </div>
   );

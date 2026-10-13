@@ -60,6 +60,15 @@ describe("buildClaudeArgs: the fixed argv template (ADR 0016 6.6)", () => {
     assert.deepEqual(need("buildClaudeArgs")({ sessionId: SID, agent: "architect" }), base());
   });
 
+  // den-mvp outcome 2: a follow-up continues the earlier session; nothing else in the template moves.
+  test("resume: true names the session with --resume in place of --session-id, and only `true` is taken", () => {
+    const build = need("buildClaudeArgs");
+    const expected = base().map((a) => (a === "--session-id" ? "--resume" : a));
+    assert.deepEqual(build({ sessionId: SID, agent: "architect", resume: true }), expected);
+    for (const resume of [false, "true", 1, SID2, null]) assert.throws(() => build({ sessionId: SID, agent: "architect", resume }), /resume must be true/);
+    assert.throws(() => build({ sessionId: "latest", agent: "architect", resume: true }), /sessionId must be a UUID/);
+  });
+
   test("with a model the argv is the same list plus `--model <m>` right after the agent, nothing else", () => {
     const model = adapter.CLAUDE_MODELS?.[0];
     assert.equal(typeof model, "string", "CLAUDE_MODELS must be an exported non-empty list");

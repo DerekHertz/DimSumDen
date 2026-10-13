@@ -9,13 +9,16 @@
 //   direct(input)    the den's entry (POST /tasks): any role, on a ticket the caller writes once the host has room
 // All resolve { ok: true, status: 201, agent, usageUnknown? } or { ok: false, status, error }.
 // den-v1 loop S5: message(id, { text }) writes one user message to a running agent (see "messages" below).
+// den-mvp outcome 2: every transcript entry is also kept in the role's durable conversation (conversations.mjs), and
+// converse(role, { text, runId? }) is the thread's one way in: to the live run, or as a follow-up that continues the
+// session of a run that has ended (see "follow-ups" below).
 import { randomBytes, randomUUID } from "node:crypto";
 import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { hasSecret } from "../../../scripts/exposure.mjs";
 import {
-  AGENT_ID_RE, KILL_GRACE_MS, LIVE_STATES, MAX_CONCURRENT_AGENTS, MODES, REF_RE, ROLES, SESSION_CAP, SLOTS, slotClassOf,
+  AGENT_ID_RE, KILL_GRACE_MS, LIVE_STATES, MAX_CONCURRENT_AGENTS, MODES, REF_RE, ROLES, SESSION_CAP, SLOTS, slotClassOf, UUID_RE,
   USAGE_REFUSE_AT, APPROVAL_TTL_MS, SHUTDOWN_SPAWN_WAIT_MS, DIRECT_MODE,
   TRANSCRIPT_AGENTS, TRANSCRIPT_ENTRIES, TRANSCRIPT_RESULT_MAX, TRANSCRIPT_TEXT_MAX, REPLY_EXCERPT_MAX, USAGE_MESSAGES,
   MESSAGE_MAX_BYTES, MESSAGE_QUEUE_MAX, MESSAGE_SETTLE_MS,
@@ -24,6 +27,7 @@ import { ceilingOf, grantContainsWorktrees, parseGrants } from "./claude-adapter
 import { grantRefusal } from "./grant-policy.mjs";
 import { capacity as capacityOf } from "./capacity.mjs";
 import { createSessions } from "./sessions.mjs";
+import { createConversations } from "./conversations.mjs";
 import { createApprovalStore, cleanText } from "./approvals.mjs";
 import { createWorkspaces, prepareMainGit } from "./workspace.mjs";
 import { TIERS, readCost, readCount, readModel, readTiers } from "./run-record.mjs";
@@ -32,6 +36,9 @@ const HISTORY_CAP = 200; // ended agents kept in the snapshot, oldest dropped fi
 const EVENT_DRAIN_MS = 250; // how long to wait for the event stream to end after the process exits
 
 const ENTRY_ROUTES = { dispatch: "POST /agents", start: "start()", direct: "POST /tasks" }; // the audit's `route`
+const CONVERSE_ROUTE = "POST /conversations/:role/message";
+const END_STATES = ["done", "failed", "terminated"];
+const UNVERIFIED = "bridge-restart-unverified"; // sessions.mjs: a replayed run with no end line
 const refuse = (status, error) => ({ ok: false, status, error });
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const nonNegative = (n) => typeof n === "number" && Number.isFinite(n) && n >= 0;
@@ -68,6 +75,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
   const spawnWaitMs = Math.min(policy.spawnWaitMs ?? SHUTDOWN_SPAWN_WAIT_MS, SHUTDOWN_SPAWN_WAIT_MS);
   const messageSettleMs = Math.min(policy.messageSettleMs ?? MESSAGE_SETTLE_MS, MESSAGE_SETTLE_MS);
   const sessions = createSessions(root);
+  const conversations = createConversations(root);
   const workspaces = createWorkspaces(root);
   const agents = new Map(); // id -> record; insertion order is snapshot order
   const liveByRef = new Map(); // ref -> record, for every reserved or running agent
@@ -81,7 +89,10 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     startedAt: a.startedAt, lastEventAt: a.lastEventAt, tool: a.tool, tokens: a.tokens, capabilities: a.capabilities,
     resume: a.resume, reason: a.reason, worktree: a.worktree ?? null, branch: a.branch ?? null,
     model: a.model ?? null, usage: a.usage ?? null, costUsd: a.costUsd ?? null, reply: a.reply ?? null, durationMs: a.durationMs ?? null,
+    resumeOf: a.resumeOf ?? null, followUp: canContinue(a) && END_STATES.includes(a.state),
   });
+  // A run whose session a follow-up could continue: the runtime can resume, and the run has a session and a worktree.
+  const canContinue = (a) => runtime?.capabilities?.resume === true && typeof a.sessionId === "string" && UUID_RE.test(a.sessionId) && typeof a.worktree === "string";
   const publish = (a) => onChange({ type: "agent", agent: view(a) });
   // Held permission requests (organism-infra/141). The store knows no process; these callbacks are its only way out.
   const approvals = createApprovalStore({
@@ -102,6 +113,10 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
   // Each entry goes out once as a change frame and is kept in a small per-agent buffer that rides the snapshot, so
   // a reloaded page can refill its panel. An entry's `id` is its number in that agent's transcript; revise() sends
   // the same id again with new fields. Entries hold cleaned text only, and never a tool's input.
+  // den-mvp outcome 2: each entry, and each change to one, is also appended to the role's durable conversation, tagged
+  // with this run and its ticket. A failed write is logged; the conversation is a record to read, not an authority.
+  const keep = (agent, fields) =>
+    conversations.append(agent.role, { runId: agent.id, ref: agent.ref, ...fields }).catch((err) => console.error(`bridge: could not write the ${agent.role} conversation: ${err?.message ?? err}`));
   function record(agent, entry) {
     let buffer = transcripts.get(agent.id);
     if (!buffer) {
@@ -120,9 +135,11 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       buffer.dropped += 1;
     }
     onChange({ type: "transcript", agentId: agent.id, entry: full });
+    keep(agent, full);
     return full.id;
   }
   function revise(agent, id, patch) {
+    keep(agent, { id, ...patch });
     const buffer = transcripts.get(agent.id);
     const at = buffer ? buffer.entries.findIndex((e) => e.id === id) : -1;
     if (at < 0) return; // already dropped from the buffer: no page shows it either
@@ -143,9 +160,13 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     if (!agent) return;
     const known = agent.permissionEntries.get(approval.id);
     if (known !== undefined) {
-      revise(agent, known, { status: approval.state });
+      // The answer rides the entry (organism-infra/230): the user's note and when it was given, so the thread can show both.
+      revise(agent, known, { status: approval.state, ...(approval.note ? { note: approval.note } : {}), ...(approval.answeredAt ? { answeredAt: approval.answeredAt } : {}) });
       if (approval.state !== "pending") agent.permissionEntries.delete(approval.id);
-    } else if (approval.state === "pending") agent.permissionEntries.set(approval.id, record(agent, { kind: "permission", name: approval.tool, status: "pending" }));
+    } else if (approval.state === "pending") {
+      // The approval id ties the entry to its approval, where the reason and the command are; neither is copied here.
+      agent.permissionEntries.set(approval.id, record(agent, { kind: "permission", name: approval.tool, status: "pending", approvalId: approval.id }));
+    }
   }
   const transcriptView = () =>
     Object.fromEntries([...transcripts].map(([id, b]) => [id, { entries: b.entries.slice(), dropped: b.dropped }]));
@@ -167,6 +188,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
         state: h.state, startedAt: h.startedAt, lastEventAt: h.endedAt ?? h.startedAt, tool: null, tokens: null,
         capabilities: { stop: false, approve: false, send: false, handover: runtime?.capabilities?.handover === true },
         resume: resumeFor(h.sessionId), reason: h.reason, worktree: h.worktree, branch: h.branch, proc: null,
+        ...(h.origin ? { origin: h.origin, resumeOf: h.resumeOf } : {}),
         model: h.model, usage: h.usage, costUsd: h.costUsd, durationMs: h.durationMs,
       });
     }
@@ -266,22 +288,31 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     if (liveByRef.has(ref)) return refuse(409, "this ticket already has a live agent");
     const noRoom = full(locked, role);
     if (noRoom) return noRoom;
+    const agent = newAgent({ ref, role, mode, grants: Array.isArray(input.grants) ? input.grants : [], sessionId: randomUUID() });
+    return launch(agent, ENTRY_ROUTES[entry], usage === null);
+  }
+  // A new run's record. Called inside the synchronous step; launch() registers it and starts the spawn.
+  function newAgent({ ref, role, mode, grants, sessionId, ...follows }) {
     const agent = {
-      id: `c-${randomBytes(8).toString("hex")}`, ref, role, mode, runtimeId: runtime.id, sessionId: randomUUID(), state: "working",
+      id: `c-${randomBytes(8).toString("hex")}`, ref, role, mode, runtimeId: runtime.id, sessionId, state: "working",
       startedAt: new Date().toISOString(), lastEventAt: null, tool: null, tokens: null,
       capabilities: {
         stop: runtime.capabilities?.stop === true, approve: runtime.capabilities?.approve === true,
         send: runtime.capabilities?.send === true, handover: runtime.capabilities?.handover === true,
       },
-      grants: Array.isArray(input.grants) ? input.grants : [], resume: null, reason: null, proc: null, reportedState: "working", exited: false, killing: null, stopRequested: false, doneOk: null,
+      grants, resume: null, reason: null, proc: null, reportedState: "working", exited: false, killing: null, stopRequested: false, doneOk: null,
+      ...follows,
     };
     agent.lastEventAt = agent.startedAt;
     agent.openTools = new Map(); // the runtime's tool id (or a local key) -> transcript entry id, while running
     agent.permissionEntries = new Map(); // approval id -> transcript entry id
     agent.usageByMessage = new Map(); // message id -> the tiers last counted for it
     agent.messages = new Map(); // id of a message written and not yet taken -> its transcript entry id
-    liveByRef.set(ref, agent);
-    const run = spawnAgent(agent, ENTRY_ROUTES[entry], usage === null);
+    return agent;
+  }
+  function launch(agent, routeName, usageUnknown) {
+    liveByRef.set(agent.ref, agent);
+    const run = spawnAgent(agent, routeName, usageUnknown);
     pending.add(run);
     run.finally(() => pending.delete(run));
     return run;
@@ -308,10 +339,9 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       return undefined;
     }
   };
-  async function directOne(input) {
-    const { role, createTicket, grants } = input && typeof input === "object" ? input : {};
-    if (typeof role !== "string" || !ROLES.includes(role)) return refuse(400, `role must be one of: ${ROLES.join(", ")}`);
-    // agent-os/02: task grants are data in a fixed shape, checked before a ticket is written. The error never echoes a value.
+  // agent-os/02: task grants are data in a fixed shape, checked before a ticket is written (and again before a follow-up
+  // run is given the grants its session started with). The error never echoes a value. Returns a refusal or null.
+  async function grantsRefused(role, grants) {
     let checked;
     try {
       checked = parseGrants(grants);
@@ -327,7 +357,13 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     // agent-os/07: a grant that could never be safe (a governed path, a home or system path, a GitHub host) is refused with a
     // reason, whatever its casing or symlinks. The governance denies in the adapter stay as the second layer.
     const refusal = await grantRefusal(checked, { roots: [...new Set([root, await realRoot()])], home: homeDir() });
-    if (refusal !== null) return refuse(400, refusal);
+    return refusal !== null ? refuse(400, refusal) : null;
+  }
+  async function directOne(input) {
+    const { role, createTicket, grants } = input && typeof input === "object" ? input : {};
+    if (typeof role !== "string" || !ROLES.includes(role)) return refuse(400, `role must be one of: ${ROLES.join(", ")}`);
+    const badGrants = await grantsRefused(role, grants);
+    if (badGrants) return badGrants;
     const early = down() ?? overUsage(await readUsage()) ?? (await unenforced());
     if (early) return early;
     const lockedNow = await readLocked();
@@ -347,13 +383,15 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
   async function spawnAgent(agent, routeName, usageUnknown) {
     // The agent's own worktree and branch (ADR 0016 decision 3, amendment 7): no agent runs in the repo root, and
     // without a worktree nothing is spawned.
+    // den-mvp outcome 2: a follow-up run reopens the worktree its session ran in; nothing is created, and a cleanup below
+    // never removes it.
     let workspace;
     try {
-      workspace = await workspaces.create({ ref: agent.ref, agentId: agent.id });
+      workspace = agent.resumeOf ? await workspaces.reopen({ ref: agent.ref, agentId: agent.id, origin: agent.origin }) : await workspaces.create({ ref: agent.ref, agentId: agent.id });
     } catch (err) {
       liveByRef.delete(agent.ref);
-      console.error(`bridge: could not create a worktree for ${agent.ref}: ${err?.message ?? err}`);
-      return refuse(500, "could not create the agent's worktree");
+      console.error(`bridge: could not ${agent.resumeOf ? "reopen the" : "create a"} worktree for ${agent.ref}: ${err?.message ?? err}`);
+      return agent.resumeOf ? refuse(409, "the earlier run's worktree is gone; start a new task instead") : refuse(500, "could not create the agent's worktree");
     }
     agent.worktree = workspace.worktree;
     agent.branch = workspace.branch;
@@ -370,7 +408,8 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     }
     const args = {
       role: agent.role, ...(agent.mode ? { mode: agent.mode } : {}), ref: agent.ref, cwd: workspace.dir, sessionId: agent.sessionId,
-      prompt: promptFor(agent), ticketFile: ticketFile(agent.ref), mainGit,
+      prompt: agent.followUp ? agent.followUp.text : promptFor(agent), ticketFile: ticketFile(agent.ref), mainGit,
+      ...(agent.resumeOf ? { resume: true, runId: agent.id, promptId: agent.followUp.messageId } : {}),
       // agent-os/02: data for the adapter, never in the prompt. The main checkout's path rides along so the adapter can deny
       // the governed paths a path grant reaches there.
       ...(agent.grants.length === 0 ? {} : { grants: agent.grants, root: await realRoot() }),
@@ -387,9 +426,22 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     agent.proc = proc;
     agents.set(agent.id, agent);
     trimHistory();
+    // The run's marker in the role's conversation, then, for a follow-up, the user's message that started it. A runtime
+    // that reports when a message is taken gets a receipt for it; one that cannot is not shown a status it could never change.
+    keep(agent, { id: 0, at: agent.startedAt, kind: "run", mode: agent.mode, resumeOf: agent.resumeOf ?? null });
+    if (agent.followUp) {
+      const { text, messageId } = agent.followUp;
+      const tracked = agent.capabilities.send;
+      const entry = record(agent, { kind: "message", role: "user", text: cleanBody(text, TRANSCRIPT_TEXT_MAX) ?? "", messageId, ...(tracked ? { status: "queued" } : {}) });
+      if (tracked) agent.messages.set(messageId, entry);
+      agent.followUp = null;
+    }
     agent.finished = watch(agent);
     try {
-      await sessions.append({ event: "spawn", agentId: agent.id, ref: agent.ref, role: agent.role, sessionId: agent.sessionId, route: routeName, worktree: agent.worktree, branch: agent.branch });
+      await sessions.append({
+        event: "spawn", agentId: agent.id, ref: agent.ref, role: agent.role, sessionId: agent.sessionId, route: routeName, worktree: agent.worktree, branch: agent.branch,
+        ...(agent.resumeOf ? { resumeOf: agent.resumeOf, origin: agent.origin } : {}),
+      });
     } catch (err) {
       console.error(`bridge: could not write sessions.jsonl: ${err.stack ?? err}`);
       agent.reason = "audit-write-failed";
@@ -431,7 +483,9 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     await Promise.race([consume, sleep(EVENT_DRAIN_MS)]);
     // agent-os/09: the agent committed on a detached HEAD; the bridge, not the agent, creates its branch at the final commit.
     if (agent.workspace) {
-      await workspaces.publish(agent.workspace).catch((err) => console.error(`bridge: could not create the branch ${agent.branch}: ${err?.message ?? err}`));
+      // A follow-up that committed nothing publishes nothing, and then has no branch to name.
+      const published = await workspaces.publish(agent.workspace).catch((err) => console.error(`bridge: could not create the branch ${agent.branch}: ${err?.message ?? err}`));
+      if (published === null) agent.branch = null;
     }
     finalize(agent);
     // The run record (den-v1 loop S4): on the end line, then as one ledger row. Neither write can undo the end.
@@ -491,12 +545,13 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       // The result closes its own tool call; the tool-end that follows it then finds nothing left to close.
       const result = cleanBody(event.text, TRANSCRIPT_RESULT_MAX, event.more);
       if (typeof event.id === "string" && event.id !== "") closeTool(agent, event.id, { status: event.ok === false ? "failed" : "done", ...(result === null ? {} : { result }) });
+      agent.said = null; // a new step: words from before this result do not explain a later request
       return touch(agent);
     } else if (event.type === "text" || event.type === "reply") {
       const text = cleanBody(event.text, TRANSCRIPT_TEXT_MAX, event.more);
       // The CLI's result line repeats the last text block as the reply; that is one row, not two.
       if (text !== null && !(event.type === "reply" && text === agent.lastText)) record(agent, { kind: "message", role: "agent", text });
-      if (text !== null) agent.lastText = text;
+      if (text !== null) agent.lastText = agent.said = text; // `said`: what a permission request that follows is shown with
       if (event.type === "reply") agent.reply = excerpt(event.text) ?? agent.reply; // shown once done publishes
       return touch(agent);
     } else if (event.type === "usage") {
@@ -520,12 +575,13 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
         if (agent.usage?.final) agent.usage = { ...agent.usage, final: false };
       }
       revise(agent, entry, { status: "applied" });
+      agent.said = null;
       return touch(agent);
     } else if (event.type === "resource-limit") {
       if (!noteLimit(agent, event.resource)) return;
     } else if (event.type === "permission-request") {
       if (!agent.capabilities.approve) return;
-      approvals.hold(agent.id, event, { accepting: !agent.stopRequested && !shuttingDown });
+      approvals.hold(agent.id, event, { accepting: !agent.stopRequested && !shuttingDown, says: agent.said ?? null });
       return;
     } else if (event.type === "state") {
       if (!LIVE_STATES.includes(event.state) || agent.stopRequested) return;
@@ -625,6 +681,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     if (!agent.proc || agent.exited || agent.state === "terminated") return refuse(409, "the agent has already ended");
     if (!agent.killing) {
       sessions.append({ event: "stop", agentId: agent.id, ref: agent.ref, route: "POST /agents/:id/stop" }).catch((err) => console.error(`bridge: could not write sessions.jsonl: ${err.stack ?? err}`));
+      record(agent, { kind: "stop", status: "requested" }); // the thread's trail (organism-infra/230); the `ended` entry closes it
       terminate(agent, "stopped-by-user");
     }
     return { ok: true, status: 202 };
@@ -635,7 +692,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
   // page shows of it is cleaned like any other transcript text, and the audit line holds its size, never the text.
   // The entry is recorded `queued` before the write, becomes `applied` when the runtime reports the child took it,
   // and `undelivered` if the write fails or the agent ends first.
-  async function message(id, body) {
+  async function message(id, body, route = "POST /agents/:id/message") {
     const agent = typeof id === "string" && AGENT_ID_RE.test(id) ? agents.get(id) : undefined;
     if (!agent) return refuse(404, "no such agent");
     if (!agent.proc || agent.exited) return refuse(409, "the agent has already ended");
@@ -643,10 +700,9 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     if (!agent.capabilities.send || typeof agent.proc.send !== "function") return refuse(409, "this agent's runtime cannot take a message");
     if (agent.releasing) return refuse(409, "the agent has finished its work");
     const text = typeof body?.text === "string" ? body.text.trim() : "";
-    if (!text) return refuse(400, "text must be a non-empty string");
+    const badText = textRefused(text);
+    if (badText) return badText;
     const bytes = Buffer.byteLength(text);
-    if (bytes > MESSAGE_MAX_BYTES) return refuse(400, `text must be at most ${MESSAGE_MAX_BYTES} bytes`);
-    if (hasSecret(text)) return refuse(400, "text looks like it holds a secret; nothing was sent");
     if (agent.messages.size >= MESSAGE_QUEUE_MAX) return refuse(429, `${MESSAGE_QUEUE_MAX} messages are still waiting for this agent`);
 
     // From the checks above to the registration there is no await, so the cap and the state hold for this message.
@@ -654,7 +710,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     const entry = record(agent, { kind: "message", role: "user", text: cleanBody(text, TRANSCRIPT_TEXT_MAX) ?? "", messageId, status: "queued" });
     agent.messages.set(messageId, entry);
     sessions
-      .append({ event: "message", agentId: agent.id, ref: agent.ref, messageId, bytes, route: "POST /agents/:id/message" })
+      .append({ event: "message", agentId: agent.id, ref: agent.ref, messageId, bytes, route })
       .catch((err) => console.error(`bridge: could not write sessions.jsonl: ${err.stack ?? err}`));
     try {
       await agent.proc.send(messageId, text);
@@ -664,6 +720,93 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       return refuse(502, "the agent could not take the message");
     }
     return { ok: true, status: 202, messageId };
+  }
+
+  const textRefused = (text) =>
+    !text ? refuse(400, "text must be a non-empty string")
+    : Buffer.byteLength(text) > MESSAGE_MAX_BYTES ? refuse(400, `text must be at most ${MESSAGE_MAX_BYTES} bytes`)
+    : hasSecret(text) ? refuse(400, "text looks like it holds a secret; nothing was sent")
+    : null;
+
+  // ---- follow-ups (den-mvp outcome 2, spec section 5) -------------------------------------------
+  // One message into a role's conversation. It goes to the run it names, or with no run named to the role's one live
+  // run, else to its newest run. A live run takes it as a message (above). A run that has ended is followed up: a new
+  // run, with its own id and slot, continues that run's session in the same worktree, with the message as its prompt.
+  // Nothing of the old run is authority for the new one: usage, enforcement, room and the grants are all checked again
+  // as for any start, and the ceiling is compiled afresh by the runtime. An ended run holds no slot while it waits.
+  async function converse(role, body) {
+    if (typeof role !== "string" || !ROLES.includes(role)) return refuse(404, "no such role");
+    const text = typeof body?.text === "string" ? body.text.trim() : "";
+    const badText = textRefused(text);
+    if (badText) return badText;
+    const runId = body?.runId;
+    if (runId !== undefined && (typeof runId !== "string" || !AGENT_ID_RE.test(runId))) return refuse(400, "runId must be an agent id");
+    const isLive = (a) => !!a.proc && !a.exited;
+    let target;
+    if (runId !== undefined) {
+      target = agents.get(runId);
+      if (!target || target.role !== role) return refuse(404, `no such ${role} run`);
+    } else {
+      const mine = [...agents.values()].filter((a) => a.role === role);
+      const live = mine.filter(isLive);
+      if (live.length > 1) return refuse(409, `${live.length} ${role} runs are live; say which run the message is for`);
+      target = live[0] ?? mine.at(-1);
+      if (!target) return refuse(404, `no ${role} run to follow up; start a task first`);
+    }
+    if (isLive(target) && !target.releasing && !target.stopRequested) {
+      const sent = await message(target.id, { text }, CONVERSE_ROUTE);
+      return sent.ok ? { ...sent, runId: target.id, resumed: false } : sent;
+    }
+    // The run is closing (it reported done, or was stopped): the follow-up starts once it is over.
+    if (isLive(target)) await target.finished;
+    return followUp(target, text);
+  }
+
+  async function followUp(prev, text) {
+    const notUp = down();
+    if (notUp) return notUp;
+    if (!canContinue(prev)) return refuse(409, "this run left no session to continue; start a new task instead");
+    // A run with no recorded end (the bridge died under it) may still be alive in this worktree. Its resource group is
+    // asked for by name; while it is there, or cannot be asked, nothing new starts on the session (security review, PR 243).
+    for (const a of agents.values()) {
+      if (a.sessionId !== prev.sessionId || a.proc || a.reason !== UNVERIFIED || typeof runtime.stillRunning !== "function") continue;
+      let alive = true;
+      try {
+        alive = (await runtime.stillRunning(a.resumeOf ? a.id : a.sessionId)) !== false;
+      } catch (err) {
+        console.error(`bridge: could not tell whether ${a.id} is still running: ${err?.message ?? err}`);
+      }
+      if (alive) return refuse(409, "an earlier run of this session may still be running since the bridge restarted; it must end before a follow-up");
+    }
+    const grants = Array.isArray(prev.grants) ? prev.grants : [];
+    const badGrants = await grantsRefused(prev.role, grants.length === 0 ? undefined : grants);
+    if (badGrants) return refuse(409, `the earlier run's grants are no longer allowed (${badGrants.error}); start a new task instead`);
+    const usage = await readUsage();
+    const over = overUsage(usage);
+    if (over) return over;
+    const noLimits = await unenforced();
+    if (noLimits) return noLimits;
+    const locked = await readLocked();
+    if (locked === null) return unreadable();
+
+    // The same synchronous step as admit(): from here to the reservation there is no await.
+    if (shuttingDown) return refuse(503, "the bridge is shutting down");
+    if (liveByRef.has(prev.ref)) return refuse(409, "this ticket already has a live agent");
+    // A claim lock on this ticket is not counted beside the run itself: once the run is live the capacity rule counts
+    // the ticket once, whoever holds its lock, and the earlier run usually left the lock there itself.
+    const noRoom = full(locked.filter((ref) => ref !== prev.ref), prev.role);
+    if (noRoom) return noRoom;
+    const messageId = randomUUID();
+    const agent = newAgent({
+      ref: prev.ref, role: prev.role, mode: prev.mode ?? null, grants, sessionId: prev.sessionId,
+      resumeOf: prev.id, origin: prev.origin ?? prev.id, followUp: { text, messageId },
+    });
+    const started = await launch(agent, CONVERSE_ROUTE, usage === null);
+    if (!started.ok) return started;
+    sessions
+      .append({ event: "message", agentId: agent.id, ref: agent.ref, messageId, bytes: Buffer.byteLength(text), route: CONVERSE_ROUTE })
+      .catch((err) => console.error(`bridge: could not write sessions.jsonl: ${err.stack ?? err}`));
+    return { ...started, runId: agent.id, messageId, resumed: true };
   }
 
   // Runs the kill sequence on every live agent and resolves once each has exited and been recorded. Idempotent.
@@ -706,7 +849,10 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     start: (input) => admit(input, { entry: "start" }),
     direct,
     stop,
-    message,
+    message: (id, body) => message(id, body),
+    converse,
+    // (role, { before?, limit? }) -> a page of the role's durable conversation, or null for a name that is no role
+    conversation: (role, page) => (typeof role === "string" && ROLES.includes(role) ? conversations.read(role, page) : Promise.resolve(null)),
     shutdown,
     killAllSync,
     snapshot: () => [...agents.values()].map(view),
