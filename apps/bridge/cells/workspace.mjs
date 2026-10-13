@@ -5,7 +5,7 @@
 // bridge-minted agent id; git runs through execFile with an argument list, never a shell.
 // A worktree is a working-directory convention, not a security boundary: nothing here confines the child.
 import { execFile } from "node:child_process";
-import { access, appendFile, lstat, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { access, appendFile, lstat, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { AGENT_ID_RE, REF_RE, WORKSPACE_BRANCH_PREFIX, WORKTREES_DIR } from "./policy.mjs";
@@ -56,8 +56,12 @@ export function createWorkspaces(root, { exec = execFileP } = {}) {
         await mkdir(path.dirname(exclude), { recursive: true });
         await appendFile(exclude, `${current === "" || current.endsWith("\n") ? "" : "\n"}.den/\n`);
       }
-      await mkdir(path.join(dir, ".den"), { recursive: true });
-      await writeFile(path.join(dir, ".den", "findings.md"), text, { mode: 0o600 });
+      // The worktree is at a commit an agent made, which may carry its own `.den`, a link out of the worktree included.
+      // Whatever is there is removed without being followed, and the file is created new, never opened through a link.
+      const den = path.join(dir, ".den");
+      await rm(den, { recursive: true, force: true });
+      await mkdir(den);
+      await writeFile(path.join(den, "findings.md"), text, { mode: 0o600, flag: "wx" });
     },
     // den-mvp outcome 2: the worktree of an earlier run (`origin`), reopened for a follow-up by a new run. Nothing is created:
     // the directory must still be a worktree of this repository at the derived path, or this rejects. `base` is its HEAD

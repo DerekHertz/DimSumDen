@@ -30,17 +30,17 @@ A delivery step is started through the host's internal `start()`, so usage, the 
 - The agent works in its worktree and commits there, or reviews and commits nothing. It runs no board command and does not push.
 - The bridge records where the run started and ended (`git rev-parse` in the worktree), and its last message. **A reviewer's verdict is one line of that message, `VERDICT: pass` or `VERDICT: bounce`.** It is counted only for the commit the bridge checked out for the review, and only if the reviewer left that commit where it was.
 - The bridge makes the board calls, through the board service, for the job's ticket only: it claims the ticket for the step's role when the run has started, writes the handoff (its own State block, then the agent's message as a report), releases at `in-review`, and resolves after the merge. A step that fails gives the claim up and puts the status back.
-- A fix round is a new developer run at the candidate. The review's message is written to `.den/findings.md` in its worktree; `.den/` is added once to the repository's own `info/exclude`, so no commit carries it.
+- A fix round is a new developer run at the candidate. The review's message is written to `.den/findings.md` in its worktree; `.den/` is added once to the repository's own `info/exclude`, so no commit carries it. The worktree is at a commit an agent made, so whatever that commit left at `.den` is removed first, without being followed, and the file is created new.
 
 No agent → bridge call exists. The agent's words are read after it ends, as data.
 
 ### 3. The checks the bridge runs itself
 
-Before anything is pushed the bridge, from its own checkout, reads the changed paths, looks for an added line that matches a secret pattern, and runs `scripts/risk-check.mjs` on the range.
+Before anything is pushed the bridge, from its own checkout, reads the changed paths, looks for a secret, and runs `scripts/risk-check.mjs` on the range.
 
-- A line that looks like a secret pauses the job. Nothing is pushed.
+- The secret check reads every commit that would be pushed, not the difference of the two ends, with binary files read as text. A line that matches a secret pattern, or a file named like a key or an environment file, pauses the job. Nothing is pushed. A secret assembled from parts at run time is not seen.
 - A risk hit, or a changed path on the user-merge list, sends the candidate to `security`.
-- **The user-merge list** is the governance guardrail and CI paths, `.github/**`, `apps/bridge/**`, `scripts/risk-check.mjs`, `scripts/exposure.mjs`, `scripts/test-lock.mjs`, `package.json`, `package-lock.json` and the gitleaks files. A change to any of them is reviewed by security, opened as a pull request, and then waits: the review and the merge are the user's. The bridge never merges a change to its own enforcement.
+- **The user-merge list** is the governance guardrail and CI paths, every dot path at the repository root (`.github`, `.agents`, `.cursor`, `.gitattributes`, `.npmrc` and whatever a new tool adds), `apps/bridge/**`, `apps/organism-infra/**`, `apps/ci-cd/**`, `scripts/**`, `mods/**`, `CLAUDE.md`, `AGENTS.md`, `package.json`, `package-lock.json` and `skills-lock.json`. These are the enforcement, the board and gate code, and what runs by itself on the user's machine or the git host. A change to any of them is reviewed by security, opened as a pull request, and then waits: the review and the merge are the user's. The bridge never merges a change to its own enforcement. What the bridge may merge by itself is the rest: the UI, `packages/`, the docs and design files.
 - **A change to CI configuration is not pushed at all.** A workflow runs on the git host the moment its branch is pushed, with whatever it declares for itself. The job pauses as `ci-change` and names the local branch; the user pushes it and opens the pull request if it is right.
 - The candidate must be built on `base`. A commit made elsewhere in the history pauses the job.
 - The changed paths are read with renames off, so a file moved out of a listed directory still counts as a change there.
@@ -51,7 +51,7 @@ Before anything is pushed the bridge, from its own checkout, reads the changed p
 
 - What is pushed is the commit the bridge recorded, by id. The first developer run names the branch; a fix round moves the same branch forward, so a job has one pull request.
 - The pull request's title is the ticket's ref and title. Its body is the bridge's facts. No agent text is in either.
-- Before a push the bridge looks for the pull request, so a repeat opens nothing twice. The merge reads the pull request again at that moment: open, at the candidate commit, every check finished and passed (and at least one check), mergeable. Merges run one at a time. After the merge the bridge reads the state once more, and resolves the ticket only when the git host says it is merged.
+- Before a push the bridge looks for the pull request, so a repeat opens nothing twice. The merge reads the pull request again at that moment: open, at the candidate commit, every check finished and passed (and at least one check), mergeable. Merges run one at a time. A push, an open and a merge each check, with nothing awaited in between, that the job was not stopped since its step began. After the merge the bridge reads the state once more, and resolves the ticket only when the git host says it is merged.
 - A UI or asset ticket waits for the user's visual verdict before the merge (`resume` with `verdict: "approve"`), and the verdict is for one commit.
 
 ### 5. Pauses, Stop and Resume

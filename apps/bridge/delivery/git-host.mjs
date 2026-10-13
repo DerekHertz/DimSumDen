@@ -14,6 +14,8 @@ const execFileP = promisify(execFile);
 const COMMIT_RE = /^[0-9a-f]{40,64}$/;
 const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 const DIFF_MAX = 32 * 1024 * 1024;
+// A file that is a key or an environment file by its name. `.env.example` and the like hold no values.
+const SECRET_FILE_RE = /^(?:\.env(?:\.(?!example$|sample$|template$)[^/]*)?|.*\.(?:pem|key|p12|pfx)|id_(?:rsa|dsa|ecdsa|ed25519))$/i;
 const NO_CHECKS_TRIES = 6; // a new pull request's checks take a moment to be registered
 const NO_CHECKS_WAIT_MS = 10000;
 const PASSED = ["SUCCESS", "NEUTRAL", "SKIPPED"];
@@ -71,9 +73,17 @@ export function createGitHost(root, { exec = execFileP, remote = "origin", main 
     async changed({ base, sha }) {
       return (await git("diff", "--name-only", "--no-renames", "-z", commit(base, "base"), commit(sha, "sha"))).split("\0").filter(Boolean);
     },
-    /** Does a line the change adds look like a secret? */
+    /**
+     * Does the change add a line that looks like a secret, or a file that is named like one? Every commit that would be
+     * pushed is read, not the difference of the two ends, so a secret added and then removed is still seen; a binary file
+     * is read as text. A secret built from parts at run time is not seen here.
+     */
     async addsSecret({ base, sha }) {
-      const added = (await git("diff", "--no-color", "--no-ext-diff", "-U0", commit(base, "base"), commit(sha, "sha"))).split("\n").filter((l) => l.startsWith("+") && !l.startsWith("+++"));
+      const range = `${commit(base, "base")}..${commit(sha, "sha")}`;
+      const each = ["log", "--format=", "--no-color", "--no-ext-diff", "--no-renames", "--diff-merges=first-parent"];
+      const names = (await git(...each, "--name-only", "--diff-filter=AM", "-z", range)).split("\0");
+      if (names.some((f) => SECRET_FILE_RE.test(f.trim().split("/").pop()))) return true;
+      const added = (await git(...each, "--text", "-U0", "-p", range)).split("\n").filter((l) => l.startsWith("+") && !l.startsWith("+++"));
       return added.some((l) => hasSecret(l));
     },
     /** The scripted risk check, run from the bridge's own checkout on the change. A repository with none reviews every change. */

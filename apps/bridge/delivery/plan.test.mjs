@@ -70,7 +70,9 @@ describe("the delivery plan", () => {
 
   test("the paths whose change the user merges: the guardrails, the bridge, the checks and the manifest", () => {
     for (const p of [".claude/agents/developer.md", ".github/workflows/ci.yml", "apps/bridge/cells/host.mjs", "apps/bridge/delivery/plan.mjs", "apps/bridge/cells/governance.json", "scripts/risk-check.mjs", "package.json"]) assert.equal(isUserMergePath(p), true, p);
-    for (const p of ["apps/ui/src/App.jsx", "docs/adr/0001.md", "apps/bridgework/x.mjs", "scripts/metrics.mjs", "apps/ui/package.json"]) assert.equal(isUserMergePath(p), false, p);
+    for (const p of ["apps/ui/src/App.jsx", "docs/adr/0001.md", "apps/bridgework/x.mjs", "apps/ui/package.json", "apps/ui/.eslintrc", "CONTEXT.md", "packages/board-refs/index.mjs"]) assert.equal(isUserMergePath(p), false, p);
+    // What runs by itself on the user's machine or on the git host, the board and gate code, and every root dot path.
+    for (const p of ["scripts/session-start.mjs", "scripts/hooks/bash-guard.mjs", "scripts/metrics.mjs", "apps/organism-infra/board-service.mjs", "apps/ci-cd/smoke.mjs", "mods/queue/hooks.mjs", "CLAUDE.md", "AGENTS.md", "skills-lock.json", ".gitattributes", ".gitmodules", ".npmrc", ".mcp.json", ".agents/skills/tdd/SKILL.md", ".cursor/settings.json", ".codex/config.toml", ".claude-plugin/plugin.json", ".gitleaks.toml"]) assert.equal(isUserMergePath(p), true, p);
     for (const p of [".github/workflows/ci.yml", ".github/actions/setup/action.yml", ".github/CODEOWNERS"]) assert.deepEqual([isCiPath(p), isUserMergePath(p)], [true, true], p);
     for (const p of ["apps/bridge/cells/host.mjs", "package-lock.json"]) assert.deepEqual([isCiPath(p), isUserMergePath(p)], [false, true], p);
   });
@@ -198,8 +200,8 @@ describe("the git-host operations", () => {
 
   test("a secret in an added line is seen; a removed one is not; with no risk script every change goes to security", async () => {
     const key = ["AKIA", "IOSFODNN7", "EXAMPLE"].join("");
-    assert.equal(await host({ diff: `+++ b/x\n+const k = "${key}";\n` }).git.addsSecret({ base: BASE, sha: SHA }), true);
-    assert.equal(await host({ diff: `--- a/x\n-const k = "${key}";\n+const k = env.KEY;\n` }).git.addsSecret({ base: BASE, sha: SHA }), false);
+    assert.equal(await host({ "log --format": `+++ b/x\n+const k = "${key}";\n` }).git.addsSecret({ base: BASE, sha: SHA }), true);
+    assert.equal(await host({ "log --format": `--- a/x\n-const k = "${key}";\n+const k = env.KEY;\n` }).git.addsSecret({ base: BASE, sha: SHA }), false);
     assert.equal((await host().git.risk({ base: BASE, sha: SHA })).clean, false);
   });
 
@@ -222,6 +224,43 @@ describe("the git-host operations", () => {
       const files = await createGitHost(dir).changed({ base, sha });
       assert.deepEqual(files.sort(), ["apps/bridge/wall.mjs", "lib/wall.mjs"]);
       assert.equal(files.some(isUserMergePath), true);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("in a real repository, every commit that would be pushed is read for a secret, binary files and file names included", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "den-githost-"));
+    try {
+      const git = (...args) => execFileSync("git", ["-C", dir, "-c", "user.name=fx", "-c", "user.email=fx@example.invalid", "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args], { encoding: "utf8" }).trim();
+      const key = ["AKIA", "IOSFODNN7", "EXAMPLE"].join("");
+      const commitAll = (message) => (git("add", "-A"), git("commit", "-q", "-m", message), git("rev-parse", "HEAD"));
+      git("init", "-q", "-b", "main");
+      writeFileSync(path.join(dir, "a.mjs"), "export const a = 1;\n");
+      const base = commitAll("one");
+      const host = createGitHost(dir);
+
+      writeFileSync(path.join(dir, "a.mjs"), "export const a = 2;\n");
+      writeFileSync(path.join(dir, ".env.example"), "KEY=\n");
+      assert.equal(await host.addsSecret({ base, sha: commitAll("a clean change") }), false);
+
+      writeFileSync(path.join(dir, "k.mjs"), `export const k = "${key}";\n`);
+      commitAll("a key");
+      writeFileSync(path.join(dir, "k.mjs"), "export const k = process.env.K;\n");
+      const removed = commitAll("the key is taken out again");
+      assert.equal(git("diff", base, removed).includes(key), false, "the two ends do not show it");
+      assert.equal(await host.addsSecret({ base, sha: removed }), true, "a secret added and then removed is still pushed");
+
+      git("checkout", "-q", "-b", "binary", base);
+      writeFileSync(path.join(dir, "blob.bin"), Buffer.concat([Buffer.alloc(16), Buffer.from(`\nkey=${key}\n`)]));
+      assert.equal(await host.addsSecret({ base, sha: commitAll("a file git calls binary") }), true);
+
+      for (const name of [".env", "deploy.pem", path.join("keys", "id_ed25519")]) {
+        git("checkout", "-q", "-B", "named", base);
+        mkdirSync(path.join(dir, path.dirname(name)), { recursive: true });
+        writeFileSync(path.join(dir, name), "x\n");
+        assert.equal(await host.addsSecret({ base, sha: commitAll("a file named like a secret") }), true, name);
+      }
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

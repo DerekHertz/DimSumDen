@@ -75,6 +75,11 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     job.gen += 1;
     await save(job);
   }
+  // Called with nothing awaited between it and a git-host side effect: a job that was stopped, closed or resumed since the
+  // step began does not push, open or merge. The step's caller sees the generation changed and records nothing more.
+  const still = (job, gen) => {
+    if (job.gen !== gen || job.state !== "running") throw new Error("the delivery was stopped before this operation");
+  };
   // A side effect: its intent is written first, its outcome after. A failure rejects, and the job is not advanced.
   async function op(job, name, detail, fn) {
     await log.op(job.id, name, "intent", detail);
@@ -266,9 +271,9 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     if (pr?.state !== "MERGED" && pr?.sha !== sha) {
       // CI configuration runs on the git host the moment it is pushed: the bridge never pushes a change to it.
       if (job.evidence.risk.ciChange) return pause(job, "ci-change", "the change edits CI configuration, which would run as soon as it is pushed; the bridge did not push it", `Look at the commit on the local branch ${job.branch}. Push it and open the pull request yourself if it is right, then Resume.`);
-      await op(job, "push", { sha }, () => git.push({ branch: job.branch, sha }));
+      await op(job, "push", { sha }, () => (still(job, gen), git.push({ branch: job.branch, sha })));
       if (!pr || pr.state !== "OPEN") {
-        await op(job, "pr", { sha }, () => git.openPr({ branch: job.branch, title: hasSecret(job.title) ? job.ref : `${job.ref}: ${job.title}`, body: prBody(job) }));
+        await op(job, "pr", { sha }, () => (still(job, gen), git.openPr({ branch: job.branch, title: hasSecret(job.title) ? job.ref : `${job.ref}: ${job.title}`, body: prBody(job) })));
       }
       pr = await git.findPr({ branch: job.branch });
       if (!pr) throw new Error("the pull request was not found after it was opened");
@@ -303,10 +308,13 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
   async function merge(job, gen) {
     if (job.gen !== gen) return;
     const st = await observe(job, gen);
-    if (!st || st.state === "MERGED") return;
+    if (!st || st.state === "MERGED" || job.gen !== gen) return;
     if (nextStep(job).kind !== "merge") return; // a check turned red, a conflict appeared: the plan says which
     const { sha } = job.candidate;
-    await op(job, "merge", { sha, pr: job.pr.number }, () => git.merge({ number: job.pr.number, sha }));
+    await op(job, "merge", { sha, pr: job.pr.number }, () => {
+      still(job, gen); // a Stop while the intent was being written: nothing is merged
+      return git.merge({ number: job.pr.number, sha });
+    });
     const after = await git.prState({ number: job.pr.number });
     if (after.state !== "MERGED") throw new Error("the git host did not confirm the merge");
     job.evidence.pr = { ...job.evidence.pr, state: "MERGED" };

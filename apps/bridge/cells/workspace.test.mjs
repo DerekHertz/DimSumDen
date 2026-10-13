@@ -4,7 +4,7 @@ import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { access, realpath } from "node:fs/promises";
+import { access, lstat, mkdir, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { makeStateFixture } from "../bridge-fixture.mjs";
 
@@ -141,6 +141,27 @@ describe("createWorkspaces", () => {
       await assert.rejects(ws.publish({ dir: made.dir, branch }), `branch ${JSON.stringify(branch)}`);
     }
     assert.notEqual((await git(fx.root, "branch", "--show-current")).trim(), "");
+  });
+
+  test("the findings file is written new: a link the commit left at .den is removed, never written through", async () => {
+    const { createWorkspaces } = await load();
+    const fx = await fixture({ git: true });
+    const ws = createWorkspaces(fx.root);
+    const outside = path.join(fx.root, "outside.txt");
+    await writeFile(outside, "the user's own file\n");
+    for (const [n, plant] of [
+      async (dir) => (await mkdir(path.join(dir, ".den")), symlink(outside, path.join(dir, ".den", "findings.md"))),
+      async (dir) => symlink(fx.root, path.join(dir, ".den")),
+    ].entries()) {
+      const made = await ws.create({ ref: REF, agentId: `c-${n}000000000000000` });
+      await plant(made.dir);
+      await ws.brief(made, "what the review found\n");
+      assert.equal(await readFile(outside, "utf8"), "the user's own file\n", "nothing outside the worktree is written");
+      assert.equal(await exists(path.join(fx.root, "findings.md")), false);
+      assert.equal((await lstat(path.join(made.dir, ".den"))).isDirectory(), true);
+      assert.equal((await lstat(path.join(made.dir, ".den", "findings.md"))).isFile(), true);
+      assert.equal(await readFile(path.join(made.dir, ".den", "findings.md"), "utf8"), "what the review found\n");
+    }
   });
 
   test("create rejects when the root is not a git repository", async () => {
