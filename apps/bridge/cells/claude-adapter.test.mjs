@@ -37,7 +37,7 @@ const fixtureObjs = (name) => fixtureLines(name).map((l) => JSON.parse(l));
 const SID = "5d3c9a52-8f0e-4b7c-9a41-0e6f1c2b7d90";
 const SID2 = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d";
 const DENY_RULES = ["Write(.claude/**)", "Edit(.claude/**)", "Bash(git push:*)", "Bash(gh pr create:*)"];
-const DENY_SETTINGS = JSON.stringify({ permissions: { deny: DENY_RULES } });
+const DENY_SETTINGS = JSON.stringify({ disableAllHooks: true, permissions: { deny: DENY_RULES } });
 
 // ---- buildClaudeArgs -----------------------------------------------------------------------
 
@@ -91,7 +91,7 @@ describe("buildClaudeArgs: the fixed argv template (ADR 0016 6.6)", () => {
       const argv = need("buildClaudeArgs")({ sessionId: SID, agent });
       const value = argv[argv.indexOf("--settings") + 1];
       const parsed = JSON.parse(value);
-      assert.deepEqual(parsed, { permissions: { deny: DENY_RULES } });
+      assert.deepEqual(parsed, { disableAllHooks: true, permissions: { deny: DENY_RULES } });
       assert.deepEqual(Object.keys(parsed.permissions), ["deny"], "the inline settings never allow or ask, they only deny");
       assert.equal(argv.filter((a) => a === "--settings").length, 1);
     }
@@ -105,7 +105,7 @@ describe("buildClaudeArgs: the fixed argv template (ADR 0016 6.6)", () => {
     const plain = build({ sessionId: SID, agent: "scout" });
     const argv = build({ sessionId: SID, agent: "scout", ticketFile: file });
     const at = argv.indexOf("--settings") + 1;
-    assert.deepEqual(JSON.parse(argv[at]), { permissions: { deny: DENY_RULES, allow: [`Read(/${file})`] } });
+    assert.deepEqual(JSON.parse(argv[at]), { disableAllHooks: true, permissions: { deny: DENY_RULES, allow: [`Read(/${file})`] } });
     assert.deepEqual(argv.toSpliced(at, 1), plain.toSpliced(at, 1), "only the --settings value differs");
   });
 
@@ -269,14 +269,14 @@ describe("buildClaudeArgs: the wall (agent-os/01 spike)", () => {
   });
 
   test("wall with no hosts: the sandbox is on, strict, with an empty host list, and the deny rules stay", () => {
-    assert.deepEqual(settingsOf(build({ wall: { hosts: [] } })), { permissions: { deny: DENY_RULES }, sandbox: sandbox([]) });
+    assert.deepEqual(settingsOf(build({ wall: { hosts: [] } })), { disableAllHooks: true, permissions: { deny: DENY_RULES }, sandbox: sandbox([]) });
   });
 
   test("wall hosts are the allowed domains, in order, and the ticket file rule is kept beside them", () => {
     const file = "/home/u/den/.scratch/den/issues/01-scout.md";
     const got = settingsOf(build({ wall: { hosts: ["registry.npmjs.org", "example.com"] }, ticketFile: file }));
     // den-mvp outcome 1: a host the wall allows may also be fetched by the CLI's own web tool without a question.
-    assert.deepEqual(got, { permissions: { deny: DENY_RULES, allow: ["WebFetch(domain:registry.npmjs.org)", "WebFetch(domain:example.com)", `Read(/${file})`] }, sandbox: sandbox(["registry.npmjs.org", "example.com"]) });
+    assert.deepEqual(got, { disableAllHooks: true, permissions: { deny: DENY_RULES, allow: ["WebFetch(domain:registry.npmjs.org)", "WebFetch(domain:example.com)", `Read(/${file})`] }, sandbox: sandbox(["registry.npmjs.org", "example.com"]) });
   });
 
   test("nothing but the --settings value changes", () => {
@@ -1046,6 +1046,29 @@ describe("committed fixtures (ADR 0016 6.10 scrub step)", () => {
       for (const [i, line] of fixtureLines(name).entries()) {
         const o = JSON.parse(line);
         assert.ok(o && typeof o === "object" && !Array.isArray(o) && typeof o.type === "string", `${name}:${i + 1}`);
+      }
+    }
+  });
+});
+
+// ---- hooks (den-mvp/03) ------------------------------------------------------------------------
+
+describe("buildClaudeArgs: a bridge agent runs no hook and no status line (den-mvp/03)", () => {
+  // Live probe, 2026-10-13: the CLI ran a PreToolUse hook from the agent's own worktree, outside the sandbox, and after
+  // the agent rewrote that script it ran the agent's version. With this key in the inline settings the same run ran none.
+  test("every role's inline settings turn hooks off, with the wall, a ticket file, a resume or connections, and nothing turns them back on", () => {
+    const variants = [
+      {}, { resume: true }, { ticketFile: "/repo/.scratch/fx/issues/01-a.md" }, { wall: { hosts: [] } },
+      { wall: { hosts: ["example.com"] }, worktree: "/repo/.claude/worktrees/den-fx-01-abcd1234" },
+      { connections: [{ name: "docs", url: "https://docs.example.com/mcp" }] },
+    ];
+    for (const agent of ROLES) {
+      for (const extra of variants) {
+        const argv = need("buildClaudeArgs")({ sessionId: SID, agent, ...extra });
+        assert.equal(argv.filter((a) => a === "--settings").length, 1);
+        const settings = JSON.parse(argv[argv.indexOf("--settings") + 1]);
+        assert.equal(settings.disableAllHooks, true, `${agent} ${JSON.stringify(extra)}`);
+        assert.ok(!("hooks" in settings) && !("statusLine" in settings));
       }
     }
   });

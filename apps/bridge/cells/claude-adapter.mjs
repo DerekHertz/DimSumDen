@@ -154,6 +154,9 @@ const settingsFor = ({ ticketFile, wall, worktree, forbid, writePaths, readLimit
     ...(forbid?.run ?? []).map((words) => `Bash(*${words.split(" ").join(" *")}*)`),
   ];
   return JSON.stringify({
+    // den-mvp/03 (live probe, 2026-10-13): the CLI runs the hooks and the status line of the worktree's own settings,
+    // outside the sandbox, from scripts in that worktree, which the agent can write. A bridge agent runs none of them.
+    disableAllHooks: true,
     permissions: { deny: [...new Set(deny)], ...(allow.length === 0 ? {} : { allow }), ...(readLimit === true ? { blockReadsOutsideWorkingDirectories: true, ...(ticketFile === undefined ? {} : { additionalDirectories: [ticketFile.slice(0, ticketFile.lastIndexOf("/"))] }) } : {}) },
     ...(wall === undefined ? {} : { sandbox: sandboxFor(wall, worktree, forbid, writePaths, readLimit, ticketFile, denyAbs, credentials) }),
   });
