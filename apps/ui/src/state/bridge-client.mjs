@@ -98,6 +98,33 @@ export function createBridgeClient({ fetch }) {
       if (!body || !Array.isArray(body.connections) || !Array.isArray(body.skills)) throw failure(200, "The bridge sent an unreadable answer.");
       return body;
     },
+    // den-mvp outcome 4: a meeting. `roles` are the specialists asked for a take; with no `ref` the bridge writes a
+    // discussion ticket for the topic first. -> { meeting, ticket }
+    async startMeeting({ topic, roles, ref } = {}) {
+      const trimmed = typeof topic === "string" ? topic.trim() : "";
+      if (!trimmed) throw failure(0, "Write the question first.");
+      if (new TextEncoder().encode(trimmed).length > MESSAGE_MAX_BYTES) throw failure(0, `The question is limited to ${MESSAGE_MAX_BYTES} bytes.`);
+      if (!Array.isArray(roles) || roles.length === 0) throw failure(0, "Pick at least one role.");
+      const about = typeof ref === "string" && ref.trim() ? { ref: ref.trim() } : {};
+      const body = await call("/meetings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic: trimmed, roles, ...about }) });
+      if (body == null) throw failure(200, "The bridge sent an unreadable answer.");
+      return body;
+    },
+    // One meeting with its saved texts: { meeting, topic, takes, brief, thread, summary }.
+    async getMeeting(id) {
+      const body = await call(`/meetings/${encodeURIComponent(id)}`, { method: "GET" });
+      if (!body || !Array.isArray(body.takes) || !Array.isArray(body.thread)) throw failure(200, "The bridge sent an unreadable answer.");
+      return body;
+    },
+    // Resume, stop or close a meeting; decide ({ option }) records the user's choice; ask ({ text, reask? }) is a follow-up.
+    async steerMeeting(id, action, { option, text, reask } = {}) {
+      if (!["resume", "stop", "close", "decide", "ask"].includes(action)) throw failure(0, "Unknown action.");
+      const trimmed = typeof text === "string" ? text.trim() : "";
+      if (action === "ask" && !trimmed) throw failure(0, "Write the follow-up first.");
+      const payload = action === "decide" ? { option } : action === "ask" ? { text: trimmed, ...(reask ? { reask } : {}) } : {};
+      const body = await call(`/meetings/${encodeURIComponent(id)}/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      return body ?? { ok: true };
+    },
     // den-v1 loop S1: start a task for one role. The bridge writes the ticket and answers { agent, ticket }.
     async startTask(role, { text } = {}) {
       if (typeof role !== "string" || !role) throw failure(0, "Pick a panda first.");

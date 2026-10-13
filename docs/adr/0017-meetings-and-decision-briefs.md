@@ -30,3 +30,19 @@
 **Resolved questions (user, 2026-10-01).** Cap of six participants. Sequential takes by default. Past meetings can be rejoined, so state is saved on the board (decision 8). A closed meeting stays rejoinable for 24 hours; after that only the decision and a summary are kept (decision 11). A rejoin seats the core members, not everyone (decision 12).
 
 **Still open.** Whether a rejoin counts against the endocrine limits as a new meeting or as one chair run (proposed: one chair run, plus any re-asked take).
+
+## Amendment 1 (2026-10-13, den-mvp outcome 4): what the den's first meetings build
+
+The den MVP spec (section 6) reuses this design. The bridge runs a meeting as a job (`apps/bridge/meetings/`), the same way it runs a delivery (ADR 0024). Where the build differs from the decisions above, this section is what holds.
+
+- **The bridge owns the meeting, and writes its files.** It starts each run through the host's internal entry, so usage, enforcement, room and the wall apply to it as to any run. A take holds a worker slot and the chair holds Bao's slot. An agent in a meeting writes nothing on the board: its last message is the take or the brief, and the bridge saves it. The bridge's own record of the meeting (the seats, the options, the decisions) is a log in its state directory, outside every worktree; the board files are the readable copy.
+- **Seats.** A seat is a role that runs on a worker slot: product, architect, developer, qa, security, designer, herald. The scout's reserved slot is not a seat, and Bao is the chair, never a participant.
+- **The chair is always Bao.** The architect chair of decision 4 is not built.
+- **Sequential only, quick only.** Parallel takes (decision 2) and the `dig-in` depth (decision 1) are not built.
+- **Declining (decision 6).** A role declines with a `DECLINE: <reason>` line. A take whose run fails is recorded as no take, and the meeting goes on. With no take at all, or a chair that writes no brief of two or three options and a recommendation, the meeting pauses for the user.
+- **The brief is not a gate request (decision 5).** It appears under Needs you as a meeting that waits. The user's choice is recorded in the bridge's log and in `meeting.md`, and the chosen option is written as a ticket at `ready-for-human`: proposed work that is in no queue until the user approves it. Nothing reads a brief as authorization.
+- **A topic with no ticket** gets a ticket of type `discussion` at `ready-for-human`. It is not in the frontier and a delivery does not take it.
+- **Cost (decision 7).** The setup shows the number of runs and the current five-hour usage. A meeting is refused at 90% usage, and one under way pauses there until the user resumes it. There is no cost estimate in money and no cap on a meeting's tokens or time (the user's decision, 2026-10-12).
+- **Rejoin (decisions 8 and 12).** A rejoin is a follow-up question: one new chair run that reads the saved files, plus one new take when the user names a seated role to ask again. This settles the open question above: a rejoin is the chair's run and any re-asked take, each admitted like any other run. The "core members" default of decision 12 is not built; the user names who is asked again.
+- **Retention (decision 11).** The 24 hours count from the decision or the close, and a follow-up starts them again. The bridge does the tidying, when it starts and whenever a run ends, with no timer. A new meeting after the 24 hours does not yet link to the old summary.
+- **Security (the note under Consequences).** The user's topic and the other roles' takes reach a run only inside a note in its worktree, each line quoted, and the prompt is a fixed template. Option titles are cleaned to one line and shown as text.

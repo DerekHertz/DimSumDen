@@ -9,6 +9,7 @@ import { STATION_HUE, badgeModel, needsYouModel, stationsModel, stepRequest } fr
 import { deliverState, deliveryRows } from "./delivery-model.mjs";
 import { Card } from "./Card.jsx";
 import { LibraryCard } from "./Library.jsx";
+import { MeetingsCard, useMeetings } from "./Meetings.jsx";
 import { ROLE_OPTIONS, capacityFromSnapshot, defaultRole, dispatchPrompt, runState, slotRows } from "./run-model.mjs";
 
 const isPhone = () => typeof matchMedia === "function" && matchMedia("(max-width: 599px)").matches;
@@ -223,6 +224,26 @@ function DeliveryDecision({ request, steer, deliveries }) {
   );
 }
 
+// A meeting that waits on the user (Needs you). A paused one is resumed or closed here; a brief is opened in the Meetings card.
+function MeetingDecision({ request, steer, meetings, onOpenMeeting }) {
+  const off = steer.demo ? "Demo mode: actions are off" : steer.state === "none" ? "Not signed in to steer" : null;
+  const busy = meetings.inflight.has(request.id);
+  const error = meetings.results[request.id]?.error;
+  const open = request.primary.action === "open";
+  return (
+    <div aria-live="polite">
+      {request.next ? <p className="small needs-expires">{request.next}</p> : null}
+      <div className="decision-buttons">
+        <button type="button" className="btn btn-outline" title={off ?? undefined} disabled={!!off || busy} onClick={() => meetings.steer(request.id, "close")}>Close meeting</button>
+        <button type="button" className="btn btn-solid" title={open ? undefined : off ?? undefined} disabled={open ? false : !!off || busy} aria-busy={busy || undefined} onClick={() => (open ? onOpenMeeting(request.id) : meetings.steer(request.id, "resume"))}>
+          {request.primary.label}
+        </button>
+      </div>
+      {error ? <p className="small gate-error" role="alert">{error}</p> : null}
+    </div>
+  );
+}
+
 /** The deliveries under way and the newest ended, and a box to deliver a change that has no ticket yet. */
 function DeliveriesSection({ snapshot, steer, deliveries }) {
   const rows = deliveryRows(snapshot);
@@ -339,7 +360,7 @@ function SlotStrip({ snapshot, capacity }) {
   );
 }
 
-export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder, session, onAnswer, onOpenThread = null, capacity = null, steer = { state: "ready" }, run = null, deliveries = null }) {
+export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder, session, onAnswer, onOpenThread = null, capacity = null, steer = { state: "ready" }, run = null, deliveries = null, meetings = null, onOpenMeeting = () => {} }) {
   const { count, requests } = needsYouModel(snapshot, now);
   const [shown, setShown] = useState(null);
   const current = requests.find((r) => r.key === shown) ?? requests[0] ?? null;
@@ -395,6 +416,8 @@ export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder,
               ? <PermissionDecision key={current.key} request={current} onAnswer={onAnswer} onOpenThread={onOpenThread} />
               : current.kind === "delivery"
                 ? (deliveries ? <DeliveryDecision key={current.key} request={current} steer={steer} deliveries={deliveries} /> : null)
+              : current.kind === "meeting"
+                ? (meetings ? <MeetingDecision key={current.key} request={current} steer={steer} meetings={meetings} onOpenMeeting={onOpenMeeting} /> : null)
               : prompt.show
                 ? <Decision key={current.key} ref={decision} request={current} session={session} />
                 : <p className="small muted dispatch-line">{prompt.line}</p>}
@@ -477,13 +500,15 @@ export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZo
 }
 
 /**
- * The right-hand column. Needs you opens by itself while something waits, until the user toggles it; Stations & queue
- * and Library start closed. Under 600 px all start closed and opening one closes the others.
+ * The right-hand column. Needs you opens by itself while something waits, until the user toggles it; Stations & queue,
+ * Meetings and Library start closed. Under 600 px all start closed and opening one closes the others.
  */
 export function Cards({ snapshot, now, connection, placeholder, camera, steering, onAnswer, onOpenThread = null, demo = false }) {
   const [needsOpen, setNeedsOpen] = useState(null); // null: follow the data
   const [stationsOpen, setStationsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [meetingsOpen, setMeetingsOpen] = useState(false);
+  const [shownMeeting, setShownMeeting] = useState(null); // the meeting whose brief is open in the Meetings card
   const waiting = needsYouModel(snapshot, now).count;
   const needs = needsOpen ?? (!isPhone() && waiting > 0);
   const busy = connection.phase !== "live";
@@ -493,26 +518,38 @@ export function Cards({ snapshot, now, connection, placeholder, camera, steering
   const reader = useMemo(() => createBridgeClient({ fetch: (url, init) => fetch(url, init) }), []);
   const run = useRunner(client);
   const deliveries = useDeliveries(client);
+  const meetings = useMeetings(client);
   const capacity = capacityFromSnapshot(snapshot);
   const steer = { state: steering.state, demo };
 
   const toggleNeeds = () => {
     setNeedsOpen(!needs);
-    if (!needs && isPhone()) { setStationsOpen(false); setLibraryOpen(false); }
+    if (!needs && isPhone()) { setStationsOpen(false); setLibraryOpen(false); setMeetingsOpen(false); }
   };
   const toggleStations = () => {
     setStationsOpen(!stationsOpen);
-    if (!stationsOpen && isPhone()) { setNeedsOpen(false); setLibraryOpen(false); }
+    if (!stationsOpen && isPhone()) { setNeedsOpen(false); setLibraryOpen(false); setMeetingsOpen(false); }
   };
   const toggleLibrary = () => {
     setLibraryOpen(!libraryOpen);
-    if (!libraryOpen && isPhone()) { setNeedsOpen(false); setStationsOpen(false); }
+    if (!libraryOpen && isPhone()) { setNeedsOpen(false); setStationsOpen(false); setMeetingsOpen(false); }
+  };
+  const toggleMeetings = () => {
+    setMeetingsOpen(!meetingsOpen);
+    if (!meetingsOpen && isPhone()) { setNeedsOpen(false); setStationsOpen(false); setLibraryOpen(false); }
+  };
+  // From Needs you: the Meetings card opens with that meeting's brief shown.
+  const openMeeting = (id) => {
+    setShownMeeting(id);
+    setMeetingsOpen(true);
+    if (isPhone()) { setNeedsOpen(false); setStationsOpen(false); setLibraryOpen(false); }
   };
   return (
     <div className="cards">
       {steering.message ? <p className="small muted session-none" data-session="none" role="status">{steering.message}</p> : null}
-      <NeedsYouCard snapshot={snapshot} now={now} open={needs} onToggle={toggleNeeds} busy={busy} placeholder={placeholder} session={steering.session} onAnswer={onAnswer} onOpenThread={onOpenThread} capacity={capacity} steer={steer} run={run} deliveries={deliveries} />
+      <NeedsYouCard snapshot={snapshot} now={now} open={needs} onToggle={toggleNeeds} busy={busy} placeholder={placeholder} session={steering.session} onAnswer={onAnswer} onOpenThread={onOpenThread} capacity={capacity} steer={steer} run={run} deliveries={deliveries} meetings={meetings} onOpenMeeting={openMeeting} />
       <StationsCard snapshot={snapshot} open={stationsOpen} onToggle={toggleStations} busy={busy} placeholder={placeholder} onZoomStation={(id) => camera.goToStation(id)} capacity={capacity} steer={steer} run={run} deliveries={deliveries} />
+      <MeetingsCard client={client} snapshot={snapshot} open={meetingsOpen} onToggle={toggleMeetings} busy={busy} steer={steer} meetings={meetings} shown={shownMeeting} onShow={setShownMeeting} />
       <LibraryCard client={reader} rev={snapshot?.libraryRev ?? 0} now={now} open={libraryOpen} onToggle={toggleLibrary} busy={busy} demo={demo} />
     </div>
   );

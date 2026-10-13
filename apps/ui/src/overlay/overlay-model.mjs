@@ -3,6 +3,7 @@
 // the components render it as React text nodes only.
 import { gatesModel } from "../panel/gates-model.mjs";
 import { deliveryRequests } from "./delivery-model.mjs";
+import { meetingRequests } from "./meeting-model.mjs";
 import { queueModel } from "../panel/queue-model.mjs";
 import { cellTypeOf, sceneFromState } from "../scene/scene-from-state.mjs";
 import { stationOf } from "../scene/banquet-layout.mjs";
@@ -134,7 +135,8 @@ export function needsYouModel(snapshot, nowMs) {
     };
   });
   // den-mvp outcome 3: a delivery that waits on the user sits between the two.
-  const requests = [...permissionRequests(snapshot, nowMs), ...deliveryRequests(snapshot), ...gates];
+  // den-mvp outcome 4: so does a meeting that is paused, or whose brief waits for the user's choice.
+  const requests = [...permissionRequests(snapshot, nowMs), ...deliveryRequests(snapshot), ...meetingRequests(snapshot), ...gates];
   return { count: requests.length, requests };
 }
 

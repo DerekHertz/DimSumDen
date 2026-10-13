@@ -20,6 +20,8 @@ Direct work (`.scratch/den-mvp/spec.md`): the user may give any panda a focused 
 
 Delivery (ADR 0024): Deliver on a ticket in the den runs developer, qa `verify`, the scripted checks and, on a hit, security; then the bridge pushes, opens the PR and merges on green checks. The bridge makes the board calls and holds the git-host login; a change to the bridge, a guardrail or CI is left for the user to merge.
 
+Meetings (ADR 0017, Amendment 1): from the den the user asks up to six specialists for one take each, in sequence; Bao then writes a decision brief with two or three options. The bridge runs it and writes the takes and the brief under `.scratch/<feature>/meetings/`. Choosing an option writes a ticket at `ready-for-human`; a brief authorizes nothing.
+
 Run a cell as the main session with `claude --agent <cell-type>`. If a session is asked to act as a cell without that flag, read `.claude/agents/<cell-type>.md` first and follow it.
 
 ## Cloud sessions

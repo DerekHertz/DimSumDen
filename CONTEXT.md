@@ -250,19 +250,19 @@ How a cell's run ends: `done`, `noop` (nothing to do, with a reason), `clarify` 
 _Avoid_: Result, status (status is the ticket's)
 
 **Meeting**:
-A ticket-scoped, bounded gathering of up to six cells on one topic, run in sequence by default, ending in a decision brief. It is stored on the board and can be rejoined for 24 hours after it closes. See ADR 0017.
+A ticket-scoped, bounded gathering of up to six cells on one topic, run in sequence, ending in a decision brief. The bridge runs it as a job and writes its files on the board. A topic with no ticket gets a discussion ticket, which is work for nobody. It can be rejoined with a follow-up for 24 hours after a decision or a close. See ADR 0017.
 _Avoid_: Swarm, standup, chat
 
 **Take**:
-One participant's short answer in a meeting: claim, evidence, confidence, what it would keep or change, and at most one question for the user. A role may return `noop` instead.
+One participant's short answer in a meeting: claim, evidence, confidence, what it would keep or change, and at most one question for the user. A role may decline instead, with a reason. No role reads another role's take; only the chair does.
 _Avoid_: Opinion, vote
 
 **Decision brief**:
-The chair's artifact: the question, two or three options with one recommended, the benefit, cost and task count of each, and what only the user can answer. It is a pass gate, and the chosen option becomes tickets.
+The chair's artifact: the question, two or three options with one recommended, the benefit, cost and task count of each, and what only the user can answer. It appears under Needs you and authorizes nothing. The option the user chooses becomes proposed work: a ticket that waits for the user's approval.
 _Avoid_: Report, summary (the summary is kept after 24 hours)
 
 **Chair**:
-The cell that runs a meeting and writes its decision brief: the orchestrator by default, the architect for design questions.
+The cell that writes a meeting's decision brief from the takes: Bao (the orchestrator), on Bao's own slot. An architect chair for design questions is in ADR 0017 and is not built.
 _Avoid_: Host, moderator
 
 ## UI names

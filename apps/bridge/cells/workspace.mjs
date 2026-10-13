@@ -10,6 +10,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { AGENT_ID_RE, REF_RE, WORKSPACE_BRANCH_PREFIX, WORKTREES_DIR } from "./policy.mjs";
 
+const BRIEF_NAMES = ["findings.md", "meeting.md"]; // the notes the bridge leaves in a worktree's .den/
 const execFileP = promisify(execFile);
 
 // The one shape a published branch may have: what workspaceNames derives (a ref's slashes kept, then "-" and 8 hex of the agent id).
@@ -48,7 +49,9 @@ export function createWorkspaces(root, { exec = execFileP } = {}) {
     },
     // den-mvp outcome 3: the bridge's note to a delivery step (a review's findings for a fix round), written to
     // <worktree>/.den/findings.md. `.den/` is added once to the repository's own exclude file, so no commit carries it.
-    async brief({ dir } = {}, text) {
+    // den-mvp outcome 4: a meeting run's note (the topic, the takes) is written the same way, as .den/meeting.md.
+    async brief({ dir } = {}, text, name = "findings.md") {
+      if (!BRIEF_NAMES.includes(name)) throw new TypeError("workspace: unknown note name");
       const common = String((await exec("git", ["-C", dir, "rev-parse", "--path-format=absolute", "--git-common-dir"])).stdout).trim();
       const exclude = path.join(common, "info", "exclude");
       const current = await readFile(exclude, "utf8").catch(() => "");
@@ -61,7 +64,7 @@ export function createWorkspaces(root, { exec = execFileP } = {}) {
       const den = path.join(dir, ".den");
       await rm(den, { recursive: true, force: true });
       await mkdir(den);
-      await writeFile(path.join(den, "findings.md"), text, { mode: 0o600, flag: "wx" });
+      await writeFile(path.join(den, name), text, { mode: 0o600, flag: "wx" });
     },
     // den-mvp outcome 2: the worktree of an earlier run (`origin`), reopened for a follow-up by a new run. Nothing is created:
     // the directory must still be a worktree of this repository at the derived path, or this rejects. `base` is its HEAD

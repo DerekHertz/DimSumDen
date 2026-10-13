@@ -80,7 +80,36 @@ const BODIES = {
   "POST /deliveries/:id/stop": { real: {}, bogus: {}, prepare: () => delivery() },
   "POST /deliveries/:id/resume": { real: {}, bogus: {}, prepare: () => delivery({ stopped: true }) },
   "POST /deliveries/:id/close": { real: {}, bogus: {}, prepare: () => delivery({ stopped: true }) },
+  // den-mvp outcome 4: a meeting is started on a topic; the steering rows need one that is running, waiting or briefed.
+  "POST /meetings": { real: { topic: "one log or many?", roles: ["qa"] }, bogus: { topic: "something else", roles: ["scout"] } },
+  "POST /meetings/:id/stop": { real: {}, bogus: {}, prepare: () => meeting() },
+  "POST /meetings/:id/resume": { real: {}, bogus: {}, prepare: () => meeting({ stopped: true }) },
+  "POST /meetings/:id/close": { real: {}, bogus: {}, prepare: () => meeting({ stopped: true }) },
+  "POST /meetings/:id/decide": { real: { option: "A" }, bogus: { option: "B" }, prepare: () => meeting({ briefed: true }) },
+  "POST /meetings/:id/ask": { real: { text: "and at restart?" }, bogus: { text: "something else" }, prepare: () => meeting({ briefed: true }) },
 };
+// A meeting with one seat: running (its take never ends), stopped, or taken to its brief by the fake agents. -> its id
+async function meeting({ stopped = false, briefed = false } = {}) {
+  const headers = authed(bridge, token);
+  const started = await send(bridge, { method: "POST", path: "/meetings", headers, body: { topic: "one log or many?", roles: ["qa"] } });
+  assert.equal(started.status, 201, JSON.stringify(started.body));
+  const { id } = started.body.meeting;
+  const spawned = async (n) => {
+    for (let i = 0; i < 200 && !fake.spawns[n]; i += 1) await new Promise((r) => setTimeout(r, 10));
+    return fake.spawns[n];
+  };
+  if (stopped) assert.equal((await send(bridge, { method: "POST", path: `/meetings/${id}/stop`, headers, body: {} })).status, 202);
+  if (briefed) {
+    const say = (rec, text) => (rec.emit({ type: "reply", text }), rec.emit({ type: "done", ok: true }));
+    say(await spawned(0), "Claim: one log");
+    say(await spawned(1), "## Option A: one\n## Option B: many\nRECOMMENDED: A");
+    for (let i = 0; i < 200; i += 1) {
+      if ((await send(bridge, { path: "/state" })).body?.meetings?.some((m) => m.id === id && m.state === "briefed")) break;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+  }
+  return id;
+}
 // A delivery on its own ticket, running (its developer never ends) or stopped. -> its id
 async function delivery({ stopped = false } = {}) {
   const headers = authed(bridge, token);

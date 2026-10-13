@@ -156,6 +156,7 @@ describe("createWorkspaces", () => {
       const made = await ws.create({ ref: REF, agentId: `c-${n}000000000000000` });
       await plant(made.dir);
       await ws.brief(made, "what the review found\n");
+      await assert.rejects(ws.brief(made, "x", "../../outside.txt"), /unknown note name/, "only the bridge's two note names are written");
       assert.equal(await readFile(outside, "utf8"), "the user's own file\n", "nothing outside the worktree is written");
       assert.equal(await exists(path.join(fx.root, "findings.md")), false);
       assert.equal((await lstat(path.join(made.dir, ".den"))).isDirectory(), true);

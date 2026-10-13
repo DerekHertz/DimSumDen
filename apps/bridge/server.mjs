@@ -13,6 +13,10 @@ import { createDelivery } from "./delivery/runner.mjs";
 import { createDeliveryBoard } from "./delivery/board.mjs";
 import { createGitHost } from "./delivery/git-host.mjs";
 import { createJobLog } from "./delivery/jobs.mjs";
+import { createMeetings } from "./meetings/runner.mjs";
+import { createMeetingStore } from "./meetings/store.mjs";
+import { createMeetingLog } from "./meetings/log.mjs";
+import { TOPIC_MAX_BYTES } from "./meetings/types.mjs";
 import { DEN_FEATURE, TASK_MAX_BYTES } from "./cells/policy.mjs";
 import { createTicket } from "../organism-infra/board-service.mjs";
 import { hasSecret } from "../../scripts/exposure.mjs";
@@ -66,9 +70,11 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
   const auth = createAuth(authOptions);
   let host;
   let delivery;
+  let meetings;
   const hub = createHub(root, {
     agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts(), capacity: (lockedRefs) => host.capacity(lockedRefs),
     deliveries: () => delivery?.snapshot() ?? [],
+    meetings: () => meetings?.snapshot() ?? [],
   });
   // den-mvp outcome 4: the production entry point passes the den's catalog; with none, no agent is given a connection.
   const library = libraryOption ?? createLibrary({ catalog: parseCatalog({ connections: [] }) });
@@ -79,7 +85,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     library,
     onChange: (change) => hub.publish(change),
     recordRun: createLedger(root).record,
-    onEnd: (run) => delivery.onEnd(run),
+    onEnd: (run) => Promise.all([delivery.onEnd(run), meetings.onEnd(run)]),
     readUsage: async () => (await hub.snapshot()).usage?.fiveHour ?? null,
     // organism-infra/226: a dispatch needs the ticket to be in the frontier (ready, unblocked, unlocked), not to hold the gate.
     checkGate: async (ref) => {
@@ -102,6 +108,21 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     },
   });
   await delivery.ready;
+  // den-mvp outcome 4: meetings. The bridge writes a meeting's files and both of its tickets; no agent does.
+  meetings = createMeetings({
+    host: { start: host.start, stop: host.stop },
+    store: createMeetingStore(root),
+    log: createMeetingLog(stateDir ?? path.join(root, ".scratch", "_run")),
+    onChange: (change) => hub.publish(change),
+    readUsage: async () => (await hub.snapshot()).usage?.fiveHour ?? null,
+    readTicket: async (ref) => {
+      const ticket = (await hub.snapshot()).tickets.find((t) => t.ref === ref);
+      return ticket ? { title: ticket.title } : null;
+    },
+    // The work a chosen option proposes: a ticket at ready-for-human, so it is in no queue until the user approves it.
+    proposeTicket: ({ title, text }) => createTicket(root, { feature: DEN_FEATURE, slug: "proposed", title, text, source: "den meeting", status: "ready-for-human" }),
+  });
+  await meetings.ready;
   let postChain = Promise.resolve();
   await hub.ready;
   const server = http.createServer(async (req, res) => {
@@ -195,6 +216,16 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     "POST /deliveries/:id/resume": (req, res) => steerDelivery(req, res, "resume"),
     "POST /deliveries/:id/stop": (req, res) => steerDelivery(req, res, "stop"),
     "POST /deliveries/:id/close": (req, res) => steerDelivery(req, res, "close"),
+    "POST /meetings": (req, res) => postMeeting(req, res),
+    "GET /meetings/:id": async (req, res) => {
+      const { ok, status, error, ...body } = await meetings.read(new URL(req.url, "http://x").pathname.split("/")[2]);
+      reply(res, status, ok ? body : { error });
+    },
+    "POST /meetings/:id/resume": (req, res) => steerMeeting(req, res, "resume"),
+    "POST /meetings/:id/stop": (req, res) => steerMeeting(req, res, "stop"),
+    "POST /meetings/:id/close": (req, res) => steerMeeting(req, res, "close"),
+    "POST /meetings/:id/decide": (req, res) => steerMeeting(req, res, "decide"),
+    "POST /meetings/:id/ask": (req, res) => steerMeeting(req, res, "ask"),
     "POST /approvals/:id": async (req, res) => {
       const body = await readJsonObject(req, res);
       if (!body) return;
@@ -353,6 +384,34 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     if (!result.ok) return reply(res, result.status, { error: result.error });
     reply(res, result.status, { delivery: result.delivery });
   }
+  // POST /meetings (den-mvp outcome 4): a meeting about `ref`, or about a topic alone. Only `ref`, `topic` and `roles` are
+  // read. With no ref, the board service writes a discussion ticket for the topic first: it starts at ready-for-human and
+  // its type is not one a delivery takes, so it is work for nobody. The topic reaches no prompt, argv or path: it is quoted
+  // in that ticket and in the note each run is given.
+  async function postMeeting(req, res) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    const topic = typeof body.topic === "string" ? body.topic.trim() : "";
+    if (!topic || Buffer.byteLength(topic) > TOPIC_MAX_BYTES) return reply(res, 400, { error: `topic must be text of at most ${TOPIC_MAX_BYTES} bytes` });
+    if (hasSecret(topic)) return reply(res, 400, { error: "topic looks like it holds a secret; nothing was written" });
+    const title = `Meeting: ${topic.split(/[\n\r\u0085\u2028\u2029]/)[0].replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, " ").trim().slice(0, 90)}`;
+    const result = await meetings.start({
+      ...(body.ref === undefined ? {} : { ref: body.ref }), topic, roles: body.roles,
+      createTicket: async () => ({ title, ref: (await createTicket(root, { feature: DEN_FEATURE, slug: "meeting", title, text: topic, source: "den meeting", type: "discussion", status: "ready-for-human" })).ref }),
+    });
+    if (!result.ok) return reply(res, result.status, { error: result.error });
+    reply(res, result.status, { meeting: result.meeting, ticket: result.ticket });
+  }
+  // POST /meetings/:id/resume | stop | close | decide | ask. decide reads `option`; ask reads `text` and `reask`; the rest read nothing.
+  async function steerMeeting(req, res, action) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    const id = new URL(req.url, "http://x").pathname.split("/")[2];
+    if (action === "ask" && typeof body.text === "string" && hasSecret(body.text)) return reply(res, 400, { error: "text looks like it holds a secret; nothing was written" });
+    const result = action === "decide" ? await meetings.decide(id, { option: body.option }) : action === "ask" ? await meetings.ask(id, { text: body.text, ...(body.reask === undefined ? {} : { reask: body.reask }) }) : await meetings[action](id);
+    if (!result.ok) return reply(res, result.status, { error: result.error });
+    reply(res, result.status, { meeting: result.meeting, ...(result.ticket ? { ticket: result.ticket } : {}) });
+  }
   // Static UI build (ADR 0011 decision 2): unknown paths serve index.html; traversal is a 403.
   async function serveStatic(pathname, req, res) {
     let rel;
@@ -414,6 +473,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
       await host.shutdown();
       await new Promise((resolve) => setImmediate(resolve)); // the runs' end hooks are queued behind the shutdown
       await delivery.shutdown();
+      await meetings.shutdown();
       uninstallProcessHandlers();
       await new Promise((resolve) => {
         hub.close();
