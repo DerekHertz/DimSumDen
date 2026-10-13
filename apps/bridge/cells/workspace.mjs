@@ -36,18 +36,35 @@ export function createWorkspaces(root, { exec = execFileP } = {}) {
       await git("worktree", "add", "--detach", path.join(root, ...worktree.split("/")), "HEAD");
       return { dir: await realpath(path.join(root, ...worktree.split("/"))), worktree, branch };
     },
+    // den-mvp outcome 2: the worktree of an earlier run (`origin`), reopened for a follow-up by a new run. Nothing is created:
+    // the directory must still be a worktree of this repository at the derived path, or this rejects. `base` is its HEAD
+    // now, so publish can tell whether the follow-up committed anything. -> { dir, worktree, branch, base, reopened: true }.
+    async reopen({ ref, agentId, origin } = {}) {
+      const { worktree } = workspaceNames({ ref, agentId: origin });
+      const { branch } = workspaceNames({ ref, agentId });
+      const dir = await realpath(path.join(root, ...worktree.split("/")));
+      const listed = String((await git("worktree", "list", "--porcelain")).stdout).split("\n").filter((l) => l.startsWith("worktree ")).map((l) => l.slice(9));
+      const resolved = await Promise.all(listed.map((p) => realpath(p).catch(() => p)));
+      if (!resolved.includes(dir)) throw new Error("workspace: the earlier run's directory is no longer a worktree of this repository");
+      const base = String((await exec("git", ["-C", dir, "rev-parse", "HEAD"])).stdout).trim();
+      return { dir, worktree, branch, base, reopened: true };
+    },
     // Creates `branch` in the main checkout at the worktree's current HEAD (the agent's final commit). Never moves a branch that
-    // already exists (git branch refuses), and only a derived den/ name is accepted. -> { branch, sha }.
-    async publish({ dir, branch } = {}) {
+    // already exists (git branch refuses), and only a derived den/ name is accepted. -> { branch, sha }, or null for a reopened
+    // worktree whose HEAD has not moved (a follow-up that committed nothing publishes nothing).
+    async publish({ dir, branch, base } = {}) {
       if (typeof branch !== "string" || !PUBLISH_BRANCH_RE.test(branch)) throw new TypeError("workspace: not a den agent branch name");
       if (typeof dir !== "string" || dir === "") throw new TypeError("workspace: publish needs the worktree directory");
       const sha = String((await exec("git", ["-C", dir, "rev-parse", "HEAD"])).stdout).trim();
       if (!/^[0-9a-f]{40,64}$/.test(sha)) throw new Error("workspace: the worktree has no commit to publish");
+      if (base !== undefined && sha === base) return null;
       await git("branch", branch, sha);
       return { branch, sha };
     },
     // Undoes a create whose agent never started. Best effort: a leftover is reported by scripts/worktree-gc.mjs.
-    async remove({ dir, branch }) {
+    // A reopened worktree belongs to an earlier run and is never removed here.
+    async remove({ dir, branch, reopened }) {
+      if (reopened) return;
       await git("worktree", "remove", "--force", dir).catch(() => {});
       await git("branch", "-D", branch).catch(() => {});
     },

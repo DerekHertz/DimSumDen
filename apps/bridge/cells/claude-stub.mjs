@@ -128,7 +128,7 @@ rl.on("line", async (line) => {
     out({ type: "control_request", request_id: "req-1", request: { subtype: "can_use_tool", tool_name: "Write", input: writeInput } });
   }
   else if (O.mode === "message") {
-    out({ type: "user", message: msg.message, uuid: "00000000-0000-4000-8000-0000000000aa", isReplay: true });
+    out({ type: "user", message: msg.message, uuid: typeof msg.uuid === "string" ? msg.uuid : "00000000-0000-4000-8000-0000000000aa", isReplay: true });
     out(toolUse("sleep 5"));
     lingering = true;
   }

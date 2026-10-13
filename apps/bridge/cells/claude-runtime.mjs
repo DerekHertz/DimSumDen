@@ -17,7 +17,7 @@ const GROUP_SETTLE_MS = 2000; // how long an exit waits for the group's last pro
 
 // S8 outcome (c): the approval inbox is on. den-v1 loop S5: so is send, a user message line on the child's stdin
 // (spike S7: the child takes it into its running turn once the running tool call ends).
-const CAPABILITIES = { spawn: true, stop: true, approve: true, send: true, handover: true };
+const CAPABILITIES = { spawn: true, stop: true, approve: true, send: true, handover: true, resume: true };
 
 // A queue that is also an async iterable; end() lets queued events drain, then finishes the stream.
 function createChannel() {
@@ -58,7 +58,10 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
     enforced: launcher.enforced === true,
     preflight: () => launcher.preflight(),
     resumeCommand: (sessionId) => (typeof sessionId === "string" && UUID_RE.test(sessionId) ? `claude --resume ${sessionId}` : null),
-    async spawn({ role, cwd, prompt, sessionId, model, ticketFile, grants, root, mainGit } = {}) {
+    // den-mvp outcome 2: `resume: true` continues the session `sessionId` (the cwd must be the one it ran in); `runId`
+    // then names the resource group, so a follow-up never reuses the unit of the run before it. `promptId` gives the
+    // first message an id, and a message-applied event with that id follows once the child takes it.
+    async spawn({ role, cwd, prompt, sessionId, model, ticketFile, grants, root, mainGit, resume, runId, promptId } = {}) {
       if (typeof cwd !== "string" || cwd === "") throw new TypeError("claude runtime: cwd must be a path");
       if (typeof prompt !== "string") throw new TypeError("claude runtime: prompt must be a string");
       // A ticket path the adapter cannot write as a rule is left out: that agent's ticket read stays a request.
@@ -76,10 +79,10 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
       const ceiling = compileCeiling(role, { worktree: isWorktreePath(cwd) ? cwd : undefined, grants, ...(isWorktreePath(root) ? { root } : {}), ...(mainGit !== undefined ? { mainGit } : {}), ...(home === undefined ? {} : { home }), ...(credentials.length === 0 ? {} : { credentials }) });
       // Every role has a ceiling (ceilings.json); one without would start with no wall, so it does not start.
       if (ceiling === null) throw new EnforcementError(`the ${role} role has no ceiling, so it cannot be started`);
-      const args = buildClaudeArgs({ sessionId, agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}), ...(ceiling ?? {}) });
+      const args = buildClaudeArgs({ sessionId, ...(resume === true ? { resume: true } : {}), agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}), ...(ceiling ?? {}) });
       const bin = typeof env.DEN_CLAUDE_BIN === "string" && env.DEN_CLAUDE_BIN !== "" ? env.DEN_CLAUDE_BIN : "claude";
       // The child is inside its resource group, limits read back, before this resolves; a host that cannot do that starts nothing.
-      const { child, group } = await launcher.launch({ slotClass: slotClassOf(role), id: sessionId, bin, args, cwd, env: buildClaudeEnv(env) });
+      const { child, group } = await launcher.launch({ slotClass: slotClassOf(role), id: runId ?? sessionId, bin, args, cwd, env: buildClaudeEnv(env) });
       child.on("error", () => {});
       child.stdin.on("error", () => {});
       child.stderr.resume(); // drained, never read: a full pipe must not block the child
@@ -177,7 +180,8 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
       });
 
       try {
-        await write(encodeUserMessage({ text: prompt }));
+        if (promptId !== undefined) sent.add(promptId);
+        await write(encodeUserMessage({ text: prompt, ...(promptId === undefined ? {} : { id: promptId }) }));
       } catch {
         // the child may already be gone; the host sees it through `exited`
       }

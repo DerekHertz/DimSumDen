@@ -63,7 +63,7 @@ describe("the runtime's declared shape", () => {
   test("capabilities: approve and send on, and a resume command naming the session", async () => {
     const { createClaudeRuntime } = await loadRuntimeModule();
     const rt = createClaudeRuntime({ launcher: unconfinedLauncher(), env: {} });
-    assert.deepEqual(rt.capabilities, { spawn: true, stop: true, approve: true, send: true, handover: true });
+    assert.deepEqual(rt.capabilities, { spawn: true, stop: true, approve: true, send: true, handover: true, resume: true });
     assert.equal(typeof rt.id, "string");
     assert.match(rt.resumeCommand(SESSION), new RegExp(`--resume ${SESSION}`));
   });
@@ -247,6 +247,17 @@ describe("stopping the child reaches its whole process group", () => {
 // the child's replay of that line (--replay-user-messages) comes back as { type: "message-applied", id }.
 describe("a message to the running child (den-v1 loop S5)", () => {
   const MID = "7b0c2f1e-3a4d-4e5f-8a6b-9c0d1e2f3a4b";
+
+  // den-mvp outcome 2: a follow-up's first message has an id of its own, so its replay is a receipt like any other.
+  test("a follow-up resumes the session, and its prompt's replay reads as message-applied", async () => {
+    const { stub, run } = await launch({ mode: "message" }, { args: { resume: true, promptId: MID, runId: "c-0123456789abcdef", prompt: "and one more thing" } });
+    await until(() => run.events.some((e) => e.type === "message-applied"), { what: "the prompt's receipt" });
+    assert.deepEqual(run.events.filter((e) => e.type === "message-applied"), [{ type: "message-applied", id: MID }]);
+    const [first] = await stub.stdinLines();
+    assert.deepEqual(first, { type: "user", message: { role: "user", content: "and one more thing" }, uuid: MID });
+    const argv = (await stub.log()).find((l) => l.kind === "start").argv;
+    assert.deepEqual([argv.includes("--session-id"), argv[argv.indexOf("--resume") + 1]], [false, SESSION]);
+  });
 
   test("send writes one user line with the message's id, and the child's replay reads as message-applied", async () => {
     const { stub, proc, run } = await launch({ mode: "message" });

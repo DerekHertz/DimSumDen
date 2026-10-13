@@ -61,3 +61,9 @@ export const USAGE_MESSAGES = 200; // messages whose token counts are remembered
 export const MESSAGE_MAX_BYTES = 2048; // UTF-8 bytes of one message (the 2 KB cap of decision 6.7)
 export const MESSAGE_QUEUE_MAX = 8; // messages one agent may have written and not yet taken
 export const MESSAGE_SETTLE_MS = 15_000; // how long an agent that reported done is kept up for a message it has not taken
+
+// den-mvp outcome 2: the durable conversation a role has with the user (conversations.mjs). History is asked for a
+// page at a time; it never rides the snapshot.
+export const CONVERSATION_PAGE = 100; // entries in one page when none is asked for
+export const CONVERSATION_PAGE_MAX = 200; // the most one page may hold
+export const CONVERSATION_READ_BYTES = 4 * 1024 * 1024; // of one role's file, the newest part that is read back

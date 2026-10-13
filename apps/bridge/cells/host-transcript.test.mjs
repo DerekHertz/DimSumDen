@@ -120,7 +120,8 @@ describe("the host publishes an agent's transcript", () => {
     await t.waitFor(agent.id, (e) => e.kind === "ended", "the ended entry");
     assert.deepEqual((await t.buffer(agent.id)).entries.map(strip), [
       { id: 1, kind: "tool", name: "Bash", summary: "sleep 999", status: "stopped" },
-      { id: 2, kind: "ended", state: "terminated" },
+      { id: 2, kind: "stop", status: "requested" }, // organism-infra/230: the stop's own trail, closed by the ended entry
+      { id: 3, kind: "ended", state: "terminated" },
     ]);
   });
 });
@@ -133,18 +134,19 @@ describe("a permission request in the transcript", () => {
     rec.emit({ type: "permission-request", requestId: "r-1", tool: "Write", input: { file_path: "/tmp/x.txt", content: "INPUT-MARKER-1" } });
     rec.emit({ type: "permission-request", requestId: "r-2", tool: "Bash", input: { command: "echo INPUT-MARKER-2" } });
     await t.waitFor(agent.id, (e) => e.id === 2 && e.kind === "permission", "both requests");
-    assert.deepEqual(t.entriesOf(agent.id).map(strip), [
-      { id: 1, kind: "permission", name: "Write", status: "pending" },
-      { id: 2, kind: "permission", name: "Bash", status: "pending" },
-    ]);
     const [first, second] = (await t.state()).approvals;
+    // organism-infra/230: each entry names its approval, and once answered says when (and carries the user's note, if any).
+    assert.deepEqual(t.entriesOf(agent.id).map(strip), [
+      { id: 1, kind: "permission", name: "Write", status: "pending", approvalId: first.id },
+      { id: 2, kind: "permission", name: "Bash", status: "pending", approvalId: second.id },
+    ]);
     await send(t.bridge, { path: `/approvals/${first.id}`, headers: t.headers });
     assert.equal((await t.post(`/approvals/${first.id}`, { decision: "allow" })).status, 200);
     assert.equal((await t.post(`/approvals/${second.id}`, { decision: "deny" })).status, 200);
     await t.waitFor(agent.id, (e) => e.id === 2 && e.status === "denied", "the denial");
-    assert.deepEqual((await t.buffer(agent.id)).entries.map(strip), [
-      { id: 1, kind: "permission", name: "Write", status: "allowed" },
-      { id: 2, kind: "permission", name: "Bash", status: "denied" },
+    assert.deepEqual((await t.buffer(agent.id)).entries.map(({ answeredAt, ...e }) => strip(e)), [
+      { id: 1, kind: "permission", name: "Write", status: "allowed", approvalId: first.id },
+      { id: 2, kind: "permission", name: "Bash", status: "denied", approvalId: second.id },
     ]);
     const everything = JSON.stringify(t.sse.frames.filter((f) => f.data.type === "transcript")) + JSON.stringify((await t.state()).transcripts);
     assert.equal(everything.includes("INPUT-MARKER"), false);

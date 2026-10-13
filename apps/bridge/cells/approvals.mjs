@@ -6,7 +6,9 @@
 //
 //   createApprovalStore({ ttlMs, capPerAgent, canAnswer(agentId), isLive(agentId), answer(agentId, requestId, { allow, reason }),
 //                         audit({ approval, decision, note }), onChange(view) })
-//   hold(agentId, event, { accepting })   a "permission-request" CellEvent -> nothing returned; denies are answered inside
+//   hold(agentId, event, { accepting, says })   a "permission-request" CellEvent -> nothing returned; denies are answered inside
+//       (den-mvp outcome 2: `says` is what the agent last said before asking, already cleaned by the host; the view
+//       carries it, clipped, beside `intent`, the tool input's own `description`. Both are null when there is none.)
 //   read(id)            -> { ...view, input } | null    marks the approval "seen" (GET /approvals/:id)
 //   decide(id, body)    -> Promise<{ ok: true, status: 200, approval } | { ok: false, status, error }>
 //   settleAgent(agentId, code)   every pending approval of the agent becomes "expired" (and the child is answered deny)
@@ -20,6 +22,8 @@ import {
 
 const MASK = "[masked: possible secret]";
 const SUMMARY_MAX = 200;
+const SAYS_MAX = 500;
+const INTENT_MAX = 200;
 const TOOL_MAX = 100;
 const MAX_DEPTH = 32;
 const SUMMARY_KEYS = ["command", "file_path", "path", "pattern", "url", "query", "description"];
@@ -104,6 +108,7 @@ export function createApprovalStore({
   const view = (a) => ({
     id: a.id, agentId: a.agentId, tool: a.tool, summary: a.summary, inputLength: a.inputLength, truncated: a.truncated,
     ts: a.ts, expiresAt: a.expiresAt, state: a.state, note: a.note, ...(a.reason ? { reason: a.reason } : {}),
+    says: a.says, intent: a.intent, ...(a.answeredAt ? { answeredAt: a.answeredAt } : {}),
   });
 
   // The child is told only deny, and only while it can still hear.
@@ -142,7 +147,14 @@ export function createApprovalStore({
     );
   }
 
-  function hold(agentId, event, { accepting = true } = {}) {
+  // Plain words, on one line, cut short: null for anything that is not readable text.
+  const brief = (value, max) => {
+    if (typeof value !== "string") return null;
+    const flat = cleanText(value).replace(/\s+/g, " ").trim();
+    return flat === "" ? null : flat.length > max ? `${flat.slice(0, max)}…` : flat;
+  };
+
+  function hold(agentId, event, { accepting = true, says = null } = {}) {
     const requestId = event?.requestId;
     // No usable request id: nothing can be answered, so the request is dropped (ADR 0016 6.5).
     if (typeof requestId !== "string" || requestId.length < 1 || requestId.length > REQUEST_ID_MAX) return;
@@ -168,6 +180,7 @@ export function createApprovalStore({
       id: `a-${randomBytes(8).toString("hex")}`, agentId, requestId, tool: cleanText(tool).slice(0, TOOL_MAX), summary, truncated,
       inputLength: JSON.stringify(input).length, ts: new Date(now).toISOString(), expiresAt: new Date(now + ttlMs).toISOString(),
       state: "pending", note: null, reason: null, input, seen: false, claimed: false,
+      says: brief(says, SAYS_MAX), intent: brief(input.description, INTENT_MAX), answeredAt: null,
     };
     a.timer = setTimeout(() => settle(a, "expired"), ttlMs);
     a.timer.unref?.();
@@ -224,6 +237,7 @@ export function createApprovalStore({
     clearTimeout(a.timer);
     a.state = final === "allow" ? "allowed" : "denied";
     a.note = cleanNote;
+    a.answeredAt = new Date().toISOString();
     a.input = null;
     onChange(view(a));
     return failure ?? { ok: true, status: 200, approval: view(a) };

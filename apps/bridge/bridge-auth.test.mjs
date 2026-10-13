@@ -65,6 +65,12 @@ const BODIES = {
       throw new Error("the fake runtime's permission request never became an approval");
     },
   },
+  // den-mvp outcome 2: a message into a role's conversation; the path names a role, and `prepare` starts its one live run.
+  "POST /conversations/:role/message": {
+    real: { text: "use port 5173" },
+    bogus: { text: "something else entirely" },
+    prepare: async () => ((await bridge.host.start({ ref: `${FEATURE}/34-auth-converse`, role: "herald" })), "herald"),
+  },
 };
 // Path parameters: a registry path like "/cells/:id/stop" is exercised with each value.
 const fill = (pattern, value) => pattern.replace(/:\w+/g, value);

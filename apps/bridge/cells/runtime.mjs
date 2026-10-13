@@ -2,9 +2,12 @@
 // Nothing else in the bridge names a Claude flag; the real adapter (claude-adapter.mjs, ticket D2) implements this.
 //
 //   CellRuntime = {
-//     id, capabilities: { spawn, stop, approve, send, handover },
-//     spawn({ role, mode?, ref, cwd, prompt, model?, sessionId, resume?, ticketFile? }) -> Promise<CellProcess>,
+//     id, capabilities: { spawn, stop, approve, send, handover, resume },
+//     spawn({ role, mode?, ref, cwd, prompt, model?, sessionId, resume?, runId?, promptId?, ticketFile? }) -> Promise<CellProcess>,
 //       (ticketFile: the absolute path of the agent's ticket, built by the host; a runtime may let the agent read it unasked)
+//       (den-mvp outcome 2: resume: true continues the session `sessionId` in `cwd`, for a runtime whose `resume`
+//       capability is true; runId is the new run's own id; promptId is the id of the first message, which the runtime
+//       reports with a message-applied event once the child takes it)
 //     resumeCommand(sessionId) -> string          // shown to the user once an agent has ended; never run
 //   }
 //   CellProcess = {
@@ -27,7 +30,7 @@
 //   and, when capabilities.send is true, send(messageId, text) -> Promise   (one user message to the running child;
 //   it rejects if the child could not be written to, and a message-applied event with that id follows once it is taken)
 
-const CAPABILITIES = { spawn: true, stop: true, approve: true, send: false, handover: true };
+const CAPABILITIES = { spawn: true, stop: true, approve: true, send: false, handover: true, resume: true };
 
 // A fake runtime with test controls: see the contract at the top of host-core.test.mjs.
 //   config: spawnDelayMs, stdinCloseEnds, sigtermEnds, sigkillEnds, failSpawn, failSend (all mutable at runtime.config);
