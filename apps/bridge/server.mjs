@@ -3,6 +3,7 @@
 // SSE, /metrics, POST /requests and static files arrive in tickets 05 and 06.
 import http from "node:http";
 import { fileURLToPath } from "node:url";
+import { realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -28,6 +29,7 @@ import { createAuth } from "./auth.mjs";
 import { matchRoute } from "./routes.mjs";
 import { computeMetrics, parseJsonl } from "../../scripts/metrics.mjs";
 import { contentTypeFor } from "../ci-cd/dev-server.mjs";
+import { createReleases, resolveUi } from "./build/releases.mjs";
 
 const DEFAULT_UI_DIR = fileURLToPath(new URL("../ui/dist", import.meta.url));
 
@@ -65,7 +67,10 @@ function installProcessHandlers(host) {
 // is where the delivery log is kept. The production entry point passes a directory outside the repository; the default is
 // the bridge's run directory, which is outside every agent's worktree.
 // den-mvp outcome 4: library is the catalog of connections and its record (library/library.mjs); a test passes its own.
-export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption } = {}) {
+// den-mvp outcome 5: denState is the den's state folder ($XDG_STATE_HOME/den). When its ui/current link names a complete release,
+// the UI is served from that release (a hashed file it lacks is looked for in ui/previous); with no usable link, and when
+// denState is not given, the UI comes from uiDir, the checkout's build, as before.
+export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, denState, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption } = {}) {
   let actualPort = port;
   const auth = createAuth(authOptions);
   let host;
@@ -429,8 +434,11 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
       res.end("bad request target");
       return;
     }
-    const base = path.resolve(uiDir);
-    const target = path.resolve(base, "." + (rel.startsWith("/") ? rel : "/" + rel));
+    // The links are resolved on every request, so a switch is seen by the next one.
+    const roots = denState ? await resolveUi(denState) : null;
+    const base = path.resolve(roots?.current ?? uiDir);
+    const inside = (dir) => path.resolve(dir, "." + (rel.startsWith("/") ? rel : "/" + rel));
+    const target = inside(base);
     if (rel.includes("\0") || (target !== base && !target.startsWith(base + path.sep))) {
       res.writeHead(403, { "Content-Type": "text/plain" });
       res.end("forbidden");
@@ -441,6 +449,19 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     try {
       body = await readFile(file);
     } catch {
+      // An open tab of the previous build still asks for its own hashed parts; index.html only ever comes from the current one.
+      if (roots?.previous && rel.startsWith("/assets/")) {
+        const older = inside(roots.previous);
+        if (older.startsWith(roots.previous + path.sep)) {
+          try {
+            file = older;
+            body = await readFile(file);
+          } catch {}
+        }
+      }
+    }
+    if (body === undefined) {
+      file = target;
       if (path.extname(rel)) {
         res.writeHead(404, { "Content-Type": "text/plain" });
         res.end("not found");
@@ -458,6 +479,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     res.writeHead(200, { "Content-Type": contentTypeFor(file), "Cache-Control": "no-store", "Content-Security-Policy": CSP });
     res.end(req.method === "HEAD" ? undefined : body);
   }
+  if (denState) await createReleases({ stateDir: denState }).sweep(); // a half-made release folder is never served, and is removed at start
   await new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(port, HOST, resolve);
@@ -484,17 +506,24 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
   };
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Started through the service's bridge/current link, argv[1] is the link and import.meta.url the release it points to: compare real paths.
+const startedDirectly = () => {
+  try {
+    return process.argv[1] !== undefined && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+};
+if (startedDirectly()) {
   const { resolveRoot } = await import("../organism-infra/board-service.mjs");
   const root = resolveRoot(process.cwd(), process.env);
   // The default runtime (organism-infra/143): the binary is DEN_CLAUDE_BIN, else `claude` on PATH.
   const { createClaudeRuntime } = await import("./cells/claude-runtime.mjs");
   // The delivery log is kept outside the repository, so it is in no agent's worktree and under no path a task can be granted.
   const { createHash } = await import("node:crypto");
-  const { realpathSync } = await import("node:fs");
   const stateHome = process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
   const stateDir = path.join(stateHome, "den", "projects", createHash("sha256").update(realpathSync(root)).digest("hex").slice(0, 16));
-  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env }), stateDir, library: createLibrary({ stateDir }) });
+  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env }), stateDir, denState: path.join(stateHome, "den"), library: createLibrary({ stateDir }) });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
   console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);
