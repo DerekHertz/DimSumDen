@@ -20,10 +20,15 @@ describe("the catalog file", () => {
 
   test("a connection is a remote address or a script in the den, never both and never a command", () => {
     assert.deepEqual(one().connections[0].target, { name: "docs", url: "https://docs.example.com/mcp" });
-    assert.deepEqual(one({ url: undefined, script: "apps/bridge/library/test-server.mjs" }).connections[0].target, { name: "docs", script: "/den/apps/bridge/library/test-server.mjs" });
-    rejects({ script: "apps/x.mjs" }, "both");
+    assert.deepEqual(one({ url: undefined, script: "apps/bridge/library/servers/test-server.mjs" }).connections[0].target, { name: "docs", script: "/den/apps/bridge/library/servers/test-server.mjs" });
+    rejects({ script: "apps/bridge/library/servers/x.mjs" }, "both");
     rejects({ url: undefined }, "neither");
-    for (const script of ["/etc/x.mjs", "../x.mjs", "apps/../../x.mjs", "apps/x.sh", "apps/a b.mjs", "scripts/x.mjs", "apps/x.mjs --flag"]) rejects({ url: undefined, script }, script);
+    // A script runs outside the shell sandbox, so only the one directory kept for them can hold one: not the bridge's own code.
+    for (const script of [
+      "/etc/x.mjs", "../x.mjs", "apps/x.mjs", "apps/bridge/server.mjs", "apps/bridge/library/catalog.mjs", "apps/bridge/library/servers/../catalog.mjs",
+      "apps/bridge/library/servers/sub/x.mjs", "apps/bridge/library/servers/x.sh", "apps/bridge/library/servers/a b.mjs", "apps/bridge/library/servers/.mjs",
+      "scripts/x.mjs", "apps/bridge/library/servers/x.mjs --flag",
+    ]) rejects({ url: undefined, script }, script);
   });
 
   test("an address that could carry a secret, leave https or name a local or private host is refused", () => {

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// den-mvp outcome 4: a connection for tests and the live probe, never listed in the catalog. It speaks the Model Context
+// den-mvp outcome 4: a connection for tests and the live checks. The den's catalog does not list it. It speaks the Model Context
 // Protocol over stdio (one JSON-RPC message per line) and offers one tool that reads and one that claims to change
 // something. It touches no file and no network: `note` only answers.
 import { createInterface } from "node:readline";

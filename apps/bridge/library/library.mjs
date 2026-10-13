@@ -6,8 +6,8 @@
 //   decide(role, tool, input)   catalog.decideTool, then two checks on what the call would send
 //   noteStatus / noteUse   what the host saw
 //   view()                 connections and skills for the library panel
-import { appendFile, chmod, mkdir, readFile, readdir } from "node:fs/promises";
-import { readFileSync } from "node:fs";
+import { appendFile, chmod, mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
+import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 import path from "node:path";
 import { hasSecret } from "../../../scripts/exposure.mjs";
 import { CONNECTION_STATES } from "../cells/claude-adapter.mjs";
@@ -17,7 +17,11 @@ import { DEN_ROOT, connectionsFor, decideTool, loadCatalog, toolsOfRoleFile } fr
 export const AUTO_INPUT_MAX_BYTES = 2048; // a read with more input than this is asked, not allowed by the bridge
 const REFUSE_SECRET = "The input looks like it holds a secret, so the den does not send it to a connection.";
 const REFUSE_INPUT = "The den could not read the input of that call.";
-const LOG_READ_BYTES = 1024 * 1024; // of the log, the newest part that is read back
+const LOG_READ_BYTES = 2 * 1024 * 1024; // of the log, the newest part that is read back
+// Past this size the log is rewritten as what it adds up to (the last state and the totals per connection), so a run
+// that calls a connection in a loop cannot grow it without end.
+export const LOG_MAX_BYTES = 1024 * 1024;
+const COUNT_MAX = 1e12;
 const DECISIONS = ["allowed", "asked", "refused"];
 const TOOL_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const SKILLS_MAX = 100;
@@ -49,18 +53,28 @@ export function skillOf(text) {
 export function createLibrary({ catalog = loadCatalog(), stateDir, denRoot = DEN_ROOT, now = () => new Date() } = {}) {
   const file = typeof stateDir === "string" ? path.join(stateDir, "library.jsonl") : null;
   const known = new Map(catalog.connections.map((c) => [c.name, c]));
-  const status = new Map(); // connection -> { state, role, at }
-  const uses = new Map(); // connection -> { count, lastAt, lastRole, lastTool }
+  const status = new Map(); // connection -> { state, word, role, at }; `word` is the CLI's own, kept for the log
+  const uses = new Map(); // connection -> { count, refused, lastAt, lastRole, lastTool }
+  let logBytes = 0;
   let ready = file === null ? Promise.resolve() : mkdir(stateDir, { recursive: true, mode: 0o700 }).catch(() => {});
 
   const applyStatus = (r) => {
     if (!known.has(r.connection) || !ROLES.includes(r.role) || !ts(r.at) || !Object.hasOwn(STATE_OF, r.status)) return;
-    status.set(r.connection, { state: STATE_OF[r.status], role: r.role, at: r.at });
+    status.set(r.connection, { state: STATE_OF[r.status], word: r.status, role: r.role, at: r.at });
+  };
+  const toolOf = (c, tool) => (typeof tool === "string" && TOOL_RE.test(tool) && Object.hasOwn(c.tools, tool) ? tool : null);
+  const whole = (v) => (Number.isInteger(v) && v >= 0 && v < COUNT_MAX ? v : 0);
+  // A rewritten log's line: what the lines before it added up to for one connection.
+  const applyTotal = (r) => {
+    const c = known.get(r.connection);
+    if (!c) return;
+    const used = whole(r.count) > 0 && ROLES.includes(r.lastRole) && ts(r.lastAt);
+    uses.set(c.name, { count: whole(r.count), refused: whole(r.refused), lastAt: used ? r.lastAt : null, lastRole: used ? r.lastRole : null, lastTool: used ? toolOf(c, r.lastTool) : null });
   };
   const applyUse = (r) => {
     const c = known.get(r.connection);
     if (!c || !ROLES.includes(r.role) || !ts(r.at) || !DECISIONS.includes(r.decision)) return;
-    const tool = typeof r.tool === "string" && TOOL_RE.test(r.tool) && Object.hasOwn(c.tools, r.tool) ? r.tool : null;
+    const tool = toolOf(c, r.tool);
     const u = uses.get(c.name) ?? { count: 0, refused: 0, lastAt: null, lastRole: null, lastTool: null };
     if (r.decision === "refused") u.refused += 1;
     else Object.assign(u, { count: u.count + 1, lastAt: r.at, lastRole: r.role, lastTool: tool });
@@ -68,10 +82,14 @@ export function createLibrary({ catalog = loadCatalog(), stateDir, denRoot = DEN
   };
   // What an earlier bridge wrote. Every field is checked again here: the log is a record, not an authority.
   if (file !== null) {
+    let fd = null;
     try {
-      const raw = readFileSync(file);
-      const text = raw.subarray(Math.max(0, raw.length - LOG_READ_BYTES)).toString("utf8");
-      for (const line of text.split("\n")) {
+      fd = openSync(file, "r");
+      const size = fstatSync(fd).size;
+      const raw = Buffer.alloc(Math.min(size, LOG_READ_BYTES));
+      readSync(fd, raw, 0, raw.length, size - raw.length);
+      logBytes = size;
+      for (const line of raw.toString("utf8").split("\n")) {
         let r;
         try {
           r = JSON.parse(line);
@@ -81,16 +99,35 @@ export function createLibrary({ catalog = loadCatalog(), stateDir, denRoot = DEN
         if (r === null || typeof r !== "object") continue;
         if (r.kind === "status") applyStatus(r);
         else if (r.kind === "use") applyUse(r);
+        else if (r.kind === "total") applyTotal(r);
       }
     } catch {
       // no log yet
+    } finally {
+      if (fd !== null) closeSync(fd);
     }
   }
+  const summary = () =>
+    [
+      ...[...status].map(([connection, v]) => ({ kind: "status", at: v.at, role: v.role, connection, status: v.word })),
+      ...[...uses].map(([connection, u]) => ({ kind: "total", connection, ...u })),
+    ].map((r) => `${JSON.stringify(r)}\n`).join("");
+  // `logBytes` counts what is written and what is queued. The choice is made here, when the record is queued, so the
+  // summary holds exactly the records up to this one: the appends queued before it are replaced by it, never added again.
   const write = (record) => {
     if (file === null) return;
+    const line = `${JSON.stringify(record)}\n`;
+    const rewrite = logBytes + line.length > LOG_MAX_BYTES ? summary() : null;
+    logBytes = rewrite === null ? logBytes + line.length : rewrite.length;
     ready = ready
-      .then(() => appendFile(file, `${JSON.stringify(record)}\n`, { mode: 0o600 }))
-      .then(() => chmod(file, 0o600))
+      .then(async () => {
+        if (rewrite === null) await appendFile(file, line, { mode: 0o600 });
+        else {
+          await writeFile(`${file}.tmp`, rewrite, { mode: 0o600 });
+          await rename(`${file}.tmp`, file);
+        }
+        await chmod(file, 0o600);
+      })
       .catch((err) => console.error(`bridge: could not write the library log: ${err?.message ?? err}`));
   };
   const roleFile = async (role) => {
@@ -120,6 +157,7 @@ export function createLibrary({ catalog = loadCatalog(), stateDir, denRoot = DEN
     decide(role, tool, input) {
       const verdict = decideTool(catalog, role, tool);
       if (verdict === null || verdict.kind === "refuse") return verdict;
+      if (input === null || typeof input !== "object" || Array.isArray(input)) return { ...verdict, kind: "refuse", reason: REFUSE_INPUT };
       let sent = "";
       try {
         sent = JSON.stringify(input) ?? "";
@@ -127,7 +165,8 @@ export function createLibrary({ catalog = loadCatalog(), stateDir, denRoot = DEN
         return { ...verdict, kind: "refuse", reason: REFUSE_INPUT };
       }
       if (hasSecret(sent)) return { ...verdict, kind: "refuse", reason: REFUSE_SECRET };
-      return verdict.kind === "allow" && Buffer.byteLength(sent) > AUTO_INPUT_MAX_BYTES ? { ...verdict, kind: "ask" } : verdict;
+      const bytes = Buffer.byteLength(sent);
+      return verdict.kind === "allow" && bytes > AUTO_INPUT_MAX_BYTES ? { ...verdict, kind: "ask", bytes } : { ...verdict, bytes };
     },
     /** What a child's start-up line said about its connections. Names outside the catalog are dropped. */
     noteStatus(role, servers) {

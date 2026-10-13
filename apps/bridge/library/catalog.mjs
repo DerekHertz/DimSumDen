@@ -19,7 +19,8 @@ const CONNECTIONS_MAX = 20;
 const TOOLS_MAX = 40;
 const TOOL_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const TEXT_RE = /^[^\u0000-\u001f\u007f]{1,200}$/;
-const SCRIPT_RE = /^apps\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\.mjs$/;
+// A local connection's script runs outside the shell sandbox, as the user, so only one directory of the den can hold one.
+const SCRIPT_RE = /^apps\/bridge\/library\/servers\/[A-Za-z0-9][A-Za-z0-9._-]*\.mjs$/;
 const KEYS = ["name", "title", "purpose", "url", "script", "credential", "roles", "tools"];
 /** The den's own checkout: where this file is, three levels up. A connection's script is resolved against it. */
 export const DEN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -46,7 +47,7 @@ export function parseCatalog(value, { denRoot = DEN_ROOT } = {}) {
     let target;
     if (c.url !== undefined) target = { name: c.name, url: c.url };
     else {
-      if (typeof c.script !== "string" || !SCRIPT_RE.test(c.script) || c.script.split("/").some((part) => part === "." || part === "..")) fail(`${c.name}: script must be a .mjs file under apps/ in the den`);
+      if (typeof c.script !== "string" || !SCRIPT_RE.test(c.script) || c.script.split("/").some((part) => part === "." || part === "..")) fail(`${c.name}: script must be a .mjs file in apps/bridge/library/servers/ in the den`);
       target = { name: c.name, script: path.join(denRoot, c.script) };
     }
     if (!isConnectionTarget(target)) fail(`${c.name}: ${c.url !== undefined ? "url must be a plain https address of a public host, with no sign-in, query or fragment" : "the script's path is not a plain path"}`);

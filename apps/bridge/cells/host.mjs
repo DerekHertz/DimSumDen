@@ -25,7 +25,7 @@ import {
   AGENT_ID_RE, KILL_GRACE_MS, LIVE_STATES, MAX_CONCURRENT_AGENTS, MODES, REF_RE, ROLES, SESSION_CAP, SLOTS, slotClassOf, UUID_RE,
   USAGE_REFUSE_AT, APPROVAL_TTL_MS, SHUTDOWN_SPAWN_WAIT_MS, DIRECT_MODE,
   TRANSCRIPT_AGENTS, TRANSCRIPT_ENTRIES, TRANSCRIPT_RESULT_MAX, TRANSCRIPT_TEXT_MAX, REPLY_EXCERPT_MAX, USAGE_MESSAGES,
-  MESSAGE_MAX_BYTES, MESSAGE_QUEUE_MAX, MESSAGE_SETTLE_MS,
+  MESSAGE_MAX_BYTES, MESSAGE_QUEUE_MAX, MESSAGE_SETTLE_MS, CONNECTION_AUTO_BYTES, CONNECTION_AUTO_CALLS,
 } from "./policy.mjs";
 import { ceilingOf, grantContainsWorktrees, parseGrants } from "./claude-adapter.mjs";
 import { parseCatalog } from "../library/catalog.mjs";
@@ -335,6 +335,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     agent.lastEventAt = agent.startedAt;
     agent.openTools = new Map(); // the runtime's tool id (or a local key) -> transcript entry id, while running
     agent.permissionEntries = new Map(); // approval id -> transcript entry id
+    agent.autoAllowed = { calls: 0, bytes: 0 }; // connection reads the bridge allowed by itself for this run (den-mvp outcome 4)
     agent.usageByMessage = new Map(); // message id -> the tiers last counted for it
     agent.messages = new Map(); // id of a message written and not yet taken -> its transcript entry id
     return agent;
@@ -644,8 +645,15 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       // den-mvp outcome 4: a connection's tool is answered from the catalog first. A tool the catalog does not give this
       // role is refused here and never becomes a question, and so is a call whose input looks like a secret; a read with a
       // short input is allowed; any other is asked as usual.
-      const verdict = library.decide(agent.role, event.tool, event.input);
+      let verdict = library.decide(agent.role, event.tool, event.input);
       if (verdict !== null) {
+        if (verdict.kind === "allow") {
+          // The bridge allows nothing once a stop was asked for, and only so much per run: past the bound a read is asked.
+          const used = agent.autoAllowed;
+          if (agent.stopRequested || shuttingDown) verdict = { ...verdict, kind: "refuse", reason: "The run is stopping." };
+          else if (used.calls >= CONNECTION_AUTO_CALLS || used.bytes + verdict.bytes > CONNECTION_AUTO_BYTES) verdict = { ...verdict, kind: "ask" };
+          else Object.assign(used, { calls: used.calls + 1, bytes: used.bytes + verdict.bytes });
+        }
         const decision = verdict.kind === "allow" ? "allowed" : verdict.kind === "ask" ? "asked" : "refused";
         if (library.noteUse({ role: agent.role, runId: agent.id, connection: verdict.connection, tool: verdict.tool, decision })) onChange({ type: "library" });
         if (verdict.kind !== "ask") {

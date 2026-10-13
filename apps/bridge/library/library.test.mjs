@@ -13,12 +13,13 @@ import path from "node:path";
 import { makeBridge, send, until } from "../cells/host-test-helpers.mjs";
 import { ROUTES } from "../routes.mjs";
 import { parseCatalog } from "./catalog.mjs";
-import { AUTO_INPUT_MAX_BYTES, createLibrary, skillOf } from "./library.mjs";
+import { CONNECTION_AUTO_BYTES, CONNECTION_AUTO_CALLS } from "../cells/policy.mjs";
+import { AUTO_INPUT_MAX_BYTES, LOG_MAX_BYTES, createLibrary, skillOf } from "./library.mjs";
 
 const CATALOG = parseCatalog({
   connections: [
     { name: "docs", title: "Docs", purpose: "Look things up.", url: "https://docs.example.com/mcp", credential: "none", roles: ["scout", "architect"], tools: { find: "read", save: "change" } },
-    { name: "notes", title: "Notes", purpose: "Keep notes.", script: "apps/bridge/library/test-server.mjs", credential: "none", roles: ["architect"], tools: { echo: "read", note: "publish" } },
+    { name: "notes", title: "Notes", purpose: "Keep notes.", script: "apps/bridge/library/servers/test-server.mjs", credential: "none", roles: ["architect"], tools: { echo: "read", note: "publish" } },
   ],
 });
 const SECRET = ["ghp_", "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ"].join(""); // built at runtime so the repo secret scan stays clean
@@ -112,6 +113,53 @@ describe("a connection's tool call", () => {
     await until(() => rec.decisions.length === 3, { what: "the short read to be allowed" });
     assert.equal(rec.decisions[2].allow, true);
     assert.deepEqual([(await lib.view()).connections[0].uses.count, (await lib.view()).connections[0].uses.refused], [2, 2]);
+  });
+
+  test("the bridge allows only so many reads per run, and only so much input: past either bound a read is asked", async () => {
+    const lib = await library();
+    t = await makeBridge({ library: lib, policy: { approvalTtlMs: 60_000 } });
+    const { agent } = (await t.dispatch("architect")).body;
+    const rec = t.fake.spawns[0];
+    for (let i = 0; i < CONNECTION_AUTO_CALLS + 2; i += 1) request(rec, `r${i}`, "mcp__docs__find", { q: "a" });
+    const held = await until(async () => { const list = await approvalsOf(agent.id); return list.length === 2 && list; }, { what: "the reads past the bound to be held" });
+    assert.equal(rec.decisions.length, CONNECTION_AUTO_CALLS);
+    assert.ok(rec.decisions.every((d) => d.allow === true));
+    assert.deepEqual(held.map((a) => a.tool), ["mcp__docs__find", "mcp__docs__find"]);
+    // The bound is the run's: another run of the same role starts from nothing.
+    rec.exit();
+    await t.close();
+    t = await makeBridge({ library: await library() });
+    const second = (await t.dispatch("architect")).body.agent;
+    const rec2 = t.fake.spawns[0];
+    const big = { q: "x".repeat(AUTO_INPUT_MAX_BYTES - 100) };
+    const fits = Math.floor(CONNECTION_AUTO_BYTES / Buffer.byteLength(JSON.stringify(big)));
+    for (let i = 0; i < fits + 1; i += 1) request(rec2, `b${i}`, "mcp__docs__find", big);
+    await until(async () => (await approvalsOf(second.id)).length === 1, { what: "the read past the byte bound to be held" });
+    assert.equal(rec2.decisions.length, fits);
+    assert.ok(fits < CONNECTION_AUTO_CALLS, "the byte bound is the one this half meets");
+  });
+
+  test("once Stop was asked for, the bridge allows nothing by itself", async () => {
+    t = await makeBridge({ library: await library(), runtimeConfig: { stdinCloseEnds: false, sigtermEnds: false, sigkillEnds: false }, policy: { killGraceMs: 400 } });
+    const { agent } = (await t.dispatch("architect")).body;
+    const rec = t.fake.spawns[0];
+    const stop = t.post(`/agents/${agent.id}/stop`);
+    await until(() => rec.calls.length > 0, { what: "the stop to reach the process" });
+    request(rec, "late", "mcp__docs__find", { q: "a" });
+    await until(() => rec.decisions.length === 1, { what: "the answer to the late read" });
+    assert.deepEqual([rec.decisions[0].allow, rec.decisions[0].reason], [false, "The run is stopping."]);
+    rec.exit();
+    await stop;
+  });
+
+  test("an input that is not an object is refused, never allowed", async () => {
+    const lib = await library();
+    for (const input of [undefined, null, "text", 4, ["a"]]) assert.equal(lib.decide("architect", "mcp__docs__find", input).kind, "refuse", String(input));
+    const loop = {};
+    loop.self = loop;
+    assert.equal(lib.decide("architect", "mcp__docs__find", loop).kind, "refuse");
+    assert.equal(lib.decide("architect", "mcp__docs__find", { q: "a" }).kind, "allow");
+    assert.equal(lib.decide("nobody", "mcp__docs__find", { q: "a" }).kind, "refuse");
   });
 
   test("a change or a publish is held for the user like any other request, with its exact input", async () => {
@@ -221,6 +269,21 @@ describe("the library panel's data", () => {
     assert.ok(!JSON.stringify(again).includes(SECRET));
   });
 
+  test("the log does not grow without end: past its bound it is rewritten as the state and the totals, and a restart reads the same", async () => {
+    const where = await den();
+    const lib = createLibrary({ catalog: CATALOG, ...where });
+    lib.noteStatus("architect", [{ name: "docs", status: "connected" }]);
+    const line = Buffer.byteLength(JSON.stringify({ kind: "use", at: new Date().toISOString(), role: "architect", runId: "c-0123456789abcdef", connection: "docs", tool: null, decision: "refused" })) + 1;
+    const calls = Math.ceil(LOG_MAX_BYTES / line) + 50;
+    for (let i = 0; i < calls; i += 1) lib.noteUse({ role: "architect", runId: "c-0123456789abcdef", connection: "docs", tool: "bogus", decision: "refused" });
+    lib.noteUse({ role: "architect", runId: "c-0123456789abcdef", connection: "docs", tool: "find", decision: "allowed" });
+    await lib.flush();
+    const size = (await readFile(path.join(where.stateDir, "library.jsonl"))).length;
+    assert.ok(size < LOG_MAX_BYTES / 10, `the log was rewritten (${size} bytes)`);
+    const again = (await createLibrary({ catalog: CATALOG, ...where }).view()).connections[0];
+    assert.deepEqual([again.status.state, again.uses.count, again.uses.refused, again.uses.lastRole, again.uses.lastTool], ["connected", 1, calls, "architect", "find"]);
+  });
+
   test("a log line that is not the library's own is not believed", async () => {
     const where = await den();
     await mkdir(where.stateDir, { recursive: true });
@@ -229,10 +292,13 @@ describe("the library panel's data", () => {
       JSON.stringify({ kind: "status", at: "never", role: "architect", connection: "docs", status: "connected" }),
       JSON.stringify({ kind: "use", at: "2026-10-13T00:00:00Z", role: "root", connection: "docs", tool: "find", decision: "allowed" }),
       JSON.stringify({ kind: "use", at: "2026-10-13T00:00:00Z", role: "architect", connection: "docs", tool: "<script>", decision: "allowed" }),
+      JSON.stringify({ kind: "total", connection: "stranger", count: 5, refused: 5 }),
+      JSON.stringify({ kind: "total", connection: "notes", count: -3, refused: "many", lastRole: "root", lastAt: "never", lastTool: "<b>" }),
     ].join("\n"));
     const view = await createLibrary({ catalog: CATALOG, ...where }).view();
     assert.equal(view.connections[0].status.state, "not-seen");
     assert.deepEqual([view.connections[0].uses.count, view.connections[0].uses.lastTool], [1, null]);
+    assert.deepEqual(view.connections[1].uses, { count: 0, refused: 0, lastAt: null, lastRole: null, lastTool: null });
   });
 });
 

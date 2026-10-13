@@ -17,7 +17,7 @@ The CLI's shell sandbox does not cover a connection. A local server is a child o
 `apps/bridge/library/connections.json` is the only source of connections. An entry has a `name`, `title`, `purpose`, either a `url` or a `script`, a `credential` owner, `roles`, and `tools` (each tool's name with `read`, `change` or `publish`). The bridge reads the file beside its own code, never from a worktree, and does not start with a file it cannot check.
 
 - A `url` is `https`, a public host name by the wall's own rule, with no sign-in part, port, query or fragment.
-- A `script` is a `.mjs` file under `apps/` in the den, run with the bridge's own node. There is no command line, argument, header or environment field, so the catalog has no place for a secret or an arbitrary program.
+- A `script` is a `.mjs` file in `apps/bridge/library/servers/` in the den, run with the bridge's own node. No other directory can hold one, so the bridge's own code cannot be listed as a server. The den's path must be plain characters, or an entry with a script fails the catalog's check. There is no command line, argument, header or environment field, so the catalog has no place for a secret or an arbitrary program.
 - `credential` accepts only `none` for now. A service that needs a credential waits for a decision on where the den may hold one.
 - Any unknown field is an error.
 
@@ -35,17 +35,24 @@ For a tool named `mcp__<connection>__<tool>` the host decides before anything is
 |---|---|
 | The connection is not in the catalog for this role, or the tool is not in its list | Refused with a reason. Never a question. |
 | The input looks like it holds a secret (the shared secret patterns) | Refused with a reason, whatever the tool is. |
-| A `read` tool with an input of at most 2048 bytes | Allowed by the bridge. |
-| A `read` tool with a longer input | Asked, as below. |
+| A `read` tool with an input of at most 2048 bytes, within the run's bound | Allowed by the bridge. |
+| A `read` tool with a longer input, or past the run's bound | Asked, as below. |
+| Any call the bridge would allow, once Stop was asked for or the bridge is shutting down | Refused. |
 | A `change` or `publish` tool | Held for the user with the exact input, like any other request. |
 
-The automatic allow is what lets normal work go on without repeated questions. It is bounded because a read on a remote service still sends its input there: the size limit keeps the automatic answer to inputs the size of a question. This is a bound on one call, not on a run; an agent can still send many short questions to a listed service. Listing a remote connection is the user's decision to trust that service with what the listed roles ask it.
+The automatic allow is what lets normal work go on without repeated questions. It is bounded because a read on a remote service still sends its input there, and for scout, developer and architect, whose shell has no network at all, a listed remote connection is the one way out that asks no question.
+
+- One call: an input of at most 2048 bytes.
+- One run: 30 automatic allows and 16 KiB of input added up (`CONNECTION_AUTO_CALLS`, `CONNECTION_AUTO_BYTES`). Past either, a read is asked like any other request. A follow-up run starts a new count.
+- The secret check matches the shared patterns. It does not catch a secret that is split across fields or encoded.
+
+So a run can send up to 16 KiB to a listed service before the user is asked anything. Listing a remote connection is the user's decision to trust that service with that much of what the listed roles can read.
 
 ### 4. Status and use
 
 - The start-up line's connection list becomes a `connections` event. The library keeps the last state per connection with the role and the time: connected, failed, needs sign-in, starting or unavailable, each with a sentence the panel shows. A connection no agent has started with reads "not checked yet". The bridge does not probe a connection by itself.
 - Each answered call is recorded: time, role, run, connection, tool and decision (allowed, asked, refused). The input and the result are never recorded there. The transcript already shows the call as a tool entry, and a refusal's reason as its result.
-- Both go to `library.jsonl` in the bridge's state directory, outside every worktree, and are read back at start with every field checked again.
+- Both go to `library.jsonl` in the bridge's state directory, outside every worktree, and are read back at start with every field checked again. Past 1 MiB the file is rewritten as what it adds up to (the last state and the totals per connection), so a run that calls a connection in a loop cannot grow it without end.
 
 ### 5. The panel
 
@@ -54,13 +61,18 @@ The automatic allow is what lets normal work go on without repeated questions. I
 ## Consequences
 
 - An agent can use a real connection under the wall, and the user can see which roles have which, how each stood and how much it was used.
-- A local connection's script is trusted den code: it is not inside the shell sandbox. Only scripts under `apps/` in the den can be listed, and the catalog is a guardrail path once the patch is applied.
-- A remote connection is one more host the agent's process reaches, outside the wall's network list, and its answers are untrusted text in the agent's context, like a fetched page.
-- The gate on tools depends on the CLI asking the bridge. A project or local settings file that allowed `mcp__...` tools outright would skip it; none does today, and both files are guardrail paths.
+- A local connection's script is trusted den code: it is not inside the shell sandbox. It inherits the agent process's environment (`PATH`, `HOME`, the locale) and can read what the user can read, credential files under the home directory included. The catalog is a guardrail path, and the den's own catalog lists no script.
+- A remote connection is one more host the agent's process reaches, outside the wall's network list. Its answers are untrusted text in the agent's context, like a fetched page; for developer and architect, which can write files and run commands in their worktree, that is one more way hostile text can arrive.
+- The gate on tools depends on the CLI asking the bridge. Two things could answer first:
+  - an allow rule for `mcp__...` tools in the project or local settings file. None exists today, and both files are guardrail paths.
+  - a hook. The CLI runs the hook commands of the worktree's `.claude/settings.json`, which point at scripts under `scripts/` in that worktree. Those scripts are not a guardrail path, so a commit can change one, and a hook runs outside the sandbox and can answer a tool call before the bridge is asked. This was so before this change (den-mvp/03) and is not closed here.
+- The role files name the whole connection (`mcp__context7`), so a tool the service adds later reaches the bridge and is refused there, not hidden by the CLI.
 - Not built: credentials for a connection, a way to probe a connection without starting an agent, per-role tool lists inside one connection, and connections for a target project (outcome 6).
 
 ## Checked
 
 - Unit and bridge tests with the fake runtime: the catalog's checks, the launch arguments, each row of the table in decision 3, status and its reasons, the log and its replay, the route and the card.
-- Live, on the production launch path (the wall and the resource group, a real scout, 2026-10-13): a local read was allowed with no question; Context7 answered a lookup; a tool the server offered and the catalog did not list was refused; a change tool asked and ran after the allow; a connection whose script was missing showed as failed with its reason. The run used a test catalog and a test role file in a disposable repository, because the den's own role files do not name the connection until the patch is applied.
-- Not checked live: a service that asks for a sign-in (the status wording is covered by a test only), and a den role using Context7 from the den's own catalog, which waits on the patch.
+- Live, on the production launch path (the wall and the resource group, a real scout, 2026-10-13), with a test catalog and a test role file in a disposable repository: a local read was allowed with no question; Context7 answered a lookup; a tool the server offered and the catalog did not list was refused; a change tool asked and ran after the allow; a connection whose script was missing showed as failed with its reason.
+- Live, after the protected-file patch: the den's own scout, with the den's own role file and catalog, looked up a library on Context7 from a throwaway clone; the bridge allowed it with no question and the library showed one use.
+- Security review of `2e3720e` (2026-10-13): pass. Fixed after it: the run's bound on automatic allows, no allow after Stop, the log's bound, one directory for scripts, and a refusal for an input that is not an object. The fixes were not reviewed again.
+- Not checked: a service that asks for a sign-in (the status wording is covered by a test only); what the CLI itself sends a remote service beyond the tool call (headers, a stored sign-in, redirects); whether a hook's allow skips the bridge in practice (it follows the CLI's documented behaviour and was not run).
