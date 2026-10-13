@@ -10,7 +10,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { EnforcementError, LIMITS, buildScopeArgv, cgroupOf, checkLimits, createResourceLauncher, findUserBus, groupFiles, groupProperties, measureTree, watchStorage } from "./resource-group.mjs";
+import { spawn as spawnChild, execFile } from "node:child_process";
+import { EnforcementError, GATE_REFUSED, LIMITS, START_GATE, buildScopeArgv, cgroupOf, checkLimits, createResourceLauncher, findUserBus, groupFiles, groupProperties, measureTree, watchStorage } from "./resource-group.mjs";
 import { createClaudeRuntime } from "./claude-runtime.mjs";
 import { SLOTS } from "./policy.mjs";
 
@@ -72,7 +73,29 @@ describe("the scope argv and the values it must produce", () => {
 
   test("the launcher's bus variables are removed before the CLI, and the CLI's own flags are never read as the launcher's", () => {
     const rest = argv.slice(argv.indexOf("--") + 1);
-    assert.deepEqual(rest, ["env", "-u", "XDG_RUNTIME_DIR", "-u", "DBUS_SESSION_BUS_ADDRESS", "prlimit", "--fsize=4294967296:4294967296", "--", "claude", "-p", "--agent", "scout"]);
+    assert.deepEqual(rest, ["env", "-u", "XDG_RUNTIME_DIR", "-u", "DBUS_SESSION_BUS_ADDRESS", "prlimit", "--fsize=4294967296:4294967296", "--", "/bin/sh", "-c", START_GATE, "den-gate", "claude", "-p", "--agent", "scout"]);
+  });
+
+  test("the gate runs the command only on the launcher's word: a closed pipe or another word ends it with the refusal code", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "den-gate-"));
+    const through = (word, name) =>
+      new Promise((resolve) => {
+        const child = spawnChild("/bin/sh", ["-c", START_GATE, "den-gate", "touch", path.join(dir, name)], { stdio: ["ignore", "ignore", "ignore", "pipe"] });
+        child.stdio[3].on("error", () => {});
+        if (word === null) child.stdio[3].destroy();
+        else child.stdio[3].end(word);
+        child.once("exit", (code) => resolve(code));
+      });
+    try {
+      assert.equal(await through("go\n", "released"), 0, "and the anchor ends with the pipe");
+      assert.equal(existsSync(path.join(dir, "released")), true);
+      for (const [word, name] of [[null, "closed"], ["", "empty"], ["no\n", "other"], ["go", "unfinished"], ["go go\n", "more"]]) {
+        assert.equal(await through(word, name), GATE_REFUSED, name);
+        assert.equal(existsSync(path.join(dir, name)), false, name);
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   test("the control-group files that prove the limits", () => {
@@ -129,10 +152,8 @@ describe("a host that cannot enforce the limits starts nothing", () => {
     assert.equal(existsSync(marker), false);
   });
 
-  test("an unknown slot class or an id that is not a plain name is a TypeError before anything else", async () => {
-    const launcher = createResourceLauncher({ env: process.env, spawn: () => assert.fail("nothing may be spawned") });
-    const ready = await launcher.preflight();
-    if (!ready.ok) return; // on a host that cannot enforce, launch refuses first; the refusal is tested above
+  test("an unknown slot class or an id that is not a plain name is a TypeError before anything else, on any host", async () => {
+    const launcher = createResourceLauncher({ env: process.env, spawn: () => assert.fail("nothing may be spawned"), exec: () => assert.fail("nothing may be run") });
     await assert.rejects(launcher.launch({ slotClass: "huge", id: "abc", bin: "true", args: [], cwd: "/", env: {} }), TypeError);
     await assert.rejects(launcher.launch({ slotClass: "worker", id: "A B", bin: "true", args: [], cwd: "/", env: {} }), TypeError);
   });
@@ -192,8 +213,10 @@ let seq = 0;
 describe("live: the launcher under reduced limits", { skip }, () => {
   const launcher = createResourceLauncher({ env: process.env, limits: TEST_LIMITS, slice: SLICE });
   const open = [];
-  after(() => {
+  after(async () => {
     for (const { group } of open) group.kill();
+    // The slice and its limits were made for this run only; drop both so no test leaves a unit behind.
+    for (const verb of ["revert", "stop"]) await new Promise((resolve) => execFile("systemctl", ["--user", verb, `${SLICE}.slice`], { env: findUserBus(process.env).env, timeout: 5000 }, () => resolve()));
   });
   const start = async (script, slotClass = "worker", cwd = "/") => {
     const run = await launcher.launch({ slotClass, id: `t${process.pid}-${(seq += 1)}`, bin: "sh", args: ["-c", script], cwd, env: { PATH: process.env.PATH } });
@@ -217,6 +240,49 @@ describe("live: the launcher under reduced limits", { skip }, () => {
     assert.notEqual(cgroupOf(process.pid), cgroupOf(pids[0]), "the bridge's own process is outside the agents' group");
     run.group.kill();
     assert.equal(await run.group.settled(3000), true);
+  });
+
+  test("a command that ends at once is still a start: the launcher saw it in its scope before it ran", async () => {
+    for (let i = 0; i < 5; i += 1) {
+      const run = await start("echo quick");
+      assert.deepEqual(await run.exit, { code: 0, signal: null });
+      assert.equal(run.out, "quick\n");
+      run.group.kill();
+    }
+  });
+
+  test("a scope whose limits do not read back is refused, and the command behind the gate never ran", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "den-refused-"));
+    try {
+      // A launcher whose systemd-run call loses the process limit: the scope starts, but the kernel's value is not the class's.
+      const loose = createResourceLauncher({
+        env: process.env, limits: TEST_LIMITS, slice: SLICE,
+        spawn: (file, argv, options) => spawnChild(file, argv.filter((a, i) => !(a.startsWith("TasksMax=") || argv[i + 1]?.startsWith("TasksMax="))), options),
+      });
+      const marker = path.join(dir, "ran");
+      await assert.rejects(
+        loose.launch({ slotClass: "worker", id: `t${process.pid}-loose`, bin: "touch", args: [marker], cwd: dir, env: { PATH: process.env.PATH } }),
+        (err) => err instanceof EnforcementError && /has pids\.max = \S+, not 24; the limits are not applied/.test(err.reason),
+      );
+      await sleep(200);
+      assert.equal(existsSync(marker), false, "the command did not run");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("memory: a run whose only process is killed still reports it after the exit, until the group is let go", async () => {
+    const hog = `exec ${JSON.stringify(process.execPath)} -e "const a=[];setInterval(()=>a.push(Buffer.alloc(8<<20,1)),5)"`;
+    for (let i = 0; i < 4; i += 1) {
+      const run = await start(hog);
+      assert.equal((await run.exit).signal, "SIGKILL", "the kernel killed the run's main process");
+      await sleep(150); // long enough for systemd to remove an empty scope
+      assert.equal(run.group.exhausted(), "memory");
+      run.group.kill();
+      assert.equal(await run.group.settled(3000), true);
+      await until(() => !existsSync(run.group.dir), { ms: 3000, what: "the scope to be removed once it is let go" });
+      assert.equal(run.group.exhausted(), null, "a removed group reads as nothing, never as a limit");
+    }
   });
 
   test("Bao's and a scout's class get their own, smaller limits", async () => {
@@ -261,6 +327,7 @@ describe("live: the launcher under reduced limits", { skip }, () => {
     try {
       const run = await start("head -c 3145728 /dev/zero > big; echo done", "worker", dir);
       await run.exit;
+      run.group.kill();
       assert.ok((await stat(path.join(dir, "big"))).size <= TEST_LIMITS.storage.jobMiB * MIB, "the file stopped at the bound");
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -286,5 +353,24 @@ describe("live: the launcher under reduced limits", { skip }, () => {
     assert.equal(readFileSync(path.join(slice, "pids.max"), "utf8").trim(), String(TEST_LIMITS.aggregate.tasks));
     for (const run of runs) run.group.kill();
     for (const run of runs) assert.equal(await run.group.settled(3000), true);
+  });
+
+  test("aggregate: runs that each stay under their own process limit are stopped together at the slice's", async () => {
+    // 21 + 21 + 13 processes fit under the slice's 64; a fourth run of 13 does not, though its own limit is 16.
+    // Each run also holds its anchor: 22 + 22 + 14, and the fourth is stopped at its fifth fork.
+    const forks = (n) => `i=0; while [ $i -lt ${n} ]; do sleep 20 & i=$((i+1)); done; echo ok; wait`;
+    for (const { group } of open) group.kill();
+    if (open.length) await until(() => readFileSync(path.join(path.dirname(open[0].group.dir), "pids.current"), "utf8").trim() === "0", { what: "the slice to be empty of earlier runs" });
+    const first = [await start(forks(20)), await start(forks(20)), await start(forks(12), "bao")];
+    for (const run of first) await until(() => run.out === "ok\n", { what: "a run under the aggregate to finish its forks" });
+    const last = await start(forks(12), "scout");
+    const slice = path.dirname(last.group.dir);
+    assert.notEqual((await last.exit).code, 0, "the shell's fork was refused");
+    assert.equal(last.out, "", "it never reached the end of its loop");
+    assert.ok(Number(readFileSync(path.join(slice, "pids.peak"), "utf8")) <= TEST_LIMITS.aggregate.tasks, "the slice never held more than its limit");
+    assert.ok(Number(value(last.group, "pids.peak")) < TEST_LIMITS.classes.scout.tasks, "its own limit was not what stopped it");
+    for (const run of first) assert.equal(run.group.exhausted(), null, "the runs under the aggregate are not failed");
+    for (const run of [...first, last]) run.group.kill();
+    for (const run of [...first, last]) assert.equal(await run.group.settled(3000), true);
   });
 });

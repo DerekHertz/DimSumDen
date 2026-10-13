@@ -6,7 +6,9 @@
 //   createResourceLauncher({ env, limits?, slice? }) -> { enforced: true, preflight(), launch(...) }
 //   preflight() -> { ok: true } | { ok: false, reason }      a real probe through launch(), cached for a short time
 //   launch({ slotClass, id, bin, args, cwd, env }) -> { child, group }   rejects with EnforcementError when refused
+// The command itself waits behind a gate (START_GATE) until the limits have been read back, so a refused run never ran.
 //   group = { unit, dir, kill(), exhausted() -> "memory" | "processes" | null, settled(ms) -> Promise<boolean> }
+//           the group outlives the command's own exit until kill(), so exhausted() can still be read then
 //   watchStorage({ dir, limitBytes, onOver }) -> stop()      the job-storage monitor (not a quota; see below)
 import { spawn as spawnChild, execFile } from "node:child_process";
 import { readFileSync, statSync, writeFileSync } from "node:fs";
@@ -46,9 +48,18 @@ export const groupFiles = (g) => ({ "memory.max": String(g.memoryMiB * MIB), "me
 const UNIT_ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const SLICE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+// The command waits here, already inside its scope, until the launcher writes "go" on descriptor 3. A closed pipe or
+// any other word ends it with GATE_REFUSED, so nothing of the command runs before its limits are read back.
+// Before the command starts, a small anchor process is left reading the same pipe. It keeps the scope alive after the
+// command's last process is gone (systemd removes an empty scope at once, and with it the record of a memory kill),
+// and it ends when the launcher closes the pipe or kills the group.
+export const GATE_REFUSED = 126;
+export const START_GATE = `IFS= read -r go <&3 && [ "$go" = go ] || exit ${GATE_REFUSED}; ( (exec <&3 3<&- >/dev/null 2>&1; while read -r _; do :; done) & ); exec 3<&-; exec "$@"`;
+
 /**
  * The systemd-run argv (no binary name) that starts `bin args` in its own scope. The bus variables the launcher needs
- * are removed again before the CLI starts, and no file the run writes may pass the job-storage bound.
+ * are removed again before the CLI starts, no file the run writes may pass the job-storage bound, and the command
+ * starts only once the gate is released.
  */
 export function buildScopeArgv({ unit, slice, limit, fileBytes, bin, args }) {
   if (typeof unit !== "string" || !/^[a-z0-9][a-z0-9-]{0,80}\.scope$/.test(unit)) throw new TypeError("buildScopeArgv: bad unit name");
@@ -59,7 +70,7 @@ export function buildScopeArgv({ unit, slice, limit, fileBytes, bin, args }) {
     "--user", "--scope", "--quiet", "--collect", "--unit", unit, "--slice", `${slice}.slice`,
     ...[...groupProperties(limit), "OOMPolicy=continue"].flatMap((p) => ["-p", p]),
     "--", "env", "-u", "XDG_RUNTIME_DIR", "-u", "DBUS_SESSION_BUS_ADDRESS",
-    "prlimit", `--fsize=${fileBytes}:${fileBytes}`, "--", bin, ...args,
+    "prlimit", `--fsize=${fileBytes}:${fileBytes}`, "--", "/bin/sh", "-c", START_GATE, "den-gate", bin, ...args,
   ];
 }
 
@@ -103,19 +114,20 @@ export function findUserBus(env, { uid = process.getuid?.() } = {}) {
 /** The control group a process is in ("/user.slice/..."), or null. */
 export const cgroupOf = (pid) => /^0::(\/.*)$/m.exec(read(`/proc/${pid}/cgroup`) ?? "")?.[1] ?? null;
 
-function makeGroup(unit, dir) {
+function makeGroup(unit, dir, gate) {
   return {
     unit,
     dir,
-    /** SIGKILL to every process in the group, whatever session or process group it moved to. */
+    /** SIGKILL to every process in the group, whatever session or process group it moved to; the anchor goes with them. */
     kill() {
+      gate?.destroy();
       try {
         writeFileSync(path.join(dir, "cgroup.kill"), "1");
       } catch {
         // the group is already gone
       }
     },
-    /** Which hard limit the group has hit since it started, if any. A full CPU quota only throttles. */
+    /** Which hard limit the group has hit since it started, if any; readable until kill(). A full CPU quota only throttles. */
     exhausted() {
       if (counter(read(path.join(dir, "memory.events")), "oom_kill") > 0) return "memory";
       if (counter(read(path.join(dir, "pids.events")), "max") > 0) return "processes";
@@ -181,10 +193,15 @@ export function createResourceLauncher({ env = process.env, limits = LIMITS, sli
   const run = (file, args, busEnv) =>
     new Promise((resolve) => exec(file, args, { env: busEnv, timeout: SCOPE_WAIT_MS }, (err, _out, stderr) => resolve(err ? oneLine(stderr) || oneLine(err.message) : null)));
 
-  // Starts the command in its scope and returns once the child is known to be inside it with every limit applied.
-  async function start({ slotClass, id, bin, args, cwd, env: childEnv, prefix }) {
+  const checkRun = ({ slotClass, id }) => {
     if (!SLOT_CLASSES.includes(slotClass)) throw new TypeError("resource launcher: unknown slot class");
     if (typeof id !== "string" || !UNIT_ID_RE.test(id)) throw new TypeError("resource launcher: id must be a plain lower-case name");
+  };
+
+  // Starts the command in its scope and returns once the child is known to be inside it with every limit applied.
+  // Until then the command waits at the gate; only a start that passed every check releases it.
+  async function start({ slotClass, id, bin, args, cwd, env: childEnv, prefix }) {
+    checkRun({ slotClass, id });
     if (process.platform !== "linux") throw new EnforcementError("hardware limits need Linux control groups; this host has none");
     if (read(path.join(CGROUP_ROOT, "cgroup.controllers")) === null) throw new EnforcementError("control groups v2 are not mounted at /sys/fs/cgroup");
     const bus = findUserBus(env);
@@ -195,7 +212,9 @@ export function createResourceLauncher({ env = process.env, limits = LIMITS, sli
     const sliceFailed = await run("systemctl", ["--user", "set-property", "--runtime", `${slice}.slice`, ...groupProperties(limits.aggregate)], bus.env);
     if (sliceFailed !== null) throw new EnforcementError(`could not set the limits of ${slice}.slice: ${sliceFailed}`);
     const argv = buildScopeArgv({ unit, slice, limit, fileBytes: limits.storage.jobMiB * MIB, bin, args });
-    const child = spawn("systemd-run", argv, { shell: false, detached: true, cwd, env: { ...childEnv, ...bus.env }, stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn("systemd-run", argv, { shell: false, detached: true, cwd, env: { ...childEnv, ...bus.env }, stdio: ["pipe", "pipe", "pipe", "pipe"] });
+    const gate = child.stdio?.[3];
+    gate?.on("error", () => {});
     let stderr = "";
     const onStderr = (chunk) => {
       if (stderr.length < 4096) stderr += String(chunk);
@@ -213,6 +232,7 @@ export function createResourceLauncher({ env = process.env, limits = LIMITS, sli
     }
     child.on("error", () => {});
     const refuse = (reason, group) => {
+      gate?.destroy();
       group?.kill();
       try {
         process.kill(-child.pid, "SIGKILL");
@@ -230,7 +250,8 @@ export function createResourceLauncher({ env = process.env, limits = LIMITS, sli
       await sleep(15);
     }
     if (cg === null) throw refuse(gone ? `systemd-run did not start the scope: ${oneLine(stderr) || "it exited"}` : `the child was not in ${unit} after ${SCOPE_WAIT_MS} ms`);
-    const group = makeGroup(unit, path.join(CGROUP_ROOT, cg));
+    if (!gate) throw refuse("the launcher has no start gate to the child");
+    const group = makeGroup(unit, path.join(CGROUP_ROOT, cg), gate);
     for (const [dir, want, what] of [[group.dir, groupFiles(limit), unit], [path.dirname(group.dir), groupFiles(limits.aggregate), `${slice}.slice`]]) {
       for (const [file, value] of Object.entries(want)) {
         const got = read(path.join(dir, file));
@@ -238,6 +259,8 @@ export function createResourceLauncher({ env = process.env, limits = LIMITS, sli
       }
     }
     child.stderr.off("data", onStderr);
+    gate.resume(); // nothing is read from the child's side; the pipe stays open for the anchor until group.kill()
+    gate.write("go\n");
     return { child, group };
   }
 
@@ -268,6 +291,7 @@ export function createResourceLauncher({ env = process.env, limits = LIMITS, sli
     limits,
     preflight,
     async launch({ slotClass, id, bin, args, cwd, env: childEnv }) {
+      checkRun({ slotClass, id });
       const ready = await preflight();
       if (!ready.ok) throw new EnforcementError(ready.reason);
       return start({ slotClass, id, bin, args, cwd, env: childEnv, prefix: "den-run" });

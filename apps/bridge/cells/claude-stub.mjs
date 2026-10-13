@@ -8,6 +8,7 @@
 //   approve   assistant tool_use (Bash, id tu1) + usage, then a can_use_tool control_request "req-1" (input
 //             { command: "npm test" }); on a control_response it emits the tool_result and a success `result`, exits 0
 //   hang      assistant tool_use + usage, then stays alive until killed (ignores stdin EOF)
+//   hog       (den-mvp outcome 1) assistant tool_use, then takes memory 8 MiB at a time until something stops it
 //   crash     assistant tool_use, then exit code 3
 //   flood     writes 1 MB to stderr, then a success `result`, exits 0
 //   utf8      a tool_use whose command holds multibyte characters, written in byte pieces split inside a character
@@ -23,7 +24,8 @@
 //             of its own), starts a tool call and waits; a second user line is replayed with the uuid it came with,
 //             then the tool result, a text block and a `result` that repeat its text; up until stdin closes.
 //             opts.forgeReplay: a uuid it also "replays" just before, though no such message was ever written
-// opts.grandchild: null | "plain" | "ignoreTerm"   spawns a child of the stub (same process group), pid in pidFile
+// opts.grandchild: null | "plain" | "ignoreTerm" | "detached"   spawns a child of the stub, pid in pidFile. "detached"
+//   ignores SIGTERM and starts its own session, so a signal to the stub's process group never reaches it
 // opts.ignoreTerm: the stub itself ignores SIGTERM
 import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -58,8 +60,8 @@ if (O.grandchild) {
   // The grandchild writes its own pid file once its SIGTERM disposition is in place, so a test that waits for
   // the pid file never signals a grandchild that has not yet installed its handler.
   const ready = "require('fs').writeFileSync(process.argv[1],String(process.pid));setInterval(()=>{},1000)";
-  const src = O.grandchild === "ignoreTerm" ? "process.on('SIGTERM',()=>{});" + ready : ready;
-  spawn(process.execPath, ["-e", src, O.pidFile], { stdio: "ignore" });
+  const src = O.grandchild === "plain" ? ready : "process.on('SIGTERM',()=>{});" + ready;
+  spawn(process.execPath, ["-e", src, O.pidFile], { stdio: "ignore", detached: O.grandchild === "detached" });
 }
 const toolUse = (command) => ({ type: "assistant", message: { content: [{ type: "tool_use", id: "tu1", name: "Bash", input: { command } }], usage: { input_tokens: 10, output_tokens: 20 } } });
 const request = (id, subtype) => ({ type: "control_request", request_id: id, request: subtype === "can_use_tool" ? { subtype, tool_name: "Bash", input: { command: "npm test" } } : { subtype } });
@@ -131,6 +133,11 @@ rl.on("line", async (line) => {
     lingering = true;
   }
   else if (O.mode === "hang") out(toolUse("sleep 999"));
+  else if (O.mode === "hog") {
+    out(toolUse("node hog.js"));
+    const held = [];
+    setInterval(() => held.push(Buffer.alloc(8 << 20, 1)), 20);
+  }
   else if (O.mode === "crash") { out(toolUse("boom")); finish(3); }
   else if (O.mode === "flood") {
     const chunk = "e".repeat(65536) + "\\n";
