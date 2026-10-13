@@ -29,6 +29,13 @@ function fakeGitHost(root) {
   };
   return Object.assign(h, {
     mainSha: async () => git(root, "rev-parse", "HEAD"),
+    descends: async ({ base, sha }) => {
+      try {
+        return git(root, "merge-base", base, sha) === base;
+      } catch {
+        return false; // no common history at all
+      }
+    },
     changed: async ({ base, sha }) => h.files ?? git(root, "diff", "--name-only", base, sha).split("\n").filter(Boolean),
     addsSecret: async () => h.secret,
     risk: async () => h.riskResult,
@@ -248,6 +255,12 @@ describe("what stops a delivery, and what it leaves", () => {
     ["a developer run that fails", async (t) => t.work(await t.spawn(0), { ok: false }), "step-failed", "ready-for-agent"],
     ["a qa run with no verdict line", async (t) => { t.work(await t.spawn(0), { commit: "a.txt" }); t.work(await t.spawn(1), { say: "Looks fine to me." }); }, "no-verdict", "in-review"],
     ["a qa run that changes the commit it reviews", async (t) => { t.work(await t.spawn(0), { commit: "a.txt" }); t.work(await t.spawn(1), { commit: "sneak.txt", say: "VERDICT: pass" }); }, "changed-commit", "in-review"],
+    ["a developer commit that is not built on the commit the delivery started from", async (t) => {
+      const dev = await t.spawn(0);
+      git(dev.args.cwd, "checkout", "-q", "--orphan", "elsewhere");
+      t.work(dev, { commit: "a.txt" });
+      t.work(await t.spawn(1), { say: "VERDICT: pass" });
+    }, "changed-commit", "in-review"],
     ["a line that looks like a secret", async (t) => { t.git.secret = true; await t.toQaPass(); }, "possible-secret", "in-review"],
     ["a change to CI configuration, which is never pushed", async (t) => { t.git.files = [".github/workflows/ci.yml"]; await t.toQaPass(); t.work(await t.spawn(2), { say: "VERDICT: pass" }); await t.paused("ci-change"); assert.deepEqual(t.sideEffects(), []); }, "ci-change", "in-review"],
     ["a push the remote refuses", async (t) => { t.git.fail.push = "remote: denied https://user:hunter2@example.invalid/r.git"; await t.toQaPass(); }, "publish-failed", "in-review"],

@@ -57,6 +57,16 @@ export function createGitHost(root, { exec = execFileP, remote = "origin", main 
       await git("fetch", "--quiet", remote, main);
       return commit((await git("rev-parse", "--verify", `refs/remotes/${remote}/${main}^{commit}`)).trim(), "the main branch");
     },
+    /** Is `sha` built on `base`? A commit made somewhere else in the history is not what the delivery started. */
+    async descends({ base, sha }) {
+      try {
+        await git("merge-base", "--is-ancestor", commit(base, "base"), commit(sha, "sha"));
+        return true;
+      } catch (err) {
+        if (err?.code === 1) return false;
+        throw err;
+      }
+    },
     /** The repository paths a change touches. A rename is listed as both the path it left and the path it took. */
     async changed({ base, sha }) {
       return (await git("diff", "--name-only", "--no-renames", "-z", commit(base, "base"), commit(sha, "sha"))).split("\0").filter(Boolean);

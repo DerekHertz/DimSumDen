@@ -42,6 +42,7 @@ Before anything is pushed the bridge, from its own checkout, reads the changed p
 - A risk hit, or a changed path on the user-merge list, sends the candidate to `security`.
 - **The user-merge list** is the governance guardrail and CI paths, `.github/**`, `apps/bridge/**`, `scripts/risk-check.mjs`, `scripts/exposure.mjs`, `scripts/test-lock.mjs`, `package.json`, `package-lock.json` and the gitleaks files. A change to any of them is reviewed by security, opened as a pull request, and then waits: the review and the merge are the user's. The bridge never merges a change to its own enforcement.
 - **A change to CI configuration is not pushed at all.** A workflow runs on the git host the moment its branch is pushed, with whatever it declares for itself. The job pauses as `ci-change` and names the local branch; the user pushes it and opens the pull request if it is right.
+- The candidate must be built on `base`. A commit made elsewhere in the history pauses the job.
 - The changed paths are read with renames off, so a file moved out of a listed directory still counts as a change there.
 
 ### 4. Push, pull request, merge

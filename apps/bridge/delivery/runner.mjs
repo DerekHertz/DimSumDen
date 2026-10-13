@@ -238,6 +238,10 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
   // The scripted checks of the candidate, run by the bridge from its own checkout.
   async function check(job, gen) {
     const range = { base: job.base, sha: job.candidate.sha };
+    if (!(await git.descends(range))) {
+      if (job.gen === gen) await pause(job, "changed-commit", "the commit is not built on the commit the delivery started from", "Close the delivery and start it again.");
+      return;
+    }
     const [files, secret, risk] = [await git.changed(range), await git.addsSecret(range), await git.risk(range)];
     if (job.gen !== gen) return;
     const userMerge = files.some(isUserMergePath);

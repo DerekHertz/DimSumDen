@@ -216,7 +216,10 @@ describe("the git-host operations", () => {
       mkdirSync(path.join(dir, "lib"));
       git("mv", "apps/bridge/wall.mjs", "lib/wall.mjs");
       git("commit", "-q", "-m", "move");
-      const files = await createGitHost(dir).changed({ base, sha: git("rev-parse", "HEAD") });
+      const sha = git("rev-parse", "HEAD");
+      assert.equal(await createGitHost(dir).descends({ base, sha }), true);
+      assert.equal(await createGitHost(dir).descends({ base: sha, sha: base }), false, "a commit that is not built on the base");
+      const files = await createGitHost(dir).changed({ base, sha });
       assert.deepEqual(files.sort(), ["apps/bridge/wall.mjs", "lib/wall.mjs"]);
       assert.equal(files.some(isUserMergePath), true);
     } finally {
