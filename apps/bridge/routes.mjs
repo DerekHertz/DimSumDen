@@ -8,6 +8,7 @@ export const ROUTES = [
   { method: "GET", path: "/state", auth: "none", mutating: false },
   { method: "GET", path: "/metrics", auth: "none", mutating: false },
   { method: "GET", path: "/events", auth: "none", mutating: false },
+  { method: "GET", path: "/library", auth: "none", mutating: false },
   { method: "POST", path: "/session", auth: "origin", mutating: true },
   { method: "POST", path: "/requests", auth: "token", mutating: true },
   { method: "POST", path: "/agents", auth: "token", mutating: true },

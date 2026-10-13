@@ -195,6 +195,14 @@ _Avoid_: Extension, add-on
 A mod's first live run: 3 orchestrator sessions, then one keep-or-drop verdict from the user, recorded as one board line (what it caught, what it got wrong, its token and latency cost). Not a Jev **Trial**.
 _Avoid_: Pilot
 
+**Connection**:
+A Model Context Protocol server listed in the den's catalog (`apps/bridge/library/connections.json`, ADR 0025): a remote service or a script in the den that gives an agent extra tools. The catalog names its purpose, its roles, who holds its credential and what each tool does (read, change, publish). An agent is started only with the connections the catalog and its role file both name.
+_Avoid_: Plugin, integration, MCP (alone, for one entry)
+
+**Library**:
+What the den shows of connections and skills together, each named by its kind: a connection supplies tools, a skill is a written procedure and supplies none.
+_Avoid_: Marketplace, catalog (the catalog is the file of connections only)
+
 ## Observation
 
 **Telemetry**:

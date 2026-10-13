@@ -31,6 +31,10 @@ export function applyEvent(state, event) {
       next.deliveries = found ? deliveries.map((d) => (d.id === event.delivery.id ? event.delivery : d)) : [...deliveries, event.delivery];
       break;
     }
+    // den-mvp outcome 4: something the library card shows has changed. The frame carries no data; the card reads GET /library.
+    case "library":
+      next.libraryRev = (state.libraryRev ?? 0) + 1;
+      break;
     case "ticket": {
       const rest = state.tickets.filter((t) => t.ref !== event.ref);
       if (event.ticket) rest.push(event.ticket);

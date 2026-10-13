@@ -1,0 +1,16 @@
+{
+  "connections": [
+    {
+      "name": "context7",
+      "title": "Docs lookup",
+      "purpose": "Current documentation and code examples for a named library, from the public Context7 service.",
+      "url": "https://mcp.context7.com/mcp",
+      "credential": "none",
+      "roles": ["scout", "developer", "architect"],
+      "tools": {
+        "resolve-library-id": "read",
+        "query-docs": "read"
+      }
+    }
+  ]
+}

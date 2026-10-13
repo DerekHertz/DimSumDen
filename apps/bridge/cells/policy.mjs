@@ -67,3 +67,8 @@ export const MESSAGE_SETTLE_MS = 15_000; // how long an agent that reported done
 export const CONVERSATION_PAGE = 100; // entries in one page when none is asked for
 export const CONVERSATION_PAGE_MAX = 200; // the most one page may hold
 export const CONVERSATION_READ_BYTES = 4 * 1024 * 1024; // of one role's file, the newest part that is read back
+
+// den-mvp outcome 4 (ADR 0025): what the bridge allows by itself for one run. A connection's read past either bound is
+// asked, like any other request. This bounds what a run can send to a listed service with no question; it is not a cap on work.
+export const CONNECTION_AUTO_CALLS = 30; // reads allowed without a question, per run
+export const CONNECTION_AUTO_BYTES = 16 * 1024; // their inputs, added up, per run

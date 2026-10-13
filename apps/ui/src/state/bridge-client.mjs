@@ -92,6 +92,12 @@ export function createBridgeClient({ fetch }) {
       if (!body || !Array.isArray(body.entries)) throw failure(200, "The bridge sent an unreadable answer.");
       return body;
     },
+    // den-mvp outcome 4: the library: each connection with its status, roles and tools, and each skill. A read; no credential needed.
+    async getLibrary() {
+      const body = await call("/library", { method: "GET" });
+      if (!body || !Array.isArray(body.connections) || !Array.isArray(body.skills)) throw failure(200, "The bridge sent an unreadable answer.");
+      return body;
+    },
     // den-v1 loop S1: start a task for one role. The bridge writes the ticket and answers { agent, ticket }.
     async startTask(role, { text } = {}) {
       if (typeof role !== "string" || !role) throw failure(0, "Pick a panda first.");

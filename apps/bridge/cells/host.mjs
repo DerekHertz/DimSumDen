@@ -25,9 +25,11 @@ import {
   AGENT_ID_RE, KILL_GRACE_MS, LIVE_STATES, MAX_CONCURRENT_AGENTS, MODES, REF_RE, ROLES, SESSION_CAP, SLOTS, slotClassOf, UUID_RE,
   USAGE_REFUSE_AT, APPROVAL_TTL_MS, SHUTDOWN_SPAWN_WAIT_MS, DIRECT_MODE,
   TRANSCRIPT_AGENTS, TRANSCRIPT_ENTRIES, TRANSCRIPT_RESULT_MAX, TRANSCRIPT_TEXT_MAX, REPLY_EXCERPT_MAX, USAGE_MESSAGES,
-  MESSAGE_MAX_BYTES, MESSAGE_QUEUE_MAX, MESSAGE_SETTLE_MS,
+  MESSAGE_MAX_BYTES, MESSAGE_QUEUE_MAX, MESSAGE_SETTLE_MS, CONNECTION_AUTO_BYTES, CONNECTION_AUTO_CALLS,
 } from "./policy.mjs";
 import { ceilingOf, grantContainsWorktrees, parseGrants } from "./claude-adapter.mjs";
+import { parseCatalog } from "../library/catalog.mjs";
+import { createLibrary } from "../library/library.mjs";
 import { grantRefusal } from "./grant-policy.mjs";
 import { capacity as capacityOf } from "./capacity.mjs";
 import { createSessions } from "./sessions.mjs";
@@ -84,7 +86,11 @@ function excerpt(value) {
   return flat.length > REPLY_EXCERPT_MAX ? `${flat.slice(0, REPLY_EXCERPT_MAX)}…` : flat;
 }
 
-export function createHost({ root, runtime, policy = {}, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], onChange = () => {}, recordRun = async () => {}, onEnd = async () => {} }) {
+const NO_CONNECTIONS = parseCatalog({ connections: [] });
+
+// den-mvp outcome 4: `library` is the catalog of connections and its record (library/library.mjs). Without one, an agent is
+// started with no connection and every connection tool is refused.
+export function createHost({ root, runtime, policy = {}, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], onChange = () => {}, recordRun = async () => {}, onEnd = async () => {}, library = createLibrary({ catalog: NO_CONNECTIONS }) }) {
   const maxConcurrent = Math.min(policy.maxConcurrent ?? MAX_CONCURRENT_AGENTS, SESSION_CAP);
   const sessionCap = Math.min(policy.sessionCap ?? SESSION_CAP, SESSION_CAP);
   const graceMs = policy.killGraceMs ?? KILL_GRACE_MS;
@@ -329,6 +335,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     agent.lastEventAt = agent.startedAt;
     agent.openTools = new Map(); // the runtime's tool id (or a local key) -> transcript entry id, while running
     agent.permissionEntries = new Map(); // approval id -> transcript entry id
+    agent.autoAllowed = { calls: 0, bytes: 0 }; // connection reads the bridge allowed by itself for this run (den-mvp outcome 4)
     agent.usageByMessage = new Map(); // message id -> the tiers last counted for it
     agent.messages = new Map(); // id of a message written and not yet taken -> its transcript entry id
     return agent;
@@ -445,6 +452,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       console.error(`bridge: the main .git is not ready for ${agent.role} on ${agent.ref}: ${err?.message ?? err}`);
       return refuse(502, "the repository's git directory is not ready for the agent");
     }
+    const connections = await library.connectionsFor(agent.role);
     const args = {
       role: agent.role, ...(agent.mode ? { mode: agent.mode } : {}), ref: agent.ref, cwd: workspace.dir, sessionId: agent.sessionId,
       prompt: agent.followUp ? agent.followUp.text : promptFor(agent), ticketFile: ticketFile(agent.ref), mainGit,
@@ -452,6 +460,8 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       // agent-os/02: data for the adapter, never in the prompt. The main checkout's path rides along so the adapter can deny
       // the governed paths a path grant reaches there.
       ...(agent.grants.length === 0 ? {} : { grants: agent.grants, root: await realRoot() }),
+      // den-mvp outcome 4: the connections the catalog and the role file both give this role; data for the adapter.
+      ...(connections.length === 0 ? {} : { connections }),
     };
     let proc;
     try {
@@ -627,8 +637,31 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       return touch(agent);
     } else if (event.type === "resource-limit") {
       if (!noteLimit(agent, event.resource)) return;
+    } else if (event.type === "connections") {
+      if (library.noteStatus(agent.role, event.servers)) onChange({ type: "library" });
+      return;
     } else if (event.type === "permission-request") {
       if (!agent.capabilities.approve) return;
+      // den-mvp outcome 4: a connection's tool is answered from the catalog first. A tool the catalog does not give this
+      // role is refused here and never becomes a question, and so is a call whose input looks like a secret; a read with a
+      // short input is allowed; any other is asked as usual.
+      let verdict = library.decide(agent.role, event.tool, event.input);
+      if (verdict !== null) {
+        if (verdict.kind === "allow") {
+          // The bridge allows nothing once a stop was asked for, and only so much per run: past the bound a read is asked.
+          const used = agent.autoAllowed;
+          if (agent.stopRequested || shuttingDown) verdict = { ...verdict, kind: "refuse", reason: "The run is stopping." };
+          else if (used.calls >= CONNECTION_AUTO_CALLS || used.bytes + verdict.bytes > CONNECTION_AUTO_BYTES) verdict = { ...verdict, kind: "ask" };
+          else Object.assign(used, { calls: used.calls + 1, bytes: used.bytes + verdict.bytes });
+        }
+        const decision = verdict.kind === "allow" ? "allowed" : verdict.kind === "ask" ? "asked" : "refused";
+        if (library.noteUse({ role: agent.role, runId: agent.id, connection: verdict.connection, tool: verdict.tool, decision })) onChange({ type: "library" });
+        if (verdict.kind !== "ask") {
+          // The thread already has the call as a tool entry; a refusal's reason comes back on it as the tool's result.
+          Promise.resolve(agent.proc.decide(event.requestId, verdict.kind === "allow" ? { allow: true } : { allow: false, reason: verdict.reason })).catch(() => {});
+          return touch(agent);
+        }
+      }
       approvals.hold(agent.id, event, { accepting: !agent.stopRequested && !shuttingDown, says: agent.said ?? null });
       return;
     } else if (event.type === "state") {

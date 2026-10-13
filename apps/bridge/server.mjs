@@ -18,6 +18,8 @@ import { createTicket } from "../organism-infra/board-service.mjs";
 import { hasSecret } from "../../scripts/exposure.mjs";
 import { REQUEST_KINDS, appendRequestLine } from "./requests-log.mjs";
 import { createHub } from "./watch.mjs";
+import { parseCatalog } from "./library/catalog.mjs";
+import { createLibrary } from "./library/library.mjs";
 import { createAuth } from "./auth.mjs";
 import { matchRoute } from "./routes.mjs";
 import { computeMetrics, parseJsonl } from "../../scripts/metrics.mjs";
@@ -58,7 +60,8 @@ function installProcessHandlers(host) {
 // den-mvp outcome 3: gitHost is the bridge's git-host operations (delivery/git-host.mjs; a test passes a fake), and stateDir
 // is where the delivery log is kept. The production entry point passes a directory outside the repository; the default is
 // the bridge's run directory, which is outside every agent's worktree.
-export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, auth: authOptions, runtime, policy, gitHost, stateDir } = {}) {
+// den-mvp outcome 4: library is the catalog of connections and its record (library/library.mjs); a test passes its own.
+export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption } = {}) {
   let actualPort = port;
   const auth = createAuth(authOptions);
   let host;
@@ -67,10 +70,13 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
     agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts(), capacity: (lockedRefs) => host.capacity(lockedRefs),
     deliveries: () => delivery?.snapshot() ?? [],
   });
+  // den-mvp outcome 4: the production entry point passes the den's catalog; with none, no agent is given a connection.
+  const library = libraryOption ?? createLibrary({ catalog: parseCatalog({ connections: [] }) });
   host = createHost({
     root,
     runtime,
     policy,
+    library,
     onChange: (change) => hub.publish(change),
     recordRun: createLedger(root).record,
     onEnd: (run) => delivery.onEnd(run),
@@ -183,6 +189,8 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, a
       reply(res, page ? 200 : 404, page ?? { error: "no such role" });
     },
     "POST /conversations/:role/message": (req, res) => converse(req, res),
+    // den-mvp outcome 4: the library panel's data: each connection with its status, roles and tools, and each skill.
+    "GET /library": async (req, res) => reply(res, 200, await library.view()),
     "POST /deliveries": (req, res) => postDelivery(req, res),
     "POST /deliveries/:id/resume": (req, res) => steerDelivery(req, res, "resume"),
     "POST /deliveries/:id/stop": (req, res) => steerDelivery(req, res, "stop"),
@@ -426,7 +434,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const { realpathSync } = await import("node:fs");
   const stateHome = process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
   const stateDir = path.join(stateHome, "den", "projects", createHash("sha256").update(realpathSync(root)).digest("hex").slice(0, 16));
-  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env }), stateDir });
+  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env }), stateDir, library: createLibrary({ stateDir }) });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
   console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);

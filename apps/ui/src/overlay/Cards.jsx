@@ -7,18 +7,12 @@ import { DemoBadge } from "../demo/DemoControls.jsx";
 import { createBridgeClient } from "../state/bridge-client.mjs";
 import { STATION_HUE, badgeModel, needsYouModel, stationsModel, stepRequest } from "./overlay-model.mjs";
 import { deliverState, deliveryRows } from "./delivery-model.mjs";
+import { Card } from "./Card.jsx";
+import { LibraryCard } from "./Library.jsx";
 import { ROLE_OPTIONS, capacityFromSnapshot, defaultRole, dispatchPrompt, runState, slotRows } from "./run-model.mjs";
 
 const isPhone = () => typeof matchMedia === "function" && matchMedia("(max-width: 599px)").matches;
 const isTextField = (el) => el instanceof Element && (el.closest("input, textarea, select, [contenteditable]") !== null);
-
-function Chevron() {
-  return (
-    <svg className="card-chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-      <path d="M3 6l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-    </svg>
-  );
-}
 
 function PandaFace() {
   return (
@@ -45,22 +39,6 @@ export function LogoPill({ connection, demo = false }) {
         {badge.hint ? <span className="visually-hidden">{`. ${badge.hint}`}</span> : null}
       </span>}
     </header>
-  );
-}
-
-/** A card: a header button (aria-expanded) that opens and closes a body. The body stays in the DOM, hidden, so aria-controls resolves. */
-function Card({ id, overlay, label, edge, open, onToggle, title, aside, busy, children }) {
-  return (
-    <section className={`card card-${edge}`} data-overlay={overlay} aria-label={label} aria-busy={busy || undefined}>
-      <h2 className="card-head">
-        <button type="button" className="card-toggle" aria-expanded={open} aria-controls={`${id}-body`} onClick={onToggle}>
-          <span className="card-title">{title}</span>{" "}
-          {aside}
-          <Chevron />
-        </button>
-      </h2>
-      <div id={`${id}-body`} className="card-body" hidden={!open}>{children}</div>
-    </section>
   );
 }
 
@@ -500,16 +478,19 @@ export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZo
 
 /**
  * The right-hand column. Needs you opens by itself while something waits, until the user toggles it; Stations & queue
- * starts closed. Under 600 px both start closed and opening one closes the other.
+ * and Library start closed. Under 600 px all start closed and opening one closes the others.
  */
 export function Cards({ snapshot, now, connection, placeholder, camera, steering, onAnswer, onOpenThread = null, demo = false }) {
   const [needsOpen, setNeedsOpen] = useState(null); // null: follow the data
   const [stationsOpen, setStationsOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const waiting = needsYouModel(snapshot, now).count;
   const needs = needsOpen ?? (!isPhone() && waiting > 0);
   const busy = connection.phase !== "live";
   // 228: capacity is recomputed from the snapshot's agents and locks each render (the hub sends no capacity change frame).
   const client = useMemo(() => createBridgeClient({ fetch: steering.session.fetch }), [steering.session]);
+  // The library is a read that needs no sign-in, so it does not go through the session: no credential is attached to it.
+  const reader = useMemo(() => createBridgeClient({ fetch: (url, init) => fetch(url, init) }), []);
   const run = useRunner(client);
   const deliveries = useDeliveries(client);
   const capacity = capacityFromSnapshot(snapshot);
@@ -517,17 +498,22 @@ export function Cards({ snapshot, now, connection, placeholder, camera, steering
 
   const toggleNeeds = () => {
     setNeedsOpen(!needs);
-    if (!needs && isPhone()) setStationsOpen(false);
+    if (!needs && isPhone()) { setStationsOpen(false); setLibraryOpen(false); }
   };
   const toggleStations = () => {
     setStationsOpen(!stationsOpen);
-    if (!stationsOpen && isPhone()) setNeedsOpen(false);
+    if (!stationsOpen && isPhone()) { setNeedsOpen(false); setLibraryOpen(false); }
+  };
+  const toggleLibrary = () => {
+    setLibraryOpen(!libraryOpen);
+    if (!libraryOpen && isPhone()) { setNeedsOpen(false); setStationsOpen(false); }
   };
   return (
     <div className="cards">
       {steering.message ? <p className="small muted session-none" data-session="none" role="status">{steering.message}</p> : null}
       <NeedsYouCard snapshot={snapshot} now={now} open={needs} onToggle={toggleNeeds} busy={busy} placeholder={placeholder} session={steering.session} onAnswer={onAnswer} onOpenThread={onOpenThread} capacity={capacity} steer={steer} run={run} deliveries={deliveries} />
       <StationsCard snapshot={snapshot} open={stationsOpen} onToggle={toggleStations} busy={busy} placeholder={placeholder} onZoomStation={(id) => camera.goToStation(id)} capacity={capacity} steer={steer} run={run} deliveries={deliveries} />
+      <LibraryCard client={reader} rev={snapshot?.libraryRev ?? 0} now={now} open={libraryOpen} onToggle={toggleLibrary} busy={busy} demo={demo} />
     </div>
   );
 }

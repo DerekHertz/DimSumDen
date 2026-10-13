@@ -92,3 +92,30 @@ describe("every role starts behind the wall (den-mvp outcome 1)", () => {
     });
   }
 });
+
+// den-mvp outcome 4: the production runtime hands the child the catalog's connections for the role, and only those.
+describe("the runtime passes a role's connections", () => {
+  test("they are the one --mcp-config value; the wall and the deny rules are as before", async () => {
+    const connections = [{ name: "docs", url: "https://docs.example.com/mcp" }];
+    const { argv, settings } = await launch("developer", { extra: { connections } });
+    assert.ok(argv.includes("--strict-mcp-config"));
+    assert.deepEqual(JSON.parse(argv[argv.indexOf("--mcp-config") + 1]), { mcpServers: { docs: { type: "http", url: "https://docs.example.com/mcp" } } });
+    assert.deepEqual(noFs(settings.sandbox), noFs(WALL_NO_HOSTS));
+    for (const rule of DENY) assert.ok(settings.permissions.deny.includes(rule));
+  });
+
+  test("none, or an empty list: no --mcp-config at all", async () => {
+    for (const extra of [{}, { connections: [] }]) {
+      const { argv } = await launch("developer", { extra });
+      assert.ok(argv.includes("--strict-mcp-config") && !argv.includes("--mcp-config"));
+    }
+  });
+
+  test("a connection the adapter cannot write refuses the spawn: nothing starts with a looser one", async () => {
+    const stub = await makeStub({ mode: "hang" });
+    const cwd = await mkdtemp(path.join(tmpdir(), "den-wall-cwd-"));
+    const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+    await assert.rejects(runtime.spawn({ role: "developer", cwd, prompt: "x", sessionId: SESSION, connections: [{ name: "docs", command: "sh" }] }), TypeError);
+    assert.equal(await stub.start(), undefined);
+  });
+});
