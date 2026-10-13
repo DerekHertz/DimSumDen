@@ -26,7 +26,7 @@ import { createHub } from "./watch.mjs";
 import { parseCatalog } from "./library/catalog.mjs";
 import { createLibrary } from "./library/library.mjs";
 import { createAuth } from "./auth.mjs";
-import { matchRoute } from "./routes.mjs";
+import { PREVIEW_READS, matchRoute } from "./routes.mjs";
 import { computeMetrics, parseJsonl } from "../../scripts/metrics.mjs";
 import { contentTypeFor } from "../ci-cd/dev-server.mjs";
 import { createReleases, resolveUi } from "./build/releases.mjs";
@@ -239,6 +239,8 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
       reply(res, 200, { approval: result.approval });
     },
   };
+  // den-mvp/09: what a preview listener (build/preview.mjs) is given. It holds these read handlers and no other.
+  const previewReads = Object.fromEntries(PREVIEW_READS.map((route) => [route, HANDLERS[`GET ${route}`]]));
   const readRows = (file) => readFile(file, "utf8").then(parseJsonl, () => []);
   const reply = (res, status, obj, extra = {}) => {
     res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store", ...extra });
@@ -490,6 +492,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     url: `http://${HOST}:${actualPort}`,
     port: actualPort,
     newLaunchCode: auth.newLaunchCode,
+    previewReads,
     host: { start: host.start, shutdown: host.shutdown },
     close: async () => {
       await host.shutdown();

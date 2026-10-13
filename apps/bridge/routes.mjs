@@ -32,6 +32,10 @@ export const ROUTES = [
   { method: "POST", path: "/meetings/:id/ask", auth: "token", mutating: true },
 ];
 
+// den-mvp/09 (ADR 0026 decision 5): the reads a preview listener answers, written out. A row is not on this list by being
+// a GET: a read added to ROUTES is refused on a preview until it is added here too. Each entry is a GET row above.
+export const PREVIEW_READS = ["/state", "/events", "/library", "/meetings/:id", "/conversations/:role"];
+
 // ":name" segments match any one non-empty segment. Paths are matched exactly (no trailing slash, case-sensitive).
 const compile = (path) => new RegExp(`^${path.replace(/:\w+/g, "[^/]+")}$`);
 const COMPILED = ROUTES.map((row) => ({ row, re: compile(row.path) }));
@@ -39,3 +43,6 @@ const COMPILED = ROUTES.map((row) => ({ row, re: compile(row.path) }));
 export function matchRoute(method, pathname) {
   return COMPILED.find(({ row, re }) => row.method === method && re.test(pathname))?.row ?? null;
 }
+
+/** Whether any row, of any method, has this path. */
+export const isRoutePath = (pathname) => COMPILED.some(({ re }) => re.test(pathname));
