@@ -51,7 +51,7 @@ There is no fallback. When bubblewrap or the resource group is missing, a previe
 **(user)** A systemd user service keeps the bridge running, and it arrives in the first PR. **(user)** Containers come later: a ticket after outcome 6 puts the bridge in one; release folders map onto image tags.
 
 - `apps/bridge/service/den.service` is a template. `npm run den:install`, run once by the user, fetches `main`, makes the packages folder and the first release, sets all four links, writes the unit to `~/.config/systemd/user/` and enables it.
-- The unit runs `node <state>/bridge/current/apps/bridge/server.mjs` with the checkout as its working directory, in `den.slice`, on port 4317, restarted when it fails.
+- The unit runs `node <state>/bridge/current/apps/bridge/server.mjs` with the checkout as its working directory, in `den.slice`, on port 4317, restarted when it fails. It names the state folder to the bridge (`DEN_STATE_DIR`), so the bridge serves the releases `den:install` made whatever `XDG_STATE_HOME` was in the installing shell.
 - No agent and no bridge route installs, enables or edits the unit. Installing the service is the user's act.
 - `npm run den:update`, also the user's, makes a release from the current `main` and restarts the service. In Part A it is the only way new bridge code starts running; Part B puts a button in front of the same steps.
 - `npm run bridge` from the checkout still works for development, on another port.
@@ -80,7 +80,7 @@ There is no fallback. When bubblewrap or the resource group is missing, a previe
 
 - If the build fails, the merge stands, nothing goes live, and the delivery pauses as `go-live-failed` with the reason.
 - The ticket is resolved after the go-live, so a delivery that waits as `go-live-failed` or `needs-update` leaves its ticket open until Resume finishes it.
-- A merge that an already live release contains is not put in front of it: go-lives run one at a time, and an older one is done when a later one is live.
+- A merge that an already live release contains is not put in front of it: the switches of the UI links run one at a time, and an older go-live is done when a later one is live. A build is made outside that queue, so a roll back never waits behind one.
 - The UI imports from the bridge's code. So the UI goes live alone only when nothing under `apps/bridge/` and no lockfile differs between the running bridge's release and the new commit. Otherwise the delivery pauses as `needs-update`: the den must be updated first (decision 4 in Part A, the button in Part B), and Resume then finishes the go-live.
 - A delivery that changes nothing under `apps/ui/` makes no release.
 

@@ -114,16 +114,37 @@ describe("go live", () => {
     assert.equal(switches, 1);
   });
 
-  test("two go-lives and a roll back run one at a time", async () => {
+  test("a roll back does not wait behind a go-live build, however long the build takes", async () => {
     const base = commit({ "package-lock.json": LOCK, "apps/ui/a.txt": "a" });
     await install(base);
     const first = commit({ "apps/ui/a.txt": "b" });
     const second = commit({ "apps/ui/a.txt": "c" });
-    const results = await Promise.all([den.goLive({ sha: first }), den.goLive({ sha: second }), den.rollback(first)]);
-    assert.deepEqual(results.slice(0, 2), [{ ok: true, release: first }, { ok: true, release: second }]);
-    assert.equal(link("ui"), `../releases/${first.slice(0, 12)}`, "the roll back came last and went back to the first");
-    assert.equal(link("ui", "previous"), `../releases/${second.slice(0, 12)}`);
+    assert.deepEqual(await den.goLive({ sha: first }), { ok: true, release: first });
+    const build = box.build;
+    let release;
+    const hung = new Promise((resolve) => (release = resolve));
+    let started;
+    const building = new Promise((resolve) => (started = resolve));
+    box.build = async (input) => (started(), await hung, build(input));
+    const later = den.goLive({ sha: second });
+    await building;
+    await den.rollback(base); // while the build of the second is still running
+    assert.equal(link("ui"), `../releases/${base.slice(0, 12)}`);
+    assert.equal(link("ui", "previous"), `../releases/${first.slice(0, 12)}`);
+    release();
+    assert.deepEqual(await later, { ok: true, release: second }, "the build then finishes and goes live");
+    assert.equal(link("ui"), `../releases/${second.slice(0, 12)}`);
     assert.equal(switches, 3);
+  });
+
+  test("two go-lives started together: the later merge ends up live whichever build finishes first", async () => {
+    const base = commit({ "package-lock.json": LOCK, "apps/ui/a.txt": "a" });
+    await install(base);
+    const first = commit({ "apps/ui/a.txt": "b" });
+    const second = commit({ "apps/ui/a.txt": "c" });
+    const [one, two] = await Promise.all([den.goLive({ sha: first }), den.goLive({ sha: second })]);
+    assert.deepEqual([one.ok, two], [true, { ok: true, release: second }]);
+    assert.equal(link("ui"), `../releases/${second.slice(0, 12)}`);
   });
 });
 

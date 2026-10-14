@@ -10,7 +10,7 @@
 //     previewLink(id)                -> the address with the preview's read-only token, or null
 //     goLive({ sha, signal? })       the merge commit, rebuilt from main and switched to
 //         -> { ok: true, release } | { ok: false, code: "needs-update" | "failed", reason }
-//     rollback(to)                   releases.rollbackUi, in the same queue as the go-lives
+//     rollback(to)                   releases.rollbackUi, in the same queue as the go-lives' switches (never behind a build)
 //     sweep(keep)                    at start: half-made releases, and previews of deliveries that are not waiting
 //     shutdown()                     the bridge stops: every preview closes
 //   }
@@ -125,7 +125,7 @@ export function createDenBuild({ stateDir, repo, box, reads, fetchMain = async (
     }
   };
 
-  const goLive = ({ sha, signal } = {}) => queued(async () => {
+  async function goLive({ sha, signal } = {}) {
     checkSha(sha);
     const bridge = await currentRelease(stateDir, "bridge");
     if (!bridge) return failed("failed", "the den runs from the checkout: there are no release folders to go live in (npm run den:install)");
@@ -135,8 +135,12 @@ export function createDenBuild({ stateDir, repo, box, reads, fetchMain = async (
       return failed("failed", `could not fetch main: ${String(err?.stderr || err?.message || err).trim().slice(0, 200)}`);
     }
     // A later merge that is already live holds this one: nothing older is put in front of it.
-    const live = await currentRelease(stateDir, "ui");
-    if (live && (live.sha === sha || (await within(sha, live.sha)))) return { ok: true, release: live.sha };
+    const held = async () => {
+      const live = await currentRelease(stateDir, "ui");
+      return live && (live.sha === sha || (await within(sha, live.sha))) ? { ok: true, release: live.sha } : null;
+    };
+    const already = await held();
+    if (already) return already;
     let differs;
     try {
       differs = (await git(["diff", "--name-only", "--no-renames", "-z", bridge.sha, sha, "--", ...BRIDGE_PATHS])).split("\0").filter(Boolean);
@@ -144,16 +148,29 @@ export function createDenBuild({ stateDir, repo, box, reads, fetchMain = async (
       return failed("failed", `could not compare the merged commit with the running bridge: ${String(err?.stderr || err?.message || err).trim().slice(0, 200)}`);
     }
     if (differs.length) return failed("needs-update", `the merged commit changes ${differs.length === 1 ? differs[0] : `${differs.length} files of the bridge or the lockfile`}, which the running bridge (${bridge.sha.slice(0, 12)}) does not have; the den must be updated before this change can go live`);
-    try {
-      await releases.makeRelease(sha, { signal });
-      await releases.switchUi(sha);
-    } catch (err) {
+    const refused = (err) => {
       if (!(err instanceof ReleaseError)) throw err;
       return failed(err.code === "needs-update" ? "needs-update" : "failed", err.message);
+    };
+    // The build is made outside the queue: it has no time limit, and a roll back must never wait behind one.
+    try {
+      await releases.makeRelease(sha, { signal });
+    } catch (err) {
+      return refused(err);
     }
-    await onSwitch();
-    return { ok: true, release: sha };
-  });
+    return queued(async () => {
+      const meanwhile = await held(); // a later merge went live while this one was building
+      if (meanwhile) return meanwhile;
+      try {
+        await releases.makeRelease(sha, { signal }); // made above: this finds it, unless a switch removed it as unlinked meanwhile
+        await releases.switchUi(sha);
+      } catch (err) {
+        return refused(err);
+      }
+      await onSwitch();
+      return { ok: true, release: sha };
+    });
+  }
 
   const rollback = (to) => queued(async () => {
     await releases.rollbackUi(to);

@@ -34,6 +34,8 @@ describe("the unit text", () => {
     assert.match(text, /^Environment=PORT=4317$/m);
     assert.match(text, /^Environment="PATH=\/home\/me\/\.local\/bin:\/usr\/bin"$/m);
     assert.match(text, /^Restart=on-failure$/m);
+    assert.match(text, /^SuccessExitStatus=143$/m); // the bridge's own exit on SIGTERM: a stop is not a failure
+    assert.match(text, new RegExp(`^Environment=DEN_STATE_DIR=${values.state}$`, "m")); // the folder the releases were made in
     assert.match(text, /^WantedBy=default\.target$/m);
     assert.doesNotMatch(text.replace(/^#.*$/gm, ""), /@[A-Z]+@/);
   });

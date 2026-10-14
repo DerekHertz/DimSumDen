@@ -571,12 +571,15 @@ if (startedDirectly()) {
   // The delivery log is kept outside the repository, so it is in no agent's worktree and under no path a task can be granted.
   const { createHash } = await import("node:crypto");
   const stateHome = process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
-  const stateDir = path.join(stateHome, "den", "projects", createHash("sha256").update(realpathSync(root)).digest("hex").slice(0, 16));
+  // The service's unit names the den's state folder (DEN_STATE_DIR): the one `den:install` made the releases in, whatever
+  // XDG_STATE_HOME was in the installing shell. Without it, the default place.
+  const denState = path.isAbsolute(process.env.DEN_STATE_DIR ?? "") ? process.env.DEN_STATE_DIR : path.join(stateHome, "den");
+  const stateDir = path.join(denState, "projects", createHash("sha256").update(realpathSync(root)).digest("hex").slice(0, 16));
   // One launcher for the agents and the build box: its units are named per instance.
   const { createResourceLauncher } = await import("./cells/resource-group.mjs");
   const { createBuildBox } = await import("./build/box.mjs");
   const launcher = createResourceLauncher({ env: process.env });
-  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState: path.join(stateHome, "den"), library: createLibrary({ stateDir }) });
+  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }) });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
   console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);
