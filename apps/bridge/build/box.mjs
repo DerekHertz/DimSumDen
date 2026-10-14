@@ -4,7 +4,9 @@
 // run uses. There is no fallback; with bubblewrap or the resource group missing the build is refused and the refusal
 // names the blocker.
 //   createBuildBox({ launcher }) -> { build({ folder, packages, signal? }) }
-//   build(...) -> { ok, files, bytes, tail, reason? }     reason is set whenever ok is false
+//   build(...) -> { ok, files, bytes, tail, reason?, code? }     reason and code are set whenever ok is false
+// `code` says whose the refusal is: "build" (the folder's own code or output: it goes back to whoever wrote it),
+// "environment" (the box could not be made or run here), "stopped" (the caller's signal).
 // `folder` is a tree shaped like this repository (it holds apps/ui/vite.config.mjs); `packages` is one node_modules
 // folder. The caller passes those two and never a command. Inside the box:
 //   /build          the folder, read-only
@@ -128,7 +130,7 @@ export function createBuildBox({ launcher, bwrap = findBwrap(), node = process.e
       if (typeof value !== "string" || !path.isAbsolute(value)) throw new TypeError(`build box: ${name} must be an absolute path`);
     }
     let tail = "";
-    const refused = (reason) => ({ ok: false, files: 0, bytes: 0, tail, reason });
+    const refused = (reason, code = "environment") => ({ ok: false, files: 0, bytes: 0, tail, reason, code });
     if (launcher?.enforced !== true || typeof launcher.launch !== "function") return refused("the build box has no resource group to run in");
     if (bwrap === null || !kind(bwrap)?.isFile()) return refused("bubblewrap (bwrap) is not installed; the build box cannot be made without it");
     const root = resolved(folder);
@@ -142,9 +144,9 @@ export function createBuildBox({ launcher, bwrap = findBwrap(), node = process.e
         return false;
       }
     };
-    if (!inFolder(UI_CONFIG) || !kind(path.join(root, UI_CONFIG)).isFile()) return refused(`the build folder has no ${UI_CONFIG}`);
+    if (!inFolder(UI_CONFIG) || !kind(path.join(root, UI_CONFIG)).isFile()) return refused(`the build folder has no ${UI_CONFIG}`, "build");
     if (!kind(path.join(deps, VITE_BIN))?.isFile()) return refused(`the packages folder has no ${VITE_BIN}`);
-    if (signal?.aborted) return refused("the build was stopped");
+    if (signal?.aborted) return refused("the build was stopped", "stopped");
 
     // The one folder the build may write to. It is made here when the folder has none, and is never a link to somewhere else.
     const out = path.join(root, UI_OUT);
@@ -155,7 +157,7 @@ export function createBuildBox({ launcher, bwrap = findBwrap(), node = process.e
         madeOut = true;
       }
     } catch {}
-    if (!inFolder(UI_OUT) || !kind(out)?.isDirectory()) return refused(`the build folder's ${UI_OUT} is not a folder of its own`);
+    if (!inFolder(UI_OUT) || !kind(out)?.isDirectory()) return refused(`the build folder's ${UI_OUT} is not a folder of its own`, "build");
     const unmake = () => {
       try {
         if (madeOut) rmdirSync(out);
@@ -196,17 +198,17 @@ export function createBuildBox({ launcher, bwrap = findBwrap(), node = process.e
     group.kill();
     const settled = await group.settled(KILL_SETTLE_MS);
     if (settled) await Promise.all(ended);
-    if (stopped) return refused("the build was stopped");
+    if (stopped) return refused("the build was stopped", "stopped");
     if (!settled) return refused(`the build's processes outlived a kill of ${group.unit}`);
     // bubblewrap reports its own failures (it could not make a namespace or a mount) before the command starts.
     const own = /^bwrap: .*$/m.exec(tail)?.[0];
     if (code !== 0 && own) return refused(`bubblewrap could not make the box: ${own.slice(0, 300)}`);
-    if (code !== 0) return refused(`the build failed (exit ${code ?? "by signal"})`);
-    if (!inFolder(UI_OUT) || !kind(path.join(root, UI_OUT)).isDirectory()) return refused(`the build left no ${UI_OUT} folder of its own`);
+    if (code !== 0) return refused(`the build failed (exit ${code ?? "by signal"})`, "build");
+    if (!inFolder(UI_OUT) || !kind(path.join(root, UI_OUT)).isDirectory()) return refused(`the build left no ${UI_OUT} folder of its own`, "build");
     try {
       return { ok: true, ...(await measureOutput(path.join(root, UI_OUT), { maxFiles, maxBytes })), tail };
     } catch (err) {
-      if (err instanceof Refusal) return refused(err.message);
+      if (err instanceof Refusal) return refused(err.message, "build");
       throw err;
     }
   }

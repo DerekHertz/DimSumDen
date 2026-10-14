@@ -126,6 +126,12 @@ export function createGitHost(root, { exec = execFileP, remote = "origin", main 
         }
       }
     },
+    /** The commit a merged pull request left on the main branch. -> a full commit id */
+    async mergeCommit({ number }) {
+      const pr = JSON.parse(await gh("pr", "view", prNumber(number), "--json", "state,mergeCommit"));
+      if (pr?.state !== "MERGED") throw new Error("the pull request is not merged");
+      return commit(pr.mergeCommit?.oid, "the merge commit");
+    },
     /** Merges the pull request only while its head is still this commit. */
     async merge({ number, sha }) {
       await gh("pr", "merge", prNumber(number), "--merge", "--match-head-commit", commit(sha, "sha"));

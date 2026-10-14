@@ -132,7 +132,7 @@ const run = (file, args, opts = {}) => new Promise((resolve, reject) => {
 });
 
 /** `git archive` of `sha` unpacked into `dir`: no .git, owner and mode bits not taken from the archive. */
-function extractArchive(repo, sha, dir) {
+export function extractArchive(repo, sha, dir) {
   return new Promise((resolve, reject) => {
     const git = spawn("git", ["-C", repo, "archive", "--format=tar", sha], { stdio: ["ignore", "pipe", "pipe"] });
     const tar = spawn("tar", ["-x", "-C", dir, "--no-same-owner", "--no-same-permissions"], { stdio: ["pipe", "ignore", "pipe"] });
@@ -183,15 +183,9 @@ export function createReleases({ stateDir, repo, box, npm = npmCi, main = "main"
     }
   }
 
-  async function build(sha, signal) {
-    const id = sha.slice(0, 12);
-    const dir = path.join(releasesDir, id);
-    const have = await completeRelease(stateDir, id);
-    if (have) {
-      if (have.build.sha !== sha) throw new ReleaseError("conflict", `release ${id} is already made from a different commit`);
-      return { id, dir, ...have.build };
-    }
-    await onMain(sha);
+  /** The installed packages folder for the lockfile of `sha`. Throws `needs-update` when there is none. -> { lock, packages } */
+  async function packagesFor(sha) {
+    const id = checkSha(sha).slice(0, 12);
     let lockText;
     try {
       lockText = await git(["show", `${sha}:package-lock.json`]);
@@ -201,6 +195,19 @@ export function createReleases({ stateDir, repo, box, npm = npmCi, main = "main"
     const lock = lockHash(lockText);
     const packages = path.join(depsDir, lock, "node_modules");
     if (!(await isDir(packages))) throw new ReleaseError("needs-update", `the packages for ${id}'s lockfile are not installed; the den must be updated (npm run den:update) before it can be built`);
+    return { lock, packages };
+  }
+
+  async function build(sha, signal) {
+    const id = sha.slice(0, 12);
+    const dir = path.join(releasesDir, id);
+    const have = await completeRelease(stateDir, id);
+    if (have) {
+      if (have.build.sha !== sha) throw new ReleaseError("conflict", `release ${id} is already made from a different commit`);
+      return { id, dir, ...have.build };
+    }
+    await onMain(sha);
+    const { lock, packages } = await packagesFor(sha);
     if (!box) throw new ReleaseError("build", "there is no build box to build in");
     await mkdir(releasesDir, { recursive: true });
     await rm(dir, { recursive: true, force: true }); // an earlier half-made folder: it has no build.json
@@ -354,5 +361,5 @@ export function createReleases({ stateDir, repo, box, npm = npmCi, main = "main"
     }
   }
 
-  return { makeRelease, makeDeps, switchUi, switchBridge, rollbackUi, sweep, paths: { releasesDir, depsDir } };
+  return { makeRelease, makeDeps, packagesFor, switchUi, switchBridge, rollbackUi, sweep, paths: { releasesDir, depsDir } };
 }

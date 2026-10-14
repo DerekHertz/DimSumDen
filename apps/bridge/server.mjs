@@ -29,7 +29,8 @@ import { createAuth } from "./auth.mjs";
 import { PREVIEW_READS, matchRoute } from "./routes.mjs";
 import { computeMetrics, parseJsonl } from "../../scripts/metrics.mjs";
 import { contentTypeFor } from "../ci-cd/dev-server.mjs";
-import { ReleaseError, createReleases, readBuild, resolveUi } from "./build/releases.mjs";
+import { ReleaseError, readBuild, resolveUi } from "./build/releases.mjs";
+import { createDenBuild } from "./build/den-build.mjs";
 import { RECOVER_HTML, RECOVER_SCRIPT } from "./build/recover.mjs";
 
 const DEFAULT_UI_DIR = fileURLToPath(new URL("../ui/dist", import.meta.url));
@@ -70,13 +71,20 @@ function installProcessHandlers(host) {
 // den-mvp outcome 4: library is the catalog of connections and its record (library/library.mjs); a test passes its own.
 // den-mvp outcome 5: denState is the den's state folder ($XDG_STATE_HOME/den). When its ui/current link names a complete release,
 // the UI is served from that release (a hashed file it lacks is looked for in ui/previous); with no usable link, and when
-// denState is not given, the UI comes from uiDir, the checkout's build, as before.
-export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, denState, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption } = {}) {
+// denState is not given, the UI comes from uiDir, the checkout's build, as before. `box` is the build box (build/box.mjs) a
+// preview and a go-live are built in; with none, both are refused.
+export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, denState, box, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption } = {}) {
   let actualPort = port;
-  // den-mvp/11: the release folders, when the den is served from them. The live build is read from the links every time.
-  const releases = denState ? createReleases({ stateDir: denState }) : null;
+  const git = gitHost ?? createGitHost(root);
+  // den-mvp/10 and 11: the den's own build, when it is served from release folders: previews, go-live and roll back. The
+  // live build is read from the links every time. A preview is given the read handlers below and nothing else.
   const readBuild_ = async () => (denState ? readBuild(denState) : null);
-  let buildChain = Promise.resolve(); // one switch at a time
+  let previewReads;
+  let haveReads;
+  const readsMade = new Promise((resolve) => (haveReads = resolve)); // the handlers are made further down
+  const denBuild = denState
+    ? createDenBuild({ stateDir: denState, repo: root, box, reads: () => readsMade, fetchMain: () => git.mainSha(), onSwitch: async () => hub.publish({ type: "build", build: await readBuild_() }) })
+    : null;
   const auth = createAuth(authOptions);
   let host;
   let delivery;
@@ -109,7 +117,8 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   delivery = createDelivery({
     host: { start: host.start, stop: host.stop },
     board: createDeliveryBoard(root),
-    git: gitHost ?? createGitHost(root),
+    git,
+    build: denBuild,
     log: createJobLog(stateDir ?? path.join(root, ".scratch", "_run")),
     onChange: (change) => hub.publish(change),
     readTicket: async (ref) => {
@@ -118,7 +127,6 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
       return ticket ? { title: ticket.title, type: ticket.type, frontier: snap.frontier.includes(ref) } : null;
     },
   });
-  await delivery.ready;
   // den-mvp outcome 4: meetings. The bridge writes a meeting's files and both of its tickets; no agent does.
   meetings = createMeetings({
     host: { start: host.start, stop: host.stop },
@@ -227,6 +235,11 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     "POST /deliveries/:id/resume": (req, res) => steerDelivery(req, res, "resume"),
     "POST /deliveries/:id/stop": (req, res) => steerDelivery(req, res, "stop"),
     "POST /deliveries/:id/close": (req, res) => steerDelivery(req, res, "close"),
+    // den-mvp/10: the address of a delivery's preview with its read-only token. The snapshot carries the address without it.
+    "GET /deliveries/:id/preview": (req, res) => {
+      const url = delivery.previewLink(new URL(req.url, "http://x").pathname.split("/")[2]);
+      reply(res, url ? 200 : 404, url ? { url } : { error: "no preview is open for this delivery" });
+    },
     "POST /meetings": (req, res) => postMeeting(req, res),
     "GET /meetings/:id": async (req, res) => {
       const { ok, status, error, ...body } = await meetings.read(new URL(req.url, "http://x").pathname.split("/")[2]);
@@ -250,7 +263,8 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     },
   };
   // den-mvp/09: what a preview listener (build/preview.mjs) is given. It holds these read handlers and no other.
-  const previewReads = Object.fromEntries(PREVIEW_READS.map((route) => [route, HANDLERS[`GET ${route}`]]));
+  previewReads = Object.fromEntries(PREVIEW_READS.map((route) => [route, HANDLERS[`GET ${route}`]]));
+  haveReads(previewReads);
   const readRows = (file) => readFile(file, "utf8").then(parseJsonl, () => []);
   const reply = (res, status, obj, extra = {}) => {
     res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store", ...extra });
@@ -392,12 +406,13 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     if (!result.ok) return reply(res, result.status, { error: result.error, ...ticket });
     reply(res, result.status, { delivery: result.delivery, ...ticket });
   }
-  // POST /deliveries/:id/resume | stop | close. Resume reads `verdict` ("approve": the user's visual verdict) and nothing else.
+  // POST /deliveries/:id/resume | stop | close. Resume reads `verdict` ("approve" or "decline": the user's visual verdict) and,
+  // with a decline, `note`; nothing else.
   async function steerDelivery(req, res, action) {
     const body = await readJsonObject(req, res);
     if (!body) return;
     const id = new URL(req.url, "http://x").pathname.split("/")[2];
-    const result = action === "resume" ? await delivery.resume(id, body.verdict === undefined ? {} : { verdict: body.verdict }) : await delivery[action](id);
+    const result = action === "resume" ? await delivery.resume(id, body.verdict === undefined ? {} : { verdict: body.verdict, note: body.note }) : await delivery[action](id);
     if (!result.ok) return reply(res, result.status, { error: result.error });
     reply(res, result.status, { delivery: result.delivery });
   }
@@ -439,20 +454,14 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     const body = await readJsonObject(req, res);
     if (!body) return;
     if (typeof body.to !== "string") return reply(res, 400, { error: "to must be the commit id of the previous build" });
-    const run = buildChain.then(async () => {
-      if (!releases || !(await readBuild_())) return reply(res, 409, { error: "the den runs from the checkout: there are no release folders to roll back" });
-      try {
-        await releases.rollbackUi(body.to);
-      } catch (err) {
-        if (!(err instanceof ReleaseError)) throw err;
-        return reply(res, 409, { error: err.code === "bad-sha" ? "to must be the commit id of the previous build" : `not rolled back: ${err.message}` });
-      }
-      const build = await readBuild_();
-      hub.publish({ type: "build", build });
-      reply(res, 200, { build });
-    });
-    buildChain = run.catch(() => {});
-    await run;
+    if (!denBuild || !(await readBuild_())) return reply(res, 409, { error: "the den runs from the checkout: there are no release folders to roll back" });
+    try {
+      await denBuild.rollback(body.to); // queued behind any go-live; the build frame goes out from there
+    } catch (err) {
+      if (!(err instanceof ReleaseError)) throw err;
+      return reply(res, 409, { error: err.code === "bad-sha" ? "to must be the commit id of the previous build" : `not rolled back: ${err.message}` });
+    }
+    reply(res, 200, { build: await readBuild_() });
   }
   // Static UI build (ADR 0011 decision 2): unknown paths serve index.html; traversal is a 403.
   async function serveStatic(pathname, req, res) {
@@ -516,7 +525,9 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     res.writeHead(200, { "Content-Type": contentTypeFor(file), "Cache-Control": "no-store", "Content-Security-Policy": CSP });
     res.end(req.method === "HEAD" ? undefined : body);
   }
-  if (releases) await releases.sweep(); // a half-made release folder is never served, and is removed at start
+  // A half-made release folder is never served, and is removed at start; a delivery's waiting preview is served again.
+  await delivery.ready;
+  if (denBuild) await denBuild.releases.sweep();
   await new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(port, HOST, resolve);
@@ -561,7 +572,11 @@ if (startedDirectly()) {
   const { createHash } = await import("node:crypto");
   const stateHome = process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
   const stateDir = path.join(stateHome, "den", "projects", createHash("sha256").update(realpathSync(root)).digest("hex").slice(0, 16));
-  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env }), stateDir, denState: path.join(stateHome, "den"), library: createLibrary({ stateDir }) });
+  // One launcher for the agents and the build box: its units are named per instance.
+  const { createResourceLauncher } = await import("./cells/resource-group.mjs");
+  const { createBuildBox } = await import("./build/box.mjs");
+  const launcher = createResourceLauncher({ env: process.env });
+  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState: path.join(stateHome, "den"), library: createLibrary({ stateDir }) });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
   console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);

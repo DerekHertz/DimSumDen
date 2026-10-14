@@ -33,7 +33,7 @@ The spec leaves the design open. Every choice below marked **(user)** was put to
 A UI build runs the repository's own code (`apps/ui/vite.config.mjs`, its plugins, the packages). For a preview that code is a candidate no one has reviewed. So the bridge never builds in its own process. `apps/bridge/build/box.mjs` runs one fixed command, `vite build` with the UI's config, inside bubblewrap:
 
 - no network, its own process and user namespaces, and it ends with the bridge;
-- it can write the build folder and a private `/tmp`, and nothing else;
+- it can write the folder's `apps/ui/dist` and a private `/tmp`, and nothing else. The rest of the build folder is read-only: a release's folder also holds the bridge code the service runs, so a build that could write there could change it;
 - it can read the build folder, the Node binary, the system libraries and one `deps/<lock-hash>/node_modules`, and nothing else: not the home directory, the checkout, the board or any login;
 - a cleared environment;
 - it is started through the same resource-group launcher as an agent run, and is refused when that launcher refuses.
@@ -64,8 +64,8 @@ There is no fallback. When bubblewrap or the resource group is missing, a previe
 - After qa `verify`, the checks and (on a hit) security have passed for the candidate commit, the bridge copies that commit into `previews/<job id>/` and builds it in the box. The evidence is `preview: { sha }` and, like all evidence, counts only while that commit is the candidate.
 - A build that fails goes back to the developer as a failed check, with the last lines of the build output. A box that cannot run is an `environment` pause.
 - The bridge opens one more listener per preview on `127.0.0.1`, on a port the system picks. A separate port is a separate origin, and the den's login is a bearer token held by the den's own page, so the preview's code cannot read it. That is what makes "actions off" enforceable.
-- The preview listener serves the built files and a fixed list of read routes (the snapshot, the event stream, the read of a meeting, a conversation and the library). The list is written out in `routes.mjs`; "every GET" is not the rule. Every other request is a 403 on that listener, which has no path to a handler that changes anything. It has its own read-only token; the den's token is refused there.
-- The preview's pages carry a content security policy with `connect-src 'self'`, so unreviewed code cannot send what it reads to the live den's port or to the network.
+- The preview listener serves the built files and a fixed list of read routes (the snapshot, the event stream, the read of a meeting, a conversation and the library). The list is written out in `routes.mjs`; "every GET" is not the rule. Every other request is a 403 on that listener, which has no path to a handler that changes anything. It has its own read-only token; the den's token is refused there. The snapshot carries a preview's address without the token (the snapshot is read without signing in); the signed-in den asks `GET /deliveries/:id/preview` for the address with it.
+- The preview's pages carry a content security policy with `connect-src 'self' blob:` (the den's models load their textures from blobs the page makes; a blob is not a network address), no forms and no frames, so unreviewed code cannot send what it reads to the live den's port or to the network by a request. A policy cannot stop a page from navigating itself to another address; that is left to the reviews the candidate passed before its preview was built.
 - The listener checks `Host` and `Origin` for its own port, as the den's does.
 - A preview closes when the verdict is given, the delivery is closed, or the bridge stops. After a restart it is served again from its folder if its record still names the candidate commit.
 - In the den the page shows as not signed in to steer: the existing disabled state, no new one.
@@ -79,6 +79,8 @@ There is no fallback. When bubblewrap or the resource group is missing, a previe
 **(user)** What goes live is rebuilt from `main`. After the merge the bridge fetches `main`, checks the merge commit is on it, makes `releases/<sha12>/` from that commit in the box, and switches `ui/current` to it.
 
 - If the build fails, the merge stands, nothing goes live, and the delivery pauses as `go-live-failed` with the reason.
+- The ticket is resolved after the go-live, so a delivery that waits as `go-live-failed` or `needs-update` leaves its ticket open until Resume finishes it.
+- A merge that an already live release contains is not put in front of it: go-lives run one at a time, and an older one is done when a later one is live.
 - The UI imports from the bridge's code. So the UI goes live alone only when nothing under `apps/bridge/` and no lockfile differs between the running bridge's release and the new commit. Otherwise the delivery pauses as `needs-update`: the den must be updated first (decision 4 in Part A, the button in Part B), and Resume then finishes the go-live.
 - A delivery that changes nothing under `apps/ui/` makes no release.
 

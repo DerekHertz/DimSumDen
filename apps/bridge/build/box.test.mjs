@@ -127,7 +127,7 @@ describe("refusal: nothing builds outside the box", () => {
   test("no bubblewrap: refused, the blocker is named, the launcher is never asked", async () => {
     const launcher = counting(async () => assert.fail("launched"));
     const result = await createBuildBox({ launcher, bwrap: findBwrap(["/nonexistent/bwrap"]) }).build({ folder, packages });
-    assert.deepEqual(result, { ok: false, files: 0, bytes: 0, tail: "", reason: "bubblewrap (bwrap) is not installed; the build box cannot be made without it" });
+    assert.deepEqual(result, { ok: false, files: 0, bytes: 0, tail: "", reason: "bubblewrap (bwrap) is not installed; the build box cannot be made without it", code: "environment" });
     assert.equal(launcher.calls, 0);
     untouched();
   });
@@ -259,7 +259,7 @@ describe("live: a probe build in the box", { skip }, () => {
   test("an output with a link, a hard link, or over the bounds is refused", async () => {
     const run = async (input, bounds = {}) => createBuildBox({ launcher, ...bounds }).build({ folder: await probeFolder(input), packages });
     const [linked, twinned, many, big] = await Promise.all([run({ symlink: true }), run({ hardlink: true }), run({ extraFiles: 5 }, { maxFiles: 4 }), run({ extraBytes: 4096 }, { maxBytes: 2048 })]);
-    assert.deepEqual([linked.ok, linked.reason], [false, "the build output contains a link: link.json"]);
+    assert.deepEqual([linked.ok, linked.reason, linked.code], [false, "the build output contains a link: link.json", "build"]);
     assert.deepEqual([twinned.ok, twinned.files], [false, 0]);
     assert.match(twinned.reason, /hard link/);
     assert.equal(many.reason, "the build output has more than 4 files");
@@ -270,7 +270,7 @@ describe("live: a probe build in the box", { skip }, () => {
     const broken = await probeFolder({});
     await writeFile(path.join(broken, UI_CONFIG), 'console.error("probe-broke");\nprocess.exit(3);\n');
     const failed = await box.build({ folder: broken, packages });
-    assert.deepEqual([failed.ok, failed.reason, failed.files], [false, "the build failed (exit 3)", 0]);
+    assert.deepEqual([failed.ok, failed.reason, failed.files, failed.code], [false, "the build failed (exit 3)", 0, "build"]);
     assert.match(failed.tail, /probe-broke/);
   });
 
@@ -280,7 +280,7 @@ describe("live: a probe build in the box", { skip }, () => {
     const running = box.build({ folder: sleeping, packages, signal: stopper.signal });
     await until(() => existsSync(path.join(sleeping, "apps/ui/dist/probe.json")), { what: "the build to start" });
     stopper.abort();
-    assert.deepEqual(await running, { ok: false, files: 0, bytes: 0, tail: "", reason: "the build was stopped" });
+    assert.deepEqual(await running, { ok: false, files: 0, bytes: 0, tail: "", reason: "the build was stopped", code: "stopped" });
   });
 
   test("stopping the caller ends the build's processes", async () => {

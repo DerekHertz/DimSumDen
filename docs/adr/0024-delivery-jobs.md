@@ -86,3 +86,13 @@ The snapshot gains `deliveries` and the change type `delivery`. The Stations car
 - The genomes in `.claude/agents/` still describe the board commands; a delivery step's prompt overrides them. The protected-file change is for the user's review path.
 - Jev's tier and verify depth, a tree of jobs, and delivery in another repository (outcome 6) are later.
 - After a merge the main checkout is not updated and nothing is rebuilt or served (outcome 5).
+
+## Amendment 1: previews and going live (ADR 0026, den-mvp outcome 5)
+
+- **What is visual** (decision 1). A delivery also waits for the user's verdict when its candidate changes a path under `apps/ui/`, whatever its ticket type. The scripted checks record it as `risk.ui`.
+- **Where the verdict is** (decision 5). For such a change the bridge builds a preview of the candidate after qa, the checks and (on a hit) security, and the `visual-verdict` pause comes before the push. One approval covers the push, the pull request, the merge on green checks and going live. A visual ticket that changes nothing under `apps/ui/` keeps its verdict where it was, after the checks on the pull request.
+- **Decline.** `POST /deliveries/:id/resume { verdict: "decline", note }` sends the developer round again with the note. Declines are counted in `declines`, apart from `bounces`, and never cause `failed-twice`. A preview that does not build is a failed check and counts as a bounce.
+- **After the merge.** For a change under `apps/ui/` the bridge makes a release of the merge commit and switches the served UI to it, then resolves the ticket. Two new pauses: `go-live-failed`, and `needs-update` when the merged commit differs from the running bridge's release under `apps/bridge/` or in the lockfile. Resume finishes the go-live. `needs-update` is also the pause for a candidate whose lockfile has no packages folder.
+- **The record** (decision 6). The log keeps `declines`, `evidence.preview` and a finished `evidence.live`, and `golive` is an operation with an intent and an outcome. A go-live that did not finish is asked again on Resume. A waiting preview is served again after a restart from `previews/<job id>/`; one whose folder is gone waits as `bridge-restart`.
+- **In the den** (decision 7). A delivery's row gains `ui`, `preview: { url, sha }` while one is open, `verdict`, `declines` and `release`.
+

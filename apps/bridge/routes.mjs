@@ -23,6 +23,7 @@ export const ROUTES = [
   { method: "POST", path: "/deliveries/:id/resume", auth: "token", mutating: true },
   { method: "POST", path: "/deliveries/:id/stop", auth: "token", mutating: true },
   { method: "POST", path: "/deliveries/:id/close", auth: "token", mutating: true },
+  { method: "GET", path: "/deliveries/:id/preview", auth: "token", mutating: false },
   { method: "POST", path: "/meetings", auth: "token", mutating: true },
   { method: "GET", path: "/meetings/:id", auth: "token", mutating: false },
   { method: "POST", path: "/meetings/:id/resume", auth: "token", mutating: true },

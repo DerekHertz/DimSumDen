@@ -5,7 +5,6 @@
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import net from "node:net";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -227,12 +226,9 @@ describe("the preview listener", () => {
       });
       await ended;
       await mine.close(); // a second call is the same close
-      const refused = await new Promise((resolve) => {
-        const socket = net.connect(port, "127.0.0.1");
-        socket.once("connect", () => (socket.destroy(), resolve(false)));
-        socket.once("error", (err) => resolve(err.code));
-      });
-      assert.equal(refused, "ECONNREFUSED");
+      // Asked by content: the system may give the freed port to another test's listener at once.
+      const answer = await send({ port }, { path: "/assets/app.js" }).catch((err) => err.code);
+      assert.ok(answer === "ECONNREFUSED" || answer.text !== "export const x = 1;", "nothing serves this preview's files there any more");
       assert.equal((await send(bridge, { path: "/state" })).status, 200); // the den is untouched
     });
   });
