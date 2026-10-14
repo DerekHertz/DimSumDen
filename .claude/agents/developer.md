@@ -8,6 +8,7 @@ color: orange
 isolation: worktree
 skills:
   - organism-protocol
+  - ponytail
   - implement
   - tdd
 organism:

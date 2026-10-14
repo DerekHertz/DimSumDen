@@ -8,6 +8,7 @@ color: green
 isolation: worktree
 skills:
   - organism-protocol
+  - ponytail
   - tdd
 organism:
   station: tea-pantry
