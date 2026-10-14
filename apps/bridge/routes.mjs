@@ -30,6 +30,9 @@ export const ROUTES = [
   { method: "POST", path: "/meetings/:id/close", auth: "token", mutating: true },
   { method: "POST", path: "/meetings/:id/decide", auth: "token", mutating: true },
   { method: "POST", path: "/meetings/:id/ask", auth: "token", mutating: true },
+  { method: "POST", path: "/build/rollback", auth: "token", mutating: true },
+  { method: "GET", path: "/recover", auth: "none", mutating: false },
+  { method: "GET", path: "/recover/script", auth: "none", mutating: false },
 ];
 
 // den-mvp/09 (ADR 0026 decision 5): the reads a preview listener answers, written out. A row is not on this list by being

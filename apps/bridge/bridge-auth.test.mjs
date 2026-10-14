@@ -10,6 +10,7 @@ import http from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { startBridge } from "./server.mjs";
+import { SHA_A, SHA_B, SHA_C, liveReleases } from "./build/release-test-helpers.mjs";
 import { ROUTES } from "./routes.mjs";
 import { execFileSync } from "node:child_process";
 import { makeStateFixture, FEATURE } from "./bridge-fixture.mjs";
@@ -23,6 +24,12 @@ const DISPATCH_REF = `${FEATURE}/02-ready-p0`; // gate "dispatch" in the fixture
 // A real and a bogus body for every token-gated mutating row, keyed "METHOD path". The bogus one names an id
 // that does not exist, so an unauthenticated caller must not be able to tell it apart from the real one.
 const BODIES = {
+  // den-mvp/11: a roll back needs two releases; `prepare` makes them in the state folder the bridge was started with.
+  "POST /build/rollback": {
+    real: { to: SHA_A },
+    bogus: { to: SHA_C },
+    prepare: async () => void (await liveReleases(denState, [SHA_A, SHA_B])),
+  },
   "POST /requests": {
     real: { kind: "dispatch-approve", ref: DISPATCH_REF },
     bogus: { kind: "dispatch-approve", ref: `${FEATURE}/99-nope` },
@@ -127,6 +134,7 @@ const originRows = ROUTES.filter((r) => r.auth === "origin");
 const noneRows = ROUTES.filter((r) => r.auth === "none");
 
 let fx;
+let denState;
 let bridge;
 let token;
 let file;
@@ -138,7 +146,8 @@ beforeEach(async () => {
   fake = createFakeRuntime?.({ send: true }) ?? null;
   // The delivery rows never get past their first agent here, so the git host is only asked for the main branch's commit.
   const gitHost = { mainSha: async () => execFileSync("git", ["-C", fx.root, "rev-parse", "HEAD"], { encoding: "utf8" }).trim() };
-  bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, gitHost, ...(fake ? { runtime: fake } : {}) });
+  denState = path.join(fx.root, ".den-state"); // empty: the bridge serves the checkout's build until a test makes releases
+  bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, gitHost, denState, ...(fake ? { runtime: fake } : {}) });
   token = await login(bridge);
 });
 afterEach(async () => {

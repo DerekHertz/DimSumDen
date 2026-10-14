@@ -154,7 +154,7 @@ describe("releases", () => {
     await releases.switchUi(c.sha);
     assert.deepEqual([link("ui", "current"), link("ui", "previous")], [`../releases/${c.id}`, `../releases/${b.id}`]);
     assert.deepEqual((await readdir(path.join(state, "releases"))).sort(), [b.id, c.id].sort());
-    assert.deepEqual((await readdir(path.join(state, "ui"))).sort(), ["current", "previous"]);
+    assert.deepEqual((await readdir(path.join(state, "ui"))).sort(), ["current", "live.json", "previous"]);
     await releases.switchUi(c.sha); // again: nothing changes
     assert.equal(link("ui", "previous"), `../releases/${b.id}`);
   });

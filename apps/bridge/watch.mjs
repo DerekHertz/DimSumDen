@@ -42,9 +42,11 @@ function diff(prev, next) {
 // agents: () => the live and replayed agents for the snapshot (organism-infra/140); they come from the steering host,
 // not from .scratch, and reach clients through publish() as soon as they change.
 // transcripts: () => the host's kept transcript buffers (den-v1 loop S2); their frames also reach clients through publish().
+// build: async () => the den's own build (den-mvp/11, ADR 0026 decision 7), or null when it runs from the checkout; a
+// switch reaches clients through publish() as { type: "build", build }.
 // capacity: (lockedRefs) => the snapshot's `capacity` key (organism-infra/227, ADR 0011 decision 3). The host owns the live
 // agents and the limits; the hub passes the refs of the tickets that hold a claim lock in the snapshot it is serving.
-export function createHub(root, { agents = () => [], approvals = () => [], transcripts = () => ({}), capacity = () => null, deliveries = () => [], meetings = () => [] } = {}) {
+export function createHub(root, { agents = () => [], approvals = () => [], transcripts = () => ({}), capacity = () => null, deliveries = () => [], meetings = () => [], build = async () => null } = {}) {
   const scratch = path.join(root, ".scratch");
   const clients = new Set();
   let seq = 0;
@@ -120,7 +122,7 @@ export function createHub(root, { agents = () => [], approvals = () => [], trans
     async snapshot() {
       await refresh();
       const lockedRefs = current.tickets.filter((t) => t.holder).map((t) => t.ref);
-      return { ...current, agents: agents(), approvals: approvals(), transcripts: transcripts(), capacity: capacity(lockedRefs), deliveries: deliveries(), meetings: meetings(), seq };
+      return { ...current, agents: agents(), approvals: approvals(), transcripts: transcripts(), capacity: capacity(lockedRefs), deliveries: deliveries(), meetings: meetings(), build: await build(), seq };
     },
     // An agent change goes out at once (no debounce, no 2 s net): { type: "agent", agent: object | null }; so do
     // { type: "approval", approval } and { type: "transcript", agentId, entry }.

@@ -4,6 +4,7 @@
 //   releases/<sha12>/             one commit of `main` (git archive), its UI built in the box, `build.json` written last
 //   deps/<lock-hash>/node_modules the packages for one package-lock.json, installed once, on the user's action only
 //   ui/current, ui/previous       links to the release whose UI is served, and the one before it
+//   ui/live.json                  when the served release went live, and the release a roll back undid (decision 7)
 //   bridge/current, bridge/previous   the same for the bridge code
 // Every path below is built from a checked sha (full lowercase hex, then its first 12 characters) or a checked lock hash
 // and fixed names; a link's target is read back only if it is exactly `../releases/<sha12>`.
@@ -18,6 +19,7 @@ const LINK_RE = /^\.\.\/releases\/([0-9a-f]{12})$/;
 const PAIRS = ["ui", "bridge"];
 const MAKING = ".making";
 const BUILD = "build.json";
+const LIVE = "live.json";
 export const UI_DIST = path.join("apps", "ui", "dist");
 
 /** A refusal with a stable `code`: bad-sha, not-on-main, needs-update, build, missing, conflict, git. */
@@ -83,6 +85,39 @@ export async function resolveUi(stateDir) {
   const [current, previous] = await Promise.all([cur, prev].map((id) => (id ? completeRelease(stateDir, id) : null)));
   if (!current) return null;
   return { current: path.join(current.dir, UI_DIST), previous: previous ? path.join(previous.dir, UI_DIST) : null };
+}
+
+const stamp = (v) => (typeof v === "string" && v.length <= 40 && !Number.isNaN(Date.parse(v)) ? v : null);
+
+// The record beside the ui links, with every field checked: { sha, at, rolledBack: { sha, at } | null }, or null.
+async function readLive(stateDir) {
+  try {
+    const raw = JSON.parse(await readFile(path.join(stateDir, "ui", LIVE), "utf8"));
+    if (!SHA_RE.test(raw?.sha)) return null;
+    const undone = raw.rolledBack;
+    return { sha: raw.sha, at: stamp(raw.at), rolledBack: undone && SHA_RE.test(undone.sha) ? { sha: undone.sha, at: stamp(undone.at) } : null };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The den's own build as the snapshot shows it: { live: { sha, at }, previous: { sha } | null, rolledBack: { sha, at } | null },
+ * or null when no release is served (the den then runs from the checkout). `rolledBack` names the release a roll back
+ * undid, until another build goes live.
+ */
+export async function readBuild(stateDir) {
+  const [cur, prev] = await Promise.all(["current", "previous"].map((name) => linkedId(stateDir, "ui", name)));
+  const current = cur ? await completeRelease(stateDir, cur) : null;
+  if (!current) return null;
+  const previous = prev && prev !== cur ? await completeRelease(stateDir, prev) : null;
+  const record = await readLive(stateDir);
+  const mine = record?.sha === current.build.sha ? record : null;
+  return {
+    live: { sha: current.build.sha, at: mine?.at ?? stamp(current.build.builtAt) },
+    previous: previous ? { sha: previous.build.sha } : null,
+    rolledBack: mine?.rolledBack ?? null,
+  };
 }
 
 /** The complete release a pair's `current` link points to ({ id, sha, ... } from its build.json), or null. */
@@ -237,6 +272,19 @@ export function createReleases({ stateDir, repo, box, npm = npmCi, main = "main"
     }
   }
 
+  // Written like a link: beside it, then renamed over.
+  async function writeLive(record) {
+    const folder = path.join(stateDir, "ui");
+    const tmp = path.join(folder, `.new-live-${process.pid}-${randomBytes(4).toString("hex")}`);
+    try {
+      await writeFile(tmp, `${JSON.stringify(record)}\n`);
+      await rename(tmp, path.join(folder, LIVE));
+    } catch (err) {
+      await rm(tmp, { force: true });
+      throw err;
+    }
+  }
+
   /** Deletes every complete release that no link of either pair points to. */
   async function collect() {
     const keep = new Set();
@@ -256,6 +304,7 @@ export function createReleases({ stateDir, repo, box, npm = npmCi, main = "main"
     if (cur !== id) {
       if (cur) await setLink(pair, "previous", cur);
       await setLink(pair, "current", id);
+      if (pair === "ui") await writeLive({ sha, at: new Date().toISOString(), rolledBack: null });
     }
     await collect();
   }
@@ -271,9 +320,16 @@ export function createReleases({ stateDir, repo, box, npm = npmCi, main = "main"
     const want = to.slice(0, 12);
     const [cur, prev] = await Promise.all(["current", "previous"].map((name) => linkedId(stateDir, "ui", name)));
     if (prev !== want) throw new ReleaseError("conflict", `ui/previous is ${prev ?? "empty"}, not ${want}`);
-    if (!(await completeRelease(stateDir, prev))) throw new ReleaseError("missing", `there is no complete release for ${prev}`);
+    const back = await completeRelease(stateDir, prev);
+    if (!back) throw new ReleaseError("missing", `there is no complete release for ${prev}`);
+    const left = cur ? await completeRelease(stateDir, cur) : null;
+    const before = await readLive(stateDir);
     await setLink("ui", "current", prev);
     if (cur) await setLink("ui", "previous", cur);
+    // Going back to the release an earlier roll back undid puts things as they were: nothing is rolled back any more.
+    const at = new Date().toISOString();
+    const redone = before?.sha === left?.build.sha && before?.rolledBack?.sha === back.build.sha;
+    await writeLive({ sha: back.build.sha, at, rolledBack: redone || !left ? null : { sha: left.build.sha, at } });
     await collect();
   }
 

@@ -29,7 +29,8 @@ import { createAuth } from "./auth.mjs";
 import { PREVIEW_READS, matchRoute } from "./routes.mjs";
 import { computeMetrics, parseJsonl } from "../../scripts/metrics.mjs";
 import { contentTypeFor } from "../ci-cd/dev-server.mjs";
-import { createReleases, resolveUi } from "./build/releases.mjs";
+import { ReleaseError, createReleases, readBuild, resolveUi } from "./build/releases.mjs";
+import { RECOVER_HTML, RECOVER_SCRIPT } from "./build/recover.mjs";
 
 const DEFAULT_UI_DIR = fileURLToPath(new URL("../ui/dist", import.meta.url));
 
@@ -72,6 +73,10 @@ function installProcessHandlers(host) {
 // denState is not given, the UI comes from uiDir, the checkout's build, as before.
 export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, denState, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption } = {}) {
   let actualPort = port;
+  // den-mvp/11: the release folders, when the den is served from them. The live build is read from the links every time.
+  const releases = denState ? createReleases({ stateDir: denState }) : null;
+  const readBuild_ = async () => (denState ? readBuild(denState) : null);
+  let buildChain = Promise.resolve(); // one switch at a time
   const auth = createAuth(authOptions);
   let host;
   let delivery;
@@ -80,6 +85,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts(), capacity: (lockedRefs) => host.capacity(lockedRefs),
     deliveries: () => delivery?.snapshot() ?? [],
     meetings: () => meetings?.snapshot() ?? [],
+    build: () => readBuild_(),
   });
   // den-mvp outcome 4: the production entry point passes the den's catalog; with none, no agent is given a connection.
   const library = libraryOption ?? createLibrary({ catalog: parseCatalog({ connections: [] }) });
@@ -231,6 +237,10 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     "POST /meetings/:id/close": (req, res) => steerMeeting(req, res, "close"),
     "POST /meetings/:id/decide": (req, res) => steerMeeting(req, res, "decide"),
     "POST /meetings/:id/ask": (req, res) => steerMeeting(req, res, "ask"),
+    "POST /build/rollback": (req, res) => rollBack(req, res),
+    // The recovery page is the bridge's own code, not a file of the UI build.
+    "GET /recover": (req, res) => sendOwn(res, "text/html; charset=utf-8", RECOVER_HTML),
+    "GET /recover/script": (req, res) => sendOwn(res, "text/javascript; charset=utf-8", RECOVER_SCRIPT),
     "POST /approvals/:id": async (req, res) => {
       const body = await readJsonObject(req, res);
       if (!body) return;
@@ -419,6 +429,31 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     if (!result.ok) return reply(res, result.status, { error: result.error });
     reply(res, result.status, { meeting: result.meeting, ...(result.ticket ? { ticket: result.ticket } : {}) });
   }
+  const sendOwn = (res, type, body) => {
+    res.writeHead(200, { "Content-Type": type, "Cache-Control": "no-store", "Content-Security-Policy": CSP, "X-Content-Type-Options": "nosniff" });
+    res.end(body);
+  };
+  // POST /build/rollback (ADR 0026 decision 7): the user's roll back. Only `to` is read: the release the button showed as
+  // previous. Anything else, and a den that runs from the checkout, is a 409 and nothing changes.
+  async function rollBack(req, res) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    if (typeof body.to !== "string") return reply(res, 400, { error: "to must be the commit id of the previous build" });
+    const run = buildChain.then(async () => {
+      if (!releases || !(await readBuild_())) return reply(res, 409, { error: "the den runs from the checkout: there are no release folders to roll back" });
+      try {
+        await releases.rollbackUi(body.to);
+      } catch (err) {
+        if (!(err instanceof ReleaseError)) throw err;
+        return reply(res, 409, { error: err.code === "bad-sha" ? "to must be the commit id of the previous build" : `not rolled back: ${err.message}` });
+      }
+      const build = await readBuild_();
+      hub.publish({ type: "build", build });
+      reply(res, 200, { build });
+    });
+    buildChain = run.catch(() => {});
+    await run;
+  }
   // Static UI build (ADR 0011 decision 2): unknown paths serve index.html; traversal is a 403.
   async function serveStatic(pathname, req, res) {
     let rel;
@@ -481,7 +516,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     res.writeHead(200, { "Content-Type": contentTypeFor(file), "Cache-Control": "no-store", "Content-Security-Policy": CSP });
     res.end(req.method === "HEAD" ? undefined : body);
   }
-  if (denState) await createReleases({ stateDir: denState }).sweep(); // a half-made release folder is never served, and is removed at start
+  if (releases) await releases.sweep(); // a half-made release folder is never served, and is removed at start
   await new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(port, HOST, resolve);
