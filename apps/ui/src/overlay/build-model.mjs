@@ -13,7 +13,7 @@ export function buildLine(build, { when = defaultWhen } = {}) {
   const b = live(build);
   if (!b) return null;
   const at = typeof b.live.at === "string" && !Number.isNaN(Date.parse(b.live.at)) ? b.live.at : null;
-  return `Build ${shortSha(b.live.sha)}${at ? `, live since ${when(at)}` : ""}`;
+  return `Den build ${shortSha(b.live.sha)}${at ? `, live since ${when(at)}` : ""}`;
 }
 
 /** Is the live build another one than the build this page was made from? `own` is the live build when the page loaded. */
