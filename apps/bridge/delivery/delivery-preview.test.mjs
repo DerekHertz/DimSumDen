@@ -248,16 +248,16 @@ describe("a delivery that changes the den's UI", () => {
     assert.match(await t.page(`${t.bridge.url}/`), /<title>panel-v3<\/title>/);
   });
 
-  test("red checks after the approval: nothing is merged and nothing goes live", async () => {
+  test("red checks after the approval: nothing is merged, nothing goes live, and the work goes back to the developer", async () => {
     const t = await setup();
     await t.start();
     await t.round(0, { "apps/ui/panel.txt": "panel-v1" });
     const waiting = await t.paused("visual-verdict");
     t.git.checks = [{ name: "test", done: true, ok: false }];
     await t.resume(waiting.id, { verdict: "approve" });
-    const red = await t.paused("ci-red");
+    const red = await t.when((j) => j.live?.role === "developer" && j.bounces === 1, "the developer's fix round");
     assert.deepEqual(t.git.calls, ["push", "openPr", "waitChecks"]);
-    assert.equal(red.release, null);
+    assert.equal(red.release ?? null, null);
     assert.deepEqual(t.releases(), [t.base.slice(0, 12)]);
     assert.equal(t.link("ui"), id12(t.base));
     assert.match(await t.page(`${t.bridge.url}/`), /<title>base<\/title>/);

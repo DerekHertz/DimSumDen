@@ -30,12 +30,12 @@ function fakeGit() {
   return git;
 }
 
-async function setup(t) {
+async function setup(t, more = {}) {
   const dir = await mkdtemp(path.join(os.tmpdir(), "ci-watch-"));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const git = fakeGit();
   const changes = [];
-  const make = () => createCiWatch({ git, file: path.join(dir, "ci-watch.json"), onChange: (c) => changes.push(c), now: () => Date.parse("2026-10-14T20:00:00Z") });
+  const make = () => createCiWatch({ git, file: path.join(dir, "ci-watch.json"), onChange: (c) => changes.push(c), now: () => Date.parse("2026-10-14T20:00:00Z"), ...more });
   return { git, changes, make, watch: make() };
 }
 
@@ -149,4 +149,13 @@ test("a git host error is shown, not swallowed, and the next poll clears it", as
   git.fail = null;
   await watch.poll();
   assert.equal(watch.snapshot().error, null);
+});
+
+test("a pull request a delivery owns is left to the delivery: no item and no re-run", async (t) => {
+  const { git, watch } = await setup(t, { skip: (n) => n === 7 });
+  git.prs = [pr([check("test", 1, { cancelled: true })]), pr([check("test", 2)], { number: 8 })];
+  git.notes["1"] = ["The job has exceeded the maximum execution time of 15m0s"];
+  await watch.poll();
+  assert.deepEqual(watch.snapshot().prs.map((p) => p.number), [8]);
+  assert.equal(git.reruns.length, 0);
 });

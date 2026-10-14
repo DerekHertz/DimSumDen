@@ -61,7 +61,7 @@ export function createGitHost(root, { exec = execFileP, remote = "origin", main 
     return {
       number: pr.number, url: oneLine(pr.url, 300), state: ["OPEN", "MERGED", "CLOSED"].includes(pr.state) ? pr.state : "CLOSED",
       sha: COMMIT_RE.test(pr.headRefOid) ? pr.headRefOid : null, mergeable: ["MERGEABLE", "CONFLICTING"].includes(pr.mergeable) ? pr.mergeable : "UNKNOWN",
-      checks: (Array.isArray(pr.statusCheckRollup) ? pr.statusCheckRollup : []).map(checkOf),
+      checks: (Array.isArray(pr.statusCheckRollup) ? pr.statusCheckRollup : []).map(watchedCheckOf),
     };
   };
   return {
@@ -123,7 +123,7 @@ export function createGitHost(root, { exec = execFileP, remote = "origin", main 
     async openPr({ branch, title, body }) {
       await gh("pr", "create", "--head", branchName(branch), "--base", main, "--title", oneLine(title, 200), "--body", String(body).slice(0, 8000));
     },
-    /** -> { number, url, state, sha, mergeable, checks: [{ name, done, ok }] } as the git host reports it now. */
+    /** -> { number, url, state, sha, mergeable, checks: [{ name, done, ok, cancelled, jobId, runId }] } as the git host reports it now. */
     prState: ({ number }) => view(number),
     /** Resolves once the pull request's checks have finished, whatever they showed; prState then says what they showed. */
     async waitChecks({ number }) {
