@@ -46,7 +46,7 @@ export const redactSnapshot = (snapshot) => ({
 const SHOWN_CHANGES = ["ticket", "frontier", "usage", "sessions", "requests", "metrics-changed", "delivery", "meeting", "build", "library"];
 /** A change frame as a preview gets it: a hidden one keeps its seq and carries nothing else. */
 export const redactChange = (change) => {
-  if (change?.type === "agent") return { ...change, agent: redactAgent(change.agent) };
+  if (change?.type === "agent") return { seq: change.seq, type: "agent", agent: redactAgent(change.agent) };
   return SHOWN_CHANGES.includes(change?.type) ? change : { seq: change?.seq, type: "hidden" };
 };
 
