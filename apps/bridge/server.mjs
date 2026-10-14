@@ -14,6 +14,7 @@ import { createDelivery } from "./delivery/runner.mjs";
 import { createDeliveryBoard } from "./delivery/board.mjs";
 import { createGitHost } from "./delivery/git-host.mjs";
 import { createJobLog } from "./delivery/jobs.mjs";
+import { createCiWatch } from "./delivery/ci-watch.mjs";
 import { createMeetings } from "./meetings/runner.mjs";
 import { createMeetingStore } from "./meetings/store.mjs";
 import { createMeetingLog } from "./meetings/log.mjs";
@@ -74,7 +75,9 @@ function installProcessHandlers(host) {
 // the UI is served from that release (a hashed file it lacks is looked for in ui/previous); with no usable link, and when
 // denState is not given, the UI comes from uiDir, the checkout's build, as before. `box` is the build box (build/box.mjs) a
 // preview and a go-live are built in; with none, both are refused.
-export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, denState, box, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption } = {}) {
+// den-mvp/29: watchCi starts the CI watch's timer (delivery/ci-watch.mjs); the production entry point passes true. Without
+// it the watch only reads its record, so a test never reaches the git host by the timer.
+export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, denState, box, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption, watchCi = false } = {}) {
   let actualPort = port;
   const git = gitHost ?? createGitHost(root);
   // den-mvp/10 and 11: the den's own build, when it is served from release folders: previews, go-live and roll back. The
@@ -90,10 +93,12 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   let host;
   let delivery;
   let meetings;
+  const ciWatch = createCiWatch({ git, file: path.join(stateDir ?? path.join(root, ".scratch", "_run"), "ci-watch.json"), onChange: (change) => hub.publish(change) });
   const hub = createHub(root, {
     agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts(), capacity: (lockedRefs) => host.capacity(lockedRefs),
     deliveries: () => delivery?.snapshot() ?? [],
     meetings: () => meetings?.snapshot() ?? [],
+    ci: () => ciWatch.snapshot(),
     build: () => readBuild_(),
   });
   // den-mvp outcome 4: the production entry point passes the den's catalog; with none, no agent is given a connection.
@@ -143,6 +148,8 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     proposeTicket: ({ title, text }) => createTicket(root, { feature: DEN_FEATURE, slug: "proposed", title, text, source: "den meeting", status: "ready-for-human" }),
   });
   await meetings.ready;
+  await ciWatch.ready;
+  if (watchCi) ciWatch.start();
   let postChain = Promise.resolve();
   await hub.ready;
   const server = http.createServer(async (req, res) => {
@@ -566,6 +573,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
       await new Promise((resolve) => setImmediate(resolve)); // the runs' end hooks are queued behind the shutdown
       await delivery.shutdown();
       await meetings.shutdown();
+      ciWatch.stop();
       uninstallProcessHandlers();
       await new Promise((resolve) => {
         hub.close();
@@ -600,7 +608,7 @@ if (startedDirectly()) {
   const { createResourceLauncher } = await import("./cells/resource-group.mjs");
   const { createBuildBox } = await import("./build/box.mjs");
   const launcher = createResourceLauncher({ env: process.env });
-  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }) });
+  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }), watchCi: true });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
   console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);

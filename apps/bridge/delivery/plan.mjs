@@ -35,6 +35,10 @@ const USER_MERGE = [...USER_MERGE_PATHS.map(matcher), (p) => p.startsWith(".")];
 const CI = CI_PATHS.map(matcher);
 /** Is this repository path CI configuration? */
 export const isCiPath = (file) => typeof file === "string" && CI.some((m) => m(file));
+// den-mvp/29: the wall (what an agent may do, and the code that enforces it) and CI. A red check on a change to one goes to security.
+const WALL = [...governance.guardrailPaths, "apps/bridge/cells/**"].map(matcher);
+/** Is this repository path part of the wall or CI configuration? */
+export const isWallPath = (file) => typeof file === "string" && (WALL.some((m) => m(file)) || isCiPath(file));
 // What the UI build bundles: apps/ui/ and the shared packages it imports. (It also imports from apps/bridge/, which is a
 // user-merge path.) delivery/ui-paths.test.mjs walks the UI's imports and fails when a file outside these is bundled.
 export const UI_PATHS = ["apps/ui/", "packages/"];

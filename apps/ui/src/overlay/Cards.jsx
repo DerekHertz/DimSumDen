@@ -208,6 +208,16 @@ function DeliverControl({ scope, ticket, snapshot, steer, deliveries }) {
 // A delivery that waits on the user (Needs you). Resume asks the bridge to look again and go on; Close ends it for good.
 // den-mvp/12: a UI change waits with a link to its preview; Approve covers the merge and going live, and Decline sends
 // it back to the developer with the note.
+// den-mvp/29: a red pull request has nothing to approve here: what to do, and the link to it.
+function CiNote({ request }) {
+  return (
+    <div aria-live="polite">
+      <p className="small needs-expires">{request.next}</p>
+      {request.pr ? <p className="small"><a href={request.pr} target="_blank" rel="noreferrer noopener">Open pull request #{request.prNumber}</a></p> : null}
+    </div>
+  );
+}
+
 function DeliveryDecision({ request, steer, deliveries }) {
   const off = steer.demo ? "Demo mode: actions are off" : steer.state === "none" ? "Not signed in to steer" : null;
   const busy = deliveries.inflight.has(request.id);
@@ -477,6 +487,8 @@ export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder,
               ? <PermissionDecision key={current.key} request={current} onAnswer={onAnswer} onOpenThread={onOpenThread} />
               : current.kind === "delivery"
                 ? (deliveries ? <DeliveryDecision key={current.key} request={current} steer={steer} deliveries={deliveries} /> : null)
+              : current.kind === "ci"
+                ? <CiNote key={current.key} request={current} />
               : current.kind === "meeting"
                 ? (meetings ? <MeetingDecision key={current.key} request={current} steer={steer} meetings={meetings} onOpenMeeting={onOpenMeeting} /> : null)
               : prompt.show
