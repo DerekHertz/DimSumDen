@@ -4,7 +4,9 @@ import { initialConnection, connectionReducer } from "./connection.mjs";
 import { appendTranscript, entryFromFrame, seedTranscripts } from "./transcript-buffer.mjs";
 
 export function createLiveStore({ connect, fetchState, now }) {
-  let state = { snapshot: null, connection: initialConnection(now()), metricsRevision: 0, transcripts: {} };
+  // ownBuild (den-mvp/12): the live build in the first snapshot this page got, which is the build the page was made from.
+  // It is never replaced, so a later snapshot or build frame that names another build means a new version went live.
+  let state = { snapshot: null, connection: initialConnection(now()), metricsRevision: 0, transcripts: {}, ownBuild: null };
   const listeners = new Set();
   let handle = null;
   let closed = false;
@@ -16,7 +18,7 @@ export function createLiveStore({ connect, fetchState, now }) {
   const conn = (type) => connectionReducer(state.connection, { type, now: now() });
   // Every snapshot (first load, reconnect, refetch) carries what the bridge kept of each transcript; it replaces
   // those agents' buffers, so nothing is lost or doubled across a gap.
-  const withSnapshot = (snapshot) => ({ snapshot, connection: conn("snapshot"), transcripts: seedTranscripts(state.transcripts, snapshot?.transcripts) });
+  const withSnapshot = (snapshot) => ({ snapshot, connection: conn("snapshot"), transcripts: seedTranscripts(state.transcripts, snapshot?.transcripts), ownBuild: state.ownBuild ?? snapshot?.build?.live?.sha ?? null });
 
   async function refetch() {
     try {
