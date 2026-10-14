@@ -39,7 +39,7 @@
 //                   `Ctrl K` hint hides under 600px; the intent input is 44px tall at a coarse pointer.
 //   timeline        "Live", a time (h:mm), and the caption "Drag back to replay the den's history".
 //   no sidebar      no aside, no .panel, no "Plan usage" text, no role=meter inside the cards.
-import { test, before, after } from "node:test";
+import { test, before, after, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "vite";
 import { chromium } from "playwright";
@@ -52,6 +52,8 @@ const ZOOM_NEAREST = 0.55; // digest section 1: dolly factor range, smaller is c
 const ZOOM_FARTHEST = 1.2;
 const near = (a, b, tol = 1.5) => Math.abs(a - b) <= tol;
 
+// ci-cd/07: one browser and dev server, scenarios in parallel (each opens its own context).
+describe("floating cards", { concurrency: 3 }, () => {
 let server;
 let browser;
 let base;
@@ -876,3 +878,4 @@ test("a refused or already-used code shows the same one line, drops the fragment
   assert.deepEqual(posts, []);
   assert.deepEqual(unauth, []);
 }));
+});

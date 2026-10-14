@@ -3,21 +3,17 @@
 // runs them as two parallel jobs. `npm test` still runs everything.
 //   node scripts/test-split.mjs browser|rest
 import { spawnSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(fileURLToPath(new URL("../", import.meta.url)));
 const TOP = ["apps", "packages", "scripts"];
 
-// Browser files that do not carry the .browser.test.mjs suffix.
-export const BROWSER_FILES = [
-  "apps/ci-cd/smoke.test.mjs",
-  "apps/ci-cd/smoke-ui.test.mjs",
-  "apps/ui/den-scene-mounted.test.mjs",
-  "apps/ui/src/overlay/floating-cards.test.mjs",
-  "apps/ui/src/scene/tally-expand.test.mjs",
-];
+// A file is a browser file when it imports Playwright (found by reading it, so a new browser test
+// cannot silently land in `rest`), or when it drives the browser through `npm run smoke`.
+export const BROWSER_FILES = ["apps/ci-cd/smoke.test.mjs", "apps/ci-cd/smoke-ui.test.mjs"];
+const PLAYWRIGHT_IMPORT = /(?:from|import\()\s*["']playwright["']/;
 
 function collect(dir, out) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -34,10 +30,17 @@ export function allTestFiles() {
   return out.sort();
 }
 
-export const isBrowserFile = (f) => f.endsWith(".browser.test.mjs") || BROWSER_FILES.includes(f);
+export function isBrowserFile(f, root = ROOT) {
+  if (f.endsWith(".browser.test.mjs") || BROWSER_FILES.includes(f)) return true;
+  try {
+    return PLAYWRIGHT_IMPORT.test(readFileSync(path.join(root, f), "utf8"));
+  } catch {
+    return false;
+  }
+}
 
 export function split(files = allTestFiles()) {
-  return { browser: files.filter(isBrowserFile), rest: files.filter((f) => !isBrowserFile(f)) };
+  return { browser: files.filter((f) => isBrowserFile(f)), rest: files.filter((f) => !isBrowserFile(f)) };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -46,6 +49,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   if (!groups[mode]) {
     process.stderr.write("usage: test-split.mjs browser|rest\n");
     process.exit(2);
+  }
+  // npm test runs the BOM check first (pretest); the rest job keeps it.
+  if (mode === "rest") {
+    const bom = spawnSync(process.execPath, ["scripts/bom-check.mjs"], { cwd: ROOT, stdio: "inherit" });
+    if (bom.status !== 0) process.exit(bom.status ?? 1);
   }
   const r = spawnSync(process.execPath, ["--test", ...groups[mode]], { cwd: ROOT, stdio: "inherit" });
   process.exit(r.status ?? 1);
