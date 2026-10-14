@@ -4,7 +4,7 @@
 import http from "node:http";
 import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
@@ -19,7 +19,7 @@ import { createMeetings } from "./meetings/runner.mjs";
 import { createMeetingStore } from "./meetings/store.mjs";
 import { createMeetingLog } from "./meetings/log.mjs";
 import { TOPIC_MAX_BYTES } from "./meetings/types.mjs";
-import { DEN_FEATURE, TASK_MAX_BYTES } from "./cells/policy.mjs";
+import { DEN_FEATURE, DESK_REF, TASK_MAX_BYTES } from "./cells/policy.mjs";
 import { createTicket } from "../organism-infra/board-service.mjs";
 import { hasSecret } from "../../scripts/exposure.mjs";
 import { REQUEST_KINDS, appendRequestLine } from "./requests-log.mjs";
@@ -41,6 +41,31 @@ const HOST = "127.0.0.1";
 const MAX_BODY = 4096;
 // 07 security forward: the panel renders agent text; forbid inline and foreign script.
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'";
+
+// den-mvp/30: Bao's desk ticket, written the first time the user talks to Bao, if it is missing (flag "wx": never over the board's own copy). Parked, so it is
+// in no queue, no audit flags it idle, and no route can dispatch a run on it.
+const DESK_TICKET = `# ${DESK_REF.split("/")[1].slice(0, 2)}: Bao's desk
+
+**Type:** task
+
+**Priority:** P3
+
+**Status:** parked
+
+**Blocked by:** none
+
+**Source:** den-mvp/30. The bridge keeps this ticket: the user's conversation with Bao in the den runs on it. It is never worked.
+
+## Comments
+`;
+async function ensureDesk(root) {
+  const [feature, name] = DESK_REF.split("/");
+  const dir = path.join(root, ".scratch", feature, "issues");
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, `${name}.md`), DESK_TICKET, { flag: "wx" }).catch((err) => {
+    if (err?.code !== "EEXIST") throw err;
+  });
+}
 
 // Process-level handlers (ADR 0016 decision 2, process lifetime): the bridge owns its children, so a signal, a crash
 // or an exit ends them. Returns the function that removes every handler it installed.
@@ -118,6 +143,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
       return !snap.tickets.some((t) => t.ref === ref) ? "unknown" : snap.frontier.includes(ref) ? "ok" : "nofrontier";
     },
     lockedRefs: async () => (await hub.snapshot()).tickets.filter((t) => t.holder).map((t) => t.ref),
+    openDesk: () => ensureDesk(root),
   });
   await host.ready;
   delivery = createDelivery({
