@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
 test("every test's Vite server loads its config natively", () => {
-  const files = execFileSync("git", ["grep", "-l", "createServer({ configFile:", "--", "*.mjs"], { encoding: "utf8" }).trim().split("\n");
+  const files = execFileSync("git", ["grep", "-l", "createServer({ configFile:", "--", "*.mjs", ":!scripts/vite-native-config.test.mjs"], { encoding: "utf8" }).trim().split("\n");
   assert.ok(files.length > 0);
   for (const f of files) {
     for (const line of readFileSync(f, "utf8").split("\n").filter((l) => l.includes("createServer({ configFile:"))) {
