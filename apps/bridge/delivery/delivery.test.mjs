@@ -58,6 +58,16 @@ function fakeGitHost(root) {
       await call("merge", a);
       h.pr.state = "MERGED";
     },
+    // den-mvp/29: why a check is red, and a re-run of a run's failed jobs (h.onRerun says what the checks become).
+    notes: {},
+    logs: {},
+    onRerun: null,
+    annotations: async ({ jobId }) => h.notes[jobId] ?? [],
+    failedLog: async ({ jobId }) => h.logs[jobId] ?? "",
+    rerunFailed: async (a) => {
+      await call("rerunFailed", a);
+      if (h.onRerun) h.checks = h.onRerun;
+    },
   });
 }
 
@@ -209,6 +219,66 @@ describe("one approved job, from the den to a merged pull request", () => {
   });
 });
 
+// den-mvp/29: the checks on the pull request.
+describe("red checks on a delivery's pull request", () => {
+  const red = (jobId, more = {}) => [{ name: "test", done: true, ok: false, cancelled: false, jobId, runId: "900", ...more }];
+  const green = [{ name: "test", done: true, ok: true, cancelled: false, jobId: "50", runId: "901" }];
+
+  test("a failing test goes back to the developer with the log; the fixed commit is pushed and merged", async () => {
+    const t = await setup();
+    await t.start();
+    t.git.checks = red("1");
+    t.git.logs["1"] = "test\tRun\t2026-10-14T20:00:00.0000000Z ok 1 - fine\ntest\tRun\t2026-10-14T20:00:01.0000000Z not ok 2 - the queue keeps its order\ntest\tRun\t2026-10-14T20:00:01.0000000Z   expected: 3";
+    const first = await t.toQaPass();
+    const fix = await t.spawn(2);
+    assert.equal(fix.args.role, "developer");
+    assert.equal(git(fix.args.cwd, "rev-parse", "HEAD"), first, "the fix starts at the commit that went red");
+    const findings = readFileSync(path.join(fix.args.cwd, ".den", "findings.md"), "utf8");
+    assert.match(findings, /pull request #7 failed/);
+    assert.match(findings, /## test: first failing test: the queue keeps its order/);
+    assert.match(findings, /not ok 2 - the queue keeps its order\n {2}expected: 3/, "the log from the failing test on, without the runner's prefix");
+    assert.equal(t.sideEffects().includes("rerunFailed"), false, "a failing test is not re-run");
+    t.git.checks = green;
+    const second = t.work(fix, { commit: "fix.txt", say: "Fixed the order." });
+    t.work(await t.spawn(3), { say: "VERDICT: pass" });
+    const done = await t.when((j) => j.state === "merged", "the delivery to merge");
+    assert.equal(done.bounces, 1);
+    assert.equal(t.git.pr.sha, second);
+  });
+
+  test("a timeout is run again once, and a green re-run merges with no developer round", async () => {
+    const t = await setup();
+    await t.start();
+    t.git.checks = red("1", { cancelled: true });
+    t.git.notes["1"] = ["The job has exceeded the maximum execution time of 15m0s"];
+    t.git.onRerun = green;
+    await t.toQaPass();
+    const done = await t.when((j) => j.state === "merged", "the delivery to merge");
+    assert.equal(done.bounces, 0);
+    assert.deepEqual(t.git.calls.filter((c) => c[0] === "rerunFailed").map((c) => c[1]), [{ runId: "900" }]);
+    assert.equal(t.fake.spawns.length, 2, "no developer round");
+  });
+
+  test("a timeout after the re-run is a bounce; red again after the fix pauses as failed-twice", async () => {
+    const t = await setup();
+    await t.start();
+    t.git.checks = red("1", { cancelled: true });
+    t.git.notes["1"] = ["The job has exceeded the maximum execution time of 15m0s"];
+    t.git.notes["2"] = t.git.notes["1"];
+    t.git.onRerun = red("2", { cancelled: true });
+    await t.toQaPass();
+    const fix = await t.spawn(2);
+    assert.match(readFileSync(path.join(fix.args.cwd, ".den", "findings.md"), "utf8"), /## test: timed out at 15m0s/);
+    t.git.checks = red("3");
+    t.work(fix, { commit: "fix.txt", say: "Made it faster." });
+    t.work(await t.spawn(3), { say: "VERDICT: pass" });
+    const waiting = await t.paused("failed-twice");
+    assert.match(waiting.pause.reason, /required check failed/);
+    assert.equal(t.git.calls.filter((c) => c[0] === "rerunFailed").length, 1, "one re-run per delivery commit, none after");
+    assert.equal(t.sideEffects().includes("merge"), false);
+  });
+});
+
 describe("a review that sends the work back", () => {
   test("the developer fixes it from the same commit with the findings, and every check runs again on the new commit", async () => {
     const t = await setup();
@@ -264,7 +334,6 @@ describe("what stops a delivery, and what it leaves", () => {
     ["a line that looks like a secret", async (t) => { t.git.secret = true; await t.toQaPass(); }, "possible-secret", "in-review"],
     ["a change to CI configuration, which is never pushed", async (t) => { t.git.files = [".github/workflows/ci.yml"]; await t.toQaPass(); t.work(await t.spawn(2), { say: "VERDICT: pass" }); await t.paused("ci-change"); assert.deepEqual(t.sideEffects(), []); }, "ci-change", "in-review"],
     ["a push the remote refuses", async (t) => { t.git.fail.push = `remote: denied ${["https://user", "hunter2@example.invalid/r.git"].join(":")}`; await t.toQaPass(); }, "publish-failed", "in-review"],
-    ["a red check", async (t) => { t.git.checks = [{ name: "test", done: true, ok: false }]; await t.toQaPass(); }, "ci-red", "in-review"],
     ["no check at all", async (t) => { t.git.checks = []; await t.toQaPass(); }, "no-checks", "in-review"],
     ["a conflict with main", async (t) => { t.git.mergeable = "CONFLICTING"; await t.toQaPass(); }, "conflict", "in-review"],
     ["a merge the git host refuses", async (t) => { t.git.fail.merge = "review required"; await t.toQaPass(); }, "publish-failed", "in-review"],
@@ -307,7 +376,8 @@ describe("what stops a delivery, and what it leaves", () => {
       return real(a);
     };
     await t.toQaPass();
-    await t.paused("ci-red");
+    const fix = await t.spawn(2);
+    assert.equal(fix.args.role, "developer", "red checks send the work back");
     assert.equal(t.sideEffects().includes("merge"), false);
   });
 

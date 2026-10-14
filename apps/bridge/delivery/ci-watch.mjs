@@ -41,17 +41,35 @@ const recordOf = (raw) => {
 // A red check is acted on once: an Actions job by its id (a re-run is a new id), any other check by its name.
 const keyOf = (c) => c.jobId ?? `name:${line(c.name, 100)}`;
 
-// What a failed job's log says first: the first failing test, or nothing.
-const firstFailure = (log) => {
-  const m = /not ok \d+ - (.+)$/m.exec(String(log).slice(-LOG_MAX));
-  return m ? `first failing test: ${line(m[1], 200)}` : "";
+// A failed job's log from its first failing test on (each line without the runner's job, step and time prefix), or its end.
+const EXCERPT_LINES = 60;
+const excerptOf = (log) => {
+  const lines = String(log).slice(-LOG_MAX).split("\n").map((l) => l.replace(/^[^\t]*\t[^\t]*\t\S+Z ?/, ""));
+  const at = lines.findIndex((l) => /^\s*not ok \d+ - /.test(l));
+  return (at < 0 ? lines.slice(-EXCERPT_LINES) : lines.slice(at, at + EXCERPT_LINES)).join("\n").trim();
 };
+
+/**
+ * Why a red check is red: a timeout (from its annotations), a cancel, or the first failing test in its log, with the log
+ * from there on. -> { name, reason, timeout, excerpt }. The delivery runner uses it too.
+ */
+export async function classify(git, check) {
+  if (check.cancelled && check.jobId) {
+    const notes = await git.annotations({ jobId: check.jobId }).catch(() => []);
+    const t = notes.map((n) => TIMEOUT_RE.exec(n)).find(Boolean);
+    return t ? { name: check.name, reason: `timed out at ${t[1]}`, timeout: true, excerpt: "" } : { name: check.name, reason: "cancelled", timeout: false, excerpt: "" };
+  }
+  const log = check.jobId ? await git.failedLog({ jobId: check.jobId }).catch(() => "") : "";
+  const m = /not ok \d+ - (.+)$/m.exec(String(log).slice(-LOG_MAX));
+  return { name: check.name, reason: m ? `first failing test: ${line(m[1], 200)}` : "failed", timeout: false, excerpt: excerptOf(log) };
+}
 
 /**
  * git: openPrs, annotations, failedLog, rerunFailed (delivery/git-host.mjs). file: the record's path. onChange(change) is
  * told { type: "ci", ci } after each change. now() -> ms, a test seam.
  */
-export function createCiWatch({ git, file, onChange = () => {}, now = Date.now, pollMs = POLL_MS }) {
+// skip(number): a pull request a den delivery is waiting on; its runner handles its checks (delivery/runner.mjs).
+export function createCiWatch({ git, file, onChange = () => {}, now = Date.now, pollMs = POLL_MS, skip = () => false }) {
   let prs = {}; // number -> record
   let error = null;
   let polledAt = null;
@@ -70,17 +88,6 @@ export function createCiWatch({ git, file, onChange = () => {}, now = Date.now, 
     await rename(`${file}.tmp`, file);
   };
 
-  // Why a red job is red: a timeout (from its annotations), a cancel, or the first failing test in its log.
-  async function reasonOf(check) {
-    if (check.cancelled && check.jobId) {
-      const notes = await git.annotations({ jobId: check.jobId }).catch(() => []);
-      const t = notes.map((n) => TIMEOUT_RE.exec(n)).find(Boolean);
-      return t ? { name: check.name, reason: `timed out at ${t[1]}`, timeout: true } : { name: check.name, reason: "cancelled", timeout: false };
-    }
-    const log = check.jobId ? await git.failedLog({ jobId: check.jobId }).catch(() => "") : "";
-    return { name: check.name, reason: firstFailure(log) || "failed", timeout: false };
-  }
-
   async function look(pr) {
     const kept = prs[pr.number];
     const rec = kept && kept.sha === pr.sha ? kept : { sha: pr.sha, seen: [], reds: 0, item: null };
@@ -92,7 +99,7 @@ export function createCiWatch({ git, file, onChange = () => {}, now = Date.now, 
     if (red.length === 0) return;
     rec.seen = [...rec.seen, ...red.map(keyOf)].slice(-SEEN_MAX);
     rec.reds += 1;
-    const jobs = await Promise.all(red.map(reasonOf));
+    const jobs = await Promise.all(red.map((c) => classify(git, c)));
     const since = new Date(now()).toISOString();
     const shown = jobs.map(({ name, reason }) => ({ name, reason }));
     if (rec.reds === 1 && jobs.every((j) => j.timeout)) {
@@ -114,7 +121,10 @@ export function createCiWatch({ git, file, onChange = () => {}, now = Date.now, 
       const open = await git.openPrs();
       const numbers = new Set(open.map((p) => String(p.number)));
       for (const n of Object.keys(prs)) if (!numbers.has(n)) delete prs[n];
-      for (const pr of open) await look(pr);
+      for (const pr of open) {
+        if (skip(pr.number)) delete prs[pr.number];
+        else await look(pr);
+      }
       error = null;
       await save();
     } catch (err) {

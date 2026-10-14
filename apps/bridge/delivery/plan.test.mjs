@@ -28,6 +28,8 @@ describe("the delivery plan", () => {
     ["a qa bounce: the developer fixes it, from the candidate", job({ qa: { sha: SHA, verdict: "bounce" } }, { bounces: 1 }), { kind: "run", role: "developer", at: SHA, since: BASE, fix: true }],
     ["qa passed: the scripted checks", job({ qa: passed.qa }), { kind: "check" }],
     ["a risk hit: security reviews", job({ ...passed, risk: riskOf({ clean: false, hits: 2, security: true }) }), { kind: "run", role: "security", at: SHA, since: BASE }],
+    ["a red check, counted as a bounce: the developer fixes it from the candidate", job({ ...open, ci: { sha: SHA, state: "red", failed: ["test"] } }, { bounces: 1 }), { kind: "run", role: "developer", at: SHA, since: BASE, fix: true }],
+    ["a timed-out check: run again", job({ ...open, ci: { sha: SHA, state: "timeout", failed: ["test"] } }), { kind: "ci-rerun" }],
     ["a security bounce: the developer fixes it", job({ ...passed, risk: riskOf({ security: true }), security: { sha: SHA, verdict: "bounce" } }, { bounces: 1 }), { kind: "run", role: "developer", at: SHA, since: BASE, fix: true }],
     ["clean: publish", job(passed), { kind: "publish" }],
     ["security passed: publish", job({ ...passed, risk: riskOf({ security: true }), security: { sha: SHA, verdict: "pass" } }), { kind: "publish" }],
@@ -41,7 +43,7 @@ describe("the delivery plan", () => {
   const pauses = [
     ["the second bounce", job({ qa: { sha: SHA, verdict: "bounce" } }, { bounces: MAX_BOUNCES }), "failed-twice"],
     ["a line that looks like a secret", job({ ...passed, risk: riskOf({ secret: true }) }), "possible-secret"],
-    ["a red check", job({ ...open, ci: { sha: SHA, state: "red", failed: ["test"] } }), "ci-red"],
+    ["a red check after the work was sent back twice", job({ ...open, ci: { sha: SHA, state: "red", failed: ["test"] } }, { bounces: MAX_BOUNCES }), "failed-twice"],
     ["no check at all", job({ ...open, ci: { sha: SHA, state: "none" } }), "no-checks"],
     ["checks still running", job({ ...open, ci: { sha: SHA, state: "pending" } }), "ci-pending"],
     ["a guardrail path, even when all is green", job({ ...green, risk: riskOf({ security: true, userMerge: true }), security: { sha: SHA, verdict: "pass" } }), "guardrail"],
@@ -82,7 +84,7 @@ describe("the delivery plan", () => {
     ["a built preview with no verdict", job(built), "visual-verdict"],
     ["a verdict for an older commit", job({ ...built, verdict: { sha: OLD, ok: true } }), "visual-verdict"],
     ["a preview that did not build, the second failed check", job({ ...ui, preview: { sha: SHA, ok: false } }, { bounces: MAX_BOUNCES }), "failed-twice"],
-    ["red checks after the approval: nothing is merged and nothing goes live", job({ ...approved, pr: open.pr, ci: { sha: SHA, state: "red", failed: ["test"] } }), "ci-red"],
+    ["red checks after the approval, the second bounce: nothing is merged and nothing goes live", job({ ...approved, pr: open.pr, ci: { sha: SHA, state: "red", failed: ["test"] } }, { bounces: MAX_BOUNCES }), "failed-twice"],
     ["a guardrail path with a ui change: the merge is the user's", job({ ...approved, risk: riskOf({ ui: true, security: true, userMerge: true }), pr: open.pr, ci: green.ci }), "guardrail"],
     ["a merged commit the running bridge is behind", job({ ...merged, live: { sha: SHA, state: "needs-update", reason: "the merged commit changes apps/bridge" } }), "needs-update"],
     ["a go-live build that failed", job({ ...merged, live: { sha: SHA, state: "failed", reason: "the build failed (exit 1)" } }), "go-live-failed"],
@@ -238,13 +240,39 @@ describe("the git-host operations", () => {
     assert.deepEqual(t.calls, []);
   });
 
+  // den-mvp/29: the CI watch's calls.
+  test("the CI watch's calls are fixed argument lists over checked ids", async () => {
+    const t = host({ "pr list": [
+      { number: 9, url: "https://github.com/o/r/pull/9", title: "a\u0007 change", headRefName: "x", headRefOid: SHA, files: [{ path: "a.mjs" }], statusCheckRollup: [] },
+      { number: 10, headRefOid: "not a sha" },
+    ], "annotations": [{ message: "The job has exceeded the maximum execution time of 15m0s" }], "--log-failed": "log text" });
+    assert.deepEqual(await t.git.openPrs(), [{ number: 9, url: "https://github.com/o/r/pull/9", title: "a  change", branch: "x", sha: SHA, files: ["a.mjs"], checks: [] }]);
+    assert.deepEqual(await t.git.annotations({ jobId: "2" }), ["The job has exceeded the maximum execution time of 15m0s"]);
+    assert.equal(await t.git.failedLog({ jobId: "2" }), "log text");
+    await t.git.rerunFailed({ runId: "901" });
+    assert.deepEqual(t.calls.slice(1), [
+      ["gh", "api", "repos/{owner}/{repo}/check-runs/2/annotations"], ["gh", "run", "view", "--job", "2", "--log-failed"], ["gh", "run", "rerun", "901", "--failed"],
+    ]);
+    for (const bad of ["0", "1 --repo x", "-1", "", 5, "1".repeat(21)]) {
+      await assert.rejects(t.git.rerunFailed({ runId: bad }), /not a run id/);
+      await assert.rejects(t.git.failedLog({ jobId: bad }), /not a job id/);
+      await assert.rejects(t.git.annotations({ jobId: bad }), /not a job id/);
+    }
+    assert.equal(t.calls.length, 4);
+  });
+
   test("a pull request's state is read into the few values the runner uses", async () => {
     const t = host({ "pr view": { number: 9, url: "https://github.com/o/r/pull/9", state: "OPEN", headRefOid: SHA, mergeable: "MERGEABLE", statusCheckRollup: [
-      { __typename: "CheckRun", name: "test", status: "COMPLETED", conclusion: "SUCCESS" }, { __typename: "CheckRun", name: "lint", status: "IN_PROGRESS", conclusion: "" },
+      { __typename: "CheckRun", name: "test", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: "https://github.com/o/r/actions/runs/900/job/1" }, { __typename: "CheckRun", name: "lint", status: "IN_PROGRESS", conclusion: "" },
       { __typename: "StatusContext", context: "ci/x", state: "FAILURE" },
+      { __typename: "CheckRun", name: "slow", status: "COMPLETED", conclusion: "CANCELLED", detailsUrl: "https://github.com/o/r/actions/runs/901/job/2?pr=9" },
     ] } });
     const st = await t.git.prState({ number: 9 });
-    assert.deepEqual(st.checks, [{ name: "test", done: true, ok: true }, { name: "lint", done: false, ok: false }, { name: "ci/x", done: true, ok: false }]);
+    const bare = { cancelled: false, jobId: null, runId: null };
+    assert.deepEqual(st.checks, [
+      { name: "test", done: true, ok: true, cancelled: false, jobId: "1", runId: "900" }, { name: "lint", done: false, ok: false, ...bare },
+      { name: "ci/x", done: true, ok: false, ...bare }, { name: "slow", done: true, ok: false, cancelled: true, jobId: "2", runId: "901" },
+    ]);
     assert.equal(st.mergeable, "MERGEABLE");
     assert.equal(st.sha, SHA);
   });

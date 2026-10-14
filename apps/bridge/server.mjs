@@ -93,7 +93,9 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   let host;
   let delivery;
   let meetings;
-  const ciWatch = createCiWatch({ git, file: path.join(stateDir ?? path.join(root, ".scratch", "_run"), "ci-watch.json"), onChange: (change) => hub.publish(change) });
+  // A pull request a delivery is running or waiting on is the delivery's: its runner re-runs a timeout or sends a red back.
+  const ownedByDelivery = (number) => (delivery?.snapshot() ?? []).some((d) => (d.state === "running" || d.state === "paused") && d.pr?.number === number);
+  const ciWatch = createCiWatch({ git, file: path.join(stateDir ?? path.join(root, ".scratch", "_run"), "ci-watch.json"), onChange: (change) => hub.publish(change), skip: ownedByDelivery });
   const hub = createHub(root, {
     agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts(), capacity: (lockedRefs) => host.capacity(lockedRefs),
     deliveries: () => delivery?.snapshot() ?? [],
