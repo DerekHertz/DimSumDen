@@ -13,7 +13,7 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25 # ci-cd/07 brings the job back down; at 15 it cancels 12-15 minute runs
     permissions:
       contents: read
     steps:
