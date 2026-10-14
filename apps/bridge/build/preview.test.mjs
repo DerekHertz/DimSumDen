@@ -220,19 +220,31 @@ describe("the preview listener", () => {
 });
 
 describe("what a preview is told", () => {
-  test("the snapshot leaves out transcripts and permission requests, and nothing else", () => {
-    const snap = { seq: 4, tickets: [{ ref: "fx/01" }], agents: [{ id: "c-1" }], transcripts: { "c-1": { entries: [{ text: "said" }] } }, approvals: [{ id: "a-1", summary: "rm -rf" }], deliveries: [], build: null };
-    const out = redactSnapshot(snap);
-    assert.deepEqual(out, { ...snap, transcripts: {}, approvals: [] });
+  const agent = { id: "c-1", ref: "fx/01", role: "developer", state: "running", tokens: 12, branch: "fx/01-a", tool: { name: "Bash", summary: "cat notes.txt" }, reason: "the run said why", reply: "what the agent wrote last" };
+  const shown = { id: "c-1", ref: "fx/01", role: "developer", state: "running", tokens: 12, branch: "fx/01-a", tool: null, reason: null, reply: null };
+  test("the snapshot is the listed keys: no transcript, no permission request, and no agent's reply, tool call or reason", () => {
+    const snap = { schema: 1, seq: 4, tickets: [{ ref: "fx/01" }], agents: [agent], transcripts: { "c-1": { entries: [{ text: "said" }] } }, approvals: [{ id: "a-1", summary: "rm -rf" }], deliveries: [], meetings: [], build: null };
+    assert.deepEqual(redactSnapshot(snap), { ...snap, agents: [shown], transcripts: {}, approvals: [] });
     assert.equal(snap.approvals.length, 1, "the den's own snapshot is not changed");
+    assert.equal(snap.agents[0].reply, "what the agent wrote last");
   });
-  test("a hidden change keeps its seq and carries nothing else; every other change passes as it is", () => {
+  test("a snapshot key or an agent field nobody listed does not reach a preview", () => {
+    const out = redactSnapshot({ seq: 4, agents: [{ id: "c-1", prompt: "added later" }], notes: "added later" });
+    assert.deepEqual(out, { seq: 4, agents: [{ id: "c-1", tool: null, reason: null, reply: null }], transcripts: {}, approvals: [] });
+  });
+  test("a change of a kind that is not listed keeps its seq and carries nothing else", () => {
     assert.deepEqual(redactChange({ seq: 7, type: "transcript", agentId: "c-1", entry: { text: "said" } }), { seq: 7, type: "hidden" });
     assert.deepEqual(redactChange({ seq: 8, type: "approval", approval: { id: "a-1", summary: "rm -rf" } }), { seq: 8, type: "hidden" });
-    const delivery = { seq: 9, type: "delivery", delivery: { id: "d-1" } };
-    assert.equal(redactChange(delivery), delivery);
+    assert.deepEqual(redactChange({ seq: 9, type: "added-later", text: "anything" }), { seq: 9, type: "hidden" });
   });
-
+  test("a listed change passes as it is; an agent change loses what the agent said", () => {
+    for (const type of ["ticket", "frontier", "usage", "sessions", "requests", "metrics-changed", "delivery", "meeting", "build", "library"]) {
+      const change = { seq: 9, type, delivery: { id: "d-1" } };
+      assert.equal(redactChange(change), change, type);
+    }
+    assert.deepEqual(redactChange({ seq: 10, type: "agent", agent }), { seq: 10, type: "agent", agent: shown });
+    assert.deepEqual(redactChange({ seq: 11, type: "agent", agent: null }), { seq: 11, type: "agent", agent: null });
+  });
   test("over the wire: a permission request reaches the den's stream and state, and a preview gets a hidden frame and an empty list", async () => {
     const t = await makeBridge();
     const tmp = await mkdtemp(path.join(tmpdir(), "den-preview-told-"));

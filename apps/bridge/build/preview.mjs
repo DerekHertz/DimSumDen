@@ -11,8 +11,9 @@
 //   - GET or HEAD of any other path that is no route of the bridge: the built files.
 //   - Everything else (another method, a route not on the list, another Host or Origin, a path out of the folder): 403.
 // What a preview reads it can also carry away: a content policy stops requests to other origins, not a page that
-// navigates itself. So the snapshot and the event stream a preview gets leave out what agents said and asked
-// (redactSnapshot and redactChange below; the bridge applies them in the handlers it hands over).
+// navigates itself. So the snapshot and the event stream a preview gets are lists of what it may see (redactSnapshot
+// and redactChange below; the bridge applies them in the handlers it hands over): nothing an agent said, ran or asked,
+// and nothing this file does not name. A new snapshot key, agent field or kind of change is hidden until it is added.
 import http from "node:http";
 import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
@@ -26,11 +27,28 @@ const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 // (the glb textures load that way, as in the den), never to the den's port or the network.
 export const PREVIEW_CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob:; frame-src 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'";
 
-/** The snapshot as a preview gets it: no transcript and no permission request. */
-export const redactSnapshot = (snapshot) => ({ ...snapshot, transcripts: {}, approvals: [] });
-const HIDDEN_CHANGES = ["transcript", "approval"];
+const pick = (from, keys) => Object.fromEntries(keys.filter((key) => key in from).map((key) => [key, from[key]]));
+// An agent as a preview gets it: who it is and how far along. Its reply, its tool call and its reason are text the
+// agent or its run wrote, and are left out (as null, the value the den itself gives an agent that has none).
+const AGENT_KEYS = ["id", "ref", "role", "mode", "runtime", "sessionId", "state", "startedAt", "lastEventAt", "tokens", "capabilities", "resume", "worktree", "branch", "model", "usage", "costUsd", "durationMs", "resumeOf", "followUp"];
+const AGENT_HIDDEN = { tool: null, reason: null, reply: null };
+export const redactAgent = (agent) => (agent && typeof agent === "object" ? { ...pick(agent, AGENT_KEYS), ...AGENT_HIDDEN } : null);
+const SNAPSHOT_KEYS = ["schema", "seq", "generatedAt", "sessions", "tickets", "frontier", "usage", "requests", "capacity", "deliveries", "meetings", "build"];
+/** The snapshot as a preview gets it: the listed keys, agents without what they said, no transcript and no permission request. */
+export const redactSnapshot = (snapshot) => ({
+  ...pick(snapshot, SNAPSHOT_KEYS),
+  agents: Array.isArray(snapshot.agents) ? snapshot.agents.map(redactAgent) : [],
+  transcripts: {},
+  approvals: [],
+});
+// The kinds of change a preview is sent. Any other kind (a transcript entry, a permission request, a kind added later)
+// goes out as a hidden frame.
+const SHOWN_CHANGES = ["ticket", "frontier", "usage", "sessions", "requests", "metrics-changed", "delivery", "meeting", "build", "library"];
 /** A change frame as a preview gets it: a hidden one keeps its seq and carries nothing else. */
-export const redactChange = (change) => (HIDDEN_CHANGES.includes(change?.type) ? { seq: change.seq, type: "hidden" } : change);
+export const redactChange = (change) => {
+  if (change?.type === "agent") return { ...change, agent: redactAgent(change.agent) };
+  return SHOWN_CHANGES.includes(change?.type) ? change : { seq: change?.seq, type: "hidden" };
+};
 
 export async function openPreview({ id, dir, reads } = {}) {
   if (typeof id !== "string" || !ID_RE.test(id)) throw new TypeError("openPreview: id must be a job id");

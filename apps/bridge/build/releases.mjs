@@ -166,6 +166,20 @@ export function createReleases({ stateDir, repo, box, npm = npmCi, main = "main"
   const releasesDir = path.join(stateDir, "releases");
   const depsDir = path.join(stateDir, "deps");
   const inflight = new Map();
+  const held = new Map(); // sha12 -> how many callers hold it: a release made and still waiting for its switch
+
+  /** Keeps `sha`'s release out of collect() until the returned function is called (this process's switches only). */
+  function hold(sha) {
+    const id = checkSha(sha).slice(0, 12);
+    held.set(id, (held.get(id) ?? 0) + 1);
+    let done = false;
+    return () => {
+      if (done) return;
+      done = true;
+      if (held.get(id) > 1) held.set(id, held.get(id) - 1);
+      else held.delete(id);
+    };
+  }
 
   const git = (args) => run("git", ["-C", repo, ...args]);
 
@@ -292,9 +306,9 @@ export function createReleases({ stateDir, repo, box, npm = npmCi, main = "main"
     }
   }
 
-  /** Deletes every complete release that no link of either pair points to. */
+  /** Deletes every complete release that no link of either pair points to and nobody holds. */
   async function collect() {
-    const keep = new Set();
+    const keep = new Set(held.keys());
     for (const pair of PAIRS) for (const name of ["current", "previous"]) keep.add(await linkedId(stateDir, pair, name));
     for (const name of await readdir(releasesDir).catch(() => [])) {
       if (keep.has(name) || !(await completeRelease(stateDir, name))) continue;
@@ -361,5 +375,5 @@ export function createReleases({ stateDir, repo, box, npm = npmCi, main = "main"
     }
   }
 
-  return { makeRelease, makeDeps, packagesFor, switchUi, switchBridge, rollbackUi, sweep, paths: { releasesDir, depsDir } };
+  return { makeRelease, makeDeps, packagesFor, hold, switchUi, switchBridge, rollbackUi, sweep, paths: { releasesDir, depsDir } };
 }

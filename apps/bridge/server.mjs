@@ -259,7 +259,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     },
   };
   // den-mvp/09: what a preview listener (build/preview.mjs) is given. It holds these read handlers and no other. The
-  // snapshot and the event stream it gets leave out what agents said and asked (redactSnapshot, redactChange): a preview
+  // snapshot and the event stream it gets are lists of what it may see (redactSnapshot, redactChange): a preview
   // is unreviewed code, and nothing can stop a page from carrying what it reads somewhere else.
   previewReads = {
     "/state": async (req, res) => reply(res, 200, redactSnapshot(await hub.snapshot())),

@@ -150,24 +150,33 @@ export function createDenBuild({ stateDir, repo, box, reads, fetchMain = async (
       if (!(err instanceof ReleaseError)) throw err;
       return failed(err.code === "needs-update" ? "needs-update" : "failed", err.message);
     };
-    // The build is made outside the queue: it has no time limit, and a roll back must never wait behind one.
+    // The build is made outside the queue: it has no time limit, and a roll back must never wait behind one. The release
+    // is held from before the build until after its switch, so the clean-up of a switch that runs in between (a roll
+    // back, another go-live) leaves it in place.
+    const letGo = releases.hold(sha);
     try {
-      await releases.makeRelease(sha, { signal });
-    } catch (err) {
-      return refused(err);
-    }
-    return queued(async () => {
-      const meanwhile = await held(); // a later merge went live while this one was building
-      if (meanwhile) return meanwhile;
       try {
-        await releases.makeRelease(sha, { signal }); // made above: this finds it, unless a switch removed it as unlinked meanwhile
-        await releases.switchUi(sha);
+        await releases.makeRelease(sha, { signal });
       } catch (err) {
         return refused(err);
       }
-      await onSwitch();
-      return { ok: true, release: sha };
-    });
+      return await queued(async () => {
+        const meanwhile = await held(); // a later merge went live while this one was building
+        if (meanwhile) return meanwhile;
+        // Nothing is built in the queue. A release that is gone all the same (another process switched and cleaned up)
+        // fails this go-live, which is then tried again.
+        try {
+          await releases.switchUi(sha);
+        } catch (err) {
+          if (err instanceof ReleaseError && err.code === "missing") return failed("failed", `the release for ${sha.slice(0, 12)} was removed by another switch before it went live; go live again to rebuild it`);
+          return refused(err);
+        }
+        await onSwitch();
+        return { ok: true, release: sha };
+      });
+    } finally {
+      letGo();
+    }
   }
 
   const rollback = (to) => queued(async () => {

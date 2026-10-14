@@ -137,6 +137,27 @@ describe("go live", () => {
     assert.equal(switches, 3);
   });
 
+  test("a release removed before its switch is not rebuilt in the switch queue: the go-live fails and says to try again", async () => {
+    const base = commit({ "package-lock.json": LOCK, "apps/ui/a.txt": "a" });
+    await install(base);
+    const next = commit({ "apps/ui/a.txt": "b" });
+    // What a switch's clean-up does to a complete release no link points to, at the moment the build is done.
+    const make = den.releases.makeRelease;
+    den.releases.makeRelease = async (...args) => {
+      const made = await make(...args);
+      await rm(path.join(state, "releases", next.slice(0, 12)), { recursive: true, force: true });
+      return made;
+    };
+    const builds = box.built.length;
+    const out = await den.goLive({ sha: next });
+    assert.equal(out.ok, false);
+    assert.equal(out.code, "failed");
+    assert.match(out.reason, /go live again/);
+    assert.equal(box.built.length, builds + 1, "built once, outside the queue, and not again inside it");
+    assert.equal(link("ui"), `../releases/${base.slice(0, 12)}`);
+    assert.equal(switches, 0);
+  });
+
   test("two go-lives started together: the later merge ends up live whichever build finishes first", async () => {
     const base = commit({ "package-lock.json": LOCK, "apps/ui/a.txt": "a" });
     await install(base);
