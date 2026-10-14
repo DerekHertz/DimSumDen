@@ -4,6 +4,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { userInfo } from "node:os";
 import { createDemoReplay } from "./demo-replay.mjs";
 import { DEMO_FIXTURE } from "./demo-fixture.mjs";
 import { clock, cardsOf, STEP } from "./demo-test-helpers.mjs";
@@ -95,7 +96,8 @@ describe("the scout's storyline is the recorded run", () => {
 describe("what the fixture may hold", () => {
   const source = readFileSync(new URL("./demo-fixture.mjs", import.meta.url), "utf8");
   test("no home directory, user name or session id from the machine it was recorded on", () => {
-    assert.doesNotMatch(source, /\/home\/|\/Users\/|dhertzell|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    assert.doesNotMatch(source, /\/home\/|\/Users\/|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    assert.ok(!source.toLowerCase().includes(userInfo().username.toLowerCase()), "the fixture names this machine's user");
   });
   test("the header and the README say which part is recorded and which is staged", () => {
     assert.match(source, /recorded/i);

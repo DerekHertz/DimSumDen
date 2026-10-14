@@ -34,7 +34,7 @@ Environment setup for cloud containers (browser path, proxy, usage readings) liv
 
 ### Issue tracker
 
-The board is local markdown under `.scratch/` in the main checkout, with lock-file claims. See `docs/agents/issue-tracker.md`.
+The board is local markdown under `.scratch/` in the main checkout, with lock-file claims. `.scratch/` is its own private git repo, ignored by this one. See `docs/agents/issue-tracker.md`.
 
 ### Domain docs
 

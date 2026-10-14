@@ -4,8 +4,10 @@ dist/
 vendor/
 .claude/worktrees/
 .claude/settings.local.json
-.scratch/**/*.lock
-.scratch/_run/
+# The board is its own private repo, cloned here (docs/agents/issue-tracker.md)
+.scratch/
+.cursor/
+*.doctor-bak
 
 # Blender autosave backups
 *.blend1
