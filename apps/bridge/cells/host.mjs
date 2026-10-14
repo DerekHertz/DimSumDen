@@ -347,6 +347,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     agent.permissionEntries = new Map(); // approval id -> transcript entry id
     agent.autoAllowed = { calls: 0, bytes: 0 }; // connection reads the bridge allowed by itself for this run (den-mvp outcome 4)
     agent.usageByMessage = new Map(); // message id -> the tiers last counted for it
+    agent.cancelling = new Set(); // ids of messages whose cancel is with the runtime
     agent.messages = new Map(); // id of a message written and not yet taken -> its transcript entry id
     return agent;
   }
@@ -826,6 +827,57 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     return { ok: true, status: 202, messageId };
   }
 
+  // ---- cancel and hand-over (organism-infra/107, ADR 0016 slice 2) ------------------------------
+  // Cancel drops a message the child has not taken; only the runtime knows whether it still can. Hand-over is a stop that
+  // ends `handed-over`: the resume string is set by finalize once the process has exited, and the bridge never runs it.
+  async function cancel(id, body) {
+    const agent = typeof id === "string" && AGENT_ID_RE.test(id) ? agents.get(id) : undefined;
+    if (!agent) return refuse(404, "no such agent");
+    if (!agent.proc || agent.exited) return refuse(409, "the agent has already ended");
+    if (agent.stopRequested || shuttingDown) return refuse(409, "the agent is being stopped");
+    const messageId = body?.messageId;
+    if (typeof messageId !== "string" || !UUID_RE.test(messageId)) return refuse(400, "messageId must be a message id");
+    if (typeof agent.proc.cancel !== "function") return refuse(409, "this agent's runtime cannot cancel a message");
+    if (!agent.messages.has(messageId) || agent.cancelling.has(messageId)) return refuse(409, "the message is not waiting");
+    agent.cancelling.add(messageId);
+    let dropped;
+    try {
+      dropped = await agent.proc.cancel(messageId);
+    } catch (err) {
+      console.error(`bridge: could not cancel a message to ${agent.id}: ${err?.message ?? err}`);
+      return refuse(502, "the agent could not cancel the message");
+    } finally {
+      agent.cancelling.delete(messageId);
+    }
+    if (dropped !== true) return refuse(409, "the agent has already taken the message (too late to cancel)");
+    const entry = agent.messages.get(messageId);
+    if (entry === undefined) return refuse(409, "the message is not waiting");
+    agent.messages.delete(messageId);
+    revise(agent, entry, { status: "cancelled" });
+    sessions
+      .append({ event: "cancel", agentId: agent.id, ref: agent.ref, messageId, route: "POST /agents/:id/message/cancel" })
+      .catch((err) => console.error(`bridge: could not write sessions.jsonl: ${err.stack ?? err}`));
+    // The agent reported done while this message was the reason to wait: nothing is waiting now.
+    if (agent.doneOk !== null && agent.messages.size === 0) {
+      clearTimeout(agent.settleTimer);
+      release(agent);
+    }
+    return { ok: true, status: 200 };
+  }
+
+  async function handover(id) {
+    const agent = typeof id === "string" && AGENT_ID_RE.test(id) ? agents.get(id) : undefined;
+    if (!agent) return refuse(404, "no such agent");
+    if (!agent.proc || agent.exited || agent.state === "terminated") return refuse(409, "the agent has already ended");
+    if (!agent.capabilities.handover) return refuse(409, "this agent's runtime offers no hand-over");
+    if (!agent.killing) {
+      sessions.append({ event: "handover", agentId: agent.id, ref: agent.ref, route: "POST /agents/:id/handover" }).catch((err) => console.error(`bridge: could not write sessions.jsonl: ${err.stack ?? err}`));
+      record(agent, { kind: "stop", status: "requested" });
+      terminate(agent, "handed-over");
+    }
+    return { ok: true, status: 202 };
+  }
+
   const textRefused = (text) =>
     !text ? refuse(400, "text must be a non-empty string")
     : Buffer.byteLength(text) > MESSAGE_MAX_BYTES ? refuse(400, `text must be at most ${MESSAGE_MAX_BYTES} bytes`)
@@ -956,6 +1008,8 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     direct,
     stop,
     message: (id, body) => message(id, body),
+    cancel,
+    handover,
     converse,
     // (role, { before?, limit? }) -> a page of the role's durable conversation, or null for a name that is no role
     conversation: (role, page) => (typeof role === "string" && ROLES.includes(role) ? conversations.read(role, page) : Promise.resolve(null)),

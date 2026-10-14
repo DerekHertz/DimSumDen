@@ -218,6 +218,8 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     "POST /tasks": (req, res) => postTask(req, res),
     "POST /agents/:id/stop": (req, res) => stopAgent(req, res),
     "POST /agents/:id/message": (req, res) => messageAgent(req, res),
+    "POST /agents/:id/message/cancel": (req, res) => cancelMessage(req, res),
+    "POST /agents/:id/handover": (req, res) => handoverAgent(req, res),
     "GET /approvals/:id": (req, res) => {
       const approval = host.approval(new URL(req.url, "http://x").pathname.split("/")[2]);
       reply(res, approval ? 200 : 404, approval ?? { error: "no such approval" });
@@ -371,6 +373,23 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     const result = await host.message(id, { text: body.text });
     if (!result.ok) return reply(res, result.status, { error: result.error });
     reply(res, result.status, { ok: true, messageId: result.messageId });
+  }
+  // POST /agents/:id/message/cancel (organism-infra/107): drop a message that is still queued. Only `messageId` is read.
+  async function cancelMessage(req, res) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    const id = new URL(req.url, "http://x").pathname.split("/")[2];
+    const result = await host.cancel(id, { messageId: body.messageId });
+    if (!result.ok) return reply(res, result.status, { error: result.error });
+    reply(res, result.status, { ok: true });
+  }
+  // POST /agents/:id/handover (organism-infra/107): stop the agent so the user can resume it by hand. No body is read.
+  async function handoverAgent(req, res) {
+    if (!(await readBody(req, res))) return;
+    const id = new URL(req.url, "http://x").pathname.split("/")[2];
+    const result = await host.handover(id);
+    if (!result.ok) return reply(res, result.status, { error: result.error });
+    reply(res, result.status, { ok: true });
   }
   // POST /conversations/:role/message (den-mvp outcome 2): one message into a role's conversation. Only `text` and `runId`
   // are read. The host sends it to the live run, or starts a follow-up run that continues an ended run's session.
@@ -541,7 +560,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     port: actualPort,
     newLaunchCode: auth.newLaunchCode,
     previewReads,
-    host: { start: host.start, shutdown: host.shutdown },
+    host: { start: host.start, message: host.message, shutdown: host.shutdown },
     close: async () => {
       await host.shutdown();
       await new Promise((resolve) => setImmediate(resolve)); // the runs' end hooks are queued behind the shutdown
