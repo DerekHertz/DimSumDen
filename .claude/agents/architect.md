@@ -7,6 +7,7 @@ effort: high
 color: purple
 skills:
   - organism-protocol
+  - ponytail
   - codebase-design
   - domain-modeling
 organism:
