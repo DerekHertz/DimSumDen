@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { initialTranscriptState, transcriptKey, transcriptToggle, closeTranscript } from "./transcript-panel.mjs";
+import { initialTranscriptState, transcriptKey, transcriptToggle, closeTranscript, DESK_THREAD } from "./transcript-panel.mjs";
 import { threadEntries, threadView, footModel, stopModel } from "./thread-model.mjs";
+
+const DESK_HINT = "Ask Bao about the repo, the board or CI. Bao proposes work; you start it from the den.";
 
 const STATES = { working: "Working", "needs-you": "Needs your answer", waiting_on_user: "Needs your answer", blocked: "Blocked", done: "Done", failed: "Failed", terminated: "Stopped" };
 const HISTORY_PAGE = 100;
@@ -169,7 +171,8 @@ function Row({ row, onToggle, onAnswer, who }) {
 // The foot of the thread: one box, Send, and Stop with a one-step confirm. The box sends to the live run, or follows up
 // a run that has ended (the bridge continues its session in a new run, and the thread moves to it).
 function Foot({ tx, agent, role, client, connection, signedIn, demo, onAnnounce }) {
-  const foot = footModel({ agent, connection, signedIn, demo });
+  const desk = tx.panel.agentId === DESK_THREAD;
+  const foot = footModel({ agent, connection, signedIn, demo, desk });
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(null);
@@ -194,7 +197,7 @@ function Foot({ tx, agent, role, client, connection, signedIn, demo, onAnnounce 
     setSending(true);
     setSendError(null);
     try {
-      const sent = await client.converse(role, { text: body, runId: agentId });
+      const sent = await client.converse(role, { text: body, runId: desk ? undefined : agentId });
       setText("");
       if (sent?.resumed && sent.agent?.id) tx.follow(sent.agent.id);
     } catch (err) {
@@ -341,7 +344,7 @@ export function TranscriptPanel({ tx, transcripts, agents, approvals, onAnswer, 
       <div className="transcript-log" role="log" aria-live="off" aria-label={`Conversation with ${name}`} tabIndex={0} ref={log} onScroll={onScroll}>
         {history.more ? <p className="thread-earlier"><button type="button" className="transcript-jump-button" disabled={history.loading} onClick={loadEarlier}>{history.loading ? "Loading…" : "Show earlier"}</button></p> : null}
         {history.error ? <p className="transcript-dropped">Earlier messages could not be loaded: {history.error}</p> : null}
-        {view.empty ? <p className="transcript-empty">{view.emptyText}</p> : <>
+        {view.empty ? <p className="transcript-empty">{agentId === DESK_THREAD ? DESK_HINT : view.emptyText}</p> : <>
           {view.droppedNotice ? <p className="transcript-dropped">{view.droppedText}</p> : null}
           <ul className="transcript-list">{view.rows.map((row) => <Row key={row.n} row={row} who={name} onToggle={toggleRow} onAnswer={() => onAnswer?.(agentId)} />)}</ul>
         </>}

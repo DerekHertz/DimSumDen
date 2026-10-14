@@ -190,3 +190,16 @@ test("the card's actions are the QERT row, in keyboard order: Q deny, E allow, R
   assert.match(panel, /Allow <kbd>E<\/kbd>/);
   assert.doesNotMatch(source + panel, /data-key=[ADF]\b|<kbd>[ADF]<\/kbd>/);
 });
+
+// den-mvp/30: Bao's thread always opens. With no run it is the desk's thread, where the first message starts one.
+test("Bao with no run: R opens the desk thread; with a run, its own; other residents keep R off", () => {
+  const bao = { id: 'bao', name: 'Bao', role: 'orchestrator', station: 'Pass', position: { x: 0, z: -2 } };
+  const card = cardFor([bao], [], { x: 0, z: 0, yaw: 0 });
+  assert.deepEqual(card.actions.R, { enabled: true, reason: null });
+  assert.deepEqual([card.agentId, card.threadId], [null, 'desk']);
+  const busy = cardFor([{ ...bao, agent: { id: 'c-1111111111111111', role: 'orchestrator', state: 'working' } }], [], { x: 0, z: 0, yaw: 0 });
+  assert.equal(busy.threadId, 'c-1111111111111111');
+  const mei = cardFor([{ ...bao, id: 'qa', role: 'qa' }], [], { x: 0, z: 0, yaw: 0 });
+  assert.equal(mei.actions.R.enabled, false);
+  assert.equal(mei.threadId, null);
+});
