@@ -129,7 +129,7 @@ export function ciRequests(snapshot) {
         eyebrow: `${STATION_NAME[station]} · ${role === "security" ? "security" : "Bao"} · ${short}`,
         title: `${short} is red${p.state === "asks-user" ? " again on the same commit" : ""}: ${jobs.map((j) => j.name).join(", ") || "a check failed"}`,
         reason: jobs.map((j) => `${j.name}: ${j.reason}`).join("; ") || "A check failed.", reasonFallback: false, plain: true,
-        next: CI_NEXT[p.state], rowText: `${short} · red`, preview: typeof p.title === "string" && p.title ? [p.title] : [], detailLabel: "The pull request",
+        next: typeof p.bao === "string" && p.bao ? `${CI_NEXT[p.state]} ${p.bao}.` : CI_NEXT[p.state], rowText: `${short} · red`, preview: typeof p.title === "string" && p.title ? [p.title] : [], detailLabel: "The pull request",
         age: null, pr: httpsLink(p.url), prNumber: p.number,
       };
     });

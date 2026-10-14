@@ -76,7 +76,7 @@ test("needsYouModel with no snapshot is empty", () => {
 // den-mvp/29: red pull requests from the CI watch.
 test("a red pull request is a Needs you card for Bao, or for security; a re-run and a delivery's own pull request are not", () => {
   const prs = [
-    { number: 7, url: "https://github.com/o/r/pull/7", title: "a change", state: "red", route: "orchestrator", jobs: [{ name: "test", reason: "timed out at 15m0s" }] },
+    { number: 7, url: "https://github.com/o/r/pull/7", title: "a change", state: "red", route: "orchestrator", jobs: [{ name: "test", reason: "timed out at 15m0s" }], bao: "Bao was told" },
     { number: 8, url: "javascript:alert(1)", title: "", state: "asks-user", route: "security", jobs: [{ name: "security", reason: "failed" }] },
     { number: 9, state: "rerun", route: "orchestrator", jobs: [] },
     { number: 10, state: "red", route: "orchestrator", jobs: [] },
@@ -87,6 +87,7 @@ test("a red pull request is a Needs you card for Bao, or for security; a re-run 
   assert.equal(ci[0].title, "PR #7 is red: test");
   assert.equal(ci[0].reason, "test: timed out at 15m0s");
   assert.equal(ci[0].pr, "https://github.com/o/r/pull/7");
+  assert.match(ci[0].next, /Bao was told\.$/);
   assert.equal(ci[1].title, "PR #8 is red again on the same commit: security");
   assert.equal(ci[1].pr, null, "only an https link is rendered");
   assert.equal(needsYouModel({ tickets: [], ci: null }, 0).count, 0);
