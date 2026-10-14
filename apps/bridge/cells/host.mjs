@@ -25,7 +25,7 @@ import path from "node:path";
 import { hasSecret } from "../../../scripts/exposure.mjs";
 import {
   AGENT_ID_RE, KILL_GRACE_MS, LIVE_STATES, MAX_CONCURRENT_AGENTS, MODES, REF_RE, ROLES, SESSION_CAP, SLOTS, slotClassOf, UUID_RE,
-  USAGE_REFUSE_AT, APPROVAL_TTL_MS, SHUTDOWN_SPAWN_WAIT_MS, DIRECT_MODE,
+  USAGE_REFUSE_AT, APPROVAL_TTL_MS, SHUTDOWN_SPAWN_WAIT_MS, DIRECT_MODE, DESK_REF,
   TRANSCRIPT_AGENTS, TRANSCRIPT_ENTRIES, TRANSCRIPT_RESULT_MAX, TRANSCRIPT_TEXT_MAX, REPLY_EXCERPT_MAX, USAGE_MESSAGES,
   MESSAGE_MAX_BYTES, MESSAGE_QUEUE_MAX, MESSAGE_SETTLE_MS, CONNECTION_AUTO_BYTES, CONNECTION_AUTO_CALLS,
 } from "./policy.mjs";
@@ -48,8 +48,8 @@ const REPORT_MAX = 16000; // characters of a run's last message kept as its repo
 const HISTORY_CAP = 200; // ended agents kept in the snapshot, oldest dropped first
 const EVENT_DRAIN_MS = 250; // how long to wait for the event stream to end after the process exits
 
-const ENTRY_ROUTES = { dispatch: "POST /agents", start: "start()", direct: "POST /tasks" }; // the audit's `route`
 const CONVERSE_ROUTE = "POST /conversations/:role/message";
+const ENTRY_ROUTES = { dispatch: "POST /agents", start: "start()", direct: "POST /tasks", desk: CONVERSE_ROUTE }; // the audit's `route`
 const END_STATES = ["done", "failed", "terminated"];
 const UNVERIFIED = "bridge-restart-unverified"; // sessions.mjs: a replayed run with no end line
 const refuse = (status, error) => ({ ok: false, status, error });
@@ -93,7 +93,7 @@ const NO_CONNECTIONS = parseCatalog({ connections: [] });
 
 // den-mvp outcome 4: `library` is the catalog of connections and its record (library/library.mjs). Without one, an agent is
 // started with no connection and every connection tool is refused.
-export function createHost({ root, runtime, policy = {}, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], onChange = () => {}, recordRun = async () => {}, onEnd = async () => {}, library = createLibrary({ catalog: NO_CONNECTIONS }) }) {
+export function createHost({ root, runtime, policy = {}, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], openDesk = async () => {}, onChange = () => {}, recordRun = async () => {}, onEnd = async () => {}, library = createLibrary({ catalog: NO_CONNECTIONS }) }) {
   const maxConcurrent = Math.min(policy.maxConcurrent ?? MAX_CONCURRENT_AGENTS, SESSION_CAP);
   const sessionCap = Math.min(policy.sessionCap ?? SESSION_CAP, SESSION_CAP);
   const graceMs = policy.killGraceMs ?? KILL_GRACE_MS;
@@ -530,7 +530,12 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
   // names that file by a path built from the bridge's own root and the validated ref.
   const ticketFile = (ref) => path.join(root, ".scratch", ref.split("/")[0], "issues", `${ref.split("/")[1]}.md`);
   const promptFor = (a) =>
-    a.meeting
+    a.ref === DESK_REF
+      ? "You are Bao, the orchestrator, at your desk in the den. Read .claude/agents/orchestrator.md for who you are. " +
+        "Here the user talks with you with no ticket: answer their messages about the repo, the board and CI, reading what you need. " +
+        "Do not claim, dispatch, hand off or release anything, and change no file. When work should happen, propose it in words " +
+        "(a ticket to write, a delivery to start, a meeting to call): the user starts it from the den. The user's message follows."
+      : a.meeting
       ? meetingPrompt({ role: a.role, part: a.meeting.part, ref: a.ref, ticketFile: ticketFile(a.ref) })
       : a.delivery
       ? deliveryPrompt({ role: a.role, mode: a.mode, ref: a.ref, ticketFile: ticketFile(a.ref), since: a.delivery.since, fix: a.delivery.findings !== undefined })
@@ -903,10 +908,13 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       target = agents.get(runId);
       if (!target || target.role !== role) return refuse(404, `no such ${role} run`);
     } else {
-      const mine = [...agents.values()].filter((a) => a.role === role);
+      // den-mvp/30: Bao's thread with no run named is the desk's: its live run, a follow-up of its last, or a new one.
+      const atDesk = role === "orchestrator";
+      const mine = [...agents.values()].filter((a) => a.role === role && (!atDesk || a.ref === DESK_REF));
       const live = mine.filter(isLive);
       if (live.length > 1) return refuse(409, `${live.length} ${role} runs are live; say which run the message is for`);
       target = live[0] ?? mine.at(-1);
+      if (atDesk && (!target || (!isLive(target) && !canContinue(target)))) return desk(text);
       if (!target) return refuse(404, `no ${role} run to follow up; start a task first`);
     }
     if (isLive(target) && !target.releasing && !target.stopRequested) {
@@ -916,6 +924,20 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     // The run is closing (it reported done, or was stopped): the follow-up starts once it is over.
     if (isLive(target)) await target.finished;
     return followUp(target, text);
+  }
+
+  // den-mvp/30: a new run at Bao's desk. The user's text is its first message, never part of the prompt.
+  async function desk(text) {
+    try {
+      await openDesk(); // writes the desk ticket when it is missing
+    } catch (err) {
+      console.error(`bridge: could not write Bao's desk ticket: ${err?.message ?? err}`);
+      return refuse(500, "could not write Bao's desk ticket");
+    }
+    const started = await admit({ ref: DESK_REF, role: "orchestrator" }, { entry: "desk" });
+    if (!started.ok) return started;
+    const sent = await message(started.agent.id, { text }, CONVERSE_ROUTE);
+    return sent.ok ? { ...started, runId: started.agent.id, resumed: true } : sent;
   }
 
   async function followUp(prev, text) {

@@ -379,3 +379,61 @@ describe("what an ask and a stop leave in the thread (organism-infra/230)", () =
     assert.deepEqual(tail, [["stop", "requested"], ["ended", "terminated"]]);
   });
 });
+
+// den-mvp/30: Bao's desk. Bao's thread with no run named goes to the desk ticket, which the bridge writes when it is missing.
+describe("Bao's desk: talking to Bao with no ticket", () => {
+  const DESK = path.join(".scratch", "den", "issues", "00-bao.md");
+
+  test("the first message starts a walled orchestrator run on the parked desk ticket; the text is a message, not the prompt", async () => {
+    const t = await setup();
+    const res = await t.say("orchestrator", { text: "What is red on CI right now?" });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.equal(res.body.resumed, true);
+    const rec = t.fake.spawns.at(-1);
+    assert.deepEqual([rec.args.role, rec.args.ref], ["orchestrator", "den/00-bao"]);
+    assert.match(rec.args.prompt, /You are Bao, the orchestrator, at your desk/);
+    assert.match(rec.args.prompt, /change no file/);
+    assert.doesNotMatch(rec.args.prompt, /red on CI/, "no client string reaches the prompt");
+    assert.deepEqual(rec.sent.map((m) => m.text), ["What is red on CI right now?"]);
+    const ticket = await readFile(path.join(t.fx.root, DESK), "utf8");
+    assert.match(ticket, /^\*\*Status:\*\* parked$/m);
+    assert.equal(((await t.state()).frontier ?? []).includes("den/00-bao"), false, "the desk is in no queue");
+  });
+
+  test("the next message goes to the live desk run; after it ends, a follow-up continues the same session", async () => {
+    const t = await setup();
+    const first = await t.say("orchestrator", { text: "first" });
+    const rec = t.fake.spawns.at(-1);
+    const live = await t.say("orchestrator", { text: "second" });
+    assert.equal(live.body.resumed, false);
+    assert.deepEqual(rec.sent.map((m) => m.text), ["first", "second"]);
+    assert.equal(t.fake.spawns.length, 1);
+    for (const m of rec.sent) rec.emit({ type: "message-applied", id: m.id });
+    rec.emit({ type: "done", ok: true });
+    await t.ended(first.body.runId);
+    const next = await t.say("orchestrator", { text: "third" });
+    assert.equal(next.body.resumed, true);
+    const again = t.fake.spawns.at(-1);
+    assert.equal(again.args.resume, true);
+    assert.equal(again.args.prompt, "third");
+  });
+
+  test("an orchestrator run on another ticket does not take the desk's messages, and the desk ticket is never rewritten", async () => {
+    const t = await setup();
+    const other = await t.start("orchestrator", NO_GATE_REF);
+    await mkdir(path.join(t.fx.root, ".scratch", "den", "issues"), { recursive: true });
+    await writeFile(path.join(t.fx.root, DESK), "the board's own copy\n");
+    other.rec.emit({ type: "done", ok: true });
+    await t.ended(other.id);
+    const res = await t.say("orchestrator", { text: "hello" });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.equal(t.fake.spawns.at(-1).args.ref, "den/00-bao");
+    assert.equal(await readFile(path.join(t.fx.root, DESK), "utf8"), "the board's own copy\n");
+  });
+
+  test("another role with no run is still a 404: only Bao has a desk", async () => {
+    const t = await setup();
+    assert.equal((await t.say("developer", { text: "hi" })).status, 404);
+    assert.equal(t.fake.spawns.length, 0);
+  });
+});

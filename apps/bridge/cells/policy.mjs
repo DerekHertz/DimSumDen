@@ -19,6 +19,9 @@ export const MODES = ["specify", "verify", "review", "spec", "critique", "direct
 
 // den-v1 loop S1 (ADR 0016 decision 3, amendment 9): tasks started from the den with POST /tasks.
 export const DEN_FEATURE = "den"; // the board feature the route writes its tickets under
+// den-mvp/30: Bao's desk, the ticket the user's ticket-free conversation with Bao runs on. The bridge writes it (parked, so
+// it is in no queue and never worked); a run on it gets the desk prompt, not a ticket's.
+export const DESK_REF = "den/00-bao";
 export const DIRECT_MODE = "direct"; // set by the host for such an agent; not in MODES, so no client can ask for it
 export const TASK_MAX_BYTES = 2048; // UTF-8 bytes of task text (the 2 KB message cap of decision 6.7)
 
