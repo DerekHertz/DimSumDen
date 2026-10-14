@@ -10,6 +10,7 @@ import { createRestaurantDetails } from './restaurant.mjs';
 import { loadPandaSettings } from './panda-settings.mjs';
 import { loadReview } from '../../review/review-data.mjs';
 import { prepareReviewLayout } from '../../review/layout.mjs';
+import { mountExpansionPond } from '../expansion/pond.mjs';
 import { createLeisure } from '../../review/leisure.mjs';
 import { createReviewAgents } from '../../review/agents.mjs';
 import { liveActorsFromSnapshot } from '../../review/live-actors.mjs';
@@ -61,6 +62,8 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
     for (const p of d.pandas) compactPanda(THREE, p);
     prepareReviewLayout(d);
     compactEnvironment(THREE, d);
+    // den-mvp/17: the v5 koi pond, local only. Before the controller and actors, which copy den.obstacles.
+    const pond = mountExpansionPond(d);
     const details = createRestaurantDetails(d, sampleId);
     const leisure = createLeisure(d, createBao);
     const landscape = createReviewLandscape(d, sampleId);
@@ -76,11 +79,11 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
     const previous = { background: scene.background, fog: scene.fog };
     scene.background = new THREE.Color(REVIEW_SKIES[sampleId]);
     scene.fog = new THREE.Fog(REVIEW_SKIES[sampleId], 70, 115);
-    live.current = { den: d, controller, media, details, leisure, agents, anchored: new Set(), time: 0 };
+    live.current = { den: d, controller, media, details, pond, leisure, agents, anchored: new Set(), time: 0 };
     setDen(d); onReady(d);
     return () => {
       onReady(null); live.current = null;
-      controller.dispose(); agents.dispose(); details.dispose(); leisure.dispose(); landscape.dispose(); construction.dispose(); d.dispose();
+      controller.dispose(); agents.dispose(); pond.dispose(); details.dispose(); leisure.dispose(); landscape.dispose(); construction.dispose(); d.dispose();
       scene.background = previous.background; scene.fog = previous.fog;
       stage.anchors.clear();
     };
@@ -112,7 +115,7 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
       player: stage.explorer?.active ? stage.explorer.camera.position : null,
     });
     if (!reduced) l.time += dt;
-    l.details.update(l.time, reduced); l.leisure.update(l.time, reduced); l.agents.update(reduced ? 0 : dt, reduced);
+    l.details.update(l.time, reduced); l.pond.update(l.time, reduced); l.leisure.update(l.time, reduced); l.agents.update(reduced ? 0 : dt, reduced);
     l.den.world.updateMatrixWorld(true);
     // Chips and the card hang above the role pandas, the den's only live pandas; a ref that left drops its anchor.
     const figures = l.agents.liveFigures();
@@ -158,6 +161,9 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
       // Overview: a click on a role panda opens its card (the one walk mode shows). The ticket chip above it still opens the ticket.
       const actor = object.userData.actorKey;
       if (actor && !stage.explorer?.active && inputs.current.onPick) { e.stopPropagation(); inputs.current.onPick(actor); return; }
+      // The pond's koi and tea table respond locally; nothing is sent to the bridge.
+      const local = object.userData.denInteraction;
+      if (local) { e.stopPropagation(); live.current?.pond.interact(local.id); return; }
       const ref = object.userData.ticketRef;
       if (ref) { e.stopPropagation(); inputs.current.onSelect(ref); return; }
       if (object.name === 'Tally abacus') { e.stopPropagation(); stage.tallyHit = true; inputs.current.onOpenTally(); return; }
