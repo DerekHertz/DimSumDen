@@ -12,8 +12,8 @@ const workflow = fs.readFileSync(path.join(REPO_ROOT, ".github/workflows/ci.yml"
 
 // Split the "test" job's steps into blocks, one per "- name:" entry.
 function testJobSteps() {
-  const job = workflow.split(/^  security:/m)[0].split(/^  test:/m)[1];
-  assert.ok(job, "expected a test job in ci.yml");
+  const job = workflow.split(/^  test-browser:/m)[1]?.split(/^  security:/m)[0];
+  assert.ok(job, "expected a test-browser job in ci.yml");
   return job
     .split(/^      - name: /m)
     .slice(1)
@@ -26,7 +26,7 @@ function installStep() {
   return step;
 }
 
-test("the Playwright install step has its own timeout-minutes, well under the job's 25", () => {
+test("the Playwright install step has its own timeout-minutes, well under the job's 15", () => {
   const m = installStep().text.match(/^\s+timeout-minutes:\s*(\d+)/m);
   assert.ok(m, "install step needs timeout-minutes so a stall cannot eat the job timeout");
   assert.ok(Number(m[1]) <= 10, `install step timeout ${m[1]} must be <= 10 minutes`);
@@ -59,9 +59,20 @@ test("a warm cache skips the install step", () => {
   assert.match(installStep().text, /if:\s*steps\.[\w-]+\.outputs\.cache-hit\s*!=\s*'true'/);
 });
 
-test("the cache and install steps run before npm test", () => {
+test("the cache and install steps run before the browser tests", () => {
   const steps = testJobSteps();
   const idx = (re) => steps.findIndex((s) => re.test(s.text));
-  const run = idx(/run:\s*npm test/);
+  const run = idx(/run:\s*npm run test:browser/);
   assert.ok(run > idx(/actions\/cache@/) && run > idx(/playwright\s+install/));
+});
+
+test("CI runs two parallel test jobs, each with a timeout of 15 minutes or less", () => {
+  for (const name of ["test", "test-browser"]) {
+    const m = workflow.match(new RegExp(`^  ${name}:\\n[\\s\\S]*?timeout-minutes:\\s*(\\d+)`, "m"));
+    assert.ok(m, `expected a ${name} job with timeout-minutes`);
+    assert.ok(Number(m[1]) <= 15, `${name} timeout ${m[1]}`);
+  }
+  assert.match(workflow, /npm run test:rest/);
+  assert.match(workflow, /npm run test:browser/);
+  assert.ok(!/needs:/.test(workflow), "the two test jobs must not wait on each other");
 });
