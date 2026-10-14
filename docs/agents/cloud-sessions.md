@@ -4,7 +4,7 @@ A living log of what works and what costs too much when the orchestrator runs in
 
 ## What works
 
-- **Board branch:** each cloud session commits board writes (tickets, handoffs, `usage.jsonl`) to its own session branch and opens a draft board PR; the user merges it at the end. A new session, cloud or local, starts from `main`.
+- **Board branch:** the board is a separate private repo (see `issue-tracker.md`); the environment setup must clone it into `.scratch/`. Each cloud session commits board writes (tickets, handoffs, `usage.jsonl`) to its own branch of the board repo and opens a draft PR there; the user merges it at the end. A new session, cloud or local, starts from `main`.
 - **Cell start:** `node scripts/cell-start.mjs --base <sha> --detach` works in the cloud for reviewers.
 - **Risk-check through scout:** a scout in a temporary detached worktree runs `npm ci` and `npm run risk-check -- origin/main...HEAD`, and also checks for merge conflicts. It costs about 11k tokens and 18 s.
 - **PRs:** the GitHub MCP tools open, watch and squash-merge PRs; `gh` is not available. After you subscribe to a PR, a `check_suite.completed` event arrives when CI finishes, so there is no need to poll.

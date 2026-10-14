@@ -719,16 +719,16 @@ test("runSpikes S3: the allow phase answers only Write with allow; Bash and the 
 // ---- Fixture scrub -----------------------------------------------------------------------
 
 test("scrubText removes home paths and the username from every line and keeps the JSON valid", () => {
-  const home = "/home/dhertzell";
+  const home = "/home/pandauser";
   const lines = [
     JSON.stringify({ type: "system", subtype: "init", cwd: "/tmp/den-conformance-abc", memory_paths: { auto: `${home}/.claude/projects/-tmp-x/memory/` }, plugins: [{ name: "p", path: `${home}/.claude/plugins/cache/p` }] }),
-    JSON.stringify({ type: "user", message: { content: `ran as dhertzell in /Users/dhertzell/work and /tmp/dhertzell-scratch` } }),
+    JSON.stringify({ type: "user", message: { content: `ran as pandauser in /Users/pandauser/work and /tmp/pandauser-scratch` } }),
     JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "t1", name: "Write", input: { file_path: "/tmp/den-conformance-abc/a.txt" } }] } }),
   ].join("\n") + "\n";
-  const out = scrubText(lines, { homes: [home, "/Users/dhertzell/"], username: "dhertzell" });
+  const out = scrubText(lines, { homes: [home, "/Users/pandauser/"], username: "pandauser" });
   assert.ok(!out.includes(home), out);
-  assert.ok(!out.includes("/Users/dhertzell"), out);
-  assert.ok(!/dhertzell/.test(out), out);
+  assert.ok(!out.includes("/Users/pandauser"), out);
+  assert.ok(!/pandauser/.test(out), out);
   const parsed = out.split("\n").filter(Boolean).map((l) => JSON.parse(l));
   assert.equal(parsed.length, 3);
   assert.equal(parsed[0].subtype, "init");

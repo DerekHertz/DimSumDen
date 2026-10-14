@@ -144,6 +144,12 @@ npm run board -- status <feature>/<NN-slug>
 
 Layout: `apps/ui` (React + React Three Fiber, built by Vite, the only build step), `apps/bridge` (localhost server), `apps/organism-infra` (the board CLI), `apps/ci-cd` (dev server and smoke checks), `scripts/` (relay tooling). Everything else is Node ESM run with `node --test`.
 
+### Claude Code settings
+
+Once you trust this folder in Claude Code, `.claude/settings.json` runs repo scripts as hooks: `scripts/session-start.mjs` on start, `scripts/hooks/context-budget.mjs` before each tool call, and `scripts/notify.mjs` on notifications and stop, plus `scripts/statusline.mjs` for the status line. To show plan usage, `scripts/usage-claude.mjs` reads your Claude Code login (`~/.claude/.credentials.json`, or the macOS Keychain) and sends it only to `api.anthropic.com`. The shared allow list holds read-only commands; put push and PR permissions in your own `.claude/settings.local.json`. Read changes to `scripts/` and `.claude/` in an outside pull request before you open its branch in Claude Code.
+
+The board (`.scratch/`) is not part of this repo; without one, the board is simply empty.
+
 ## More
 
 - [`CONTEXT.md`](CONTEXT.md): the glossary (organism, station, cell, genome, Bao, perch and the rest).

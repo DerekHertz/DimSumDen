@@ -75,8 +75,9 @@ describe("sessions.jsonl is written, 0700 dir and 0600 file", () => {
   });
 
   test(".scratch/_run/ is git-ignored", async () => {
+    // Either the run folder alone, or the whole board (since the board became its own repo).
     const gitignore = await readFile(path.join(REPO_ROOT, ".gitignore"), "utf8");
-    assert.match(gitignore, /^\.scratch\/_run\/?$/m);
+    assert.match(gitignore, /^\.scratch\/(_run\/?)?$/m);
   });
 });
 
