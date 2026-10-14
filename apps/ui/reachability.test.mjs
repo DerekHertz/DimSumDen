@@ -109,7 +109,7 @@ test("no file under apps/ui/src or apps/ui/public is unreachable from main.jsx, 
   const tests = all.filter((f) => isTest(f));
 
   // A fixture or helper is test support; any other unreachable module is dead code.
-  const isSupport = (f) => /(fixture|helpers?)[.\-]/.test(f.split("/").pop()) || /(fixture|helpers?)\.[a-z]+$/.test(f);
+  const isSupport = (f) => /(fixtures?|helpers?)[.\-]/.test(f.split("/").pop()) || /(fixtures?|helpers?)\.[a-z]+$/.test(f);
 
   // A test is kept when it names at least one reachable module, or when it mounts
   // the live App through the vite config. (A test that still names a deleted
