@@ -26,7 +26,7 @@ function installStep() {
   return step;
 }
 
-test("the Playwright install step has its own timeout-minutes, well under the job's 15", () => {
+test("the Playwright install step has its own timeout-minutes, well under the job's 25", () => {
   const m = installStep().text.match(/^\s+timeout-minutes:\s*(\d+)/m);
   assert.ok(m, "install step needs timeout-minutes so a stall cannot eat the job timeout");
   assert.ok(Number(m[1]) <= 10, `install step timeout ${m[1]} must be <= 10 minutes`);
