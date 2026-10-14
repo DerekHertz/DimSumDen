@@ -26,7 +26,7 @@ const snapshotOf = (more = {}) => ({
 
 // `frames` are change frames sent after the snapshot on the event stream.
 async function open({ width = 1280, snapshot = snapshotOf(), frames = [], signedIn = true } = {}) {
-  const server = await createServer({ configFile: 'apps/ui/vite.config.mjs', server: { port: 0, host: '127.0.0.1' }, logLevel: 'silent' });
+  const server = await createServer({ configFile: 'apps/ui/vite.config.mjs', configLoader: 'native', server: { port: 0, host: '127.0.0.1' }, logLevel: 'silent' });
   await server.listen();
   const browser = await chromium.launch(buildLaunchOptions());
   const context = await browser.newContext({ reducedMotion: 'reduce', viewport: { width, height: 900 } });

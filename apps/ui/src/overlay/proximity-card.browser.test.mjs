@@ -8,7 +8,7 @@ import { lightenScene } from '../../../ci-cd/light-scene.mjs';
 test('entering the den shows the nearby resident card; moving away and leaving hides it', { timeout: 60000 }, async () => {
   let server, browser;
   try {
-    server = await createServer({ configFile: 'apps/ui/vite.config.mjs', server: { port: 0, host: '127.0.0.1' }, logLevel: 'silent' });
+    server = await createServer({ configFile: 'apps/ui/vite.config.mjs', configLoader: 'native', server: { port: 0, host: '127.0.0.1' }, logLevel: 'silent' });
     await server.listen();
     browser = await chromium.launch(buildLaunchOptions());
     const context = await browser.newContext({ reducedMotion: 'reduce' });
