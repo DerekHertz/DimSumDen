@@ -10,8 +10,8 @@
  */
 export const WALK = Object.freeze({
   eyeHeight: 1.65, speed: 2.1, sprintSpeed: 3.5, radius: 0.26, stepLength: 0.08,
-  // The floor is the site plan's disc (review/layout.mjs: radius 24.5 at the origin); the walker's body stays inside it.
-  floorRadius: 24.5,
+  // The floor is the site plan's disc (review/layout.mjs: radius 28 at the origin, den-mvp/22); the walker's body stays inside it.
+  floorRadius: 28,
   pitchMin: -1.20, pitchMax: 1.30, lookRate: 0.0025, bob: 0.012, bobRate: 9,
   start: Object.freeze({x: 0, z: 8.95, yaw: 0, pitch: 0.14}),
 });

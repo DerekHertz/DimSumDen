@@ -564,7 +564,7 @@ export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZo
  * The right-hand column. Needs you opens by itself while something waits, until the user toggles it; Stations & queue,
  * Meetings and Library start closed. Under 600 px all start closed and opening one closes the others.
  */
-export function Cards({ snapshot, ownBuild = null, now, connection, placeholder, camera, steering, onAnswer, onOpenThread = null, demo = false }) {
+export function Cards({ snapshot, ownBuild = null, now, connection, placeholder, camera, steering, onAnswer, onOpenThread = null, demo = false, libraryRequest = 0 }) {
   const [needsOpen, setNeedsOpen] = useState(null); // null: follow the data
   const [stationsOpen, setStationsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -595,6 +595,12 @@ export function Cards({ snapshot, ownBuild = null, now, connection, placeholder,
     setLibraryOpen(!libraryOpen);
     if (!libraryOpen && isPhone()) { setNeedsOpen(false); setStationsOpen(false); setMeetingsOpen(false); }
   };
+  // den-mvp/22: a click on the archive's chest in the scene opens this same Library card (one card, no duplicate).
+  useEffect(() => {
+    if (!libraryRequest) return;
+    setLibraryOpen(true);
+    if (isPhone()) { setNeedsOpen(false); setStationsOpen(false); setMeetingsOpen(false); }
+  }, [libraryRequest]);
   const toggleMeetings = () => {
     setMeetingsOpen(!meetingsOpen);
     if (!meetingsOpen && isPhone()) { setNeedsOpen(false); setStationsOpen(false); setLibraryOpen(false); }

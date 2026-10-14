@@ -18,13 +18,13 @@ export function createReviewLandscape(den,sample='morning'){
   for(let i=0;i<70;i++){
     const angle=i/70*Math.PI*2;
     for(let j=0;j<3;j++){
-      const r=21.8+random()*1.8,x=Math.sin(angle)*r+(random()-0.5)*0.7,z=Math.cos(angle)*r-1+(random()-0.5)*0.7;
+      const r=25.6+random()*1.4,x=Math.sin(angle)*r+(random()-0.5)*0.7,z=Math.cos(angle)*r-0.5+(random()-0.5)*0.7;
       if(z>14&&Math.abs(x)<18||!isReviewPlantingClear(x,z,0.25))continue;
       const h=3.6+random()*3.8;stems.push({position:[x,h/2,z],scale:[0.07+random()*0.06,h,0.09]});
       for(let k=1;k<5;k++)nodes.push({position:[x,k*h/5,z],scale:[0.14,0.045,0.14]});
       for(let k=0;k<3;k++)leaves.push({position:[x+(random()-0.5)*1.6,h*(0.65+k*0.1),z+(random()-0.5)*1.6],scale:[0.9,0.2,0.5],rotation:random()*Math.PI});
     }
-    const r=20.5+random()*1.6,x=Math.sin(angle)*r,z=Math.cos(angle)*r-1;
+    const r=24.6+random()*1.6,x=Math.sin(angle)*r,z=Math.cos(angle)*r-0.5;
     if((z<15||Math.abs(x)>17)&&isReviewPlantingClear(x,z,0.8))rocks.push({position:[x,0.25,z],scale:[0.4+random()*0.7,0.3+random()*0.35,0.5+random()*0.8],rotation:angle});
   }
   instances('Dense boundary bamboo',new THREE.CylinderGeometry(1,1,1,6),bamboo,stems);
@@ -43,7 +43,7 @@ export function createReviewLandscape(den,sample='morning'){
   for(let layer=0;layer<3;layer++){
     const poses=[];
     for(let i=0;i<12;i++){
-      const x=-39+i*7+random()*2,z=-31-layer*7,h=7+random()*10+(layer===2?5:0);
+      const x=-39+i*7+random()*2,z=-35-layer*7,h=7+random()*10+(layer===2?5:0);
       poses.push({position:[x,h*0.4-1,z],scale:[4+random()*2,h,3.5+random()*2],rotation:random()*Math.PI});
     }
     const ridge=instances(`Mountain ridge ${layer+1}`,new THREE.DodecahedronGeometry(1,0),mountains[layer],poses);ridge.castShadow=false;peaks.push(ridge);

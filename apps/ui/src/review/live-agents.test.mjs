@@ -152,7 +152,8 @@ test("when the agent's session ends the panda returns to idle wandering: task an
     assert.ok(["walking", "leisure"].includes(row.state), `now ${row.state}`);
     assert.equal(row.task, "");
     assert.equal(row.bubble, "");
-    settle(agents, 90);
+    // Until it first arrives: a panda that has sat a while moves on to another area, so a fixed wait would depend on the walk's length.
+    for (let i = 0; i < 900 && dev.state !== "leisure"; i++) agents.update(0.1);
     assert.equal(dev.state, "leisure", "arrived at a leisure area");
     assert.ok(dist(dev, dev.home) > 1.5, "no longer standing at its station");
     assert.equal(rows(agents, "developer")[0].bubble, "");

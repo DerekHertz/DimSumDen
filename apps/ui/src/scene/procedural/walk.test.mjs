@@ -4,7 +4,7 @@ import { walk, startWalk, isDenPositionBlocked, WALK } from './walk.mjs';
 import { withDen } from './den-test-helpers.mjs';
 
 // Expected values are literals from the ticket (den-v1/03) and the frozen layout: the floor spans
-// inside the disc of radius 24.5 at the origin (den-layout/04; a rectangle before the site plan), walking speed is 2.1 m/s (3.5 sprinting), pitch is -1.20..1.30.
+// inside the disc of radius 28 at the origin (den-layout/04; a rectangle before the site plan), walking speed is 2.1 m/s (3.5 sprinting), pitch is -1.20..1.30.
 const open = {obstacles: [], avoid: []};
 const run = (state, input, seconds, fps, world = open) => {
   const dt = 1 / fps;
@@ -42,8 +42,8 @@ test('movement per second is the same at 30 and 120 fps, within 5%', () => {
   assert.ok(Math.abs(Math.hypot(sideSlow.x + 3, sideSlow.z) - Math.hypot(sideFast.x + 3, sideFast.z)) < 0.1);
 });
 
-test('walking into the floor edge (radius 24.5) stops at the edge, on every side', () => {
-  const edge = 24.5 - 0.26;
+test('walking into the floor edge (radius 28) stops at the edge, on every side', () => {
+  const edge = 28 - 0.26;
   const east = run(at(23, 0, {yaw: -Math.PI / 2}), north, 3, 60);
   assert.ok(east.x <= edge && east.x > edge - 0.2, 'east x ' + east.x);
   const west = run(at(-23, 0, {yaw: Math.PI / 2}), north, 3, 60);
@@ -92,7 +92,7 @@ test('a long walk through the real den never ends inside a prop or off the floor
     for (const yaw of [0, 0.4, -0.4, 1.2, -1.2, 2.5, Math.PI]) {
       const end = run(at(0, 8.95, {yaw}), north, 25, 30, {obstacles: den.obstacles, avoid: []});
       assert.equal(isDenPositionBlocked(end.x, end.z, den.obstacles, 0.26), false, 'yaw ' + yaw);
-      assert.ok(Math.hypot(end.x, end.z) <= 24.5 - 0.26 + 1e-9, 'yaw ' + yaw + ' ended off the floor');
+      assert.ok(Math.hypot(end.x, end.z) <= 28 - 0.26 + 1e-9, 'yaw ' + yaw + ' ended off the floor');
     }
   });
 });

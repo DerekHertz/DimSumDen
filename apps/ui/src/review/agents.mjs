@@ -7,8 +7,8 @@ import {compactReviewGear} from './compact-gear.mjs';
 import {ROLE_HOMES,REVIEW_PLACES,REVIEW_OBSTACLES} from './site-plan.mjs';
 import {LIVE_ROLES} from './live-actors.mjs';
 
-const RADIUS=0.65,STEP=0.5,BOUNDS=[-20.5,20.5,-20,19];
-const inside=([x,z])=>x>=BOUNDS[0]&&x<=BOUNDS[1]&&z>=BOUNDS[2]&&z<=BOUNDS[3]&&Math.hypot(x,z)<=23.5;
+const RADIUS=0.65,STEP=0.5,BOUNDS=[-26,26,-26,26],GARDEN_REACH=27;
+const inside=([x,z])=>x>=BOUNDS[0]&&x<=BOUNDS[1]&&z>=BOUNDS[2]&&z<=BOUNDS[3]&&Math.hypot(x,z)<=GARDEN_REACH;
 const clear=(p,obstacles)=>inside(p)&&!isDenPositionBlocked(...p,obstacles,RADIUS+0.02);
 const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
 function lineClear(a,b,obstacles){
