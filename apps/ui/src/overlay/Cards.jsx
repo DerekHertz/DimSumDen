@@ -542,7 +542,7 @@ export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZo
       {m.next.length === 0 ? (
         <p className="muted">The susan is empty.</p>
       ) : (
-        <ul className="queue-rows queue-rows-scroll">
+        <ul className="queue-rows queue-rows-flow">
           {m.next.map((r) => (
             <li key={r.ref} className="queue-row">
               <div className="queue-line">

@@ -10,7 +10,7 @@ function Chevron() {
 /** A card: a header button (aria-expanded) that opens and closes a body. The body stays in the DOM, hidden, so aria-controls resolves. */
 export function Card({ id, overlay, label, edge, open, onToggle, title, aside, busy, children }) {
   return (
-    <section className={`card card-${edge}`} data-overlay={overlay} aria-label={label} aria-busy={busy || undefined}>
+    <section className={`card card-${edge}${open ? "" : " card-closed"}`} data-overlay={overlay} aria-label={label} aria-busy={busy || undefined}>
       <h2 className="card-head">
         <button type="button" className="card-toggle" aria-expanded={open} aria-controls={`${id}-body`} onClick={onToggle}>
           <span className="card-title">{title}</span>{" "}
