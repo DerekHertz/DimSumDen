@@ -72,3 +72,22 @@ test("stationsModel with no snapshot: five open pills, three dormant (Cubs 0 asl
 test("needsYouModel with no snapshot is empty", () => {
   assert.deepEqual(needsYouModel(null, NOW), { count: 0, requests: [] });
 });
+
+// den-mvp/29: red pull requests from the CI watch.
+test("a red pull request is a Needs you card for Bao, or for security; a re-run and a delivery's own pull request are not", () => {
+  const prs = [
+    { number: 7, url: "https://github.com/o/r/pull/7", title: "a change", state: "red", route: "orchestrator", jobs: [{ name: "test", reason: "timed out at 15m0s" }] },
+    { number: 8, url: "javascript:alert(1)", title: "", state: "asks-user", route: "security", jobs: [{ name: "security", reason: "failed" }] },
+    { number: 9, state: "rerun", route: "orchestrator", jobs: [] },
+    { number: 10, state: "red", route: "orchestrator", jobs: [] },
+  ];
+  const { requests } = needsYouModel({ tickets: [], ci: { prs }, deliveries: [{ id: "d-1", state: "paused", pr: { number: 10 } }] }, 0);
+  const ci = requests.filter((r) => r.kind === "ci");
+  assert.deepEqual(ci.map((r) => [r.key, r.role, r.station]), [["ci:7", "orchestrator", "pass"], ["ci:8", "security", stationIdOf("security")]]);
+  assert.equal(ci[0].title, "PR #7 is red: test");
+  assert.equal(ci[0].reason, "test: timed out at 15m0s");
+  assert.equal(ci[0].pr, "https://github.com/o/r/pull/7");
+  assert.equal(ci[1].title, "PR #8 is red again on the same commit: security");
+  assert.equal(ci[1].pr, null, "only an https link is rendered");
+  assert.equal(needsYouModel({ tickets: [], ci: null }, 0).count, 0);
+});

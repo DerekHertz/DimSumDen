@@ -39,6 +39,10 @@ export function applyEvent(state, event) {
       next.meetings = found ? meetings.map((m) => (m.id === event.meeting.id ? event.meeting : m)) : [...meetings, event.meeting];
       break;
     }
+    // den-mvp/29: the CI watch's red pull requests, whole each time.
+    case "ci":
+      next.ci = event.ci ?? null;
+      break;
     // den-mvp/12 (ADR 0026 decision 8): the den's own build after a switch (a go-live or a roll back), or null.
     case "build":
       next.build = event.build ?? null;
