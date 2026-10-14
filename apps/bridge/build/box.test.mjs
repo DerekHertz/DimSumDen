@@ -54,9 +54,10 @@ describe("the bubblewrap argv", () => {
     assert.deepEqual(pairs("--setenv", 2), [["HOME", "/tmp"], ["TMPDIR", "/tmp"]]);
   });
 
-  test("one writable bind (the folder); everything else is read-only, and so is the root", () => {
-    assert.deepEqual(pairs("--bind", 2), [["/srv/release", "/build"]]);
-    assert.deepEqual(pairs("--ro-bind", 2), [["/usr/lib", "/usr/lib"], ["/opt/node/bin/node", "/den/node"], ["/srv/deps/abc/node_modules", "/node_modules"]]);
+  test("one writable bind (the folder's apps/ui/dist); everything else is read-only, the folder and the root included", () => {
+    assert.deepEqual(pairs("--bind", 2), [["/srv/release/apps/ui/dist", "/build/apps/ui/dist"]]);
+    assert.deepEqual(pairs("--ro-bind", 2), [["/usr/lib", "/usr/lib"], ["/opt/node/bin/node", "/den/node"], ["/srv/deps/abc/node_modules", "/node_modules"], ["/srv/release", "/build"]]);
+    assert.ok(argv.indexOf("/build") < argv.indexOf("/build/apps/ui/dist"), "the writable folder is mounted over the read-only one");
     assert.deepEqual(pairs("--tmpfs", 1), [["/tmp"]]);
     assert.deepEqual(pairs("--remount-ro", 1), [["/"]]);
     assert.ok(!argv.includes("--dev-bind") && !argv.includes("--bind-try") && !argv.includes("--ro-bind-try"));
@@ -121,7 +122,7 @@ describe("refusal: nothing builds outside the box", () => {
     const launcher = { enforced: true, calls: 0, launch: async (run) => ((launcher.calls += 1), launch(run)) };
     return launcher;
   };
-  const untouched = () => assert.ok(!existsSync(path.join(folder, "apps/ui/dist")) && !existsSync(path.join(folder, "probe.json")), "the probe never ran");
+  const untouched = () => assert.ok(!existsSync(path.join(folder, "apps/ui/dist")) && !existsSync(path.join(folder, "apps/ui/dist/probe.json")), "the probe never ran");
 
   test("no bubblewrap: refused, the blocker is named, the launcher is never asked", async () => {
     const launcher = counting(async () => assert.fail("launched"));
@@ -186,6 +187,7 @@ describe("live: a probe build in the box", { skip }, () => {
   let server;
   let result;
   let probe;
+  let config;
 
   before(async () => {
     const home = await temp(".den-box-test-", homedir());
@@ -197,11 +199,16 @@ describe("live: a probe build in the box", { skip }, () => {
     folder = await probeFolder({
       reads: [homeFile, "/etc/passwd", fileURLToPath(import.meta.url)],
       lists: [homedir(), "/home", "/etc"],
-      writes: ["/build/inside.txt", "/tmp/scratch.txt", path.join(outside, "escaped.txt"), path.join(homedir(), "den-box-escaped.txt"), "/escaped.txt", "/node_modules/escaped.txt", "/usr/lib/escaped.txt"],
+      writes: ["/build/apps/ui/dist/inside.txt", "/build/inside.txt", "/build/apps/bridge/server.mjs", "/build/apps/ui/vite.config.mjs", "/build/probe-input.json", "/tmp/scratch.txt", path.join(outside, "escaped.txt"), path.join(homedir(), "den-box-escaped.txt"), "/escaped.txt", "/node_modules/escaped.txt", "/usr/lib/escaped.txt"],
       port: server.address().port,
     });
+    // What a release's folder also holds: the bridge code the service runs.
+    await mkdir(path.join(folder, "apps/bridge"));
+    await writeFile(path.join(folder, "apps/bridge/server.mjs"), "// the bridge\n");
+    config = readFileSync(path.join(folder, UI_CONFIG), "utf8");
     result = await box.build({ folder, packages });
-    probe = existsSync(path.join(folder, "probe.json")) ? JSON.parse(readFileSync(path.join(folder, "probe.json"), "utf8")) : null;
+    const report = path.join(folder, "apps/ui/dist/probe.json");
+    probe = existsSync(report) ? JSON.parse(readFileSync(report, "utf8")) : null;
   });
   after(() => (server?.close(), cleanup()));
 
@@ -219,9 +226,17 @@ describe("live: a probe build in the box", { skip }, () => {
     assert.ok(!JSON.stringify(probe).includes(secret));
   });
 
+  test("it can write to its output folder and nowhere else in its own folder: not the bridge's code, not its own config", () => {
+    assert.equal(probe.writes["/build/apps/ui/dist/inside.txt"].ok, true);
+    for (const file of ["/build/inside.txt", "/build/apps/bridge/server.mjs", "/build/apps/ui/vite.config.mjs", "/build/probe-input.json"]) {
+      assert.deepEqual(probe.writes[file], { ok: false, code: "EROFS" }, file);
+    }
+    assert.ok(!existsSync(path.join(folder, "inside.txt")));
+    assert.equal(readFileSync(path.join(folder, "apps/bridge/server.mjs"), "utf8"), "// the bridge\n");
+    assert.equal(readFileSync(path.join(folder, UI_CONFIG), "utf8"), config);
+  });
+
   test("it cannot write outside its folder", () => {
-    assert.equal(probe.writes["/build/inside.txt"].ok, true);
-    assert.equal(readFileSync(path.join(folder, "inside.txt"), "utf8"), "probe");
     assert.equal(probe.writes["/tmp/scratch.txt"].ok, true);
     assert.ok(!existsSync("/tmp/scratch.txt") || readFileSync("/tmp/scratch.txt", "utf8") !== "probe", "the box's /tmp is private");
     for (const file of [path.join(outside, "escaped.txt"), path.join(homedir(), "den-box-escaped.txt"), "/escaped.txt", "/node_modules/escaped.txt", "/usr/lib/escaped.txt"]) {
@@ -263,7 +278,7 @@ describe("live: a probe build in the box", { skip }, () => {
     const sleeping = await probeFolder({ sleep: true });
     const stopper = new AbortController();
     const running = box.build({ folder: sleeping, packages, signal: stopper.signal });
-    await until(() => existsSync(path.join(sleeping, "probe.json")), { what: "the build to start" });
+    await until(() => existsSync(path.join(sleeping, "apps/ui/dist/probe.json")), { what: "the build to start" });
     stopper.abort();
     assert.deepEqual(await running, { ok: false, files: 0, bytes: 0, tail: "", reason: "the build was stopped" });
   });
@@ -272,7 +287,7 @@ describe("live: a probe build in the box", { skip }, () => {
     const sleeping = await probeFolder({ sleep: true });
     const caller = spawn(process.execPath, [fileURLToPath(new URL("./box-stop-probe.mjs", import.meta.url)), sleeping, packages], { stdio: "ignore" });
     const unit = `den-run-build-${caller.pid}-1.scope`;
-    await until(() => existsSync(path.join(sleeping, "probe.json")), { what: "the build to start" });
+    await until(() => existsSync(path.join(sleeping, "apps/ui/dist/probe.json")), { what: "the build to start" });
     const group = await new Promise((resolve) => execFile("systemctl", ["--user", "show", "-p", "ControlGroup", "--value", unit], { env: findUserBus(process.env).env }, (_err, out) => resolve(String(out).trim())));
     assert.match(group, /den-run-build-/);
     const procs = () => {

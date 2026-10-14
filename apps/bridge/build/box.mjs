@@ -7,17 +7,20 @@
 //   build(...) -> { ok, files, bytes, tail, reason? }     reason is set whenever ok is false
 // `folder` is a tree shaped like this repository (it holds apps/ui/vite.config.mjs); `packages` is one node_modules
 // folder. The caller passes those two and never a command. Inside the box:
-//   /build          the folder, writable
+//   /build          the folder, read-only
+//   /build/apps/ui/dist   the one place the build writes; the box makes it when the folder has none
 //   /node_modules   the packages, read-only (Node finds them by walking up from /build)
 //   /den/node       the Node binary, read-only
 //   /usr/lib ...    the system libraries, read-only
 //   /tmp            a private tmpfs
 // and nothing else: no network, its own process and user namespaces, a cleared environment, a read-only root. The
 // box ends with the bridge (bubblewrap is the bridge's direct child and dies with it; the rest is its namespace).
+// The rest of the folder is read-only because a release's folder also holds the bridge code the service runs: a build
+// that could write there could change it.
 // A build has no time limit; the caller stops it with `signal`. What comes out (apps/ui/dist) is counted afterwards:
 // anything that is not a plain file or folder, a hard link, or a tree over the bounds is a refusal.
 // The launcher is the bridge's own instance, never a second one: its probe units are named per instance.
-import { lstatSync, realpathSync } from "node:fs";
+import { lstatSync, mkdirSync, realpathSync, rmdirSync } from "node:fs";
 import { lstat, readdir } from "node:fs/promises";
 import path from "node:path";
 import { EnforcementError } from "../cells/resource-group.mjs";
@@ -66,7 +69,8 @@ export function buildBoxArgv({ folder, packages, node, libs = libraryArgs() }) {
     ...libs,
     "--ro-bind", node, "/den/node",
     "--ro-bind", packages, "/node_modules",
-    "--bind", folder, "/build",
+    "--ro-bind", folder, "/build",
+    "--bind", path.join(folder, UI_OUT), `/build/${UI_OUT}`,
     "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
     "--remount-ro", "/",
     "--chdir", "/build",
@@ -142,16 +146,34 @@ export function createBuildBox({ launcher, bwrap = findBwrap(), node = process.e
     if (!kind(path.join(deps, VITE_BIN))?.isFile()) return refused(`the packages folder has no ${VITE_BIN}`);
     if (signal?.aborted) return refused("the build was stopped");
 
+    // The one folder the build may write to. It is made here when the folder has none, and is never a link to somewhere else.
+    const out = path.join(root, UI_OUT);
+    let madeOut = false;
+    try {
+      if (kind(out) === null) {
+        mkdirSync(out);
+        madeOut = true;
+      }
+    } catch {}
+    if (!inFolder(UI_OUT) || !kind(out)?.isDirectory()) return refused(`the build folder's ${UI_OUT} is not a folder of its own`);
+    const unmake = () => {
+      try {
+        if (madeOut) rmdirSync(out);
+      } catch {}
+    };
+
     let run;
     try {
       run = await launcher.launch({ slotClass: SLOT_CLASS, id: `build-${process.pid}-${(builds += 1)}`, bin: bwrap, args: buildBoxArgv({ folder: root, packages: deps, node: realpathSync(node) }), cwd: "/", env: {} });
     } catch (err) {
+      unmake();
       if (err instanceof EnforcementError) return refused(`the resource group refused the build: ${err.reason}`);
       throw err;
     }
     const { child, group } = run;
     if (!group) {
       child.kill("SIGKILL");
+      unmake();
       return refused("the build box has no resource group to run in");
     }
     let stopped = false;

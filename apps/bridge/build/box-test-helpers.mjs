@@ -1,6 +1,7 @@
 // Test-only: a probe build folder for the build box. Its Vite config is the "candidate code": it tries what the box
-// must stop (reading the home directory, writing outside the folder, opening a connection), writes what happened to
-// probe.json in the folder, and then lets a tiny real build run. Production never imports this file.
+// must stop (reading the home directory, writing outside its output folder, opening a connection), writes what happened
+// to probe.json in the output folder (the one place it can write), and then lets a tiny real build run. Production
+// never imports this file.
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -32,12 +33,14 @@ if (input.port) {
     socket.once("error", (err) => resolve({ ok: false, code: err.code }));
   });
 }
-fs.writeFileSync("/build/probe.json", JSON.stringify(out));
-if (input.sleep) await new Promise(() => setInterval(() => {}, 1000));
 const dist = "/build/apps/ui/dist";
+const save = () => fs.writeFileSync(dist + "/probe.json", JSON.stringify(out));
+save(); // seen from outside while a sleeping probe runs; the build empties the folder, so it is written again below
+if (input.sleep) await new Promise(() => setInterval(() => {}, 1000));
 const after = {
   name: "probe-after",
   closeBundle() {
+    save();
     if (input.symlink) fs.symlinkSync("/build/probe-input.json", dist + "/link.json");
     if (input.hardlink) fs.linkSync(dist + "/index.html", dist + "/twin.html");
     for (let i = 0; i < (input.extraFiles ?? 0); i += 1) fs.writeFileSync(dist + "/extra-" + i + ".txt", "x");
