@@ -180,3 +180,12 @@ describe("footModel and stopModel", () => {
     assert.equal(stopModel({ phase: "failed", error: { status: 404, reason: "no such agent" } }).alert, "Couldn't stop: 404 no such agent");
   });
 });
+
+// den-mvp/30: the foot of Bao's desk thread before Bao has a run there.
+test("the desk thread with no run takes a first message; demo, offline and signed-out still say why not", () => {
+  assert.deepEqual(footModel({ agent: null, desk: true }), { mode: "desk", canSend: true, canStop: false, stopShown: false, placeholder: "Message Bao", sendLabel: "Send", reason: null, readOnly: false });
+  assert.equal(footModel({ agent: null, desk: true, demo: true }).canSend, false);
+  assert.equal(footModel({ agent: null, desk: true, connection: { phase: "offline" } }).canSend, false);
+  assert.equal(footModel({ agent: null, desk: true, signedIn: false }).canSend, false);
+  assert.equal(footModel({ agent: null }).canSend, false, "any other thread with no run stays closed");
+});

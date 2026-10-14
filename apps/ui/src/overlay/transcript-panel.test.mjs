@@ -12,7 +12,7 @@
 // the card; card with R disabled -> nothing opens and notice = actions.R.reason (the polite live region); no card -> nothing.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { initialTranscriptState, transcriptKey, transcriptToggle, closeTranscript } from "./transcript-panel.mjs";
+import { initialTranscriptState, transcriptKey, transcriptToggle, closeTranscript, DESK_THREAD } from "./transcript-panel.mjs";
 import { cardFor } from "./proximity-card.mjs";
 
 const viewer = { x: 0, z: 0, yaw: Math.PI / 2 };
@@ -144,4 +144,9 @@ describe("pinned to the agent, walk mode only", () => {
     assert.notEqual(state, frozen);
     assert.equal(frozen.agentId, "c-1");
   });
+});
+
+test("R on Bao's card with no run opens the desk thread (den-mvp/30)", () => {
+  const card = { actions: { R: { enabled: true, reason: null } }, agentId: null, threadId: DESK_THREAD };
+  assert.deepEqual(transcriptToggle(initialTranscriptState(), card), { agentId: DESK_THREAD, notice: null });
 });

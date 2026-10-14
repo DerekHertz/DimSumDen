@@ -1,3 +1,5 @@
+import { DESK_THREAD } from './transcript-panel.mjs';
+
 // den-v1/04: pure proximity selection. Positions and yaw use the walk core's world coordinates.
 // The scene supplies {id, name, role, station, position:{x,z}, ref?, state?, tool?, agent?} per panda.
 // den-v1 loop S1: the roles the bridge starts from the den (apps/bridge/cells/policy.mjs ROLES; a test keeps the two
@@ -61,16 +63,17 @@ function cardOf(nearest, approvals) {
   const inactive = agent ? null : state === 'resident' ? 'no agent running' : 'agent controls unavailable';
   const permissionReason = inactive || (agent.capabilities?.approve !== true ? 'runtime cannot answer permissions' : !approval ? 'no pending permission request' : null);
   const start = !agent && state === 'resident' && START_ROLES.includes(nearest.role);
+  const desk = nearest.role === 'orchestrator'; // den-mvp/30: Bao's thread always opens; with no run it is the desk's
   const actions = {
     // The QERT row (live den run, 2026-10-10): A and D walk, so no action sits on them.
     Q: action(permissionReason), E: action(permissionReason),
     // den-mvp outcome 2: the thread also opens on the newest run that has ended, so it can be read and followed up.
-    R: action(past ? null : inactive),
+    R: action(past || desk ? null : inactive),
     T: action(start ? null : inactive || (agent.capabilities?.send !== true ? 'runtime cannot send messages' : null)),
   };
   return {
     id: nearest.id, name: nearest.name, role: nearest.role, station: nearest.station,
-    agentId: agent?.id ?? null, threadId: agent?.id ?? past?.id ?? null, ref: agent?.ref ?? nearest.ref ?? null, start,
+    agentId: agent?.id ?? null, threadId: agent?.id ?? past?.id ?? (desk ? DESK_THREAD : null), ref: agent?.ref ?? nearest.ref ?? null, start,
     state, tool: agent ? agent.tool ?? null : nearest.agent ? null : nearest.tool ?? null, approval, actions,
     last: past ? {
       state: past.state, ref: typeof past.ref === 'string' ? past.ref : null, label: `Last task: ${LAST[past.state]}`,
