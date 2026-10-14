@@ -78,7 +78,7 @@ test('every role can circulate and reach its station without crossing a static o
       agents.update(0.1);
       for(const a of agents.actors.values())if(!a.stationary){
         assert.ok(!isDenPositionBlocked(a.panda.model.position.x,a.panda.model.position.z,agents.obstacles,0.65),`${a.role} crossed furniture at ${a.panda.model.position.toArray()}; next ${a.path[0]}`);
-        assert.ok(Math.hypot(a.panda.model.position.x,a.panda.model.position.z)<=23.5,'panda stays inside the garden');
+        assert.ok(Math.hypot(a.panda.model.position.x,a.panda.model.position.z)<=27,'panda stays inside the garden');
       }
       const actors=[...agents.actors.values()];for(let a=0;a<actors.length;a++)for(let b=a+1;b<actors.length;b++){
         const p=actors[a].panda.model.position,q=actors[b].panda.model.position;
@@ -108,7 +108,7 @@ test('the horseshoe uses both sides and the rear, with consistent station and fu
       assert.equal(construction.pads.size,3);
       for(const pad of CONSTRUCTION_PADS){
         const model=construction.pads.get(pad.id);assert.deepEqual(model.position.toArray(),pad.position);
-        assert.ok(pad.position[2]<-14&&Math.hypot(pad.position[0],pad.position[2])+pad.radius<24.5);
+        assert.ok(pad.position[2]<-14&&Math.hypot(pad.position[0],pad.position[2])+pad.radius<28);
         assert.match(model.userData.easterEgg.text,/No station has been assigned/);
         assert.ok(isDenPositionBlocked(pad.position[0],pad.position[2],agents.obstacles,0.65));
         for(const other of CONSTRUCTION_PADS)if(other!==pad)assert.ok(Math.hypot(pad.position[0]-other.position[0],pad.position[2]-other.position[2])>pad.radius+other.radius+2.5);
@@ -147,7 +147,7 @@ test('merging rigid gear preserves its world bounds, bone sockets and editable g
 
 test('the garden is finite, with mountain layers and dense bamboo outside the reviewed clearings',()=>{
   withAgents((agents,den)=>{
-    const ground=den.world.getObjectByName('Bamboo clearing');assert.equal(ground.geometry.type,'CylinderGeometry');assert.equal(ground.geometry.parameters.radiusTop,24.5);
+    const ground=den.world.getObjectByName('Bamboo clearing');assert.equal(ground.geometry.type,'CylinderGeometry');assert.equal(ground.geometry.parameters.radiusTop,28);
     const landscape=createReviewLandscape(den);assert.equal(landscape.peaks.length,3);assert.ok(landscape.stemCount>100);
     const stems=landscape.root.getObjectByName('Dense boundary bamboo'),matrix=new THREE.Matrix4(),point=new THREE.Vector3();
     for(let i=0;i<stems.count;i++){

@@ -30,6 +30,11 @@ import { useSession } from "./session/useSession.js";
 import { ZoomSwitcher, IntentBar, Timeline } from "./overlay/Bottom.jsx";
 import { DemoAnnouncer, DemoButton, DemoStrip, useDemoMode } from "./demo/DemoControls.jsx";
 import { demoCard } from "./demo/demo-card.mjs";
+import { viewFromBridge } from "./scene/expansion/integration/bridge-adapter.mjs";
+import { routeWorkClick, unavailableReason } from "./scene/expansion/work-zones.mjs";
+import { useArchiveLibrary } from "./scene/expansion/archive-library.js";
+import { liveActorsFromSnapshot } from "./review/live-actors.mjs";
+import { agentFor } from "./overlay/proximity-card.mjs";
 
 class SceneBoundary extends Component {
   state={error:null};
@@ -146,6 +151,33 @@ export function App() {
     else openTally();
   }, [tallyOpen, openTally, closeTally]);
   const hearts = useMemo(() => new Set(handoffs.map((h) => h.ref)), [handoffs]);
+  // den-mvp/22 (v5 wave 1): the repair bench and the archive. Marks come from this one snapshot (no second event stream);
+  // a click only opens a card or a thread. Demo mode and a dropped bridge turn the work actions off and say why.
+  const zonePhase = inDemo ? "offline" : connection.phase;
+  const archiveLibrary = useArchiveLibrary({ rev: snapshot?.libraryRev ?? 0, enabled: zonePhase === "live" });
+  const zoneView = useMemo(() => viewFromBridge({
+    snapshot, actors: liveActorsFromSnapshot(snapshot, { now }), library: archiveLibrary, connection: { phase: zonePhase }, selectedRef: selected, now,
+  }), [snapshot, archiveLibrary, zonePhase, selected, now]);
+  const [libraryRequest, setLibraryRequest] = useState(0);
+  const [zoneNotice, setZoneNotice] = useState(null);
+  useEffect(() => {
+    if (!zoneNotice) return undefined;
+    const timer = setTimeout(() => setZoneNotice(null), 7000);
+    return () => clearTimeout(timer);
+  }, [zoneNotice]);
+  const zoneClick = useCallback((id) => {
+    setZoneNotice(null);
+    routeWorkClick(id, zoneView, {
+      onOpenTicket: (intent) => { if (intent.ref) selectTicket(intent.ref); },
+      onOpenRole: (intent) => {
+        const agent = agentFor({ role: intent.role }, snapshot?.agents);
+        if (agent) transcript.openFor(agent.id, { name: intent.role, role: intent.role, state: agent.state });
+        else setZoneNotice(`No ${intent.role} conversation yet: nothing has run for that role.`);
+      },
+      onOpenLibrary: () => { stage.explorer?.exit(); setLibraryRequest((n) => n + 1); },
+      onUnavailable: (intent) => setZoneNotice(`${intent.label}: ${unavailableReason(zonePhase)}`),
+    });
+  }, [zoneView, zonePhase, snapshot?.agents, selectTicket, transcript.openFor, stage]);
   const overflow = snapshot ? Math.max(0, activeCount(snapshot) - MAX_PLUSH) : 0;
   return (
     <div className={`shell procedural-den${exploring ? " den-visiting" : ""}${cursorFree ? " den-cursor-free" : ""}${!exploring && picked != null ? " den-picked" : ""}`}>
@@ -157,7 +189,7 @@ export function App() {
             <CameraRig store={camera} stage={stage} den={den} onModeChange={onExploreChange} onHint={setExploreHint} onCursorChange={setCursorFree} />
             <Suspense fallback={null}>
               <RestaurantDen snapshot={snapshot} cells={sceneCells} frontier={frontier} tally={tally} onOpenTally={openTally}
-                selected={selected} onSelect={selectTicket} stage={stage} onReady={onDenReady} onNearby={onNearby} picked={picked} onPick={pickPanda} />
+                selected={selected} onSelect={selectTicket} stage={stage} onReady={onDenReady} onNearby={onNearby} picked={picked} onPick={pickPanda} zoneView={zoneView} onZoneClick={zoneClick} />
             </Suspense>
           </Canvas>
         </SceneBoundary>
@@ -174,13 +206,14 @@ export function App() {
           client={bridge} signedIn={steering.state !== "none"} demo={inDemo} />
         <div className="den-crosshair" aria-hidden="true" hidden={!exploring || cursorFree}>+</div>
         {snapshot && cells.length === 0 ? <p className="scene-caption scene-empty">The den is quiet. No active tickets.</p> : null}
+        {zoneNotice ? <p className="scene-caption scene-zone-notice" role="status">{zoneNotice}</p> : null}
         {overflow > 0 ? <p className="scene-caption scene-more">+{overflow} more in queue</p> : null}
       </main>
       <LogoPill connection={connection} demo={denDemo.active} />
       <DemoButton ref={demoButton} state={denDemo} onToggle={denDemoMode.toggle} />
       {denDemo.active ? <DemoStrip loops={denDemo.loops} /> : null}
       <DemoAnnouncer text={denDemo.announcement} />
-      <Cards snapshot={snapshot} ownBuild={inDemo ? null : live.ownBuild} now={now} connection={connection} placeholder={placeholder} camera={camera} steering={steering} onAnswer={inDemo ? null : answerRequest} onOpenThread={inDemo ? null : openThread} demo={inDemo} />
+      <Cards snapshot={snapshot} ownBuild={inDemo ? null : live.ownBuild} now={now} connection={connection} placeholder={placeholder} camera={camera} steering={steering} onAnswer={inDemo ? null : answerRequest} onOpenThread={inDemo ? null : openThread} demo={inDemo} libraryRequest={libraryRequest} />
       <div className="den-entry">
         <button type="button" className="btn btn-solid" aria-pressed={exploring} aria-disabled={!den || undefined}
           onClick={()=>{if(stage.explorer?.active)stage.explorer.exit();else stage.explorer?.enter();}}>

@@ -1,6 +1,6 @@
 // den-layout/04: walk mode in the new den. The seam is the one the app uses: createDenExplorer over the den that
 // RestaurantDen assembles (PR #162's site plan on top of createDenScene). Expected positions are literals taken
-// from site-plan.mjs (stations, zones, floor radius 24.5), not recomputed from the code under test.
+// from site-plan.mjs (stations, zones, floor radius 28), not recomputed from the code under test.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -58,7 +58,7 @@ function withNewDenWalker(run) {
   }
 }
 
-const FLOOR_RADIUS = 24.5;
+const FLOOR_RADIUS = 28;
 const WALKER_RADIUS = 0.26;
 
 // Flood fill over the explorer's own blocked() from the spawn, on a 0.25 m grid. Returns a predicate for the
@@ -141,7 +141,7 @@ test('the walker is blocked by the rest of the site plan: lantern posts, dining 
   });
 });
 
-test('the walker cannot leave the garden: every point past the floor edge (radius 24.5) is blocked', () => {
+test('the walker cannot leave the garden: every point past the floor edge (radius 28) is blocked', () => {
   withNewDenWalker(({ explorer }) => {
     for (const angle of [0, 0.7, 1.6, 2.4, 3.14, 4.0, 4.9, 5.7]) {
       const r = FLOOR_RADIUS + WALKER_RADIUS + 0.2;

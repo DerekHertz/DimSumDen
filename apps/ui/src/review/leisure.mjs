@@ -83,15 +83,15 @@ export function createLeisure(den,createBao){
     for(const y of [2.1,2.4,2.7])box(dragonZone,[0.17,0.025,0.014],[x,y,-2.37],gold);
   }
   // Broader bamboo boundary and an ornamental entrance arch.
-  for(let i=0;i<42;i++){
-    const angle=i/42*Math.PI*2,x=Math.sin(angle)*22,z=Math.cos(angle)*22-1;
+  for(let i=0;i<52;i++){
+    const angle=i/52*Math.PI*2,x=Math.sin(angle)*26.2,z=Math.cos(angle)*26.2-0.5;
     if(z>14&&Math.abs(x)<18||!isReviewPlantingClear(x,z,0.25))continue;
     const h=4.5+(i%5)*0.8;cyl(root,0.12,h,[x,h/2,z],jade);
     for(let j=1;j<5;j++){cyl(root,0.14,0.04,[x,j*h/5,z],gold);if(j>2){const foliage=add(root,new THREE.SphereGeometry(1,8,6),leaf,[x+(j%2?0.5:-0.5),j*h/5,z]);foliage.scale.set(0.85,0.16,0.4);foliage.rotation.z=j%2?0.3:-0.3;}}
   }
-  for(const x of [-3,3])cyl(root,0.15,3.8,[x,1.9,19],wood);
-  box(root,[7.2,0.18,0.4],[0,3.4,19],red);const archRoof=add(root,new THREE.ConeGeometry(4.5,0.7,4),jade,[0,3.9,19]);archRoof.scale.z=0.3;archRoof.rotation.y=Math.PI/4;
-  for(const s of [-1,1])for(let i=0;i<5;i++)cyl(root,0.3,0.03,[s*(2+i*1.4),0.025,17.3-i*0.95],stone);
+  for(const x of [-3,3])cyl(root,0.15,3.8,[x,1.9,25],wood);
+  box(root,[7.2,0.18,0.4],[0,3.4,25],red);const archRoof=add(root,new THREE.ConeGeometry(4.5,0.7,4),jade,[0,3.9,25]);archRoof.scale.z=0.3;archRoof.rotation.y=Math.PI/4;
+  for(const s of [-1,1])for(let i=0;i<5;i++)cyl(root,0.3,0.03,[s*(2+i*1.4),0.025,23.3-i*0.95],stone);
   const active=Object.fromEntries(LEISURE_ZONES.map(z=>[z.id,false]));let turns=0;
   function activate(id){if(!(id in active))return;active[id]=!active[id];if(id==='dining'&&!active[id])dining.update(0,false);if(id==='dragon'&&!active[id])dragon.update(0,false);if(id==='games'){turns++;for(let i=0;i<animated.games.tiles.length;i++){const tile=animated.games.tiles[i],a=i/16*Math.PI*2+turns*0.3;tile.position.set(Math.sin(a)*0.45,0.71,Math.cos(a)*0.45);tile.rotation.y+=0.7;}}}
   function update(time,reduced=false){

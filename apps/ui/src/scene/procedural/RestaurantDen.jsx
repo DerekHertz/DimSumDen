@@ -11,6 +11,7 @@ import { loadPandaSettings } from './panda-settings.mjs';
 import { loadReview } from '../../review/review-data.mjs';
 import { prepareReviewLayout } from '../../review/layout.mjs';
 import { mountExpansionPond } from '../expansion/pond.mjs';
+import { mountWorkZones, WORK_ZONE_IDS, OPEN_INTENTS } from '../expansion/work-zones.mjs';
 import { createLeisure } from '../../review/leisure.mjs';
 import { createReviewAgents } from '../../review/agents.mjs';
 import { liveActorsFromSnapshot } from '../../review/live-actors.mjs';
@@ -37,12 +38,12 @@ function savedLook() {
   return { direction: review?.direction || 'traveler', settings: review?.settings || loadPandaSettings() };
 }
 
-export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, stage, onReady, onNearby, picked = null, onPick }) {
+export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, stage, onReady, onNearby, picked = null, onPick, zoneView = null, onZoneClick = null }) {
   const [den, setDen] = useState(null);
   const [dark, setDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
   const [look] = useState(savedLook);
   const live = useRef(null);
-  const inputs = useRef({}); inputs.current = { snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, onNearby, picked, onPick };
+  const inputs = useRef({}); inputs.current = { snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, onNearby, picked, onPick, onZoneClick };
   const position = useRef(new THREE.Vector3()).current;
   const proximityElapsed = useRef(0);
   const { scene } = useThree();
@@ -64,6 +65,8 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
     compactEnvironment(THREE, d);
     // den-mvp/17: the v5 koi pond, local only. Before the controller and actors, which copy den.obstacles.
     const pond = mountExpansionPond(d);
+    // den-mvp/22: the repair bench and the archive. Marks come from the live state; a click opens a card or a thread.
+    const work = mountWorkZones(d);
     const details = createRestaurantDetails(d, sampleId);
     const leisure = createLeisure(d, createBao);
     const landscape = createReviewLandscape(d, sampleId);
@@ -79,11 +82,11 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
     const previous = { background: scene.background, fog: scene.fog };
     scene.background = new THREE.Color(REVIEW_SKIES[sampleId]);
     scene.fog = new THREE.Fog(REVIEW_SKIES[sampleId], 70, 115);
-    live.current = { den: d, controller, media, details, pond, leisure, agents, anchored: new Set(), time: 0 };
+    live.current = { den: d, controller, media, details, pond, work, leisure, agents, anchored: new Set(), time: 0 };
     setDen(d); onReady(d);
     return () => {
       onReady(null); live.current = null;
-      controller.dispose(); agents.dispose(); pond.dispose(); details.dispose(); leisure.dispose(); landscape.dispose(); construction.dispose(); d.dispose();
+      controller.dispose(); agents.dispose(); pond.dispose(); work.dispose(); details.dispose(); leisure.dispose(); landscape.dispose(); construction.dispose(); d.dispose();
       scene.background = previous.background; scene.fog = previous.fog;
       stage.anchors.clear();
     };
@@ -107,6 +110,9 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
 
   useEffect(() => { live.current?.agents.setSelected(selected ?? null); }, [den, selected]);
 
+  // The work zones show the den's own live state (viewFromBridge over the one snapshot App holds).
+  useEffect(() => { if (zoneView) live.current?.work.apply(zoneView); }, [den, zoneView]);
+
   useFrame((_, delta) => {
     const l = live.current; if (!l) return;
     const reduced = l.media.matches, dt = Math.min(delta, 0.1);
@@ -115,7 +121,7 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
       player: stage.explorer?.active ? stage.explorer.camera.position : null,
     });
     if (!reduced) l.time += dt;
-    l.details.update(l.time, reduced); l.pond.update(l.time, reduced); l.leisure.update(l.time, reduced); l.agents.update(reduced ? 0 : dt, reduced);
+    l.details.update(l.time, reduced); l.pond.update(l.time, reduced); l.work.update(l.time, reduced); l.leisure.update(l.time, reduced); l.agents.update(reduced ? 0 : dt, reduced);
     l.den.world.updateMatrixWorld(true);
     // Chips and the card hang above the role pandas, the den's only live pandas; a ref that left drops its anchor.
     const figures = l.agents.liveFigures();
@@ -163,6 +169,12 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
       if (actor && !stage.explorer?.active && inputs.current.onPick) { e.stopPropagation(); inputs.current.onPick(actor); return; }
       // The pond's koi and tea table respond locally; nothing is sent to the bridge.
       const local = object.userData.denInteraction;
+      // The repair bench and archive only open a card or a thread, through App; never Deliver, Run or Approve.
+      if (local && WORK_ZONE_IDS.includes(local.zone)) {
+        e.stopPropagation();
+        if (OPEN_INTENTS.includes(local.intent)) inputs.current.onZoneClick?.(local.id); else live.current?.work.interact(local.id); // the lucky bao: a local response
+        return;
+      }
       if (local) { e.stopPropagation(); live.current?.pond.interact(local.id); return; }
       const ref = object.userData.ticketRef;
       if (ref) { e.stopPropagation(); inputs.current.onSelect(ref); return; }
@@ -174,8 +186,8 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
   return <>
     <hemisphereLight args={['#fff5db', '#627858', lantern ? 1.1 : 2.2]} />
     <directionalLight position={[-10, 18, 12]} intensity={lantern ? 1.4 : 3} color={lantern ? '#ffc886' : '#fff3d5'} castShadow
-      shadow-mapSize={[1024, 1024]} shadow-camera-left={-25} shadow-camera-right={25}
-      shadow-camera-top={25} shadow-camera-bottom={-25} shadow-normalBias={0.05} />
+      shadow-mapSize={[1024, 1024]} shadow-camera-left={-30} shadow-camera-right={30}
+      shadow-camera-top={30} shadow-camera-bottom={-30} shadow-normalBias={0.05} />
     <directionalLight position={[10, 8, -5]} intensity={1.1} color="#d6e9ff" />
     {den ? <primitive object={den.world} dispose={null} onClick={hit} /> : null}
   </>;

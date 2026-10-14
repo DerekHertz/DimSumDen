@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import {REVIEW_STATIONS,REVIEW_CLEARINGS,ROLE_HOMES} from './site-plan.mjs';
+import {REVIEW_STATIONS,REVIEW_CLEARINGS,ROLE_HOMES,GARDEN_RADIUS} from './site-plan.mjs';
 export {REVIEW_CLEARINGS} from './site-plan.mjs';
 // Review-only clearings must be made before compactEnvironment merges the grove.
 export function prepareReviewLayout(den){
   const ground=den.world.getObjectByName('Bamboo clearing');
-  if(ground){ground.geometry.dispose();ground.geometry=new THREE.CylinderGeometry(24.5,25,0.4,96);ground.rotation.set(0,0,0);ground.position.y=-0.2;}
+  if(ground){ground.geometry.dispose();ground.geometry=new THREE.CylinderGeometry(GARDEN_RADIUS,GARDEN_RADIUS+0.5,0.4,128);ground.rotation.set(0,0,0);ground.position.y=-0.2;}
   den.stalls.forEach((stall,i)=>{
     const old=stall.position.clone(),o=den.obstacles.find(o=>o.type==='box'&&o.x===old.x&&o.z===old.z),placement=REVIEW_STATIONS[i];
     stall.position.set(placement.x,0,placement.z);stall.rotation.y=placement.yaw;
