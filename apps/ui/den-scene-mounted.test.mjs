@@ -75,7 +75,7 @@ test("PR #162's agents, review and restaurant test files pass on main, in one pr
   assert.equal(run.status, 0, `exit ${run.status}\n${(run.stdout || "").split("\n").filter((l) => /^(not ok|# (pass|fail))/.test(l)).join("\n")}`);
   assert.match(run.stdout, /# fail 0\b/);
   assert.match(run.stdout, /# skipped 0\b/);
-  assert.match(run.stdout, /# tests 20\b/, "all 20 tests of PR #162's three files run");
+  assert.match(run.stdout, /# tests 16\b/, "all 16 tests of the three files run");
 });
 
 // ---------------------------------------------------------------- criterion 1: the live app mounts the ported scene
@@ -132,9 +132,7 @@ test("opening the app loads PR #162's scene modules, never the old Den.jsx, and 
     const ported = [
       "/src/scene/procedural/restaurant.mjs",
       "/src/review/agents.mjs",
-      "/src/review/leisure.mjs",
-      "/src/review/construction-pads.mjs",
-      "/src/review/landscape.mjs",
+      "/src/scene/expansion/base-assets.mjs",
       "/src/review/site-plan.mjs",
     ];
     const notLoaded = ported.filter((p) => !loaded.includes(p));

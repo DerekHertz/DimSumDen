@@ -11,7 +11,6 @@ import * as THREE from "three";
 import { createBao } from "../scene/procedural/bao.mjs";
 import { createDenScene } from "../scene/procedural/den-scene.mjs";
 import { canvasDocument } from "../scene/procedural/den-test-helpers.mjs";
-import { prepareReviewLayout } from "./layout.mjs";
 import { createReviewAgents } from "./agents.mjs";
 import { readFileSync } from "node:fs";
 
@@ -21,7 +20,7 @@ function withAgents(run) {
   let den, agents;
   try {
     den = createDenScene(THREE, createBao);
-    prepareReviewLayout(den);
+    
     agents = createReviewAgents(den, createBao);
     run(agents, den);
   } finally {

@@ -1,23 +1,21 @@
-// den-layout/04: walk mode in the new den. The seam is the one the app uses: createDenExplorer over the den that
-// RestaurantDen assembles (PR #162's site plan on top of createDenScene). Expected positions are literals taken
-// from site-plan.mjs (stations, zones, floor radius 28), not recomputed from the code under test.
+// den-layout/04, rewritten for the village (den-mvp/25): walk mode in the den. The seam is the one the app uses:
+// createDenExplorer over the den that RestaurantDen assembles (the kit's village, wave 1 zones mounted on it).
+// Expected positions are literals from the kit's layout (stations, props, floor radius 28), not recomputed from the code under test.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { createBao } from './bao.mjs';
-import { createWalkingBao } from '../../review/walking-panda.mjs';
 import { createDenScene } from './den-scene.mjs';
 import { compactPanda, compactEnvironment } from './compact.mjs';
 import { canvasDocument } from './den-test-helpers.mjs';
 import { createDenExplorer } from './explorer.mjs';
 import { isDenPositionBlocked } from './walk.mjs';
-import { prepareReviewLayout } from '../../review/layout.mjs';
 import { createReviewAgents } from '../../review/agents.mjs';
-import { createLeisure } from '../../review/leisure.mjs';
-import { createReviewLandscape } from '../../review/landscape.mjs';
-import { createConstructionPads } from '../../review/construction-pads.mjs';
-import { REVIEW_STATIONS, REVIEW_OBSTACLES, REVIEW_CLEARINGS, ZONE_POSITIONS, CONSTRUCTION_PADS, LANTERN_POSTS } from '../../review/site-plan.mjs';
+import { mountExpansionPond } from '../expansion/pond.mjs';
+import { mountWorkZones } from '../expansion/work-zones.mjs';
+import { REVIEW_STATIONS, REVIEW_OBSTACLES, LANTERN_POSTS } from '../../review/site-plan.mjs';
+import { ZONES } from '../expansion/integration/zone-contract.mjs';
 
 function eventTarget() {
   const listeners = new Map();
@@ -34,17 +32,15 @@ function withNewDenWalker(run) {
   const doc = eventTarget(), win = eventTarget(), canvas = eventTarget();
   doc.pointerLockElement = null; win.matchMedia = () => ({ matches: false });
   canvas.setPointerCapture = () => {};
-  let den, leisure, landscape, construction, agents, explorer;
+  let den, pond, work, agents, explorer;
   globalThis.document = canvasDocument();
   try {
-    den = createDenScene(THREE, createBao, createWalkingBao);
+    den = createDenScene(THREE, createBao);
     den.setLabels(false);
     for (const p of den.pandas) compactPanda(THREE, p);
-    prepareReviewLayout(den);
     compactEnvironment(THREE, den);
-    leisure = createLeisure(den, createBao);
-    landscape = createReviewLandscape(den, 'morning');
-    construction = createConstructionPads(den);
+    pond = mountExpansionPond(den);
+    work = mountWorkZones(den);
     agents = createReviewAgents(den, createBao);
     globalThis.document = doc; globalThis.window = win;
     const navigation = { enabled: true }, modes = [];
@@ -53,7 +49,7 @@ function withNewDenWalker(run) {
   } finally {
     explorer?.dispose();
     globalThis.document = canvasDocument(); globalThis.window = previous.window;
-    agents?.dispose(); construction?.dispose(); landscape?.dispose(); leisure?.dispose(); den?.dispose();
+    agents?.dispose(); work?.dispose(); pond?.dispose(); den?.dispose();
     globalThis.document = previous.document;
   }
 }
@@ -107,36 +103,29 @@ test('walk mode enters, moves with W and exits with Esc on the new den, with den
   });
 });
 
-test('the walker is blocked by each of the four station stalls in the site plan, from every side', () => {
+test('the walker is blocked by each station\'s counter and posts, and by the Pass, from every side', () => {
   assert.equal(REVIEW_STATIONS.length, 4);
   withNewDenWalker(({ explorer }) => {
     for (const s of REVIEW_STATIONS) {
-      // A stall is 3.58 x 2.14 m (halfX 1.79, halfZ 1.07), turned by yaw: its centre and a point just inside each end are solid.
-      const cos = Math.cos(s.yaw), sin = Math.sin(s.yaw);
-      const local = (lx, lz) => [s.x + cos * lx + sin * lz, s.z - sin * lx + cos * lz];
-      for (const [lx, lz] of [[0, 0], [1.5, 0], [-1.5, 0], [0, 0.9], [0, -0.9]]) {
-        const [x, z] = local(lx, lz);
-        assert.equal(explorer.blocked(x, z), true, `station at ${s.x},${s.z}: local ${lx},${lz} is walkable`);
+      // The prep counter (3 m wide, a metre or so deep, along the front) and the front posts are solid...
+      for (const [lx, lz] of [[0, 0.65], [1.2, 0.65], [-1.2, 0.65], [1.6, 1.08], [-1.6, -1.08]]) {
+        assert.equal(explorer.blocked(s.x + lx, s.z + lz), true, `station at ${s.x},${s.z}: local ${lx},${lz} is walkable`);
       }
-      // ...and a point 1 m clear of the long face is open floor, so the block is the stall, not the whole area.
-      const [fx, fz] = local(0, 1.07 + WALKER_RADIUS + 1);
-      assert.equal(explorer.blocked(fx, fz), false, `station at ${s.x},${s.z}: the space in front is walkable`);
+      // ...the floor behind the counter, where the role stands, is open, and so is the ground 1 m clear of its front.
+      assert.equal(explorer.blocked(s.x - 0.5, s.z - 0.5), false, `station at ${s.x},${s.z}: the working floor is walkable`);
+      assert.equal(explorer.blocked(s.x, s.z + 1.05 + WALKER_RADIUS + 1), false, `station at ${s.x},${s.z}: the space in front is walkable`);
     }
+    for (const [x, z] of [[0, -8], [-1.2, -8], [1.2, -8], [-2.5, -10], [2.5, -10]]) assert.equal(explorer.blocked(x, z), true, `the Pass is walkable at ${x},${z}`);
   });
 });
 
-test('the walker is blocked by the rest of the site plan: lantern posts, dining table, mahjong table, festival, tea pond and construction pads', () => {
+test('the walker is blocked by the village\'s props: lantern posts, the round table, mahjong table, tally, practice garden, library, wave 1 zones', () => {
   withNewDenWalker(({ explorer }) => {
     const solid = [
       ...LANTERN_POSTS.map(([x, , z]) => [x, z]),
-      [ZONE_POSITIONS.dining[0], ZONE_POSITIONS.dining[2]],
-      [ZONE_POSITIONS.games[0], ZONE_POSITIONS.games[2]],
-      [ZONE_POSITIONS.festival[0], ZONE_POSITIONS.festival[2]],
-      [ZONE_POSITIONS.tea[0], ZONE_POSITIONS.tea[2]],
-      [ZONE_POSITIONS.dragon[0], ZONE_POSITIONS.dragon[2]],
-      ...CONSTRUCTION_PADS.map((p) => [p.position[0], p.position[2]]),
+      [0, 9], [-9, 19], [18, 10], [14, 18.25], [-14, 10], [0, -20], [14, -19], [-12.8, 19],
+      ...['repair', 'archive'].map((id) => ZONES.find((z) => z.id === id).position).map(([x, , z]) => [x, z]),
     ];
-    assert.equal(solid.length, 2 + 5 + 3);
     for (const [x, z] of solid) assert.equal(explorer.blocked(x, z), true, `walkable at ${x},${z}`);
   });
 });
@@ -152,28 +141,33 @@ test('the walker cannot leave the garden: every point past the floor edge (radiu
   });
 });
 
-test('the spawn point is inside a walkable area of the site plan, clear of every obstacle with room around it', () => {
+test('the spawn point is inside a walkable area of the village, clear of every obstacle with room around it', () => {
   withNewDenWalker(({ explorer, den }) => {
     explorer.enter();
     const { x, z } = explorer.camera.position;
     assert.equal(explorer.blocked(x, z), false, `spawn ${x},${z} is blocked`);
     assert.ok(Math.hypot(x, z) < FLOOR_RADIUS - 1, 'spawn is on the floor, away from its edge');
-    // The site plan's own obstacles and the den's (moved stalls, central table, tally) leave 0.65 m (a panda's width) around it.
     assert.equal(isDenPositionBlocked(x, z, [...REVIEW_OBSTACLES, ...den.obstacles], 0.65), false, 'spawn is hemmed in');
-    // Not in the middle of a station: no stall footprint (3.58 x 2.14, widest reach 2.1) contains it.
-    for (const s of REVIEW_STATIONS) assert.ok(Math.hypot(x - s.x, z - s.z) > 2.1 + WALKER_RADIUS, `spawn is in the station at ${s.x},${s.z}`);
+    for (const s of REVIEW_STATIONS) assert.ok(Math.hypot(x - s.x, z - s.z) > 3, `spawn is in the station at ${s.x},${s.z}`);
   });
 });
 
-test('from the spawn the walker can reach every station and every leisure zone of the site plan', () => {
+test('from the spawn the walker can reach every station, every leisure place and every wave 1 zone approach, across the pond bridge', () => {
   withNewDenWalker(({ explorer }) => {
     explorer.enter();
     const reach = reachableFrom(explorer, explorer.camera.position);
-    assert.ok(reach.size > 4000, 'the reachable area is large (a 2.1 m/s walker should cover most of the plan): ' + reach.size + ' cells');
-    for (const s of REVIEW_STATIONS) assert.ok(reach.near(s.x, s.z, 3.0), `cannot get within 3 m of the station at ${s.x},${s.z}`);
-    for (const c of REVIEW_CLEARINGS.filter((c) => Object.values(ZONE_POSITIONS).some(([x, , z]) => x === c.x && z === c.z))) {
-      assert.ok(reach.near(c.x, c.z, c.radius + 1.5), `cannot reach the zone at ${c.x},${c.z}`);
+    assert.ok(reach.size > 4000, 'the reachable area is large (a 2.1 m/s walker should cover most of the village): ' + reach.size + ' cells');
+    // Stations, leisure places and props are the kit's own positions.
+    for (const [x, z] of [[-14, -10], [14, -10], [-14, 0], [14, 0], [0, -10], [0, 9], [-14, 10], [-9, 19], [14, 18], [4, 20], [18, 10], [0, -20], [-10, -20], [14, -19]]) {
+      assert.ok(reach.near(x, z, 3.0), `cannot get within 3 m of ${x},${z}`);
     }
+    for (const id of ['repair', 'archive', 'pond']) {
+      const zone = ZONES.find((z) => z.id === id);
+      assert.ok(reach.near(zone.approach[0], zone.approach[2], 1.0), `cannot reach the ${id} approach`);
+    }
+    // The pond's arched bridge: both banks of the water are reachable, and the bridge deck itself is walkable.
+    assert.equal(explorer.blocked(-21, 9), false, 'the bridge deck is walkable');
+    assert.ok(reach.near(-21, 6.4, 0.5) && reach.near(-21, 11.6, 0.5), 'both banks of the pond are reachable');
   });
 });
 

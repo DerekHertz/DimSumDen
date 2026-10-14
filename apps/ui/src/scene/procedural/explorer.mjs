@@ -75,17 +75,8 @@ export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=(
   const endDrag=e=>{if(drag?.id===e.pointerId)drag=null;};
   listen(canvas,'pointerup',endDrag);listen(canvas,'pointercancel',endDrag);listen(canvas,'lostpointercapture',endDrag);
   listen(canvas,'dblclick',()=>{if(active)capture();});
-  // The roaming pandas move, so they are handed to the walker afresh each frame.
-  function world(){
-    const avoid=[];
-    for(const r of den.roamers){
-      if(!r.panda.model.visible)continue;
-      const p=r.panda.model.position;
-      avoid.push({x:p.x,z:p.z,r:0.72});
-    }
-    // den.obstacles holds the moved stalls and central props; the site plan adds the posts, tables, festival, pond and pads.
-    return {obstacles:[...den.obstacles,...REVIEW_OBSTACLES],avoid};
-  }
+  // den.obstacles holds the mounted zones (pond, repair bench, archive); the site plan adds the village's buildings and props.
+  function world(){return {obstacles:[...den.obstacles,...REVIEW_OBSTACLES],avoid:[]};}
   const blocked=(x,z)=>isWalkBlocked(x,z,world());
   function update(delta){
     if(!active||freeCursorRequested)return;

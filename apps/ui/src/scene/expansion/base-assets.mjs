@@ -10,14 +10,18 @@ const rigs=new WeakMap();
 const extras=new WeakMap();
 const mat=(c,roughness=.88)=>{const key=c+roughness;if(!materials.has(key))materials.set(key,new THREE.MeshStandardMaterial({color:c,roughness}));return materials.get(key);};
 const C=COLORS;
+// den-mvp/25: the village is built without its illustrative pandas and their activity bubbles; the den's actor controller owns every live panda.
+let residentsOn=true;
 const group=name=>{const g=new THREE.Group();g.name=name;return g;};
 function mesh(parent,geo,color,pos=[0,0,0]){const m=new THREE.Mesh(geo,typeof color==='string'?mat(color):color);m.position.set(...pos);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
 function box(p,size,pos,c,r=.07){return mesh(p,new RoundedBoxGeometry(...size,2,Math.min(r,...size.map(x=>x*.25))),c,pos);}
-function cyl(p,r,h,pos,c,top=r){return mesh(p,new THREE.CylinderGeometry(top,r,h,24),c,pos);}
-function ball(p,r,pos,c,scale=[1,1,1]){const m=mesh(p,new THREE.SphereGeometry(r,24,16),c,pos);m.scale.set(...scale);return m;}
-function ring(p,r,t,pos,c){const m=mesh(p,new THREE.TorusGeometry(r,t,8,48),c,pos);m.rotation.x=Math.PI/2;return m;}
+// den-mvp/25: facet counts follow the size on screen (the village is ~25 assets in one frame); big pads and drums keep 24.
+const facets=(r,small,mid,big)=>r<.12?small:r<.35?mid:big;
+function cyl(p,r,h,pos,c,top=r){return mesh(p,new THREE.CylinderGeometry(top,r,h,facets(r,8,14,24)),c,pos);}
+function ball(p,r,pos,c,scale=[1,1,1]){const m=mesh(p,new THREE.SphereGeometry(r,facets(r,8,12,20),facets(r,5,8,12)),c,pos);m.scale.set(...scale);return m;}
+function ring(p,r,t,pos,c){const m=mesh(p,new THREE.TorusGeometry(r,t,facets(t*3,4,5,6),r<.7?20:40),c,pos);m.rotation.x=Math.PI/2;return m;}
 function beam(p,a,b,r,c){const av=new THREE.Vector3(...a),bv=new THREE.Vector3(...b),m=cyl(p,r,av.distanceTo(bv),av.clone().add(bv).multiplyScalar(.5).toArray(),c);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),bv.sub(av).normalize());return m;}
-function tube(p,points,r,c){const curve=new THREE.CatmullRomCurve3(points.map(v=>new THREE.Vector3(...v)));return mesh(p,new THREE.TubeGeometry(curve,48,r,8,false),c);}
+function tube(p,points,r,c){const curve=new THREE.CatmullRomCurve3(points.map(v=>new THREE.Vector3(...v)));return mesh(p,new THREE.TubeGeometry(curve,24,r,facets(r,4,6,8),false),c);}
 function at(p,g,pos,yaw=0,scale=1){g.position.set(...pos);g.rotation.y=yaw;g.scale.setScalar(scale);p.add(g);return g;}
 
 function textPlane(p,text,pos,width=2,height=.5,color=C.ink,bg=C.cream){
@@ -60,6 +64,7 @@ function bell(p,pos){cyl(p,.17,.04,pos,C.wood);ball(p,.14,[pos[0],pos[1]+.095,po
 function scroll(p,pos,w=.6,h=.55){const g=group('Recipe scroll');at(p,g,pos);box(g,[w,.035,h],[0,0,0],C.cream,.007);for(const x of [-w/2,w/2]){const m=cyl(g,.04,h+.12,[x,.035,0],C.wood);m.rotation.x=Math.PI/2;}for(let i=0;i<4;i++)box(g,[w*.65,.008,.012],[0,.023,-h*.3+i*h*.15],C.wood,.001);return g;}
 function bubble(p,text,pos,w=1.3,color=C.cream){const g=group('Activity bubble');at(p,g,pos);box(g,[w,.42,.075],[0,0,0],color,.12);textPlane(g,text,[0,0,.041],w-.12,.3,C.ink,color);const tail=mesh(g,new THREE.ConeGeometry(.08,.15,3),color,[-w*.28,-.26,0]);tail.rotation.z=Math.PI;g.userData.bubble=true;return g;}
 function worker(p,role,pos,s=.36,yaw=0,sleep=false){
+  if(!residentsOn)return new THREE.Group();
   const rig=createBao(THREE,{detail:'low'}),model=rig.model;at(p,model,pos,yaw,s);rigs.set(model,rig);model.userData.panda=true;model.userData.role=role;
   rig.setSleepiness(sleep?.74:.2);
   const assignedRole=role==='stem-cub'?'stem-cub':role;
@@ -77,13 +82,13 @@ function station(kind){
   workbench(g,3,.65);lantern(g,[1.62,3.14,.85]);
   if(kind==='steamers'){
     for(const x of [-1,1])for(let i=0;i<(x<0?3:2);i++)basket(g,[x,1.24+i*.32,.65],.37,i===2);
-    bun(g,[0,1.25,.85],.19);box(g,[.65,.04,.45],[0,1.25,.75],C.bamboo);worker(g,'developer',[0,.43,-.05],.38);bubble(g,'Folding a fix',[0,2.37,.55],1.55);
+    bun(g,[0,1.25,.85],.19);box(g,[.65,.04,.45],[0,1.25,.75],C.bamboo);worker(g,'developer',[0,.43,-.05],.38);if(residentsOn)bubble(g,'Folding a fix',[0,2.37,.55],1.55);
   }else if(kind==='tea'){
-    box(g,[1.5,.06,.55],[.6,1.27,.68],C.jade);teapot(g,[.6,1.32,.65]);for(const x of [.1,1.15])cup(g,[x,1.32,.7]);worker(g,'qa',[-.55,.43,-.05],.37);bubble(g,'Tasting the batch',[-.55,2.28,.45],1.7);
+    box(g,[1.5,.06,.55],[.6,1.27,.68],C.jade);teapot(g,[.6,1.32,.65]);for(const x of [.1,1.15])cup(g,[x,1.32,.7]);worker(g,'qa',[-.55,.43,-.05],.37);if(residentsOn)bubble(g,'Tasting the batch',[-.55,2.28,.45],1.7);
   }else if(kind==='pantry'){
-    box(g,[1.15,1.6,.5],[1,1.05,-.83],C.wood);for(const y of [.5,1,1.5])box(g,[1.02,.06,.52],[1,y,-.83],C.woodLight);for(const x of [.7,1.3])for(const y of [.72,1.2])cyl(g,.15,.25,[x,y,-.65],C.cream);worker(g,'security',[-.6,.43,-.05],.37);box(g,[.42,.04,.35],[.3,1.25,.7],C.cream);cyl(g,.12,.2,[.3,1.37,.7],C.red);bubble(g,'Checking the seal',[-.6,2.28,.5],1.8);
+    box(g,[1.15,1.6,.5],[1,1.05,-.83],C.wood);for(const y of [.5,1,1.5])box(g,[1.02,.06,.52],[1,y,-.83],C.woodLight);for(const x of [.7,1.3])for(const y of [.72,1.2])cyl(g,.15,.25,[x,y,-.65],C.cream);worker(g,'security',[-.6,.43,-.05],.37);box(g,[.42,.04,.35],[.3,1.25,.7],C.cream);cyl(g,.12,.2,[.3,1.37,.7],C.red);if(residentsOn)bubble(g,'Checking the seal',[-.6,2.28,.5],1.8);
   }else{
-    worker(g,'designer',[-.52,.43,-.05],.37);for(const x of [-.9,0,.9])plate(g,[x,1.26,.74],.29);const pen=beam(g,[.3,1.3,.5],[.75,1.32,.8],.025,C.ink);bubble(g,'Making it lovely',[-.52,2.3,.45],1.7);
+    worker(g,'designer',[-.52,.43,-.05],.37);for(const x of [-.9,0,.9])plate(g,[x,1.26,.74],.29);const pen=beam(g,[.3,1.3,.5],[.75,1.32,.8],.025,C.ink);if(residentsOn)bubble(g,'Making it lovely',[-.52,2.3,.45],1.7);
   }
   return g;
 }
@@ -95,7 +100,7 @@ function study(){const g=group('Quiet study nook');roundPad(g,1.8);const awning=
 function connector(){const g=group('Bamboo connector cabinet');floor(g,2.8,2.2);box(g,[1.8,2.3,.65],[0,1.4,-.3],C.wood);box(g,[1.65,2.08,.075],[0,1.4,.05],C.jadeDark);for(let i=0;i<4;i++){box(g,[1.4,.29,.13],[0,2.12-i*.44,.15],C.cream);ball(g,.047,[-.48,2.12-i*.44,.23],i===3?C.stone:C.jade);textPlane(g,['REPO','TOOLS','SKILLS','UNLINKED'][i],[.1,2.12-i*.44,.223],.9,.16,C.ink,C.cream);}roof(g,2.8,1.9,2.7);sign(g,'CONNECTIONS',[0,.38,.52],1.8,C.jade);tube(g,[[.8,.5,-.3],[1.05,.4,.15],[1,.3,.8]],.035,C.wood);planter(g,[-1.07,.2,.45]);return g;}
 function skills(){const g=group('Practice garden');roundPad(g,2);beam(g,[-1.6,.15,-1],[ -1.6,2.7,-1],.09,C.bamboo);beam(g,[1.6,.15,-1],[1.6,2.7,-1],.09,C.bamboo);beam(g,[-1.85,2.7,-1],[1.85,2.7,-1],.1,C.wood);sign(g,'PRACTICE GARDEN',[0,2.3,-.9],2.4,C.jade);for(let i=0;i<3;i++){const x=(i-1)*1;box(g,[.65,.35,.65],[x,.35,.25],C.woodLight);basket(g,[x,.54,.25],.26,i===2);}scroll(g,[0,.75,.25],.4,.3);bamboo(g,[-1.7,.1,.6],2);return g;}
 function trolley(){const g=group('Dumpling handoff trolley');for(const y of [.55,1.18])box(g,[1.5,.1,.85],[0,y,0],C.woodLight);for(const x of [-.63,.63])for(const z of [-.3,.3]){beam(g,[x,.2,z],[x,1.2,z],.045,C.wood);const wheel=cyl(g,.17,.1,[x,.18,z],C.jadeDark);wheel.rotation.z=Math.PI/2;}beam(g,[-.74,1.1,-.35],[-.74,1.5,-.35],.05,C.wood);beam(g,[-.74,1.5,-.35],[-.74,1.5,.35],.05,C.wood);basket(g,[-.38,1.24,0],.3,true);basket(g,[.37,1.24,0],.3);basket(g,[.35,.61,0],.34);return g;}
-function abacus(){const g=group('Kitchen tally abacus');floor(g,2.3,1.2);for(const x of [-.95,.95])box(g,[.15,2.2,.15],[x,1.3,0],C.wood);for(const y of [.35,2.3])box(g,[2.05,.15,.2],[0,y,0],C.wood);const counts=[6,4,3,2,1];for(let i=0;i<5;i++){const y=1.94-i*.32;beam(g,[-.92,y,0],[.92,y,0],.02,C.woodLight);for(let j=0;j<10;j++){const x=-.77+j*.17;ball(g,.077,[x,y,0],j<counts[i]?[C.jade,C.jade,C.blue,C.gold,C.red][i]:C.bamboo,[.7,1,1]);}textPlane(g,['5 H','WEEK','SLOTS','SERVED','SPILLS'][i],[1.35,y,.01],.6,.15,C.ink,C.cream);}sign(g,'KITCHEN TALLY',[0,2.66,.04],1.9,C.jade);return g;}
+function abacus(){const g=group('Kitchen tally abacus');floor(g,2.3,1.2);for(const x of [-.95,.95])box(g,[.15,2.2,.15],[x,1.3,0],C.wood);for(const y of [.35,2.3])box(g,[2.05,.15,.2],[0,y,0],C.wood);const counts=[6,4,3,2,1],rows=[];for(let i=0;i<5;i++){const y=1.94-i*.32,beads=[];rows.push(beads);beam(g,[-.92,y,0],[.92,y,0],.02,C.woodLight);for(let j=0;j<10;j++){const x=-.77+j*.17;beads.push(ball(g,.077,[x,y,0],new THREE.MeshStandardMaterial({color:j<counts[i]?[C.jade,C.jade,C.blue,C.gold,C.red][i]:C.bamboo,roughness:.88}),[.7,1,1]));}textPlane(g,['5 H','WEEK','SLOTS','SERVED','SPILLS'][i],[1.35,y,.01],.6,.15,C.ink,C.cream);}sign(g,'KITCHEN TALLY',[0,2.66,.04],1.9,C.jade);g.userData.tally={rows};return g;}
 function rail(){const g=group('Order-slip rail');for(const x of [-1.35,1.35]){cyl(g,.07,2.2,[x,1.1,0],C.wood);cyl(g,.2,.12,[x,.06,0],C.stone);}beam(g,[-1.4,2,0],[1.4,2,0],.045,C.bamboo);for(let i=0;i<5;i++){box(g,[.38,.68,.04],[-1.08+i*.54,1.62,0],C.cream,.018);box(g,[.29,.06,.046],[-1.08+i*.54,1.83,.025],[C.jade,C.blue,C.lavender][i%3]);for(let j=0;j<3;j++)box(g,[.25,.018,.012],[-1.08+i*.54,1.66-j*.12,.028],C.wood);ball(g,.035,[-1.08+i*.54,1.99,.03],C.gold);}sign(g,'ORDER RAIL',[0,.85,0],1.7,C.jade);return g;}
 function baskets(){const g=group('Ticket baskets');for(let i=0;i<3;i++)basket(g,[-.55,.02+i*.31,0],.43);basket(g,[.5,.02,.05],.45,true);box(g,[.32,.42,.025],[-.55,.61,.44],C.cream);textPlane(g,'NEXT',[-.55,.64,.455],.25,.13,C.ink,C.cream);return g;}
 function dishes(){const g=group('Tea & dim sum service');box(g,[1.75,.07,1.2],[0,.05,0],C.wood);teapot(g,[-.48,.12,-.28]);for(const pos of [[-.65,.12,.36],[.5,.12,-.32]])cup(g,pos);plate(g,[.35,.13,.3],.35);for(const x of [.88,.94])beam(g,[x,.14,-.15],[x,.14,.5],.016,C.woodLight);return g;}
@@ -104,7 +109,7 @@ function states(){const g=group('Panda activity & state kit');const items=[['Rea
 function crew(){const g=group('The resident crew');const roles=Object.keys(TRADITIONAL_PROPS);roles.forEach((role,i)=>{const x=(i%4-1.5)*2.6,z=(Math.floor(i/4)-1.5)*3;worker(g,role,[x,0,z],.36);textPlane(g,role.toUpperCase(),[x,.1,z+1.0],2.3,.2,C.ink,C.cream).rotation.x=-Math.PI/2;});return g;}
 function teaRetreat(){const g=group('Garden tea retreat');roundPad(g,1.85);cyl(g,.12,.66,[0,.46,0],C.wood);cyl(g,.76,.12,[0,.83,0],C.woodLight);teapot(g,[0,.92,0]);for(const x of [-.8,.8]){cushion(g,[x,.28,.95],C.jade,.8);cup(g,[x*.6,.92,.32]);}bamboo(g,[-1.1,.15,-.8],3.2);bamboo(g,[1.1,.15,-.8],2.7);return g;}
 function mahjong(){const g=group('Mahjong corner');roundPad(g,2.1);box(g,[1.65,.18,1.65],[0,.85,0],C.wood);box(g,[1.48,.025,1.48],[0,.96,0],C.jade);for(const x of [-.65,.65])for(const z of [-.65,.65])box(g,[.12,.7,.12],[x,.45,z],C.wood);for(let side=0;side<4;side++)for(let j=0;j<8;j++){const tile=group('Mahjong tile');at(g,tile,[0,1.03,0],side*Math.PI/2);box(tile,[.12,.16,.07],[-.52+j*.15,0,.58],C.cream,.018);ball(tile,.018,[-.52+j*.15,.02,.619],j%2?C.red:C.jade);}for(const [x,z]of [[0,1.5],[0,-1.5],[-1.5,0],[1.5,0]])stool(g,[x,.15,z],C.jade);return g;}
-function rest(){const g=group('Sleepy cushion nook');floor(g,3.4,2.4);for(const x of [-1.3,1.3])cyl(g,.08,2.7,[x,1.45,-.7],C.wood);beam(g,[-1.5,2.75,-.7],[1.5,2.75,-.7],.08,C.wood);box(g,[2.9,.12,1.9],[0,2.8,-.1],C.bamboo).rotation.x=.12;cushion(g,[-.55,.36,.3],C.lavender,1.05);cushion(g,[.7,.36,.3],C.cream,.95);worker(g,'cub',[-.55,.46,.2],.26,0,true);bubble(g,'zzz',[-.55,1.73,.28],.65);box(g,[2.8,.5,.12],[0,.55,-.88],C.woodLight);return g;}
+function rest(){const g=group('Sleepy cushion nook');floor(g,3.4,2.4);for(const x of [-1.3,1.3])cyl(g,.08,2.7,[x,1.45,-.7],C.wood);beam(g,[-1.5,2.75,-.7],[1.5,2.75,-.7],.08,C.wood);box(g,[2.9,.12,1.9],[0,2.8,-.1],C.bamboo).rotation.x=.12;cushion(g,[-.55,.36,.3],C.lavender,1.05);cushion(g,[.7,.36,.3],C.cream,.95);worker(g,'cub',[-.55,.46,.2],.26,0,true);if(residentsOn)bubble(g,'zzz',[-.55,1.73,.28],.65);box(g,[2.8,.5,.12],[0,.55,-.88],C.woodLight);return g;}
 function grove(){const g=group('Bamboo & garden planting');for(const [x,z,h]of [[-1.2,.4,3.5],[0,-.4,4.3],[1.2,.3,3]])bamboo(g,[x,0,z],h,x);for(const x of [-1.1,.6,1.3])ball(g,.38,[x,.12,.8],C.stone,[1,.55,.7]);for(let i=0;i<6;i++)ball(g,.28,[Math.sin(i*2.3)*1.5,.13,Math.cos(i*2.3)*1.2],C.leaf,[1,.6,1]);return g;}
 function gate(){const g=group('Welcome garden gate');for(const x of [-1.7,1.7]){cyl(g,.15,3.1,[x,1.55,0],C.wood);cyl(g,.22,.2,[x,.1,0],C.stone);}roof(g,4.4,1.6,3.1);sign(g,'DIM SUM DEN',[0,2.65,.22],2.8,C.jade);lantern(g,[-1.4,2.76,.3]);lantern(g,[1.4,2.76,.3]);return g;}
 function paths(){const g=group('Courtyard paving kit');for(let i=0;i<7;i++){const m=cyl(g,.56,.1,[(i-3)*.9,.05,Math.sin(i)*.2],C.stone);m.scale.z=.7;m.rotation.y=i*.4;}for(const x of [-2.4,2.4])ball(g,.16,[x,.1,.6],C.leaf,[1,.5,1]);return g;}
@@ -138,22 +143,34 @@ export const ASSETS=[
  ['pad','Future workspace plot','Room to grow','Life in the den',buildPad,'An empty marked garden plot leaves a clear place for a station that does not exist yet.','Existing build-pad direction'],
 ].map(([id,name,subtitle,category,build,description,basis],index)=>({id,name,subtitle,category,build,description,basis,index:index+1}));
 
-export function createAsset(id){const asset=ASSETS.find(x=>x.id===id);if(!asset)throw new Error(`Unknown asset: ${id}`);const root=asset.build();root.userData.assetId=id;return root;}
+export function createAsset(id,{includeResidents=true}={}){const asset=ASSETS.find(x=>x.id===id);if(!asset)throw new Error(`Unknown asset: ${id}`);const before=residentsOn;residentsOn=includeResidents;try{const root=asset.build();root.userData.assetId=id;return root;}finally{residentsOn=before;}}
 
-export function createVillage(){
+// Where each kit asset stands in the assembled den (renders/layout-top.png).
+export const VILLAGE_POSITIONS={bao:[0,0,-10],steamers:[-14,0,-10],tea:[-14,0,0],pantry:[14,0,0],front:[14,0,-10],meeting:[0,0,9],library:[0,0,-20],study:[-10,0,-20],connector:[14,0,-19],skills:[14,0,18],trolley:[-9,0,-10],abacus:[18,0,10],rail:[-19,0,-10],baskets:[-19,0,-5],dishes:[-10,.77,18],request:[14,0,10],states:[0,0,0],crew:[0,0,0],retreat:[-14,0,10],mahjong:[-9,0,19],rest:[4,0,20],grove:[-23,0,-10],gate:[0,0,25],paths:[0,0,23],pad:[-19,0,-17]};
+// The two promenades, the crosspaths and the short station approaches, as [x,z] polylines.
+export const VILLAGE_PATHS=(()=>{
+  const s=[[[-7,-16],[-7,21]],[[7,-16],[7,21]],[[-7,-16],[7,-16]],[[-7,-5],[7,-5]],[[-7,4],[7,4]],[[-7,15],[7,15]],[[-7,23],[7,23]],[[0,23],[0,25]],[[0,-16],[0,-13.4]],[[0,-16],[0,-18]],[[0,4],[0,5.2]],[[0,13],[0,15]],[[7,21],[7,23]],[[-7,21],[-7,23]]];
+  for(const z of [-10,0,10,19])s.push([[-7,z],[-11,z]],[[7,z],[11,z]]);
+  s.push([[-7,-16],[-10,-16]],[[-10,-16],[-10,-18]],[[7,-16],[14,-16]],[[14,-16],[14,-17]]);
+  return s;
+})();
+/** The assembled den. includeResidents:false leaves out the kit's illustrative pandas (den-mvp/25): the den's actors own the live ones. */
+export function createVillage({includeResidents=true}={}){
+  const before=residentsOn;residentsOn=includeResidents;
+  try{return buildVillage(includeResidents);}finally{residentsOn=before;}
+}
+function buildVillage(includeResidents){
   const world=group('Dim Sum Den · garden village');
   const ground=cyl(world,28,.55,[0,-.34,0],C.grass);ring(world,27.7,.16,[0,-.08,0],C.leaf);
   const lawn=cyl(world,27,.05,[0,-.04,0],C.grass);lawn.receiveShadow=true;
-  const positions={bao:[0,0,-10],steamers:[-14,0,-10],tea:[-14,0,0],pantry:[14,0,0],front:[14,0,-10],meeting:[0,0,9],library:[0,0,-20],study:[-10,0,-20],connector:[14,0,-19],skills:[14,0,18],trolley:[-9,0,-10],abacus:[18,0,10],rail:[-19,0,-10],baskets:[-19,0,-5],dishes:[-10,.77,18],request:[14,0,10],states:[0,0,0],crew:[0,0,0],retreat:[-14,0,10],mahjong:[-9,0,19],rest:[4,0,20],grove:[-22,0,-10],gate:[0,0,25],paths:[0,0,23],pad:[-19,0,-17]};
-  for(const a of ASSETS){if(['crew','states','dishes','paths'].includes(a.id))continue;const root=createAsset(a.id);const yaw=0;at(world,root,positions[a.id],yaw);root.userData.selectable=true;}
+  const positions=VILLAGE_POSITIONS;
+  for(const a of ASSETS){if(['crew','states','dishes','paths'].includes(a.id))continue;const root=createAsset(a.id,{includeResidents});const yaw=0;at(world,root,positions[a.id],yaw);root.userData.selectable=true;}
   // Remaining kit pieces are distributed naturally instead of dumping a separate sample board in the village.
-  const serving=group('Courtyard snack table');cyl(serving,.1,.65,[0,.42,0],C.wood);cyl(serving,.8,.12,[0,.8,0],C.woodLight);at(serving,createAsset('dishes'),[0,.89,0],0,.65);at(world,serving,[-12.8,0,19]);
+  const serving=group('Courtyard snack table');cyl(serving,.1,.65,[0,.42,0],C.wood);cyl(serving,.8,.12,[0,.8,0],C.woodLight);at(serving,createAsset('dishes',{includeResidents}),[0,.89,0],0,.65);at(world,serving,[-12.8,0,19]);
   worker(world,'product',[-2.9,.05,-10],.36,.35);worker(world,'architect',[2.9,.05,-10],.36,-.3);worker(world,'scout',[-12,.05,-7],.34,.3);worker(world,'herald',[12,.05,-8],.34,-.3);
   worker(world,'qa',[-14,.15,10],.29,.2);worker(world,'designer',[-9,.15,20.7],.29,0);worker(world,'security',[12,.15,18],.28,-.3);
   // Two continuous promenades, crosspaths and short perpendicular station approaches.
-  const segments=[ [[-7,-16],[-7,21]],[[7,-16],[7,21]],[[-7,-16],[7,-16]],[[-7,-5],[7,-5]],[[-7,4],[7,4]],[[-7,15],[7,15]],[[-7,23],[7,23]],[[0,23],[0,25]],[[0,-16],[0,-13.4]],[[0,-16],[0,-18]],[[0,4],[0,5.2]],[[0,13],[0,15]],[[7,21],[7,23]],[[-7,21],[-7,23]] ];
-  for(const z of [-10,0,10,19]){segments.push([[-7,z],[-11,z]],[[7,z],[11,z]]);}
-  segments.push([[-7,-16],[-10,-16]],[[-10,-16],[-10,-18]],[[7,-16],[14,-16]],[[14,-16],[14,-17]]);
+  const segments=VILLAGE_PATHS;
   for(const [a,b] of segments){const length=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.ceil(length/.85);for(let i=0;i<n;i++){const t=i/n;const m=cyl(world,.43,.05,[a[0]+(b[0]-a[0])*t,.005,a[1]+(b[1]-a[1])*t],C.stone);m.scale.z=.85;}}
   // Intentionally low planting around the front; taller bamboo frames the back silhouette.
   for(let i=0;i<28;i++){const a=Math.PI*.53+i*Math.PI*.94/27;const x=Math.sin(a)*26,z=Math.cos(a)*26;if(z<4)bamboo(world,[x,0,z],2.7+(i%4)*.35,a);}

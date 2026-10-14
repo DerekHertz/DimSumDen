@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { walk, startWalk, isDenPositionBlocked, WALK } from './walk.mjs';
+import { REVIEW_OBSTACLES } from '../../review/site-plan.mjs';
 import { withDen } from './den-test-helpers.mjs';
 
 // Expected values are literals from the ticket (den-v1/03) and the frozen layout: the floor spans
@@ -16,16 +17,16 @@ const at = (x, z, extra = {}) => ({...startWalk(), x, z, ...extra});
 
 test('startWalk puts the camera at eye height at the den entrance, level-ish, facing the room', () => {
   const s = startWalk();
-  assert.deepEqual([s.x, s.z, s.y, s.yaw], [0, 8.95, 1.65, 0]);
+  assert.deepEqual([s.x, s.z, s.y, s.yaw], [4.2, 23.4, 1.65, 0]);
   assert.ok(s.pitch > 0 && s.pitch < 0.3);
 });
 
 test('walking forward at yaw 0 moves toward -z at 2.1 m/s, and sprinting at 3.5', () => {
   const walked = run(startWalk(), north, 1, 60);
-  assert.ok(Math.abs(8.95 - walked.z - 2.1) < 0.05, 'z after 1 s: ' + walked.z);
-  assert.ok(Math.abs(walked.x) < 1e-9);
+  assert.ok(Math.abs(23.4 - walked.z - 2.1) < 0.05, 'z after 1 s: ' + walked.z);
+  assert.ok(Math.abs(walked.x - 4.2) < 1e-9);
   const sprinted = run(startWalk(), {...north, sprint: true}, 1, 60);
-  assert.ok(Math.abs(8.95 - sprinted.z - 3.5) < 0.05, 'z after 1 s sprinting: ' + sprinted.z);
+  assert.ok(Math.abs(23.4 - sprinted.z - 3.5) < 0.05, 'z after 1 s sprinting: ' + sprinted.z);
 });
 
 test('diagonal movement is not faster than straight movement', () => {
@@ -90,8 +91,8 @@ test('a roaming panda blocks the walker, but only a visible one', () => {
 test('a long walk through the real den never ends inside a prop or off the floor', () => {
   withDen(den => {
     for (const yaw of [0, 0.4, -0.4, 1.2, -1.2, 2.5, Math.PI]) {
-      const end = run(at(0, 8.95, {yaw}), north, 25, 30, {obstacles: den.obstacles, avoid: []});
-      assert.equal(isDenPositionBlocked(end.x, end.z, den.obstacles, 0.26), false, 'yaw ' + yaw);
+      const end = run(at(4.2, 23.4, {yaw}), north, 25, 30, {obstacles: [...den.obstacles, ...REVIEW_OBSTACLES], avoid: []});
+      assert.equal(isDenPositionBlocked(end.x, end.z, [...den.obstacles, ...REVIEW_OBSTACLES], 0.26), false, 'yaw ' + yaw);
       assert.ok(Math.hypot(end.x, end.z) <= 28 - 0.26 + 1e-9, 'yaw ' + yaw + ' ended off the floor');
     }
   });
@@ -118,8 +119,8 @@ test('walk is pure: it returns a new state and never edits its arguments', () =>
   const world = Object.freeze({obstacles: Object.freeze([]), avoid: Object.freeze([])});
   const next = walk(state, input, 1 / 60, world);
   assert.notEqual(next, state);
-  assert.equal(state.z, 8.95);
-  assert.ok(next.z < 8.95);
+  assert.equal(state.z, 23.4);
+  assert.ok(next.z < 23.4);
 });
 
 test('the view bobs while walking unless reduced motion is on, and stands still when idle', () => {

@@ -5,29 +5,24 @@ import {createBao} from '../scene/procedural/bao.mjs';
 import {createDenScene} from '../scene/procedural/den-scene.mjs';
 import {canvasDocument} from '../scene/procedural/den-test-helpers.mjs';
 import {isDenPositionBlocked} from '../scene/procedural/walk.mjs';
-import {prepareReviewLayout,REVIEW_CLEARINGS} from './layout.mjs';
 import {createReviewAgents,findReviewPath} from './agents.mjs';
 import {createTraditionalGear} from './traditional-props.mjs';
 import {compactReviewGear} from './compact-gear.mjs';
-import {createReviewLandscape} from './landscape.mjs';
-import {createConstructionPads} from './construction-pads.mjs';
-import {CONSTRUCTION_PADS,REVIEW_STATIONS,ZONE_POSITIONS} from './site-plan.mjs';
-import {createLeisure} from './leisure.mjs';
+import {VILLAGE_PATHS} from '../scene/expansion/base-assets.mjs';
+import {REVIEW_STATIONS,ROLE_HOMES,BAO_HOME,BAO_SCALE,REVIEW_PLACES,REVIEW_OBSTACLES} from './site-plan.mjs';
 
 function withAgents(run){
   const previous=globalThis.document;globalThis.document=canvasDocument();
   let den,agents;
-  try{den=createDenScene(THREE,createBao);prepareReviewLayout(den);agents=createReviewAgents(den,createBao);run(agents,den);}
+  try{den=createDenScene(THREE,createBao);agents=createReviewAgents(den,createBao);run(agents,den);}
   finally{agents?.dispose();den?.dispose();globalThis.document=previous;}
 }
 
-test('bamboo leaves both reviewed zones clear before environment compaction',()=>{
+test('fourteen distinct role pandas stand at distinct homes in the village',()=>{
   withAgents((agents,den)=>{
-    const stems=den.world.children.filter(o=>/^Bamboo \d+$/.test(o.name));
-    for(const stem of stems)for(const c of REVIEW_CLEARINGS)assert.ok(Math.hypot(stem.position.x-c.x,stem.position.z-c.z)>=c.radius);
     assert.equal(agents.actors.size,14);assert.equal(new Set([...agents.actors.values()].map(a=>a.panda)).size,14);
     assert.equal(new Set([...agents.actors.values()].map(a=>a.home.join(','))).size,14);
-    assert.equal(agents.actors.get('developer').panda,den.crew.get('developer'),'resident keeps its identity');
+    assert.equal(den.pandas.length,1,'the village brings no placeholder pandas: Bao only');
   });
 });
 
@@ -59,13 +54,13 @@ test('a single role walks to work, waits for a human answer, completes and retur
   });
 });
 
-test('greetings preserve a running task and gathering sends the existing roles to distinct dining seats',()=>{
+test('greetings preserve a running task and gathering sends the existing roles to distinct seats at the round table',()=>{
   withAgents(agents=>{
     const actor=agents.actors.get('qa');agents.sendTask('qa','Taste the tea');agents.wave('qa');
     assert.equal(actor.state,'received');assert.ok(actor.wave>0);
     agents.gather();const seats=[];
     for(const role of ['product','architect','designer']){
-      const a=agents.actors.get(role);assert.equal(a.destination,'dining');assert.equal(a.state,'walking');seats.push(a.target.join(','));
+      const a=agents.actors.get(role);assert.equal(a.destination,'meeting');assert.equal(a.state,'walking');seats.push(a.target.join(','));
     }
     assert.equal(new Set(seats).size,seats.length);assert.equal(actor.state,'received','busy role keeps its task');
     assert.equal(agents.snapshot().simulated,true);
@@ -92,42 +87,63 @@ test('every role can circulate and reach its station without crossing a static o
   });
 });
 
-test('the horseshoe uses both sides and the rear, with consistent station and future plot clearance',()=>{
+test('each station is the kit\'s asset at its mapped position, and its roles work inside it',()=>{
   withAgents((agents,den)=>{
-    den.stalls.forEach((stall,i)=>{
-      const p=REVIEW_STATIONS[i];assert.deepEqual(stall.position.toArray(),[p.x,0,p.z]);
-      assert.equal(stall.rotation.y,p.yaw);
-      assert.ok(den.obstacles.some(o=>o.type==='box'&&o.x===p.x&&o.z===p.z&&o.rotation===p.yaw));
+    const expected={steamers:[-14,-10],'front-of-house':[14,-10],tea:[-14,0],pantry:[14,0]};
+    REVIEW_STATIONS.forEach((s,i)=>{
+      assert.deepEqual([s.x,s.z],expected[s.id]);
+      assert.deepEqual(den.stalls[i].position.toArray(),[s.x,0,s.z]);
+      assert.equal(den.stalls[i].userData.assetId,s.asset);
+      for(const role of s.roles){
+        const a=agents.actors.get(role);
+        assert.equal(a.station,{steamers:'Steamers','front-of-house':'Front of House',tea:'Tea',pantry:'Pantry'}[s.id]);
+        assert.ok(Math.abs(a.home[0]-s.x)<=1.9&&Math.abs(a.home[1]-s.z)<=1.4,`${role} works inside the ${s.id} pavilion, at ${a.home}`);
+        assert.ok(!isDenPositionBlocked(a.home[0],a.home[1],agents.obstacles,0.65));
+      }
     });
-    const leisure=createLeisure(den,createBao),construction=createConstructionPads(den);
-    try{
-      for(const [id,position]of Object.entries(ZONE_POSITIONS)){
-        const zone=leisure.root.children.find(o=>o.userData.zone===id);assert.deepEqual(zone.position.toArray(),position);
-      }
-      assert.ok(ZONE_POSITIONS.games[0]<-15&&ZONE_POSITIONS.festival[0]>14);
-      assert.equal(construction.pads.size,3);
-      for(const pad of CONSTRUCTION_PADS){
-        const model=construction.pads.get(pad.id);assert.deepEqual(model.position.toArray(),pad.position);
-        assert.ok(pad.position[2]<-14&&Math.hypot(pad.position[0],pad.position[2])+pad.radius<28);
-        assert.match(model.userData.easterEgg.text,/No station has been assigned/);
-        assert.ok(isDenPositionBlocked(pad.position[0],pad.position[2],agents.obstacles,0.65));
-        for(const other of CONSTRUCTION_PADS)if(other!==pad)assert.ok(Math.hypot(pad.position[0]-other.position[0],pad.position[2]-other.position[2])>pad.radius+other.radius+2.5);
-      }
-      const route=findReviewPath([-4,-12],[4,-12],agents.obstacles);assert.ok(route,'rear route stays open below future plots');
-      const center=CONSTRUCTION_PADS[1].position;assert.equal(findReviewPath([-4,-12],[center[0],center[2]],agents.obstacles),null,'future plots are not walking destinations');
-    }finally{construction.dispose();leisure.dispose();}
-    assert.equal(construction.root.parent,null);assert.equal(leisure.root.parent,null);
+    // The counter is solid; the pavilion is entered from the promenade side.
+    for(const s of REVIEW_STATIONS)assert.ok(isDenPositionBlocked(s.x,s.z+0.65,agents.obstacles,0.65),`${s.id}: the counter is solid`);
+    for(const [from,role] of [[[-7,-10],'developer'],[[-7,0],'qa'],[[7,0],'security'],[[7,-10],'designer']]){
+      const route=findReviewPath(from,agents.actors.get(role).home,agents.obstacles);assert.ok(route,`${role} is reachable from the promenade at ${from}`);
+    }
   });
 });
 
-test('Bao stays big and central through greetings, tasks, gatherings and returning to hosting',()=>{
+test('routes between stations follow the promenades',()=>{
   withAgents(agents=>{
-    const bao=agents.actors.get('orchestrator'),position=bao.panda.model.position.clone();assert.equal(bao.panda.model.scale.x,1.75);
-    assert.deepEqual(position.toArray(),[0,0,-1.25]);assert.equal(agents.comeHere('orchestrator',[0,10]),false);
+    // Steamers to Plating: the straight line crosses the Pass pavilion; the path is the promenade south of the Pass.
+    const route=findReviewPath([-11.5,-10.5],[11.5,-10.5],agents.obstacles);
+    assert.ok(route&&route.length>2,'the Pass is walked around');
+    let on=0,total=0;
+    for(let k=1;k<route.length;k++){
+      const [a,b]=[route[k-1],route[k]],n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/0.5));
+      for(let m=0;m<n;m++){
+        const x=a[0]+(b[0]-a[0])*m/n,z=a[1]+(b[1]-a[1])*m/n;total++;
+        if(VILLAGE_PATHS.some(([p,q])=>{const dx=q[0]-p[0],dz=q[1]-p[1],t=Math.max(0,Math.min(1,((x-p[0])*dx+(z-p[1])*dz)/(dx*dx+dz*dz)));return Math.hypot(x-p[0]-dx*t,z-p[1]-dz*t)<=1.2;}))on++;
+      }
+    }
+    assert.ok(on/total>=0.7,`${Math.round(on/total*100)}% of the walk is on a path`);
+  });
+});
+
+test('every leisure place has room for the pandas that go there',()=>{
+  withAgents(agents=>{
+    for(const [id,place] of Object.entries(REVIEW_PLACES)){
+      assert.ok(place.spots.length>=3,id);
+      for(const spot of place.spots)assert.ok(!isDenPositionBlocked(spot[0],spot[1],agents.obstacles,0.65),`${id} spot ${spot} is blocked`);
+    }
+    for(const home of Object.values(ROLE_HOMES))assert.ok(Math.hypot(home[0],home[1])<26.5);
+  });
+});
+
+test('Bao stays big and at the Pass through greetings, tasks, gatherings and returning to hosting',()=>{
+  withAgents(agents=>{
+    const bao=agents.actors.get('orchestrator'),position=bao.panda.model.position.clone();assert.equal(bao.panda.model.scale.x,BAO_SCALE);
+    assert.deepEqual(position.toArray(),[BAO_HOME[0],0.16,BAO_HOME[1]]);assert.equal(agents.comeHere('orchestrator',[0,10]),false);
     agents.gather();agents.wave('orchestrator');agents.talk('orchestrator');assert.equal(agents.sendTask('orchestrator','Plan tonight’s service'),true);
     for(let i=0;i<70;i++)agents.update(0.1);assert.equal(bao.state,'needs-you');agents.answer('orchestrator');
     for(let i=0;i<30;i++)agents.update(0.1);assert.equal(bao.state,'complete');agents.resume('orchestrator');
-    for(let i=0;i<300;i++)agents.update(0.1);assert.ok(bao.panda.model.position.equals(position));assert.equal(bao.panda.model.scale.x,1.75);assert.equal(bao.activity,'Hosting the den');
+    for(let i=0;i<300;i++)agents.update(0.1);assert.ok(bao.panda.model.position.equals(position));assert.equal(bao.panda.model.scale.x,BAO_SCALE);assert.equal(bao.activity,'Hosting the den');
   });
 });
 
@@ -145,16 +161,16 @@ test('merging rigid gear preserves its world bounds, bone sockets and editable g
   gear.dispose();p.dispose();
 });
 
-test('the garden is finite, with mountain layers and dense bamboo outside the reviewed clearings',()=>{
+test('the den is the village: a finite radius-28 garden, and none of the old den renders',()=>{
   withAgents((agents,den)=>{
-    const ground=den.world.getObjectByName('Bamboo clearing');assert.equal(ground.geometry.type,'CylinderGeometry');assert.equal(ground.geometry.parameters.radiusTop,28);
-    const landscape=createReviewLandscape(den);assert.equal(landscape.peaks.length,3);assert.ok(landscape.stemCount>100);
-    const stems=landscape.root.getObjectByName('Dense boundary bamboo'),matrix=new THREE.Matrix4(),point=new THREE.Vector3();
-    for(let i=0;i<stems.count;i++){
-      stems.getMatrixAt(i,matrix);point.setFromMatrixPosition(matrix);
-      for(const c of REVIEW_CLEARINGS)assert.ok(Math.hypot(point.x-c.x,point.z-c.z)>c.radius);
-      assert.ok(!(point.z>14&&Math.abs(point.x)<18),'entrance view remains open');
-    }
-    landscape.dispose();assert.equal(landscape.root.parent,null);
+    const ground=den.world.children.find(o=>o.geometry?.type==='CylinderGeometry'&&o.geometry.parameters.radiusTop===28);
+    assert.ok(ground,'the kit\'s ground, radius 28');
+    assert.equal(den.world.userData.assembled,true);
+    const names=new Set();den.world.traverse(o=>names.add(o.name));
+    for(const gone of ['Dim sum table','Tally abacus','Bamboo clearing','Faceted clearing','Stepping stone','Future restaurant plots','Bamboo leisure gardens','Mountain garden','Restaurant details','Bamboo steamer'])
+      assert.ok(!names.has(gone),`${gone} is not rendered`);
+    for(const station of ['steamers pavilion','tea pavilion','pantry pavilion','front pavilion'])assert.ok(names.has(station),`${station} is rendered`);
+    assert.ok(names.has('Bao’s welcoming Pass')&&names.has('Round-table pavilion'));
+    assert.ok(REVIEW_OBSTACLES.length>40);
   });
 });

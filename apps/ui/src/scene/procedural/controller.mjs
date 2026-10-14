@@ -1,7 +1,7 @@
 import { planCells, poseFor } from './bindings.mjs';
 
 // Reconcile by ticket ref, so refreshes do not recreate skeletons or restart a panda's life.
-export function createLiveDenController(den,{onCreate=()=>{},onRemove=()=>{},manageResidents=true,ticketPandas=true}={}) {
+export function createLiveDenController(den,{onCreate=()=>{},onRemove=()=>{},ticketPandas=true}={}) {
   const figures=new Map();
   let elapsed=0;
   const baseObstacles=[...den.obstacles];
@@ -22,23 +22,19 @@ export function createLiveDenController(den,{onCreate=()=>{},onRemove=()=>{},man
       }
       f.cell=cell;den.placeTicketPanda(f.panda,cell.placement);
     }
-    const busy=new Set(planned.map(c=>c.cellType));
-    if(manageResidents)for(const [role,p] of den.crew)p.model.visible=['product','architect'].includes(role)&&!busy.has(role);
-    if(manageResidents)for(const r of den.roamers)r.panda.model.visible=!busy.has(r.cellType);
     den.obstacles.splice(0,den.obstacles.length,...baseObstacles,...planned.filter(c=>c.placement.parent==='world').map(c=>({
       type:'circle',x:c.placement.position[0],z:c.placement.position[2],radius:0.32,
     })));
     den.setFrontier(frontier);den.setTally(rods);
   }
-  function update(delta,{reducedMotion=false,roaming=true,player=null,selected=null}={}) {
+  function update(delta,{reducedMotion=false,selected=null}={}) {
     if(!reducedMotion)elapsed+=delta;
     for(const f of figures.values()){
       f.panda.bones.Head.rotation.x-=f.headOffset||0;
       for(const side of ['L','R']){const lid=f.panda.model.getObjectByName('Lid_'+side);if(lid?.morphTargetInfluences&&f.baseLids)lid.morphTargetInfluences[0]=f.baseLids[side];}
       for(const name of ['Root','Shoulder_L','Shoulder_R','Elbow_L','Elbow_R','Wrist_L','Wrist_R'])f.panda.bones[name]?.rotation.set(0,0,0);
     }
-    den.setRoaming(roaming&&!reducedMotion);
-    den.update(reducedMotion?0:delta,elapsed,player);
+    den.update(reducedMotion?0:delta,elapsed);
     for(const [ref,f] of figures){
       const {panda,cell}=f;
       const p=poseFor(cell.pose,elapsed,reducedMotion),b=panda.bones;
