@@ -62,6 +62,8 @@ function fakeGitHost(root) {
     notes: {},
     logs: {},
     onRerun: null,
+    open: [],
+    openPrs: async () => h.open,
     annotations: async ({ jobId }) => h.notes[jobId] ?? [],
     failedLog: async ({ jobId }) => h.logs[jobId] ?? "",
     rerunFailed: async (a) => {
@@ -277,6 +279,22 @@ describe("red checks on a delivery's pull request", () => {
     assert.equal(t.git.calls.filter((c) => c[0] === "rerunFailed").length, 1, "one re-run per delivery commit, none after");
     assert.equal(t.sideEffects().includes("merge"), false);
   });
+});
+
+test("a red pull request from outside the den starts Bao's desk with a message about it, once (den-mvp/29 and 30)", async () => {
+  const t = await setup({ runtimeConfig: { send: true } });
+  t.git.open = [{ number: 40, url: "https://github.com/o/r/pull/40", title: "outside work", branch: "x", sha: "c".repeat(40), files: ["apps/ui/a.jsx"],
+    checks: [{ name: "test", done: true, ok: false, cancelled: false, jobId: "5", runId: "905" }] }];
+  t.git.logs["5"] = "test\tRun\t2026-10-14T20:00:00.0000000Z not ok 1 - it broke";
+  await t.bridge.pollCi();
+  await t.bridge.pollCi();
+  const desk = t.fake.spawns.filter((s) => s.args.ref === "den/00-bao");
+  assert.equal(desk.length, 1);
+  assert.equal(desk[0].args.role, "orchestrator");
+  assert.equal(desk[0].sent.length, 1);
+  assert.match(desk[0].sent[0].text, /pull request #40 \(outside work\) is red/);
+  const { ci } = await t.state();
+  assert.deepEqual(ci.prs.map((p) => [p.number, p.state, p.bao]), [[40, "red", "Bao was told"]]);
 });
 
 describe("a review that sends the work back", () => {

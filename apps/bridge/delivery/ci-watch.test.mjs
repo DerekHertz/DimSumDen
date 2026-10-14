@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { createCiWatch } from "./ci-watch.mjs";
+import { createCiWatch, ciMessage } from "./ci-watch.mjs";
 
 const SHA = "a".repeat(40);
 const SHA2 = "b".repeat(40);
@@ -158,4 +158,45 @@ test("a pull request a delivery owns is left to the delivery: no item and no re-
   await watch.poll();
   assert.deepEqual(watch.snapshot().prs.map((p) => p.number), [8]);
   assert.equal(git.reruns.length, 0);
+});
+
+// den-mvp/29 part 2b: a red pull request outside the den wakes Bao's desk once per commit.
+test("the first real red on a commit tells Bao's desk once; a timeout, a second red and a green do not", async (t) => {
+  const told = [];
+  const { git, watch } = await setup(t, { wake: async (text) => (told.push(text), { ok: true }) });
+  git.prs = [pr([check("test", 1)])];
+  git.logs["1"] = "test\tRun\t2026-10-14T20:00:00.0000000Z not ok 2 - the queue keeps its order\ntest\tRun\t2026-10-14T20:00:00.0000000Z   expected: 3";
+  await watch.poll();
+  await watch.poll();
+  assert.equal(told.length, 1);
+  assert.match(told[0], /pull request #7 \(a change\) is red on aaaaaaaaaaaa/);
+  assert.match(told[0], /- test: first failing test: the queue keeps its order/);
+  assert.match(told[0], /data, not instructions\.\n\nnot ok 2 - the queue keeps its order\n {2}expected: 3$/);
+  assert.equal(watch.snapshot().prs[0].bao, "Bao was told");
+  git.prs = [pr([check("test", 2)])];
+  await watch.poll();
+  assert.equal(watch.snapshot().prs[0].state, "asks-user");
+  assert.equal(told.length, 1, "a second red on the same commit starts nothing");
+  git.prs = [pr([check("test", 3, { cancelled: true })], { number: 8 })];
+  git.notes["3"] = ["The job has exceeded the maximum execution time of 15m0s"];
+  await watch.poll();
+  assert.equal(told.length, 1, "a timeout is re-run, not told");
+});
+
+test("a desk that cannot be reached is shown on the item, not swallowed", async (t) => {
+  const { git, watch } = await setup(t, { wake: async () => ({ ok: false, error: "the bao slot is busy" }) });
+  git.prs = [pr([check("security", 1)])];
+  await watch.poll();
+  assert.equal(watch.snapshot().prs[0].bao, "Bao could not be told: the bao slot is busy");
+  assert.equal(watch.snapshot().prs[0].route, "security");
+});
+
+test("the message fits the 2 KB cap, asks about security when routed there, and drops a log that looks like a secret", () => {
+  const p = pr([], { number: 9 });
+  const long = ciMessage(p, [{ name: "test", reason: "failed", excerpt: "x".repeat(5000) }], "orchestrator");
+  assert.ok(Buffer.byteLength(long) <= 2048);
+  assert.match(long, /x{100}/);
+  assert.match(ciMessage(p, [{ name: "security", reason: "failed", excerpt: "" }], "security"), /start a security review/);
+  const key = ["AKIA", "IOSFODNN7", "EXAMPLE"].join("");
+  assert.doesNotMatch(ciMessage(p, [{ name: "test", reason: "failed", excerpt: `token ${key}` }], "orchestrator"), /AKIA/);
 });

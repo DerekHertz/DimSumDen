@@ -120,7 +120,9 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   let meetings;
   // A pull request a delivery is running or waiting on is the delivery's: its runner re-runs a timeout or sends a red back.
   const ownedByDelivery = (number) => (delivery?.snapshot() ?? []).some((d) => (d.state === "running" || d.state === "paused") && d.pr?.number === number);
-  const ciWatch = createCiWatch({ git, file: path.join(stateDir ?? path.join(root, ".scratch", "_run"), "ci-watch.json"), onChange: (change) => hub.publish(change), skip: ownedByDelivery });
+  const ciWatch = createCiWatch({ git, file: path.join(stateDir ?? path.join(root, ".scratch", "_run"), "ci-watch.json"), onChange: (change) => hub.publish(change), skip: ownedByDelivery,
+    // den-mvp/29: a red pull request outside the den is a message to Bao's desk (den-mvp/30), once per commit.
+    wake: (text) => host.converse("orchestrator", { text }) });
   const hub = createHub(root, {
     agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts(), capacity: (lockedRefs) => host.capacity(lockedRefs),
     deliveries: () => delivery?.snapshot() ?? [],
@@ -596,6 +598,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     newLaunchCode: auth.newLaunchCode,
     previewReads,
     host: { start: host.start, message: host.message, shutdown: host.shutdown },
+    pollCi: () => ciWatch.poll(), // one look of the CI watch now, for a test (its timer is off there)
     close: async () => {
       await host.shutdown();
       await new Promise((resolve) => setImmediate(resolve)); // the runs' end hooks are queued behind the shutdown
