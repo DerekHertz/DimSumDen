@@ -560,7 +560,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     port: actualPort,
     newLaunchCode: auth.newLaunchCode,
     previewReads,
-    host: { start: host.start, shutdown: host.shutdown },
+    host: { start: host.start, message: host.message, shutdown: host.shutdown },
     close: async () => {
       await host.shutdown();
       await new Promise((resolve) => setImmediate(resolve)); // the runs' end hooks are queued behind the shutdown
