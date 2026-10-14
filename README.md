@@ -63,6 +63,15 @@ npm run ui              # builds the UI, then starts the bridge on port 4317
 
 Open <http://127.0.0.1:4317/>. With no agents running, add `?demo=den` to watch a recorded session.
 
+### Run it as a service (Linux and WSL, systemd and bubblewrap)
+
+```sh
+npm run den:install     # once: packages, first release, the service; the den then answers on 4317
+npm run den:update      # after merging a change to `main`: new release, links switched, service restarted
+```
+
+The service runs from release folders under `~/.local/state/den/` (a copy of `main`, its UI built in a sandbox), not from the checkout, so editing the checkout does not change the running den ([ADR 0026](docs/adr/0026-the-den-serves-itself.md)). Both commands print each step and refuse before changing anything on a host without a systemd user manager or bubblewrap. `npm run bridge` is for development: run it with `PORT=4400 npm run bridge`, on another port than the service.
+
 Run an agent as its own Claude Code session:
 
 ```sh
@@ -126,7 +135,7 @@ All of these can be re-run, as of `9d3e57c`.
 ```sh
 npm test                # node:test across apps, packages and scripts (runs check:bom first)
 npm run ui:dev          # Vite dev server for the UI alone
-npm run bridge          # the bridge alone
+npm run bridge          # the bridge alone (development; the service is `den:install`)
 npm run smoke           # HTTP smoke check
 npm run smoke:ui        # browser smoke check (Playwright + Chromium)
 npm run risk-check      # decides whether a branch needs a security review

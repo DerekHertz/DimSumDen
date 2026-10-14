@@ -7,6 +7,7 @@ import { DemoBadge } from "../demo/DemoControls.jsx";
 import { createBridgeClient } from "../state/bridge-client.mjs";
 import { STATION_HUE, badgeModel, needsYouModel, stationsModel, stepRequest } from "./overlay-model.mjs";
 import { deliverState, deliveryRows } from "./delivery-model.mjs";
+import { behindLine, buildLine, newVersionReady, rollbackState } from "./build-model.mjs";
 import { Card } from "./Card.jsx";
 import { LibraryCard } from "./Library.jsx";
 import { MeetingsCard, useMeetings } from "./Meetings.jsx";
@@ -205,20 +206,37 @@ function DeliverControl({ scope, ticket, snapshot, steer, deliveries }) {
 }
 
 // A delivery that waits on the user (Needs you). Resume asks the bridge to look again and go on; Close ends it for good.
+// den-mvp/12: a UI change waits with a link to its preview; Approve covers the merge and going live, and Decline sends
+// it back to the developer with the note.
 function DeliveryDecision({ request, steer, deliveries }) {
   const off = steer.demo ? "Demo mode: actions are off" : steer.state === "none" ? "Not signed in to steer" : null;
   const busy = deliveries.inflight.has(request.id);
   const error = deliveries.results[request.id]?.error;
+  const [note, setNote] = useState("");
+  const noteId = `decline-note-${idPart(request.id)}`;
   return (
     <div aria-live="polite">
       {request.next ? <p className="small needs-expires">{request.next}</p> : null}
+      {request.covers ? <p className="small">{request.covers}</p> : null}
+      {request.rolledBackNote ? <p className="small build-behind">{request.rolledBackNote}</p> : null}
+      {request.previewUrl ? <p className="small"><a href={request.previewUrl} target="_blank" rel="noreferrer noopener">Open the preview of {request.short} in a new tab</a></p> : null}
       {request.pr ? <p className="small"><a href={request.pr} target="_blank" rel="noreferrer noopener">Open pull request #{request.prNumber}</a></p> : null}
-      <div className="decision-buttons">
+      {request.decline ? (
+        <>
+          <label className="note-label" htmlFor={noteId}>To decline, say what should change</label>
+          <textarea id={noteId} className="note-field" rows={2} maxLength={1000} value={note} disabled={!!off || busy} onChange={(e) => setNote(e.target.value)} />
+        </>
+      ) : null}
+      <div className={request.decline ? "decision-buttons decision-three" : "decision-buttons"}>
         <button type="button" className="btn btn-outline" title={off ?? undefined} disabled={!!off || busy} onClick={() => deliveries.steer(request.id, "close")}>Close delivery</button>
+        {request.decline ? (
+          <button type="button" className="btn btn-outline" aria-label={`Decline ${request.short} and send it back to the developer`} title={off ?? (note.trim() ? undefined : "Write what should change first")} disabled={!!off || busy || !note.trim()} onClick={() => deliveries.steer(request.id, "resume", { verdict: "decline", note })}>Decline</button>
+        ) : null}
         <button type="button" className="btn btn-solid" title={off ?? undefined} disabled={!!off || busy} aria-busy={busy || undefined} onClick={() => deliveries.steer(request.id, request.primary.action, request.primary.verdict ? { verdict: request.primary.verdict } : undefined)}>
           {request.primary.label}
         </button>
       </div>
+      {off && request.decline ? <p className="small muted">{off}</p> : null}
       {error ? <p className="small gate-error" role="alert">{error}</p> : null}
     </div>
   );
@@ -241,6 +259,49 @@ function MeetingDecision({ request, steer, meetings, onOpenMeeting }) {
       </div>
       {error ? <p className="small gate-error" role="alert">{error}</p> : null}
     </div>
+  );
+}
+
+// den-mvp/12 (ADR 0026 decisions 7 to 9): which build is live, a notice when another one went live while this page was
+// open, and the way back to the previous build. Shown only when the den is served from a release. The page never
+// reloads by itself.
+function BuildStatus({ snapshot, ownBuild, steer, client }) {
+  const build = snapshot?.build ?? null;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const line = buildLine(build);
+  if (!line) return null;
+  const back = rollbackState({ build, steer, inflight: busy });
+  const behind = behindLine(build);
+  const goBack = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await client.rollback(back.to);
+    } catch (e) {
+      setError(`Couldn't go back: ${e?.status ? `${e.status} ` : ""}${e?.reason ?? "the bridge refused the request."}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="build-status" data-overlay="build" aria-label="The den's build">
+      <p className="small build-line">{line}</p>
+      {behind ? <p className="small build-behind">{behind}</p> : null}
+      {newVersionReady(ownBuild, build) ? (
+        <div className="build-new" role="status">
+          <p className="small">A new version is ready.</p>
+          <button type="button" className="btn btn-solid" aria-label="Reload the den to the new version" onClick={() => window.location.reload()}>Reload</button>
+        </div>
+      ) : null}
+      {back.show ? (
+        <div className="build-back">
+          <button type="button" className="btn btn-outline" aria-label={back.name} aria-describedby="build-back-detail" aria-busy={busy || undefined} disabled={!back.enabled} onClick={goBack}>Go back to the previous build</button>
+          <p id="build-back-detail" className="small muted">{back.detail}{back.reason ? ` ${back.reason}.` : ""}</p>
+        </div>
+      ) : null}
+      {error ? <p className="small gate-error" role="alert">{error}</p> : null}
+    </section>
   );
 }
 
@@ -503,7 +564,7 @@ export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZo
  * The right-hand column. Needs you opens by itself while something waits, until the user toggles it; Stations & queue,
  * Meetings and Library start closed. Under 600 px all start closed and opening one closes the others.
  */
-export function Cards({ snapshot, now, connection, placeholder, camera, steering, onAnswer, onOpenThread = null, demo = false }) {
+export function Cards({ snapshot, ownBuild = null, now, connection, placeholder, camera, steering, onAnswer, onOpenThread = null, demo = false }) {
   const [needsOpen, setNeedsOpen] = useState(null); // null: follow the data
   const [stationsOpen, setStationsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -547,6 +608,7 @@ export function Cards({ snapshot, now, connection, placeholder, camera, steering
   return (
     <div className="cards">
       {steering.message ? <p className="small muted session-none" data-session="none" role="status">{steering.message}</p> : null}
+      <BuildStatus snapshot={snapshot} ownBuild={ownBuild} steer={steer} client={client} />
       <NeedsYouCard snapshot={snapshot} now={now} open={needs} onToggle={toggleNeeds} busy={busy} placeholder={placeholder} session={steering.session} onAnswer={onAnswer} onOpenThread={onOpenThread} capacity={capacity} steer={steer} run={run} deliveries={deliveries} meetings={meetings} onOpenMeeting={openMeeting} />
       <StationsCard snapshot={snapshot} open={stationsOpen} onToggle={toggleStations} busy={busy} placeholder={placeholder} onZoomStation={(id) => camera.goToStation(id)} capacity={capacity} steer={steer} run={run} deliveries={deliveries} />
       <MeetingsCard client={client} snapshot={snapshot} open={meetingsOpen} onToggle={toggleMeetings} busy={busy} steer={steer} meetings={meetings} shown={shownMeeting} onShow={setShownMeeting} />

@@ -160,14 +160,24 @@ export function createBridgeClient({ fetch }) {
       if (body == null) throw failure(200, "The bridge sent an unreadable answer.");
       return body;
     },
-    // Resume, stop or close one delivery. `verdict: "approve"` on a resume is the user's visual verdict on a UI change.
-    async steerDelivery(id, action, { verdict } = {}) {
+    // Resume, stop or close one delivery. On a resume, `verdict` is the user's visual verdict on a UI change: "approve", or
+    // "decline" with a `note` that goes to the developer.
+    async steerDelivery(id, action, { verdict, note } = {}) {
       if (!["resume", "stop", "close"].includes(action)) throw failure(0, "Unknown action.");
+      const trimmed = typeof note === "string" ? note.trim() : "";
+      if (action === "resume" && verdict === "decline" && !trimmed) throw failure(0, "Write what should change first.");
       const body = await call(`/deliveries/${encodeURIComponent(id)}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(action === "resume" && verdict ? { verdict } : {}),
+        body: JSON.stringify(action === "resume" && verdict ? { verdict, ...(verdict === "decline" ? { note: trimmed } : {}) } : {}),
       });
+      return body ?? { ok: true };
+    },
+    // den-mvp/12 (ADR 0026 decision 7): go back to the previous build. `to` is the commit the button showed as previous;
+    // the bridge refuses (409) when that is no longer the previous one. -> { build }
+    async rollback(to) {
+      if (typeof to !== "string" || !to) throw failure(0, "There is no previous build.");
+      const body = await call("/build/rollback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to }) });
       return body ?? { ok: true };
     },
   };

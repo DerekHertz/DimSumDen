@@ -10,7 +10,7 @@ import { PUBLISH_BRANCH_RE } from "../cells/workspace.mjs";
 
 export const JOB_ID_RE = /^d-[0-9a-f]{16}$/;
 export const JOB_STATES = ["running", "paused", "merged", "closed"];
-export const OPS = ["claim", "release", "push", "pr", "merge", "resolve"];
+export const OPS = ["claim", "release", "push", "pr", "merge", "golive", "resolve"];
 const COMMIT_RE = /^[0-9a-f]{40,64}$/;
 const END_STATES = ["done", "failed", "terminated"];
 const KIND_RE = /^[a-z][a-z-]{0,39}$/;
@@ -40,12 +40,15 @@ export function validateJob(raw) {
     candidate: forSha(raw.candidate, (r) => (AGENT_ID_RE.test(r.runId) ? { runId: r.runId } : {})),
     evidence: {
       qa: verdictOf(ev.qa), security: verdictOf(ev.security),
-      risk: forSha(ev.risk, (r) => ({ clean: r.clean === true, hits: count(r.hits), secret: r.secret === true, security: r.security !== false, userMerge: r.userMerge !== false, ciChange: r.ciChange !== false, files: count(r.files) })),
+      risk: forSha(ev.risk, (r) => ({ clean: r.clean === true, hits: count(r.hits), secret: r.secret === true, security: r.security !== false, userMerge: r.userMerge !== false, ciChange: r.ciChange !== false, ui: r.ui === true, files: count(r.files) })),
+      // den-mvp/10: a preview that was built (or did not build) for this commit, and the release that went live for it.
+      preview: forSha(ev.preview, (r) => ({ ok: r.ok === true })),
+      live: forSha(ev.live, (r) => (r.state === "live" && sha(r.release) ? { state: "live", release: r.release } : null)),
       // What the git host said is asked again on every resume; these two are kept only to show.
       pr: null, ci: null,
       verdict: forSha(ev.verdict, (r) => ({ ok: r.ok === true })),
     },
-    bounces: count(raw.bounces), findings: typeof raw.findings === "string" ? raw.findings.slice(0, 16000) : null,
+    bounces: count(raw.bounces), declines: count(raw.declines), findings: typeof raw.findings === "string" ? raw.findings.slice(0, 16000) : null,
     live: runOf(raw.live), claimed: raw.claimed === true,
     runs: (Array.isArray(raw.runs) ? raw.runs : []).slice(-50).flatMap((r) => (runOf(r) && END_STATES.includes(r.state) ? [{ ...runOf(r), state: r.state, sha: sha(r.sha) }] : [])),
     pr, startedAt: raw.startedAt, updatedAt: ts(raw.updatedAt) ?? raw.startedAt,

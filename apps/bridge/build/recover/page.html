@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Den recovery</title>
+<link rel="icon" href="data:,">
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; margin: 0; padding: 24px 16px; background: #faf7f2; color: #1d1b19; }
+  main { max-width: 34rem; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: 0 0 8px; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 16px 0; }
+  dt { font-weight: 600; }
+  dd { margin: 0; font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
+  button { font: inherit; padding: 10px 14px; border: 2px solid #1d1b19; border-radius: 6px; background: #1d1b19; color: #fff; cursor: pointer; }
+  button:disabled { background: #e4dfd6; color: #5d5852; border-color: #a39c92; cursor: not-allowed; }
+  #status { min-height: 1.5em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Den recovery</h1>
+  <p>This page comes from the bridge itself, not from the den's UI build. Use it when the den does not load.</p>
+  <dl>
+    <dt>Live build</dt><dd id="live">reading…</dd>
+    <dt>Previous build</dt><dd id="previous">reading…</dd>
+  </dl>
+  <p id="undone" hidden></p>
+  <button id="back" type="button" disabled>Go back to the previous build</button>
+  <p id="status" role="status"></p>
+  <p><a href="/">Open the den</a></p>
+</main>
+<script type="module" src="/recover/script"></script>
+</body>
+</html>

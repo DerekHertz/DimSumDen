@@ -4,6 +4,8 @@ A local web app for observing and steering AI agents across the SDLC, modeled as
 
 Stack: Node ESM scripts (`.mjs`, tests via `node --test`); Vite is the only build step. `apps/ui` is React + React Three Fiber; `apps/bridge` serves the UI and board state; `apps/organism-infra` is the board CLI; `apps/ci-cd` holds the dev server and smoke scripts; `scripts/` holds relay tooling. Common scripts: `npm test`, `npm run board -- <cmd>`, `npm run ui`, `npm run smoke:ui`, `npm run risk-check`.
 
+The den runs as a systemd user service (ADR 0026), from release folders under `~/.local/state/den/`, not from the checkout. The user runs `npm run den:install` once and `npm run den:update` after merging a bridge change; an edit in the checkout does not change the running den. `npm run bridge` is for development, and takes `PORT=<other>`.
+
 ## Cells
 
 Cell types are defined by genomes in `.claude/agents/`, grouped into stations:

@@ -39,6 +39,10 @@ export function applyEvent(state, event) {
       next.meetings = found ? meetings.map((m) => (m.id === event.meeting.id ? event.meeting : m)) : [...meetings, event.meeting];
       break;
     }
+    // den-mvp/12 (ADR 0026 decision 8): the den's own build after a switch (a go-live or a roll back), or null.
+    case "build":
+      next.build = event.build ?? null;
+      break;
     // den-mvp outcome 4: something the library card shows has changed. The frame carries no data; the card reads GET /library.
     case "library":
       next.libraryRev = (state.libraryRev ?? 0) + 1;

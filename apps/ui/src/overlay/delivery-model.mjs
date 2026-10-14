@@ -2,6 +2,7 @@
 // A delivery is the bridge's job that takes one ticket from a developer to a merged pull request. The words here say what
 // the bridge recorded (a verdict, a check, a merge); none claims more than that.
 import { DELIVERABLE_TYPES } from "../../../bridge/delivery/types.mjs";
+import { rolledBackNote, shortSha } from "./build-model.mjs";
 
 const LIVE = new Set(["running", "paused"]);
 const shortRef = (ref) => (typeof ref === "string" ? ref.slice(ref.indexOf("/") + 1) : "");
@@ -20,12 +21,12 @@ export function deliverState({ ticket, snapshot, steer, inflight } = {}) {
   return { show: true, enabled: true, reason: null };
 }
 
-const STEP_WORDS = { developer: "the developer is working", qa: "qa is verifying the commit", security: "security is reviewing the commit", check: "running the scripted checks", publish: "opening the pull request", ci: "waiting for the checks", merge: "merging", resolve: "closing the ticket" };
+const STEP_WORDS = { developer: "the developer is working", qa: "qa is verifying the commit", security: "security is reviewing the commit", check: "running the scripted checks", preview: "building the preview", "go-live": "putting the change live", publish: "opening the pull request", ci: "waiting for the checks", merge: "merging", resolve: "closing the ticket" };
 
 /** One line saying where a delivery stands. */
 export function deliveryLine(d) {
   const pr = d?.pr?.number ? `#${d.pr.number}` : null;
-  if (d?.state === "merged") return `Merged${pr ? ` as ${pr}` : ""}`;
+  if (d?.state === "merged") return `Merged${pr ? ` as ${pr}` : ""}${d.release ? `, live as ${shortSha(d.release)}` : ""}`;
   if (d?.state === "closed") return "Closed, not merged";
   if (d?.state === "paused") return `Waiting: ${d.pause?.reason || "paused"}`;
   const words = STEP_WORDS[d?.step] ?? "starting";
@@ -42,11 +43,20 @@ export function deliveryFacts(d) {
   if (e.security) out.push(`security ${e.security}`);
   if (e.ci) out.push(`checks ${e.ci}`);
   if (d?.bounces > 0) out.push(`sent back ${d.bounces} time${d.bounces === 1 ? "" : "s"}`);
+  if (d?.declines > 0) out.push(`declined by you ${d.declines} time${d.declines === 1 ? "" : "s"}`);
+  if (d?.verdict === "approved") out.push("approved by you");
+  if (d?.release) out.push(`live as ${shortSha(d.release)}`);
   return out;
 }
 
 /** A pull request link the page may render: an https URL the bridge recorded, or null. */
 export const prLink = (d) => (typeof d?.pr?.url === "string" && /^https:\/\/[A-Za-z0-9.-]+\//.test(d.pr.url) ? d.pr.url : null);
+
+/** A preview link the page may render: the bridge's own listener on this machine, or null. */
+export const previewLink = (d) => (typeof d?.preview?.url === "string" && /^http:\/\/127\.0\.0\.1:\d{2,5}\/$/.test(d.preview.url) ? d.preview.url : null);
+
+// A pause after the merge says in its title that the merge is done.
+const AFTER_MERGE = { "needs-update": "is merged; the den must be updated before it goes live", "go-live-failed": "is merged but did not go live" };
 
 /** The rows of the Deliveries list: the ones under way first, then the newest ended. */
 export function deliveryRows(snapshot, max = 6) {
@@ -65,15 +75,20 @@ export function deliveryRequests(snapshot) {
     .map((d) => {
       const short = shortRef(d.ref);
       const visual = d.pause?.kind === "visual-verdict";
+      const preview = visual && d.ui === true; // the verdict comes before the push, on a preview (ADR 0026 decision 5)
       return {
         key: `delivery:${d.id}`, kind: "delivery", id: d.id, ref: d.ref, short, role: "orchestrator", station: "pass",
         eyebrow: `Pass · Bao · ${short}`,
-        title: visual ? `${short} waits for your visual verdict` : `${short} delivery is waiting`,
+        title: preview ? `${short} waits for your verdict on its preview` : visual ? `${short} waits for your visual verdict` : AFTER_MERGE[d.pause?.kind] ? `${short} ${AFTER_MERGE[d.pause.kind]}` : `${short} delivery is waiting`,
         reason: d.pause?.reason || "The delivery is paused.", reasonFallback: false, plain: true, // the bridge's own words, not a quote
         next: d.pause?.next || "",
         rowText: `${short} · delivery`, preview: deliveryFacts(d), detailLabel: "What the bridge recorded",
         age: null, pr: prLink(d), prNumber: d.pr?.number ?? null,
-        primary: visual ? { action: "resume", verdict: "approve", label: "Approve and merge" } : { action: "resume", label: "Resume" },
+        primary: preview ? { action: "resume", verdict: "approve", label: "Approve: merge and go live" } : visual ? { action: "resume", verdict: "approve", label: "Approve and merge" } : { action: "resume", label: "Resume" },
+        // den-mvp/12: what the card of a preview adds. A decline needs a note; it goes to the developer.
+        decline: visual, previewUrl: preview ? previewLink(d) : null,
+        covers: preview ? "Approve covers the push, the pull request, the merge once the checks are green, and going live." : null,
+        rolledBackNote: preview ? rolledBackNote(snapshot?.build) : null,
       };
     });
 }
