@@ -105,7 +105,7 @@ describe("task grants compile into the recorded settings", () => {
   test("a path grant adds Write and Edit for that path, the sandbox allowWrite, and nothing else", () => {
     for (const role of ROLES_WITH_GRANTS) {
       const s = settingsFor(role, [{ kind: "path", value: "/srv/shared/data" }]);
-      assert.deepEqual(sorted(s.permissions.allow), sorted([`Write(/${WT}/**)`, `Edit(/${WT}/**)`, "Write(//srv/shared/data/**)", "Edit(//srv/shared/data/**)"]), role);
+      assert.deepEqual(sorted(s.permissions.allow), sorted(["Bash", `Write(/${WT}/**)`, `Edit(/${WT}/**)`, "Write(//srv/shared/data/**)", "Edit(//srv/shared/data/**)"]), role);
       assert.ok((s.sandbox.filesystem?.allowWrite ?? []).includes("/srv/shared/data"), `${role}: sandbox.filesystem.allowWrite names the path`);
       assert.deepEqual(s.sandbox.network.allowedDomains, [], `${role}: a path grant lists no host`);
     }
@@ -119,7 +119,7 @@ describe("task grants compile into the recorded settings", () => {
   test("no grant is the same as today's ceiling (no extra allow, host or read limit)", () => {
     for (const grants of [undefined, []]) {
       const s = settingsFor("developer", grants);
-      assert.deepEqual(sorted(s.permissions.allow), sorted([`Write(/${WT}/**)`, `Edit(/${WT}/**)`]));
+      assert.deepEqual(sorted(s.permissions.allow), sorted(["Bash", `Write(/${WT}/**)`, `Edit(/${WT}/**)`]));
       assert.deepEqual(s.sandbox.network.allowedDomains, []);
     }
   });
