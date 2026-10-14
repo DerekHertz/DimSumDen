@@ -40,7 +40,7 @@ let browser;
 let base;
 
 before(async () => {
-  server = await createServer({ configFile: "apps/ui/vite.config.mjs", server: { port: 0, host: "127.0.0.1" } });
+  server = await createServer({ configFile: "apps/ui/vite.config.mjs", configLoader: "native", server: { port: 0, host: "127.0.0.1" } });
   await server.listen();
   base = server.resolvedUrls.local[0];
   browser = await chromium.launch(buildLaunchOptions());
