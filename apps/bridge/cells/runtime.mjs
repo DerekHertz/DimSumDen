@@ -28,6 +28,8 @@
 //               characters the runtime already cut; the host cleans and clips every string before it is shown)
 //             | { type: "permission-request", requestId, tool, input }   (organism-infra/141; requestId is the child's opaque key)
 //             | { type: "message-applied", id }   (den-v1 loop S5: the child took the message sent with that id)
+//   and, optionally, cancel(messageId) -> Promise<boolean>   (organism-infra/107: true = dropped before the child took it,
+//   false = too late, a rejection = could not be tried; a process without it makes a cancel a 409)
 //   CellProcess also has decide(requestId, { allow, reason? }) -> Promise   (answers a held permission request)
 //   and, when capabilities.send is true, send(messageId, text) -> Promise   (one user message to the running child;
 //   it rejects if the child could not be written to, and a message-applied event with that id follows once it is taken)
@@ -46,7 +48,7 @@ export function createFakeRuntime(options = {}) {
   let counter = 0;
   const runtime = {
     id: "fake",
-    capabilities: { ...CAPABILITIES, send: config.send === true },
+    capabilities: { ...CAPABILITIES, send: config.send === true, handover: config.handover !== false },
     config,
     spawns,
     peakLive: 0,
@@ -77,6 +79,7 @@ function makeRecord(args, handle, config, onExit) {
     calls: [],
     exited: false,
     decisions: [], // every decide() call, in order (organism-infra/141)
+    cancelled: [], // every cancel() that dropped a message, in order (organism-infra/107)
     sent: [], // every send() call that was taken, in order (den-v1 loop S5)
     emit(event) {
       if (record.exited) return;
@@ -121,6 +124,16 @@ function makeRecord(args, handle, config, onExit) {
       record.sent.push({ id, text });
       return Promise.resolve();
     },
+    ...(config.cancel === true
+      ? {
+          cancel: (id) => {
+            if (config.failCancel || record.exited) return Promise.reject(new Error("fake runtime: cancel failed"));
+            if (config.cancelTooLate) return Promise.resolve(false);
+            record.cancelled.push(id);
+            return Promise.resolve(true);
+          },
+        }
+      : {}),
     signal: (sig) => call(sig, sig === "SIGTERM" ? config.sigtermEnds : config.sigkillEnds, sig),
     exited,
   };

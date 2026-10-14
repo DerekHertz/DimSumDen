@@ -28,7 +28,7 @@ function inputText(input) {
 const PERMISSION_LABELS = { allowed: "Allowed by you", denied: "Denied by you", expired: "Expired: denied" };
 
 // den-v1 loop S5: a message the user sent carries its delivery status, and the bridge resends the entry as it changes.
-const MESSAGE_NOTES = Object.assign(Object.create(null), { queued: "Queued", applied: "Received", undelivered: "Not delivered" });
+const MESSAGE_NOTES = Object.assign(Object.create(null), { queued: "Queued", applied: "Received", undelivered: "Not delivered", cancelled: "Cancelled" });
 
 function rowFor(entry, n, expanded) {
   if (!entry || typeof entry !== "object") return unreadable(n, "unknown");
