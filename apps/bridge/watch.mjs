@@ -86,7 +86,7 @@ export function createHub(root, { agents = () => [], approvals = () => [], trans
     for (const ev of events) {
       seq += 1;
       const payload = { seq, ...ev };
-      for (const res of clients) send(res, frame("change", payload));
+      for (const res of clients) send(res, frame("change", res.denView ? res.denView.change(payload) : payload));
     }
     current.seq = seq;
   }
@@ -131,10 +131,13 @@ export function createHub(root, { agents = () => [], approvals = () => [], trans
       seq += 1;
       if (current) current.seq = seq;
       const payload = { seq, ...change };
-      for (const res of clients) send(res, frame("change", payload));
+      for (const res of clients) send(res, frame("change", res.denView ? res.denView.change(payload) : payload));
     },
-    async connect(req, res) {
-      const snap = await this.snapshot();
+    // view (den-mvp/09): { snapshot(s), change(c) } applied to everything this one client is sent (a preview's stream).
+    // A change it hides must keep its seq, so the client's sequence has no gap.
+    async connect(req, res, view = null) {
+      const snap = view ? view.snapshot(await this.snapshot()) : await this.snapshot();
+      res.denView = view;
       res.writeHead(200, {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-store",

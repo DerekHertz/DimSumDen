@@ -1,6 +1,6 @@
 // den-mvp/09 (ADR 0026 decision 5): the preview listener, over real HTTP beside a real bridge.
-//   table     every row of routes.mjs that is not a listed read is a 403 on the preview, with and without each token
-//   tokens    the den's token is refused on the preview, and the preview's on the den
+//   table     every row of routes.mjs that is not a listed read is a 403 on the preview, with and without the den's token
+//   reads     the listed reads need no token, and leave out what agents said and asked
 //   listener  Host, Origin, the built files, the policy, closing
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -12,16 +12,17 @@ import { startBridge } from "../server.mjs";
 import { makeStateFixture } from "../bridge-fixture.mjs";
 import { CODE, authed, login, origin, send } from "../bridge-auth-helpers.mjs";
 import { PREVIEW_READS, ROUTES } from "../routes.mjs";
-import { PREVIEW_CSP, openPreview } from "./preview.mjs";
+import { PREVIEW_CSP, openPreview, redactChange, redactSnapshot } from "./preview.mjs";
+import { makeBridge, until } from "../cells/host-test-helpers.mjs";
 
 const concrete = (route) => route.replace(/:\w+/g, "x1");
 const directive = (csp, name) => csp.split(";").map((d) => d.trim()).find((d) => d.startsWith(name + " ")) ?? null;
 
 describe("the preview listener", () => {
-  let fx, tmp, dir, bridge, preview, target, denToken, previewToken, outsideFile;
+  let fx, tmp, dir, bridge, preview, target, denToken, outsideFile;
   // What a page of the preview itself would send: its own Origin, JSON, and (when given) a token.
   const own = (token) => ({ Origin: origin(target), ...(token ? { Authorization: `Bearer ${token}` } : {}) });
-  const tokens = () => [["no token", undefined], ["the den's token", denToken], ["the preview's token", previewToken]];
+  const tokens = () => [["no token", undefined], ["the den's token", denToken]];
 
   before(async () => {
     fx = await makeStateFixture();
@@ -39,7 +40,6 @@ describe("the preview listener", () => {
     preview = await openPreview({ id: "job-1", dir, reads: bridge.previewReads });
     const url = new URL(preview.url);
     target = { port: Number(url.port) };
-    previewToken = new URLSearchParams(url.hash.slice(1)).get("preview");
     denToken = await login(bridge);
   });
   after(async () => {
@@ -49,21 +49,21 @@ describe("the preview listener", () => {
     await rm(tmp, { recursive: true, force: true });
   });
 
-  test("the url is on 127.0.0.1, on a port of its own, and carries the token only in its fragment", () => {
+  test("the url is on 127.0.0.1, on a port of its own, and carries no token", () => {
     const url = new URL(preview.url);
     assert.equal(url.hostname, "127.0.0.1");
     assert.notEqual(target.port, bridge.port);
-    assert.equal(url.pathname + url.search, "/");
-    assert.match(previewToken, /^[A-Za-z0-9_-]{43}$/);
-    assert.notEqual(previewToken, denToken);
+    assert.equal(url.pathname + url.search + url.hash, "/");
   });
 
-  test("the list of reads is written out: each is a GET row that changes nothing, and the bridge hands over exactly those", () => {
+  test("the list of reads is written out: each is a GET row that changes nothing and needs no token, and the bridge hands over exactly those", () => {
     for (const route of PREVIEW_READS) {
       const row = ROUTES.find((r) => r.method === "GET" && r.path === route);
       assert.ok(row, `${route} is a GET row`);
       assert.equal(row.mutating, false, route);
+      assert.equal(row.auth, "none", `${route}: a preview has no token, so a read that needs one is not offered`);
     }
+    assert.deepEqual(PREVIEW_READS, ["/state", "/events", "/library"]);
     assert.deepEqual(Object.keys(bridge.previewReads), PREVIEW_READS);
   });
 
@@ -93,7 +93,7 @@ describe("the preview listener", () => {
     test("any other method is a 403, on a read, a file and a path that is nothing", async () => {
       for (const method of ["PUT", "PATCH", "DELETE", "OPTIONS", "POST"]) {
         for (const p of ["/state", "/", "/assets/app.js", "/nothing"]) {
-          const res = await send(target, { method, path: p, headers: own(previewToken), ...(method === "OPTIONS" ? {} : { body: {} }) });
+          const res = await send(target, { method, path: p, headers: own(denToken), ...(method === "OPTIONS" ? {} : { body: {} }) });
           assert.equal(res.status, 403, `${method} ${p}`);
         }
       }
@@ -104,37 +104,23 @@ describe("the preview listener", () => {
     });
   });
 
-  describe("the listed reads and the two tokens", () => {
-    test("the reads that need no token on the den answer here too, with the den's own data", async () => {
+  describe("the listed reads", () => {
+    test("they answer with no token, with the den's own data", async () => {
       const [here, there] = await Promise.all([send(target, { path: "/state" }), send(bridge, { path: "/state" })]);
       assert.equal(here.status, 200);
       assert.deepEqual(here.body.tickets, there.body.tickets);
       assert.equal((await send(target, { path: "/library" })).status, 200);
     });
-    test("a read that needs a token: none and the den's are refused, the preview's is taken", async () => {
+    test("a meeting and a conversation are not read from a preview, with the den's token or without", async () => {
       for (const p of ["/meetings/x1", "/conversations/developer"]) {
-        assert.equal((await send(target, { path: p })).status, 401, `${p} with no token`);
-        assert.equal((await send(target, { path: p, headers: own(denToken) })).status, 401, `${p} with the den's token`);
-        const res = await send(target, { path: p, headers: own(previewToken) });
-        assert.ok(res.status === 200 || res.status === 404, `${p} with the preview's token was answered by the read (${res.status})`);
-        assert.match(res.headers["content-type"], /application\/json/);
+        assert.equal((await send(target, { path: p })).status, 403, p);
+        assert.equal((await send(target, { path: p, headers: own(denToken) })).status, 403, `${p} with the den's token`);
+        assert.notEqual((await send(bridge, { path: p, headers: authed(bridge, denToken) })).status, 401, `${p} on the den`);
       }
     });
-    test("the preview's token is refused on the den's port, for a read and for a change", async () => {
-      assert.equal((await send(bridge, { path: "/meetings/x1", headers: authed(bridge, previewToken) })).status, 401);
-      assert.equal((await send(bridge, { path: "/conversations/developer", headers: authed(bridge, previewToken) })).status, 401);
-      assert.equal((await send(bridge, { method: "POST", path: "/agents", headers: authed(bridge, previewToken), body: {} })).status, 401);
-      assert.notEqual((await send(bridge, { path: "/meetings/x1", headers: authed(bridge, denToken) })).status, 401); // the den's own still works
-    });
-    test("each preview has its own token: another preview's is refused", async () => {
-      const other = await openPreview({ id: "job-2", dir, reads: bridge.previewReads });
-      try {
-        const otherToken = new URLSearchParams(new URL(other.url).hash.slice(1)).get("preview");
-        assert.notEqual(otherToken, previewToken);
-        assert.equal((await send(target, { path: "/meetings/x1", headers: own(otherToken) })).status, 401);
-      } finally {
-        await other.close();
-      }
+    test("a handler for a read that needs a token is not answered even when it is handed over", async () => {
+      // The list is the gate, and so is the row: a listed read must be one the den answers without a token.
+      assert.equal(ROUTES.filter((r) => PREVIEW_READS.includes(r.path) && r.method === "GET" && r.auth !== "none").length, 0);
     });
     test("the event stream is served, and carries the policy", async () => {
       const first = await new Promise((resolve, reject) => {
@@ -165,7 +151,6 @@ describe("the preview listener", () => {
       for (const from of [origin(bridge), "http://evil.example", "null", `https://127.0.0.1:${target.port}`]) {
         assert.equal((await send(target, { path: "/state", headers: { Origin: from } })).status, 403, from);
         assert.equal((await send(target, { path: "/assets/app.js", headers: { Origin: from } })).status, 403, from);
-        assert.equal((await send(target, { path: "/meetings/x1", headers: { Origin: from, Authorization: `Bearer ${previewToken}` } })).status, 403, from);
       }
     });
   });
@@ -231,5 +216,70 @@ describe("the preview listener", () => {
       assert.ok(answer === "ECONNREFUSED" || answer.text !== "export const x = 1;", "nothing serves this preview's files there any more");
       assert.equal((await send(bridge, { path: "/state" })).status, 200); // the den is untouched
     });
+  });
+});
+
+describe("what a preview is told", () => {
+  test("the snapshot leaves out transcripts and permission requests, and nothing else", () => {
+    const snap = { seq: 4, tickets: [{ ref: "fx/01" }], agents: [{ id: "c-1" }], transcripts: { "c-1": { entries: [{ text: "said" }] } }, approvals: [{ id: "a-1", summary: "rm -rf" }], deliveries: [], build: null };
+    const out = redactSnapshot(snap);
+    assert.deepEqual(out, { ...snap, transcripts: {}, approvals: [] });
+    assert.equal(snap.approvals.length, 1, "the den's own snapshot is not changed");
+  });
+  test("a hidden change keeps its seq and carries nothing else; every other change passes as it is", () => {
+    assert.deepEqual(redactChange({ seq: 7, type: "transcript", agentId: "c-1", entry: { text: "said" } }), { seq: 7, type: "hidden" });
+    assert.deepEqual(redactChange({ seq: 8, type: "approval", approval: { id: "a-1", summary: "rm -rf" } }), { seq: 8, type: "hidden" });
+    const delivery = { seq: 9, type: "delivery", delivery: { id: "d-1" } };
+    assert.equal(redactChange(delivery), delivery);
+  });
+
+  test("over the wire: a permission request reaches the den's stream and state, and a preview gets a hidden frame and an empty list", async () => {
+    const t = await makeBridge();
+    const tmp = await mkdtemp(path.join(tmpdir(), "den-preview-told-"));
+    let preview;
+    const streams = [];
+    try {
+      await mkdir(path.join(tmp, "apps/ui/dist"), { recursive: true });
+      await writeFile(path.join(tmp, "apps/ui/dist/index.html"), "<!doctype html><title>preview</title>");
+      preview = await openPreview({ id: "job-9", dir: tmp, reads: t.bridge.previewReads });
+      const port = Number(new URL(preview.url).port);
+      // The change frames of one event stream, from its snapshot on.
+      const listen = (to) => new Promise((resolve, reject) => {
+        const seen = [];
+        const req = http.get({ host: "127.0.0.1", port: to, path: "/events" }, (res) => {
+          let text = "";
+          res.on("data", (chunk) => {
+            text += chunk;
+            for (let at; (at = text.indexOf("\n\n")) >= 0; text = text.slice(at + 2)) {
+              const [event, data] = text.slice(0, at).split("\n");
+              if (event === "event: snapshot") resolve({ seen, first: JSON.parse(data.slice(6)) });
+              if (event === "event: change") seen.push(JSON.parse(data.slice(6)));
+            }
+          });
+        });
+        streams.push(req);
+        req.on("error", reject);
+      });
+      const [den, shown] = await Promise.all([listen(t.bridge.port), listen(port)]);
+      await t.bridge.host.start({ ref: "fx/31-told", role: "scout" });
+      t.fake.spawns.at(-1).emit({ type: "permission-request", requestId: "told-r1", tool: "Bash", input: { command: "ls" } });
+      await until(() => den.seen.some((f) => f.type === "approval"), { what: "the approval frame on the den's stream" });
+      await until(() => shown.seen.length >= den.seen.length, { what: "the preview's stream to catch up" });
+
+      assert.ok(shown.seen.some((f) => f.type === "hidden"));
+      assert.deepEqual(shown.seen.filter((f) => ["approval", "transcript"].includes(f.type)), [], "no hidden kind of frame reaches a preview");
+      assert.deepEqual(shown.seen.map((f) => f.seq), den.seen.map((f) => f.seq), "the preview's sequence has no gap");
+      assert.doesNotMatch(JSON.stringify(shown.seen), /told-r1|permission/);
+      const [denState, previewState] = await Promise.all([send(t.bridge, { path: "/state" }), send({ port }, { path: "/state" })]);
+      assert.equal(denState.body.approvals.length, 1);
+      assert.deepEqual([previewState.body.approvals, previewState.body.transcripts], [[], {}]);
+      assert.deepEqual([shown.first.approvals, shown.first.transcripts], [[], {}]);
+      assert.equal(previewState.body.agents.length, denState.body.agents.length, "who is at work is still shown");
+    } finally {
+      for (const req of streams) req.destroy();
+      await preview?.close();
+      await t.close();
+      await rm(tmp, { recursive: true, force: true });
+    }
   });
 });

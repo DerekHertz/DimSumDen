@@ -6,8 +6,7 @@
 //         -> { ok: true, url, sha } | { ok: false, code: "build" | "environment" | "needs-update" | "stopped", reason, tail }
 //     open({ id, sha })              serve an already built preview again (after a stop or a restart) -> { url, sha } | null
 //     close(id, { remove? })         close the listener; with `remove` the folder goes too
-//     previewOf(id)                  -> { url, sha } | null    the address without the token, for the snapshot
-//     previewLink(id)                -> the address with the preview's read-only token, or null
+//     previewOf(id)                  -> { url, sha } | null
 //     goLive({ sha, signal? })       the merge commit, rebuilt from main and switched to
 //         -> { ok: true, release } | { ok: false, code: "needs-update" | "failed", reason }
 //     rollback(to)                   releases.rollbackUi, in the same queue as the go-lives' switches (never behind a build)
@@ -65,14 +64,14 @@ export function createDenBuild({ stateDir, repo, box, reads, fetchMain = async (
     const dir = folder(id);
     checkSha(sha);
     const has = opened.get(id);
-    if (has?.sha === sha) return { url: has.url.split("#")[0], sha };
+    if (has?.sha === sha) return { url: has.url, sha };
     await close(id);
     try {
       const record = JSON.parse(await readFile(path.join(dir, RECORD), "utf8"));
       if (record?.sha !== sha) return null;
       const listener = await openPreview({ id, dir, reads: await reads() });
       opened.set(id, { ...listener, sha });
-      return { url: listener.url.split("#")[0], sha };
+      return { url: listener.url, sha };
     } catch {
       return null; // no folder, no record, no built files: it is built again
     }
@@ -112,9 +111,8 @@ export function createDenBuild({ stateDir, repo, box, reads, fetchMain = async (
 
   const previewOf = (id) => {
     const has = opened.get(id);
-    return has ? { url: has.url.split("#")[0], sha: has.sha } : null;
+    return has ? { url: has.url, sha: has.sha } : null;
   };
-  const previewLink = (id) => opened.get(id)?.url ?? null;
 
   const within = async (older, newer) => {
     try {
@@ -190,5 +188,5 @@ export function createDenBuild({ stateDir, repo, box, reads, fetchMain = async (
     await Promise.all([...opened.keys()].map((id) => close(id)));
   }
 
-  return { preview, open, close, previewOf, previewLink, goLive, rollback, sweep, shutdown, releases };
+  return { preview, open, close, previewOf, goLive, rollback, sweep, shutdown, releases };
 }

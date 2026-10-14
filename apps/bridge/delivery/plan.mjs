@@ -6,8 +6,9 @@
 //                  | { kind: "check" | "preview" | "publish" | "ci" | "merge" | "go-live" | "resolve" }   a bridge operation
 //                  | { kind: "pause", pause, reason, next }             wait for the user
 //   job = { base, candidate: { sha } | null, bounces, visual, evidence: { qa, security, risk, preview, verdict, pr, ci, live } }
-// ADR 0026 decisions 5 and 6: a candidate that changes a path under apps/ui/ (risk.ui) is built as a preview and waits for
-// the user before anything is pushed; their one approval covers the push, the pull request, the merge and going live.
+// ADR 0026 decisions 5 and 6: a candidate that changes what the UI is built from (risk.ui) is reviewed by security, built
+// as a preview, and waits for the user before anything is pushed; their one approval covers the push, the pull request,
+// the merge and going live.
 // A decline (verdict.ok === false) sends the developer round again and is not a bounce.
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
@@ -34,8 +35,11 @@ const USER_MERGE = [...USER_MERGE_PATHS.map(matcher), (p) => p.startsWith(".")];
 const CI = CI_PATHS.map(matcher);
 /** Is this repository path CI configuration? */
 export const isCiPath = (file) => typeof file === "string" && CI.some((m) => m(file));
-/** Is this repository path part of the den's UI? A change to one is previewed, and goes live after the merge. */
-export const isUiPath = (file) => typeof file === "string" && file.startsWith("apps/ui/");
+// What the UI build bundles: apps/ui/ and the shared packages it imports. (It also imports from apps/bridge/, which is a
+// user-merge path.) delivery/ui-paths.test.mjs walks the UI's imports and fails when a file outside these is bundled.
+export const UI_PATHS = ["apps/ui/", "packages/"];
+/** Is this repository path part of what the den's UI is built from? A change to one is previewed, and goes live after the merge. */
+export const isUiPath = (file) => typeof file === "string" && UI_PATHS.some((prefix) => file.startsWith(prefix));
 /** Is this repository path one whose change the user merges? Paths are as git prints them (forward slashes). */
 export const isUserMergePath = (file) => typeof file === "string" && USER_MERGE.some((m) => m(file));
 
@@ -60,7 +64,9 @@ export function nextStep(job) {
   if (!qa) return { kind: "run", role: "qa", mode: "verify", at: c.sha, since: job.base };
   if (!risk) return { kind: "check" };
   if (risk.secret) return pause("possible-secret", "the change adds a line or a file that looks like a secret; nothing was pushed", "Look at the commit yourself. Close the delivery if it holds a secret.");
-  if (risk.security && !security) return { kind: "run", role: "security", at: c.sha, since: job.base };
+  // UI code runs in the den's page with the user's session, and a preview shows how it looks, not what it does: security
+  // reviews every such change, whatever the scripted check said.
+  if ((risk.security || risk.ui) && !security) return { kind: "run", role: "security", at: c.sha, since: job.base };
   if (risk.ui) {
     if (!preview) return { kind: "preview" };
     if (verdict?.ok !== true) return pause("visual-verdict", "a UI change waits for your verdict on its preview", "Open the preview. Approve it to merge it and put it live, or decline it with a note for the developer.");

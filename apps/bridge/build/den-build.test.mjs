@@ -149,7 +149,7 @@ describe("go live", () => {
 });
 
 describe("previews", () => {
-  test("a candidate is built in previews/<id>/ and served; its address in the snapshot has no token, its link does", async () => {
+  test("a candidate is built in previews/<id>/ and served at an address with no token", async () => {
     const base = commit({ "package-lock.json": LOCK, "apps/ui/a.txt": "a" });
     await install(base);
     const sha = commit({ "apps/ui/a.txt": "b" }, { land: false }); // a candidate is not on main
@@ -157,7 +157,6 @@ describe("previews", () => {
     assert.equal(out.ok, true);
     assert.deepEqual(den.previewOf(ID), { url: out.url, sha });
     assert.doesNotMatch(out.url, /#/);
-    assert.match(den.previewLink(ID), /#preview=[A-Za-z0-9_-]{43}$/);
     assert.match(await (await fetch(out.url)).text(), /<title>ui<\/title>/);
     assert.ok(existsSync(path.join(state, "previews", ID, "preview.json")));
     assert.deepEqual(await den.open({ id: ID, sha }), { url: out.url, sha }, "already open: the same listener");

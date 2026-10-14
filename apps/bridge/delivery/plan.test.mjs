@@ -52,7 +52,8 @@ describe("the delivery plan", () => {
   ];
   // den-mvp/10 (ADR 0026 decisions 5 and 6): a candidate that changes apps/ui/ is previewed and approved before the push,
   // and goes live after the merge.
-  const ui = { qa: passed.qa, risk: riskOf({ ui: true }) };
+  const unreviewed = { qa: passed.qa, risk: riskOf({ ui: true }) };
+  const ui = { ...unreviewed, security: { sha: SHA, verdict: "pass" } };
   const built = { ...ui, preview: { sha: SHA, ok: true } };
   const approved = { ...built, verdict: { sha: SHA, ok: true } };
   const merged = { ...approved, pr: { sha: SHA, state: "MERGED" } };
@@ -60,13 +61,15 @@ describe("the delivery plan", () => {
     ["a change under apps/ui/: its preview is built before anything is pushed", job(ui), { kind: "preview" }],
     ["a ui ticket type whose change is under apps/ui/: the same", job(ui, { visual: true }), { kind: "preview" }],
     ["a preview for an older commit does not count", job({ ...ui, preview: { sha: OLD, ok: true } }), { kind: "preview" }],
-    ["a risk hit comes first: security reviews before the preview", job({ ...ui, risk: riskOf({ ui: true, security: true }) }), { kind: "run", role: "security", at: SHA, since: BASE }],
+    ["UI code is reviewed by security before its preview, whatever the scripted check said", job(unreviewed), { kind: "run", role: "security", at: SHA, since: BASE }],
+    ["a security pass for an older commit does not count", job({ ...unreviewed, security: { sha: OLD, verdict: "pass" } }), { kind: "run", role: "security", at: SHA, since: BASE }],
     ["approved: publish", job(approved), { kind: "publish" }],
     ["approved, open: its checks", job({ ...approved, pr: open.pr }), { kind: "ci" }],
     ["approved and green: merge, with no second verdict", job({ ...approved, pr: open.pr, ci: green.ci }, { visual: true }), { kind: "merge" }],
     ["declined: the developer runs again with the note", job({ ...built, verdict: { sha: SHA, ok: false } }), { kind: "run", role: "developer", at: SHA, since: BASE, fix: true }],
     ["declined many times over: still the developer, never failed-twice", job({ ...built, verdict: { sha: SHA, ok: false } }, { declines: 5, bounces: 1 }), { kind: "run", role: "developer", at: SHA, since: BASE, fix: true }],
     ["a decline of an older commit does not count: the new one is verified", job({ verdict: { sha: OLD, ok: false }, preview: { sha: OLD, ok: true } }, { declines: 2 }), { kind: "run", role: "qa", mode: "verify", at: SHA, since: BASE }],
+    ["a security bounce of UI code: the developer fixes it, and no preview is built", job({ ...unreviewed, security: { sha: SHA, verdict: "bounce" } }, { bounces: 1 }), { kind: "run", role: "developer", at: SHA, since: BASE, fix: true }],
     ["a preview that did not build: back to the developer as a failed check", job({ ...ui, preview: { sha: SHA, ok: false } }, { bounces: 1 }), { kind: "run", role: "developer", at: SHA, since: BASE, fix: true }],
     ["merged: the change goes live", job(merged), { kind: "go-live" }],
     ["merged and live: resolve the ticket", job({ ...merged, live: { sha: SHA, state: "live", release: OLD } }), { kind: "resolve" }],
@@ -80,7 +83,7 @@ describe("the delivery plan", () => {
     ["a verdict for an older commit", job({ ...built, verdict: { sha: OLD, ok: true } }), "visual-verdict"],
     ["a preview that did not build, the second failed check", job({ ...ui, preview: { sha: SHA, ok: false } }, { bounces: MAX_BOUNCES }), "failed-twice"],
     ["red checks after the approval: nothing is merged and nothing goes live", job({ ...approved, pr: open.pr, ci: { sha: SHA, state: "red", failed: ["test"] } }), "ci-red"],
-    ["a guardrail path with a ui change: the merge is the user's", job({ ...approved, risk: riskOf({ ui: true, security: true, userMerge: true }), security: { sha: SHA, verdict: "pass" }, pr: open.pr, ci: green.ci }), "guardrail"],
+    ["a guardrail path with a ui change: the merge is the user's", job({ ...approved, risk: riskOf({ ui: true, security: true, userMerge: true }), pr: open.pr, ci: green.ci }), "guardrail"],
     ["a merged commit the running bridge is behind", job({ ...merged, live: { sha: SHA, state: "needs-update", reason: "the merged commit changes apps/bridge" } }), "needs-update"],
     ["a go-live build that failed", job({ ...merged, live: { sha: SHA, state: "failed", reason: "the build failed (exit 1)" } }), "go-live-failed"],
   ];

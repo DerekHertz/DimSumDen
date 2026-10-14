@@ -6,13 +6,14 @@
 // in apps/ui/dist; `reads` is the bridge's `previewReads`: one read handler for each path in routes.mjs PREVIEW_READS,
 // and nothing else. That is the listener's whole reach into the bridge: it is given no handler that changes anything,
 // and a request it has no read or file for is a 403.
-//   - GET of a path on PREVIEW_READS: answered by its read handler. A read that needs a token on the den needs this
-//     preview's token here (401 without it). The den's token is not known to this listener, nor this one to the den.
+//   - GET of a path on PREVIEW_READS: answered by its read handler. Each is a read the den answers without a token; a
+//     preview has no token of its own, and the den's token is not known here.
 //   - GET or HEAD of any other path that is no route of the bridge: the built files.
 //   - Everything else (another method, a route not on the list, another Host or Origin, a path out of the folder): 403.
-// The token is read-only and made per preview. It is in the fragment of `url`, which a browser never sends.
+// What a preview reads it can also carry away: a content policy stops requests to other origins, not a page that
+// navigates itself. So the snapshot and the event stream a preview gets leave out what agents said and asked
+// (redactSnapshot and redactChange below; the bridge applies them in the handlers it hands over).
 import http from "node:http";
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { contentTypeFor } from "../../ci-cd/dev-server.mjs";
@@ -25,7 +26,11 @@ const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 // (the glb textures load that way, as in the den), never to the den's port or the network.
 export const PREVIEW_CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob:; frame-src 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'";
 
-const digest = (s) => createHash("sha256").update(String(s)).digest();
+/** The snapshot as a preview gets it: no transcript and no permission request. */
+export const redactSnapshot = (snapshot) => ({ ...snapshot, transcripts: {}, approvals: [] });
+const HIDDEN_CHANGES = ["transcript", "approval"];
+/** A change frame as a preview gets it: a hidden one keeps its seq and carries nothing else. */
+export const redactChange = (change) => (HIDDEN_CHANGES.includes(change?.type) ? { seq: change.seq, type: "hidden" } : change);
 
 export async function openPreview({ id, dir, reads } = {}) {
   if (typeof id !== "string" || !ID_RE.test(id)) throw new TypeError("openPreview: id must be a job id");
@@ -37,13 +42,6 @@ export async function openPreview({ id, dir, reads } = {}) {
   // Only the listed handlers are kept: nothing else of the caller's object is reachable from a request.
   const handlers = new Map(PREVIEW_READS.map((route) => [route, reads[route]]));
   const base = await realpath(path.join(dir, UI_DIST)); // throws when the preview has no built files
-
-  const token = randomBytes(32).toString("base64url");
-  const tokenHash = digest(token);
-  const holdsToken = (header) => {
-    const m = /^Bearer ([A-Za-z0-9_-]{1,512})$/.exec(typeof header === "string" ? header : "");
-    return m !== null && timingSafeEqual(digest(m[1]), tokenHash);
-  };
 
   let port;
   const plain = (res, status, text) => {
@@ -71,10 +69,8 @@ export async function openPreview({ id, dir, reads } = {}) {
       return refuse(res);
     }
     const row = matchRoute(req.method, pathname);
-    if (row && handlers.has(row.path)) {
-      if (row.auth === "token" && !holdsToken(req.headers.authorization)) return plain(res, 401, "unauthorized");
-      return handlers.get(row.path)(req, res);
-    }
+    // A listed read that needs a token on the den is never answered here: there is no token to check it against.
+    if (row && row.auth === "none" && handlers.has(row.path)) return handlers.get(row.path)(req, res);
     if (row || isRoutePath(pathname)) return refuse(res);
     return serveStatic(pathname, req, res);
   }
@@ -133,5 +129,5 @@ export async function openPreview({ id, dir, reads } = {}) {
     server.close(() => resolve());
     server.closeAllConnections();
   }));
-  return { url: `http://${HOST}:${port}/#preview=${token}`, close };
+  return { url: `http://${HOST}:${port}/`, close };
 }

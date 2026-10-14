@@ -89,7 +89,7 @@ The snapshot gains `deliveries` and the change type `delivery`. The Stations car
 
 ## Amendment 1: previews and going live (ADR 0026, den-mvp outcome 5)
 
-- **What is visual** (decision 1). A delivery also waits for the user's verdict when its candidate changes a path under `apps/ui/`, whatever its ticket type. The scripted checks record it as `risk.ui`.
+- **What is visual** (decision 1). A delivery also waits for the user's verdict when its candidate changes what the UI is built from (`apps/ui/` and `packages/`), whatever its ticket type. The scripted checks record it as `risk.ui`, and security reviews every such change.
 - **Where the verdict is** (decision 5). For such a change the bridge builds a preview of the candidate after qa, the checks and (on a hit) security, and the `visual-verdict` pause comes before the push. One approval covers the push, the pull request, the merge on green checks and going live. A visual ticket that changes nothing under `apps/ui/` keeps its verdict where it was, after the checks on the pull request.
 - **Decline.** `POST /deliveries/:id/resume { verdict: "decline", note }` sends the developer round again with the note. Declines are counted in `declines`, apart from `bounces`, and never cause `failed-twice`. A preview that does not build is a failed check and counts as a bounce.
 - **After the merge.** For a change under `apps/ui/` the bridge makes a release of the merge commit and switches the served UI to it, then resolves the ticket. Two new pauses: `go-live-failed`, and `needs-update` when the merged commit differs from the running bridge's release under `apps/bridge/` or in the lockfile. Resume finishes the go-live. `needs-update` is also the pause for a candidate whose lockfile has no packages folder.

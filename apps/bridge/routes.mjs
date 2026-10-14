@@ -23,7 +23,6 @@ export const ROUTES = [
   { method: "POST", path: "/deliveries/:id/resume", auth: "token", mutating: true },
   { method: "POST", path: "/deliveries/:id/stop", auth: "token", mutating: true },
   { method: "POST", path: "/deliveries/:id/close", auth: "token", mutating: true },
-  { method: "GET", path: "/deliveries/:id/preview", auth: "token", mutating: false },
   { method: "POST", path: "/meetings", auth: "token", mutating: true },
   { method: "GET", path: "/meetings/:id", auth: "token", mutating: false },
   { method: "POST", path: "/meetings/:id/resume", auth: "token", mutating: true },
@@ -38,7 +37,9 @@ export const ROUTES = [
 
 // den-mvp/09 (ADR 0026 decision 5): the reads a preview listener answers, written out. A row is not on this list by being
 // a GET: a read added to ROUTES is refused on a preview until it is added here too. Each entry is a GET row above.
-export const PREVIEW_READS = ["/state", "/events", "/library", "/meetings/:id", "/conversations/:role"];
+// Every entry is a read that needs no token on the den: a preview has no token of its own, so a read that needs one (a
+// meeting, a conversation) is not offered there.
+export const PREVIEW_READS = ["/state", "/events", "/library"];
 
 // ":name" segments match any one non-empty segment. Paths are matched exactly (no trailing slash, case-sensitive).
 const compile = (path) => new RegExp(`^${path.replace(/:\w+/g, "[^/]+")}$`);

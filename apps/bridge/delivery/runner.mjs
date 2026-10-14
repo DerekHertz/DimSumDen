@@ -7,7 +7,7 @@
 // returns, or on the user's click.
 //
 //   createDelivery({ host, board, git, log, readTicket, onChange, build? }) -> {
-//     ready, start({ ref }), resume(id, { verdict?, note? }), stop(id), close(id), onEnd(run), snapshot(), previewLink(id)
+//     ready, start({ ref }), resume(id, { verdict?, note? }), stop(id), close(id), onEnd(run), snapshot()
 //   }
 //   build: build/den-build.mjs (den-mvp/10, ADR 0026): the preview of a candidate that changes apps/ui/, and the go-live
 //   after its merge. A bridge that runs from the checkout has none, and such a delivery waits as `environment`.
@@ -41,7 +41,7 @@ const quoteOutput = (text) =>
 export function createDelivery({ host, board, git, log, readTicket, onChange = () => {}, build = null }) {
   const jobs = new Map(); // id -> job; insertion order is snapshot order
   let mergeChain = Promise.resolve(); // merges go one at a time
-  // The preview that is open for the job's candidate, without its token: { url, sha } | null.
+  // The preview that is open for the job's candidate: { url, sha } | null.
   const previewOf = (j) => {
     const shown = build?.previewOf(j.id) ?? null;
     return shown && shown.sha === j.candidate?.sha ? shown : null;
@@ -61,7 +61,7 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
         ci: now(j.evidence.ci)?.state ?? null,
       },
       pr: j.pr, runs: j.runs.map((r) => ({ ...r })), uncertain: j.uncertain ?? null, startedAt: j.startedAt, updatedAt: j.updatedAt,
-      // den-mvp/10: does the candidate change the den's UI, its open preview (the address without its token), the user's
+      // den-mvp/10: does the candidate change the den's UI, its open preview, the user's
       // verdict on this commit, how often they declined, and the release that went live for it.
       ui: risk?.ui === true, preview: previewOf(j), verdict: now(j.evidence.verdict) ? (now(j.evidence.verdict).ok ? "approved" : "declined") : null,
       declines: j.declines ?? 0, release: now(j.evidence.live)?.state === "live" ? now(j.evidence.live).release : null,
@@ -288,7 +288,7 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     const [files, secret, risk] = [await git.changed(range), await git.addsSecret(range), await git.risk(range)];
     if (job.gen !== gen) return;
     const userMerge = files.some(isUserMergePath);
-    job.evidence.risk = { sha: range.sha, clean: risk.clean === true, hits: risk.hits.length, secret: secret === true, security: risk.clean !== true || userMerge, userMerge, ciChange: files.some(isCiPath), ui: files.some(isUiPath), files: files.length };
+    job.evidence.risk = { sha: range.sha, clean: risk.clean === true, hits: risk.hits.length, secret: secret === true, security: risk.clean !== true || userMerge || files.some(isUiPath), userMerge, ciChange: files.some(isCiPath), ui: files.some(isUiPath), files: files.length };
     await save(job);
   }
 
@@ -518,11 +518,5 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     clearTimeout(timer);
   }
 
-  /** The address of a delivery's open preview with its read-only token, for the signed-in den only. */
-  const previewLink = (id) => {
-    const job = find(id);
-    return job && previewOf(job) ? build.previewLink(job.id) : null;
-  };
-
-  return { ready, start, resume, stop, close, onEnd, shutdown, previewLink, snapshot: () => [...jobs.values()].map(view) };
+  return { ready, start, resume, stop, close, onEnd, shutdown, snapshot: () => [...jobs.values()].map(view) };
 }

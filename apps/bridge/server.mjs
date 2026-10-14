@@ -31,6 +31,7 @@ import { computeMetrics, parseJsonl } from "../../scripts/metrics.mjs";
 import { contentTypeFor } from "../ci-cd/dev-server.mjs";
 import { ReleaseError, readBuild, resolveUi } from "./build/releases.mjs";
 import { createDenBuild } from "./build/den-build.mjs";
+import { redactChange, redactSnapshot } from "./build/preview.mjs";
 import { RECOVER_HTML, RECOVER_SCRIPT } from "./build/recover.mjs";
 
 const DEFAULT_UI_DIR = fileURLToPath(new URL("../ui/dist", import.meta.url));
@@ -235,11 +236,6 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     "POST /deliveries/:id/resume": (req, res) => steerDelivery(req, res, "resume"),
     "POST /deliveries/:id/stop": (req, res) => steerDelivery(req, res, "stop"),
     "POST /deliveries/:id/close": (req, res) => steerDelivery(req, res, "close"),
-    // den-mvp/10: the address of a delivery's preview with its read-only token. The snapshot carries the address without it.
-    "GET /deliveries/:id/preview": (req, res) => {
-      const url = delivery.previewLink(new URL(req.url, "http://x").pathname.split("/")[2]);
-      reply(res, url ? 200 : 404, url ? { url } : { error: "no preview is open for this delivery" });
-    },
     "POST /meetings": (req, res) => postMeeting(req, res),
     "GET /meetings/:id": async (req, res) => {
       const { ok, status, error, ...body } = await meetings.read(new URL(req.url, "http://x").pathname.split("/")[2]);
@@ -262,8 +258,14 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
       reply(res, 200, { approval: result.approval });
     },
   };
-  // den-mvp/09: what a preview listener (build/preview.mjs) is given. It holds these read handlers and no other.
-  previewReads = Object.fromEntries(PREVIEW_READS.map((route) => [route, HANDLERS[`GET ${route}`]]));
+  // den-mvp/09: what a preview listener (build/preview.mjs) is given. It holds these read handlers and no other. The
+  // snapshot and the event stream it gets leave out what agents said and asked (redactSnapshot, redactChange): a preview
+  // is unreviewed code, and nothing can stop a page from carrying what it reads somewhere else.
+  previewReads = {
+    "/state": async (req, res) => reply(res, 200, redactSnapshot(await hub.snapshot())),
+    "/events": (req, res) => hub.connect(req, res, { snapshot: redactSnapshot, change: redactChange }),
+    "/library": HANDLERS["GET /library"],
+  };
   haveReads(previewReads);
   const readRows = (file) => readFile(file, "utf8").then(parseJsonl, () => []);
   const reply = (res, status, obj, extra = {}) => {
