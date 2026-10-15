@@ -11,7 +11,7 @@
 //           the group outlives the command's own exit until kill(), so exhausted() can still be read then
 //   watchStorage({ dir, limitBytes, onOver }) -> stop()      the job-storage monitor (not a quota; see below)
 import { spawn as spawnChild, execFile } from "node:child_process";
-import { readFileSync, statSync, writeFileSync } from "node:fs";
+import { accessSync, constants, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { SLOT_CLASSES } from "./policy.mjs";
 
@@ -45,6 +45,8 @@ export const groupProperties = (g) => [`MemoryMax=${g.memoryMiB * MIB}`, "Memory
 /** What the kernel's control-group files must read once those properties are applied. */
 export const groupFiles = (g) => ({ "memory.max": String(g.memoryMiB * MIB), "memory.swap.max": "0", "pids.max": String(g.tasks), "cpu.max": `${g.cpuPercent * (CPU_PERIOD / 100)} ${CPU_PERIOD}` });
 
+const CGROUP_ROOT = "/sys/fs/cgroup";
+const ABS_RE = /^(?:\/[A-Za-z0-9._@+-]+)+$/;
 const UNIT_ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const SLICE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -61,21 +63,25 @@ export const START_GATE = `IFS= read -r go <&3 && [ "$go" = go ] || exit ${GATE_
  * are removed again before the CLI starts, no file the run writes may pass the job-storage bound, and the command
  * starts only once the gate is released.
  */
-export function buildScopeArgv({ unit, slice, limit, fileBytes, bin, args }) {
+export function buildScopeArgv({ unit, slice, limit, fileBytes, bin, args, wrapper = "bwrap", hide = [], hideSockets = [] }) {
   if (typeof unit !== "string" || !/^[a-z0-9][a-z0-9-]{0,80}\.scope$/.test(unit)) throw new TypeError("buildScopeArgv: bad unit name");
   if (typeof slice !== "string" || !SLICE_RE.test(slice)) throw new TypeError("buildScopeArgv: bad slice name");
   if (!isGroupLimit(limit) || !intIn(fileBytes, MIB, Number.MAX_SAFE_INTEGER)) throw new TypeError("buildScopeArgv: bad limit");
   if (typeof bin !== "string" || bin === "" || !Array.isArray(args) || !args.every((a) => typeof a === "string")) throw new TypeError("buildScopeArgv: bad command");
+  const paths = [...hide, ...hideSockets];
+  if (typeof wrapper !== "string" || wrapper === "" || !paths.every((p) => typeof p === "string" && ABS_RE.test(p))) throw new TypeError("buildScopeArgv: bad wrapper");
+  // The run sees /sys/fs/cgroup read-only (no limit file, no cgroup.procs, no new mount) and none of the service
+  // manager's bus sockets: the directories are covered by an empty tmpfs, a lone socket by /dev/null.
+  const wrap = [wrapper, "--dev-bind", "/", "/", "--ro-bind", CGROUP_ROOT, CGROUP_ROOT, ...hide.flatMap((d) => ["--tmpfs", d]), ...hideSockets.flatMap((f) => ["--ro-bind", "/dev/null", f]), "--die-with-parent", "--"];
   return [
     "--user", "--scope", "--quiet", "--collect", "--unit", unit, "--slice", `${slice}.slice`,
     ...[...groupProperties(limit), "OOMPolicy=continue"].flatMap((p) => ["-p", p]),
     "--", "env", "-u", "XDG_RUNTIME_DIR", "-u", "DBUS_SESSION_BUS_ADDRESS",
-    "prlimit", `--fsize=${fileBytes}:${fileBytes}`, "--", "/bin/sh", "-c", START_GATE, "den-gate", bin, ...args,
+    "prlimit", `--fsize=${fileBytes}:${fileBytes}`, "--", "/bin/sh", "-c", START_GATE, "den-gate", ...wrap, bin, ...args,
   ];
 }
 
 // ---- the host's control groups and bus -----------------------------------------------------
-const CGROUP_ROOT = "/sys/fs/cgroup";
 const read = (file) => {
   try {
     return readFileSync(file, "utf8").trim();
@@ -93,7 +99,29 @@ const isSocket = (file) => {
 const counter = (text, key) => Number(new RegExp(`^${key} (\\d+)$`, "m").exec(text ?? "")?.[1] ?? 0);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const oneLine = (text) => String(text ?? "").replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ").trim().slice(0, 300);
-const ABS_RE = /^(?:\/[A-Za-z0-9._@+-]+)+$/;
+
+/** The first executable called `name` on `PATH`, or null. */
+const onPath = (name, PATH) => String(PATH ?? "").split(":").filter((d) => d.startsWith("/")).map((d) => path.join(d, name)).find((f) => { try { accessSync(f, constants.X_OK); return statSync(f).isFile(); } catch { return false; } }) ?? null;
+const isDir = (f) => { try { return statSync(f).isDirectory(); } catch { return false; } };
+
+/** What the wrapper must hide so a run cannot reach the service manager: bus directories, and lone bus sockets. */
+export function busPlaces(env, { uid = process.getuid?.() } = {}) {
+  const rd = typeof env?.XDG_RUNTIME_DIR === "string" && ABS_RE.test(env.XDG_RUNTIME_DIR.replace(/\/+$/, "")) ? env.XDG_RUNTIME_DIR.replace(/\/+$/, "") : `/run/user/${uid}`;
+  const dirs = [`/run/user/${uid}`, rd, typeof env?.HOME === "string" ? `${env.HOME}/.local/state/den` : null];
+  const hide = [...new Set(dirs.filter((d) => d && ABS_RE.test(d) && isDir(d)))];
+  const hideSockets = [env?.DEN_USER_BUS].filter((f) => typeof f === "string" && ABS_RE.test(f) && isSocket(f) && !hide.some((d) => f.startsWith(`${d}/`)));
+  return { hide, hideSockets, sockets: [`${rd}/bus`, env?.DEN_USER_BUS, typeof env?.HOME === "string" ? `${env.HOME}/.local/state/den/user-bus` : null].filter((f) => typeof f === "string" && ABS_RE.test(f)) };
+}
+
+// The probe's command: it tries to loosen its own limits, the slice's, and to leave its group, and to reach the bus.
+// Every attempt that works is named on stdout; a contained run prints only "contained" and exits 0.
+export const PROBE_SCRIPT = `d=/sys/fs/cgroup$(sed -n 's/^0:://p' /proc/self/cgroup); bad=0
+for f in "$d/memory.max" "$d/pids.max" "$d/cpu.max" "$d/../memory.max" "$d/../pids.max"; do
+  if (echo max > "$f") 2>/dev/null; then echo "limit file $f was writable"; bad=1; fi
+done
+if (echo $$ > /sys/fs/cgroup/cgroup.procs) 2>/dev/null; then echo "the process moved itself to the root control group"; bad=1; fi
+for s in "$@"; do if [ -S "$s" ]; then echo "the service manager's bus socket $s is visible"; bad=1; fi; done
+[ $bad = 0 ] && echo contained; exit $bad`;
 
 /**
  * Where the user service manager can be reached: its runtime directory's bus, else a bus socket the operator set up
@@ -204,6 +232,8 @@ export function createResourceLauncher({ env = process.env, limits = LIMITS, sli
     checkRun({ slotClass, id });
     if (process.platform !== "linux") throw new EnforcementError("hardware limits need Linux control groups; this host has none");
     if (read(path.join(CGROUP_ROOT, "cgroup.controllers")) === null) throw new EnforcementError("control groups v2 are not mounted at /sys/fs/cgroup");
+    const wrapper = onPath("bwrap", env?.PATH ?? process.env.PATH);
+    if (wrapper === null) throw new EnforcementError("bwrap is not installed; a run cannot be kept from loosening its own limits without it");
     const bus = findUserBus(env);
     if (!bus.env) throw new EnforcementError(bus.reason);
     const limit = limits.classes[slotClass];
@@ -211,7 +241,8 @@ export function createResourceLauncher({ env = process.env, limits = LIMITS, sli
     // The slice bounds every agent together. Set on each start: it is one cheap call, and a restarted manager forgets it.
     const sliceFailed = await run("systemctl", ["--user", "set-property", "--runtime", `${slice}.slice`, ...groupProperties(limits.aggregate)], bus.env);
     if (sliceFailed !== null) throw new EnforcementError(`could not set the limits of ${slice}.slice: ${sliceFailed}`);
-    const argv = buildScopeArgv({ unit, slice, limit, fileBytes: limits.storage.jobMiB * MIB, bin, args });
+    const { hide, hideSockets } = busPlaces(env);
+    const argv = buildScopeArgv({ unit, slice, limit, fileBytes: limits.storage.jobMiB * MIB, bin, args, wrapper, hide, hideSockets });
     const child = spawn("systemd-run", argv, { shell: false, detached: true, cwd, env: { ...childEnv, ...bus.env }, stdio: ["pipe", "pipe", "pipe", "pipe"] });
     const gate = child.stdio?.[3];
     gate?.on("error", () => {});
@@ -264,14 +295,22 @@ export function createResourceLauncher({ env = process.env, limits = LIMITS, sli
     return { child, group };
   }
 
-  // One real start and kill of a tiny process, through the same code an agent takes.
+  // One real start of a small process through the same code an agent takes. It tries to loosen its own limits and to
+  // reach the service manager; the host is refused if any attempt works, or if it cannot be told.
   async function probe() {
     try {
-      const { child, group } = await start({ slotClass: "worker", id: `${process.pid}-${(probes += 1)}`, bin: "sleep", args: ["30"], cwd: "/", env: {}, prefix: "den-probe" });
+      const { sockets } = busPlaces(env);
+      const { child, group } = await start({ slotClass: "worker", id: `${process.pid}-${(probes += 1)}`, bin: "/bin/sh", args: ["-c", PROBE_SCRIPT, "den-probe", ...sockets], cwd: "/", env: { PATH: env?.PATH ?? process.env.PATH }, prefix: "den-probe" });
       child.stdin.on("error", () => {});
-      child.stdout.resume();
+      let out = "";
+      child.stdout.on("data", (c) => out.length < 4096 && (out += c));
       child.stderr.resume();
+      const code = await new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(null), SCOPE_WAIT_MS);
+        child.once("exit", (c) => (clearTimeout(timer), resolve(c)));
+      });
       group.kill();
+      if (code !== 0 || !/^contained$/m.test(out)) return { ok: false, reason: `a run could loosen its own limits or reach the service manager: ${oneLine(out) || `the probe ended with ${code === null ? "no answer" : `code ${code}`}`}` };
       if (!(await group.settled(KILL_SETTLE_MS))) return { ok: false, reason: `the probe's processes outlived a kill of ${group.unit}` };
       passed = Date.now();
       return { ok: true };

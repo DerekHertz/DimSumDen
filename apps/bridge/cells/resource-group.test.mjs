@@ -73,7 +73,7 @@ describe("the scope argv and the values it must produce", () => {
 
   test("the launcher's bus variables are removed before the CLI, and the CLI's own flags are never read as the launcher's", () => {
     const rest = argv.slice(argv.indexOf("--") + 1);
-    assert.deepEqual(rest, ["env", "-u", "XDG_RUNTIME_DIR", "-u", "DBUS_SESSION_BUS_ADDRESS", "prlimit", "--fsize=4294967296:4294967296", "--", "/bin/sh", "-c", START_GATE, "den-gate", "claude", "-p", "--agent", "scout"]);
+    assert.deepEqual(rest, ["env", "-u", "XDG_RUNTIME_DIR", "-u", "DBUS_SESSION_BUS_ADDRESS", "prlimit", "--fsize=4294967296:4294967296", "--", "/bin/sh", "-c", START_GATE, "den-gate", "bwrap", "--dev-bind", "/", "/", "--ro-bind", "/sys/fs/cgroup", "/sys/fs/cgroup", "--die-with-parent", "--", "claude", "-p", "--agent", "scout"]);
   });
 
   test("the gate runs the command only on the launcher's word: a closed pipe or another word ends it with the refusal code", async () => {
@@ -139,6 +139,13 @@ describe("a host that cannot enforce the limits starts nothing", () => {
     assert.match(check.reason, /bus is not reachable/);
     await assert.rejects(launcher.launch({ slotClass: "worker", id: "abc", bin: "sleep", args: ["1"], cwd: "/", env: {} }), (err) => err instanceof EnforcementError && /bus is not reachable/.test(err.reason));
     assert.equal(spawns, 0);
+  });
+
+  test("a host without bwrap is refused at startup, with the reason, and nothing is spawned", async () => {
+    const launcher = createResourceLauncher({ env: { PATH: "/nonexistent" }, spawn: () => assert.fail("nothing may be spawned") });
+    const check = await launcher.preflight();
+    assert.equal(check.ok, false);
+    assert.match(check.reason, /bwrap is not installed/);
   });
 
   test("the default runtime is the enforced one: its spawn rejects and the binary it names is never run", async () => {
@@ -261,6 +268,28 @@ describe("live: the launcher under reduced limits", { skip }, () => {
     await until(async () => (await launcher.active(id)) === false, { what: "the scope to be gone" });
     assert.equal(await launcher.active(`never-${process.pid}`), false);
     await assert.rejects(launcher.active("A B"), TypeError);
+  });
+
+  test("a run cannot change its own or the slice's limit files, leave its group, or reach the service manager's bus", async () => {
+    const bus = findUserBus(process.env).env;
+    const addr = bus.DBUS_SESSION_BUS_ADDRESS.replace(/^unix:path=/, "");
+    const run = await start(`d=/sys/fs/cgroup$(sed -n 's/^0:://p' /proc/self/cgroup)
+for f in "$d/memory.max" "$d/pids.max" "$d/cpu.max" "$d/../memory.max"; do (echo max > "$f") 2>/dev/null && echo "WROTE $f"; done
+(echo $$ > /sys/fs/cgroup/cgroup.procs) 2>/dev/null && echo MOVED
+for s in ${addr} ${process.env.HOME}/.local/state/den/user-bus; do [ -S "$s" ] && echo "BUS $s"; done
+echo done`);
+    assert.deepEqual(await run.exit, { code: 0, signal: null });
+    assert.equal(run.out, "done\n");
+    assert.equal(value(run.group, "memory.max"), String(TEST_LIMITS.classes.worker.memoryMiB * MIB));
+    run.group.kill();
+  });
+
+  test("the preflight passes here, and a missing bwrap is a refusal with its reason", async () => {
+    assert.deepEqual(await launcher.preflight(), { ok: true });
+    const bare = createResourceLauncher({ env: { ...process.env, PATH: "/nonexistent" }, limits: TEST_LIMITS, slice: SLICE });
+    const check = await bare.preflight();
+    assert.equal(check.ok, false);
+    assert.match(check.reason, /bwrap is not installed/);
   });
 
   test("a command that ends at once is still a start: the launcher saw it in its scope before it ran", async () => {
