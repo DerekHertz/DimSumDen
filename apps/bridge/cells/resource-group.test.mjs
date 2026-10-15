@@ -11,7 +11,7 @@ import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn as spawnChild, execFile } from "node:child_process";
-import { EnforcementError, GATE_REFUSED, LIMITS, START_GATE, buildScopeArgv, cgroupOf, checkLimits, createResourceLauncher, findUserBus, groupFiles, groupProperties, measureTree, watchStorage } from "./resource-group.mjs";
+import { EnforcementError, GATE_REFUSED, LIMITS, START_GATE, buildScopeArgv, cgroupOf, checkLimits, createResourceLauncher, findUserBus, groupFiles, groupProperties, judgeProbe, measureTree, watchStorage } from "./resource-group.mjs";
 import { createClaudeRuntime } from "./claude-runtime.mjs";
 import { SLOTS } from "./policy.mjs";
 
@@ -166,6 +166,18 @@ describe("a host that cannot enforce the limits starts nothing", () => {
   });
 });
 
+describe("the probe's verdict", () => {
+  test("only a clean exit that said 'contained' passes; any named attempt, a bad code or no answer is a refusal with its reason", () => {
+    assert.equal(judgeProbe(0, "contained\n"), null);
+    assert.match(judgeProbe(1, "limit file /x/memory.max was writable\n"), /was writable/);
+    assert.match(judgeProbe(1, "the service manager's bus socket /run/user/1/bus is visible\n"), /is visible/);
+    assert.match(judgeProbe(0, "the process moved itself to the root control group\n"), /moved itself/);
+    assert.match(judgeProbe(1, "the service manager answered a connection\n"), /answered a connection/);
+    assert.match(judgeProbe(0, ""), /code 0/);
+    assert.match(judgeProbe(null, ""), /no answer/);
+  });
+});
+
 describe("active(id) without a readable answer", () => {
   test("no bus, or an answer that is not a state, rejects: unknown is never read as gone", async () => {
     const dir = await mkdtemp(path.join(tmpdir(), "den-nobus-"));
@@ -276,7 +288,9 @@ describe("live: the launcher under reduced limits", { skip }, () => {
     const run = await start(`d=/sys/fs/cgroup$(sed -n 's/^0:://p' /proc/self/cgroup)
 for f in "$d/memory.max" "$d/pids.max" "$d/cpu.max" "$d/../memory.max"; do (echo max > "$f") 2>/dev/null && echo "WROTE $f"; done
 (echo $$ > /sys/fs/cgroup/cgroup.procs) 2>/dev/null && echo MOVED
-for s in ${addr} ${process.env.HOME}/.local/state/den/user-bus; do [ -S "$s" ] && echo "BUS $s"; done
+for s in ${addr} ${process.env.HOME}/.local/state/den/user-bus /run/user/$(id -u)/bus; do [ -S "$s" ] && echo "BUS $s"; done
+if command -v busctl >/dev/null; then busctl --user --no-pager status >/dev/null 2>&1 && echo "BUS CONNECTED"; fi
+if command -v systemctl >/dev/null; then systemctl --user is-system-running >/dev/null 2>&1 && echo "SYSTEMCTL CONNECTED"; fi
 echo done`);
     assert.deepEqual(await run.exit, { code: 0, signal: null });
     assert.equal(run.out, "done\n");
