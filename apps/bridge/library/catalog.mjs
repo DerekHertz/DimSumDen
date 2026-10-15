@@ -12,10 +12,13 @@ import { fileURLToPath } from "node:url";
 import { ROLES } from "../cells/policy.mjs";
 import { isConnectionTarget, CONNECTION_NAME_RE } from "../cells/claude-adapter.mjs";
 
-export const CAPABILITIES = Object.freeze(["read", "change", "publish"]);
+// den-mvp/38: "board" is a write to the den's own board that the role's ceiling already allows (Bao's desk): no ask.
+export const CAPABILITIES = Object.freeze(["read", "board", "change", "publish"]);
 // "none": the service needs no credential. "den": the bridge holds a token the user saved once in
 // ~/.local/state/den/credentials/<name>.token (ADR 0025 Amendment 1); the catalog never holds the secret itself.
-export const CREDENTIAL_OWNERS = Object.freeze(["none", "den"]);
+// "run" (den-mvp/38): a den script that calls the bridge back; the bridge mints a token for each run and puts it, with
+// the bridge's address, in that run's 0600 MCP config. Only a script connection holds one.
+export const CREDENTIAL_OWNERS = Object.freeze(["none", "den", "run"]);
 const HEADER_NAME_RE = /^X-MCP-[A-Za-z]+(?:-[A-Za-z]+)*$/;
 const HEADER_VALUE_RE = /^[A-Za-z0-9_,.-]{1,200}$/;
 const HEADERS_MAX = 4;
@@ -54,10 +57,11 @@ export function parseCatalog(value, { denRoot = DEN_ROOT } = {}) {
       for (const [k, v] of Object.entries(c.headers)) if (!HEADER_NAME_RE.test(k) || typeof v !== "string" || !HEADER_VALUE_RE.test(v)) fail(`${c.name}: header ${JSON.stringify(k)} is not a plain X-MCP-* header`);
     }
     if (c.credential === "den" && c.url === undefined) fail(`${c.name}: a credential needs a remote url`);
+    if (c.credential === "run" && c.script === undefined) fail(`${c.name}: a run credential is for a den script`);
     if (c.url !== undefined) target = { name: c.name, url: c.url, ...(c.credential === "den" ? { credential: "den" } : {}), ...(c.headers !== undefined ? { headers: Object.freeze({ ...c.headers }) } : {}) };
     else {
       if (typeof c.script !== "string" || !SCRIPT_RE.test(c.script) || c.script.split("/").some((part) => part === "." || part === "..")) fail(`${c.name}: script must be a .mjs file in apps/bridge/library/servers/ in the den`);
-      target = { name: c.name, script: path.join(denRoot, c.script) };
+      target = { name: c.name, script: path.join(denRoot, c.script), ...(c.credential === "run" ? { credential: "run" } : {}) };
     }
     if (!isConnectionTarget(target)) fail(`${c.name}: ${c.url !== undefined ? "url must be a plain https address of a public host, with no sign-in, query or fragment" : "the script's path is not a plain path"}`);
     if (!CREDENTIAL_OWNERS.includes(c.credential)) fail(`${c.name}: credential must be one of ${CREDENTIAL_OWNERS.join(", ")}`);
@@ -104,7 +108,7 @@ export function decideTool(catalog, role, tool) {
   if (!connection || !connection.roles.includes(role)) return { kind: "refuse", reason: REFUSE_ROLE, ...base, tool: null };
   if (base.tool === null || !Object.hasOwn(connection.tools, base.tool)) return { kind: "refuse", reason: REFUSE_TOOL, ...base, tool: null };
   const capability = connection.tools[base.tool];
-  return { kind: capability === "read" ? "allow" : "ask", capability, ...base };
+  return { kind: capability === "read" || capability === "board" ? "allow" : "ask", capability, ...base };
 }
 
 /**

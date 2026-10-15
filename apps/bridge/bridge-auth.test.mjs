@@ -150,6 +150,7 @@ const fill = (pattern, value) => pattern.replace(/:\w+/g, value);
 const tokenRows = ROUTES.filter((r) => r.auth === "token" && r.method !== "GET");
 const originRows = ROUTES.filter((r) => r.auth === "origin");
 const noneRows = ROUTES.filter((r) => r.auth === "none");
+const runRows = ROUTES.filter((r) => r.auth === "run");
 
 let fx;
 let denState;
@@ -191,7 +192,7 @@ describe("the route registry", () => {
     for (const r of ROUTES) {
       assert.match(r.method, /^[A-Z]+$/);
       assert.match(r.path, /^\//);
-      assert.ok(["none", "origin", "token"].includes(r.auth), `auth of ${r.method} ${r.path}`);
+      assert.ok(["none", "origin", "token", "run"].includes(r.auth), `auth of ${r.method} ${r.path}`);
       assert.equal(typeof r.mutating, "boolean", `mutating of ${r.method} ${r.path}`);
       const key = `${r.method} ${r.path}`;
       assert.ok(!seen.has(key), `duplicate row ${key}`);
@@ -251,6 +252,22 @@ describe("unauthenticated reads stay open", () => {
       assert.ok(!res.text.includes(token), `${p} leaks the session token`);
     }
   });
+});
+
+// den-mvp/38: a "run" row answers only the token of a live run (the den script). The user's own session token, no
+// token, and a foreign Origin are all refused before the body is read.
+describe("run-gated routes (table-driven from ROUTES)", () => {
+  for (const r of runRows) {
+    const name = `${r.method} ${r.path}`;
+    test(`${name}: no token, the user's session token and a made-up token are 401; a foreign Origin is 403`, async () => {
+      for (const auth of [undefined, `Bearer ${token}`, `Bearer ${"f".repeat(43)}`]) {
+        const res = await send(bridge, { method: r.method, path: fill(r.path, "board_comment"), body: { ref: "x/01", text: "hi" }, headers: { Origin: origin(bridge), ...(auth ? { Authorization: auth } : {}) } });
+        assert.equal(res.status, 401, `${auth ?? "no token"}: ${res.text}`);
+      }
+      const foreign = await send(bridge, { method: r.method, path: fill(r.path, "board_comment"), body: {}, headers: { Origin: "http://evil.example", Authorization: `Bearer ${token}` } });
+      assert.equal(foreign.status, 403);
+    });
+  }
 });
 
 describe("token-gated mutating routes (table-driven from ROUTES)", () => {

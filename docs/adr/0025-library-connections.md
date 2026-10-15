@@ -85,3 +85,11 @@ So a run can send up to 16 KiB to a listed service before the user is asked anyt
 - With no token saved the connection is left out, the run starts, and the Library card shows it unavailable with "No <title> token saved".
 - The first use is GitHub's official server at `/mcp/readonly` with `X-MCP-Toolsets: pull_requests,actions,issues,repos`, every listed tool `read`. Reason for a file over inline: argv is visible to other processes of the user and to `ps`.
 - The two guardrail files (`governance.json`, `connections.json`) were left by the den as a patch for the user, who applied it to this pull request.
+
+## Amendment 2 (2026-10-15): the den's own connection, for Bao (den-mvp/38)
+
+Bao's desk could read everything and change nothing: asked to resolve merged tickets and start the next one, it handed the user terminal commands. The board is read-only to its shell, and no desk path reached `POST /deliveries`.
+
+- A third credential owner, `run`, is for a den script only. At spawn the bridge mints a 32-byte token for that run and puts it, with the bridge's address (`http://127.0.0.1:<port>`), in the script's environment inside the run's 0600 MCP config, never in argv. The bridge keeps only the token's sha256, mapped to the run, and drops it when the run ends.
+- `apps/bridge/library/servers/den.mjs` does nothing itself: each tool call is `POST /den-tools/<tool>` with that token (route auth `run`: Origin, JSON and the token of a live, unstopped run). The bridge does the work with its own board and git-host rights, for a role the catalog gives the connection (`orchestrator` only).
+- A fourth tool class, `board`, is a write to the den's board that the role's ceiling already allows (den-mvp/30): no ask. `board_resolve` (the bridge first confirms the pull request merged) and `board_comment` are `board`. `board_file` (always at `ready-for-human`) and `start_delivery` are `change`, so they ask the user, and the bridge goes ahead only on the user's own allow of that exact call, used once. The user chose this split on 2026-10-15.

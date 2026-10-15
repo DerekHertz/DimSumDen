@@ -18,7 +18,7 @@
 // den-mvp outcome 2: every transcript entry is also kept in the role's durable conversation (conversations.mjs), and
 // converse(role, { text, runId? }) is the thread's one way in: to the live run, or as a follow-up that continues the
 // session of a run that has ended (see "follow-ups" below).
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -93,7 +93,7 @@ const NO_CONNECTIONS = parseCatalog({ connections: [] });
 
 // den-mvp outcome 4: `library` is the catalog of connections and its record (library/library.mjs). Without one, an agent is
 // started with no connection and every connection tool is refused.
-export function createHost({ root, runtime, policy = {}, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], openDesk = async () => {}, onChange = () => {}, recordRun = async () => {}, onEnd = async () => {}, library = createLibrary({ catalog: NO_CONNECTIONS }) }) {
+export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], openDesk = async () => {}, onChange = () => {}, recordRun = async () => {}, onEnd = async () => {}, library = createLibrary({ catalog: NO_CONNECTIONS }) }) {
   const maxConcurrent = Math.min(policy.maxConcurrent ?? MAX_CONCURRENT_AGENTS, SESSION_CAP);
   const sessionCap = Math.min(policy.sessionCap ?? SESSION_CAP, SESSION_CAP);
   const graceMs = policy.killGraceMs ?? KILL_GRACE_MS;
@@ -117,6 +117,11 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     resumeOf: a.resumeOf ?? null, followUp: canContinue(a) && END_STATES.includes(a.state),
   });
   // A run whose session a follow-up could continue: the runtime can resume, and the run has a session and a worktree.
+  // den-mvp/38: a run given a "run" connection (the den script) holds a token the script calls the bridge back with.
+  // Only its sha256 is kept here, mapped to the run; the token itself goes to the run's 0600 MCP config and nowhere else.
+  const runTokens = new Map();
+  const tokenHash = (t) => createHash("sha256").update(t).digest("hex");
+  const ALLOWED_CALLS_MAX = 20;
   const canContinue = (a) => runtime?.capabilities?.resume === true && typeof a.sessionId === "string" && UUID_RE.test(a.sessionId) && typeof a.worktree === "string";
   const publish = (a) => onChange({ type: "agent", agent: view(a) });
   // Held permission requests (organism-infra/141). The store knows no process; these callbacks are its only way out.
@@ -127,6 +132,10 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     answer: (id, requestId, verdict) => agents.get(id).proc.decide(requestId, verdict),
     audit: ({ approval, decision, note }) =>
       sessions.append({ event: "decision", agentId: approval.agentId, ref: agents.get(approval.agentId)?.ref, approvalId: approval.id, decision, route: "POST /approvals/:id", ...(note ? { note } : {}) }),
+    granted: ({ agentId, tool, input }) => {
+      const a = agents.get(agentId);
+      if (a && tool.startsWith("mcp__den__")) a.allowedCalls = [...(a.allowedCalls ?? []), { tool, input }].slice(-ALLOWED_CALLS_MAX);
+    },
     onChange: (approval) => {
       onChange({ type: "approval", approval });
       notePermission(agents.get(approval.agentId), approval);
@@ -485,12 +494,20 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       // den-mvp outcome 4: the connections the catalog and the role file both give this role; data for the adapter.
       ...(connections.length === 0 ? {} : { connections }),
     };
+    const url = connections.some((c) => c.credential === "run") ? bridgeUrl() : null;
+    if (url) {
+      const token = randomBytes(32).toString("base64url");
+      agent.runTokenHash = tokenHash(token);
+      runTokens.set(agent.runTokenHash, agent.id);
+      args.runCredential = { url, token };
+    }
     let proc;
     try {
       proc = await runtime.spawn(args);
     } catch (err) {
       await workspaces.remove(workspace);
       liveByRef.delete(agent.ref);
+      if (agent.runTokenHash) runTokens.delete(agent.runTokenHash);
       console.error(`bridge: runtime failed to spawn ${agent.role} for ${agent.ref}: ${err?.message ?? err}`);
       return err?.name === "EnforcementError" ? refused(err.reason) : refuse(502, "the runtime failed to start the agent");
     }
@@ -534,8 +551,10 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       ? "You are Bao, the orchestrator, at your desk in the den. Read .claude/agents/orchestrator.md for who you are. " +
         "Here the user talks with you with no ticket: answer their messages about the repo, the board and CI, reading what you need. " +
         "For pull requests, checks and CI logs use the GitHub connection's tools (mcp__github__*): `gh` has no login here. " +
-        "Do not claim, dispatch, hand off or release anything, and change no file. When work should happen, propose it in words " +
-        "(a ticket to write, a delivery to start, a meeting to call): the user starts it from the den. The user's message follows."
+        "Run no board command and change no file: the board is read-only to your shell. Act on the board through the den's tools " +
+        "(mcp__den__*): board_resolve (a ticket whose pull request merged), board_comment, board_file (a new ticket, for the user to " +
+        "approve) and start_delivery (a ready-for-agent ticket the user asked you to start). The last two ask the user first. " +
+        "Start only what the user asked for; propose anything else in words. The user's message follows."
       : a.meeting
       ? meetingPrompt({ role: a.role, part: a.meeting.part, ref: a.ref, ticketFile: ticketFile(a.ref) })
       : a.delivery
@@ -734,6 +753,8 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     agent.tool = null;
     approvals.settleAgent(agent.id, "agent-exited");
     approvals.release(agent.id);
+    if (agent.runTokenHash) runTokens.delete(agent.runTokenHash);
+    agent.allowedCalls = [];
     agent.resume = resumeFor(agent.sessionId);
     agent.lastEventAt = new Date().toISOString();
     agent.durationMs = Math.max(0, Date.parse(agent.lastEventAt) - Date.parse(agent.startedAt));
@@ -1049,5 +1070,19 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     transcripts: transcriptView,
     approval: (id) => approvals.read(id),
     decide: (id, body) => approvals.decide(id, body),
+    // den-mvp/38: the live run a den-script token belongs to, or null (unknown, ended, or stopping).
+    runAgent(token) {
+      if (typeof token !== "string" || !/^[A-Za-z0-9_-]{20,255}$/.test(token)) return null;
+      const a = agents.get(runTokens.get(tokenHash(token)));
+      return a && a.proc && !a.exited && !a.stopRequested ? { id: a.id, role: a.role, ref: a.ref } : null;
+    },
+    // den-mvp/38: uses up one allow the user gave this run for `tool` whose input `matches`; false when there is none.
+    takeAllowed(agentId, tool, matches) {
+      const a = agents.get(agentId);
+      const i = (a?.allowedCalls ?? []).findIndex((c) => c.tool === tool && matches(c.input ?? {}));
+      if (i < 0) return false;
+      a.allowedCalls.splice(i, 1);
+      return true;
+    },
   };
 }

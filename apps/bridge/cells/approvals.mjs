@@ -5,7 +5,7 @@
 // on its own. It knows nothing about processes or HTTP: the host injects three small callbacks.
 //
 //   createApprovalStore({ ttlMs, capPerAgent, canAnswer(agentId), isLive(agentId), answer(agentId, requestId, { allow, reason }),
-//                         audit({ approval, decision, note }), onChange(view) })
+//                         audit({ approval, decision, note }), onChange(view), granted({ agentId, tool, input }) })
 //   hold(agentId, event, { accepting, says })   a "permission-request" CellEvent -> nothing returned; denies are answered inside
 //       (den-mvp outcome 2: `says` is what the agent last said before asking, already cleaned by the host; the view
 //       carries it, clipped, beside `intent`, the tool input's own `description`. Both are null when there is none.)
@@ -144,6 +144,7 @@ function summarize(input) {
 
 export function createApprovalStore({
   ttlMs = APPROVAL_TTL_MS, questionTtlMs = QUESTION_TTL_MS, capPerAgent = APPROVAL_CAP_PER_AGENT, canAnswer, isLive, answer, audit, onChange,
+  granted = () => {},
 }) {
   const approvals = new Map(); // id -> record, insertion order is request order
   const requestIds = new Map(); // agentId -> Set of the child's request ids, held or answered
@@ -292,6 +293,8 @@ export function createApprovalStore({
       return refuse(502, "the agent could not be told; the approval was closed");
     }
     clearTimeout(a.timer);
+    // den-mvp/38: what the user allowed, for a bridge action that must see the user's own allow of that exact call.
+    if (final === "allow") granted({ agentId: a.agentId, tool: a.tool, input: a.input });
     a.state = final === "allow" ? "allowed" : "denied";
     a.note = cleanNote;
     a.answeredAt = new Date().toISOString();
