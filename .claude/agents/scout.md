@@ -1,7 +1,7 @@
 ---
 name: scout
 description: Cheap read-only helper that runs verbose work (full test runs, log digging, codebase surveys, doc or web lookups) and returns only a short summary. Use it to keep other cells' context small.
-tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, mcp__context7
+tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, mcp__context7, mcp__github
 model: haiku
 effort: low
 color: yellow
