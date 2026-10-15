@@ -24,6 +24,7 @@ import { createTicket } from "../organism-infra/board-service.mjs";
 import { hasSecret } from "../../scripts/exposure.mjs";
 import { REQUEST_KINDS, appendRequestLine } from "./requests-log.mjs";
 import { createHub } from "./watch.mjs";
+import { createUsageReading } from "./usage-reading.mjs";
 import { parseCatalog } from "./library/catalog.mjs";
 import { createLibrary } from "./library/library.mjs";
 import { createAuth } from "./auth.mjs";
@@ -102,7 +103,7 @@ function installProcessHandlers(host) {
 // preview and a go-live are built in; with none, both are refused.
 // den-mvp/29: watchCi starts the CI watch's timer (delivery/ci-watch.mjs); the production entry point passes true. Without
 // it the watch only reads its record, so a test never reaches the git host by the timer.
-export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, denState, box, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption, watchCi = false } = {}) {
+export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, denState, box, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption, watchCi = false, usage: usageOption } = {}) {
   let actualPort = port;
   const git = gitHost ?? createGitHost(root);
   // den-mvp/10 and 11: the den's own build, when it is served from release folders: previews, go-live and roll back. The
@@ -123,12 +124,15 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   const ciWatch = createCiWatch({ git, file: path.join(stateDir ?? path.join(root, ".scratch", "_run"), "ci-watch.json"), onChange: (change) => hub.publish(change), skip: ownedByDelivery,
     // den-mvp/29: a red pull request outside the den is a message to Bao's desk (den-mvp/30), once per commit.
     wake: (text) => host.converse("orchestrator", { text }) });
+  // Friction F19: the production bridge reads the plan-usage cache; a test bridge reads only usage.jsonl rows.
+  const usageReading = usageOption ?? (() => null);
   const hub = createHub(root, {
     agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts(), capacity: (lockedRefs) => host.capacity(lockedRefs),
     deliveries: () => delivery?.snapshot() ?? [],
     meetings: () => meetings?.snapshot() ?? [],
     ci: () => ciWatch.snapshot(),
     build: () => readBuild_(),
+    readUsage: usageReading,
   });
   // den-mvp outcome 4: the production entry point passes the den's catalog; with none, no agent is given a connection.
   const library = libraryOption ?? createLibrary({ catalog: parseCatalog({ connections: [] }) });
@@ -639,7 +643,7 @@ if (startedDirectly()) {
   const { createResourceLauncher } = await import("./cells/resource-group.mjs");
   const { createBuildBox } = await import("./build/box.mjs");
   const launcher = createResourceLauncher({ env: process.env });
-  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }), watchCi: true });
+  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }), watchCi: true, usage: createUsageReading() });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
   console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);
