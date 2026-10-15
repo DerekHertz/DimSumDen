@@ -25,6 +25,13 @@ const forSha = (raw, more) => {
   return rest ? { sha: raw.sha, ...rest } : null;
 };
 const runOf = (raw) => (isObject(raw) && AGENT_ID_RE.test(raw.runId) && ROLES.includes(raw.role) ? { runId: raw.runId, role: raw.role, mode: MODES.includes(raw.mode) ? raw.mode : null } : null);
+const lines = (v, n, max) => (Array.isArray(v) ? v.slice(0, n).map((x) => line(x, max)).filter((x) => x !== null) : []);
+// den-mvp/34: a local run of ci.yml's checks for this commit, and where its record is.
+const TEST_STATES = ["green", "flaky", "red", "skipped", "error"];
+const testsOf = (raw) => forSha(raw, (r) => (TEST_STATES.includes(r.state) ? {
+  state: r.state, record: typeof r.record === "string" && /^[0-9a-f]{40}\/\d{8}T\d{6}Z(-\d+)?$/.test(r.record) ? r.record : null, reason: line(r.reason, 300),
+  failed: lines(r.failed, 20, 300), flaky: lines(r.flaky, 20, 300), commands: lines(r.commands, 5, 200), differences: lines(r.differences, 10, 200),
+} : null));
 const verdictOf = (raw) => forSha(raw, (r) => (["pass", "bounce"].includes(r.verdict) && AGENT_ID_RE.test(r.runId) ? { runId: r.runId, verdict: r.verdict } : null));
 
 /** A clean job record, or null. Unknown keys are not copied. */
@@ -34,7 +41,7 @@ export function validateJob(raw) {
   const pause = isObject(raw.pause) && KIND_RE.test(raw.pause.kind) ? { kind: raw.pause.kind, reason: line(raw.pause.reason, 400) ?? "", next: line(raw.pause.next, 300) ?? "" } : null;
   const pr = isObject(raw.pr) && Number.isInteger(raw.pr.number) && raw.pr.number > 0 && raw.pr.number < 1e9 ? { number: raw.pr.number, url: /^https:\/\/[A-Za-z0-9.-]+\/[\w./-]+$/.test(raw.pr.url) ? raw.pr.url : null } : null;
   return {
-    id: raw.id, ref: raw.ref, title: line(raw.title, 200) ?? "", type: line(raw.type, 40) ?? "", state: raw.state, visual: raw.visual === true,
+    id: raw.id, ref: raw.ref, title: line(raw.title, 200) ?? "", type: line(raw.type, 40) ?? "", state: raw.state, visual: raw.visual === true, localChecks: raw.localChecks === true,
     pause: raw.state === "paused" ? pause ?? { kind: "unknown", reason: "", next: "" } : null,
     step: line(raw.step, 40), base: raw.base, branch: typeof raw.branch === "string" && PUBLISH_BRANCH_RE.test(raw.branch) ? raw.branch : null,
     candidate: forSha(raw.candidate, (r) => (AGENT_ID_RE.test(r.runId) ? { runId: r.runId } : {})),
@@ -43,6 +50,7 @@ export function validateJob(raw) {
       risk: forSha(ev.risk, (r) => ({ clean: r.clean === true, hits: count(r.hits), secret: r.secret === true, security: r.security !== false, userMerge: r.userMerge !== false, ciChange: r.ciChange !== false, ui: r.ui === true, files: count(r.files) })),
       // den-mvp/10: a preview that was built (or did not build) for this commit, and the release that went live for it.
       preview: forSha(ev.preview, (r) => ({ ok: r.ok === true })),
+      tests: testsOf(ev.tests),
       live: forSha(ev.live, (r) => (r.state === "live" && sha(r.release) ? { state: "live", release: r.release } : null)),
       // What the git host said is asked again on every resume; these two are kept only to show.
       pr: null, ci: null,

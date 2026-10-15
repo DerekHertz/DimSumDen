@@ -180,7 +180,8 @@ export function useDeliveries(client) {
   const deliver = useCallback((ref) => call(ref, () => client.deliver({ ref })), [call, client]);
   const deliverText = useCallback((text) => call("new", () => client.deliver({ text })), [call, client]);
   const steer = useCallback((id, action, options) => call(id, () => client.steerDelivery(id, action, options)), [call, client]);
-  return useMemo(() => ({ inflight, results, deliver, deliverText, steer }), [inflight, results, deliver, deliverText, steer]);
+  const runChecks = useCallback((pr) => call(`checks:${pr}`, () => client.runChecks({ pr })), [call, client]);
+  return useMemo(() => ({ inflight, results, deliver, deliverText, steer, runChecks }), [inflight, results, deliver, deliverText, steer, runChecks]);
 }
 
 const idPart = (s) => String(s).replace(/[^A-Za-z0-9_-]/g, "-");
@@ -205,15 +206,46 @@ function DeliverControl({ scope, ticket, snapshot, steer, deliveries }) {
   );
 }
 
+// den-mvp/34: the checks run on this machine beside GitHub's, for one commit. Closed, it is one line; open, it shows the
+// exact commands, what of this machine differs from GitHub's runner, the failing and flaky tests, and where the record is.
+function ChecksDetail({ view }) {
+  if (!view) return null;
+  return (
+    <details className={`checks-detail${view.mismatch ? " checks-mismatch" : ""}`}>
+      <summary className="small">{view.summary}</summary>
+      {view.mismatch ? <p className="small checks-warn">The two runs disagree on the same commit. The cause is often one of the differences below.</p> : null}
+      {view.reason ? <p className="small">{view.reason}</p> : null}
+      {view.commands.length ? <><p className="small muted">Commands, each in a box on this machine</p><pre className="code-well"><code>{view.commands.join("\n")}</code></pre></> : null}
+      {view.differences.length ? <><p className="small muted">This machine differs from GitHub&apos;s runner in</p><ul className="small checks-list">{view.differences.map((d) => <li key={d}>{d}</li>)}</ul></> : null}
+      {view.failed.length ? <><p className="small muted">Failing here</p><ul className="small checks-list">{view.failed.map((f) => <li key={f}>{f}</li>)}</ul></> : null}
+      {view.flaky.length ? <><p className="small muted">Flaky: failed, then passed on the same commit</p><ul className="small checks-list">{view.flaky.map((f) => <li key={f}>{f}</li>)}</ul></> : null}
+      {view.record ? <p className="small muted">Record: <span className="code-small">{view.record}</span></p> : null}
+    </details>
+  );
+}
+
 // A delivery that waits on the user (Needs you). Resume asks the bridge to look again and go on; Close ends it for good.
 // den-mvp/12: a UI change waits with a link to its preview; Approve covers the merge and going live, and Decline sends
 // it back to the developer with the note.
 // den-mvp/29: a red pull request has nothing to approve here: what to do, and the link to it.
-function CiNote({ request }) {
+function CiNote({ request, steer, deliveries }) {
+  const off = steer?.demo ? "Demo mode: actions are off" : steer?.state === "none" ? "Not signed in to steer" : null;
+  const key = `checks:${request.prNumber}`;
+  const busy = request.checksRunning || deliveries?.inflight.has(key);
+  const error = deliveries?.results[key]?.error;
   return (
     <div aria-live="polite">
       <p className="small needs-expires">{request.next}</p>
       {request.pr ? <p className="small"><a href={request.pr} target="_blank" rel="noreferrer noopener">Open pull request #{request.prNumber}</a></p> : null}
+      <ChecksDetail view={request.checks} />
+      {deliveries && request.canRunChecks ? (
+        <div className="run-controls">
+          <button type="button" className="btn btn-outline run-btn" title={off ?? "Runs the commands of ci.yml on this machine, in a box, on the pull request's commit"} disabled={!!off || busy} aria-busy={busy || undefined} onClick={() => deliveries.runChecks(request.prNumber)}>
+            {busy ? "Running the checks here…" : "Run the checks here"}
+          </button>
+        </div>
+      ) : null}
+      {error ? <p className="small gate-error" role="alert">{error}</p> : null}
     </div>
   );
 }
@@ -231,6 +263,7 @@ function DeliveryDecision({ request, steer, deliveries }) {
       {request.rolledBackNote ? <p className="small build-behind">{request.rolledBackNote}</p> : null}
       {request.previewUrl ? <p className="small"><a href={request.previewUrl} target="_blank" rel="noreferrer noopener">Open the preview of {request.short} in a new tab</a></p> : null}
       {request.pr ? <p className="small"><a href={request.pr} target="_blank" rel="noreferrer noopener">Open pull request #{request.prNumber}</a></p> : null}
+      <ChecksDetail view={request.checks} />
       {request.decline ? (
         <>
           <label className="note-label" htmlFor={noteId}>To decline, say what should change</label>
@@ -340,6 +373,7 @@ function DeliveriesSection({ snapshot, steer, deliveries }) {
               <span className="code-small muted queue-ref">{r.ref}</span>
               <p className="small">{r.line}{r.pr ? <> · <a href={r.pr} target="_blank" rel="noreferrer noopener">pull request #{r.prNumber}</a></> : null}</p>
               {r.facts.length > 0 ? <p className="small muted">{r.facts.join(" · ")}</p> : null}
+              <ChecksDetail view={r.checks} />
               {r.canStop ? <button type="button" className="btn btn-outline run-btn" aria-label={`Stop delivery of ${r.ref}`} disabled={!!off || deliveries.inflight.has(r.id)} onClick={() => deliveries.steer(r.id, "stop")}>Stop delivery</button> : null}
               {deliveries.results[r.id]?.error && r.state !== "paused" ? <p className="small gate-error" role="alert">{deliveries.results[r.id].error}</p> : null}
             </li>
@@ -488,7 +522,7 @@ export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder,
               : current.kind === "delivery"
                 ? (deliveries ? <DeliveryDecision key={current.key} request={current} steer={steer} deliveries={deliveries} /> : null)
               : current.kind === "ci"
-                ? <CiNote key={current.key} request={current} />
+                ? <CiNote key={current.key} request={current} steer={steer} deliveries={deliveries} />
               : current.kind === "meeting"
                 ? (meetings ? <MeetingDecision key={current.key} request={current} steer={steer} meetings={meetings} onOpenMeeting={onOpenMeeting} /> : null)
               : prompt.show

@@ -2,7 +2,7 @@
 // passed in. Copy comes from docs/design/2026-10-01-iso-den.md section 4. Agent text (ticket titles) is untrusted:
 // the components render it as React text nodes only.
 import { gatesModel } from "../panel/gates-model.mjs";
-import { deliveryRequests } from "./delivery-model.mjs";
+import { checksView, deliveryRequests } from "./delivery-model.mjs";
 import { meetingRequests } from "./meeting-model.mjs";
 import { queueModel } from "../panel/queue-model.mjs";
 import { cellTypeOf, sceneFromState } from "../scene/scene-from-state.mjs";
@@ -131,6 +131,9 @@ export function ciRequests(snapshot) {
         reason: jobs.map((j) => `${j.name}: ${j.reason}`).join("; ") || "A check failed.", reasonFallback: false, plain: true,
         next: typeof p.bao === "string" && p.bao ? `${CI_NEXT[p.state]} ${p.bao}.` : CI_NEXT[p.state], rowText: `${short} · red`, preview: typeof p.title === "string" && p.title ? [p.title] : [], detailLabel: "The pull request",
         age: null, pr: httpsLink(p.url), prNumber: p.number,
+        // den-mvp/34: the latest local run of this commit's checks beside GitHub's red, and whether one is running now.
+        checks: checksView({ here: (snapshot?.checks?.recent ?? []).find((r) => r?.sha === p.sha) ?? null, github: "red" }),
+        checksRunning: typeof p.sha === "string" && (snapshot?.checks?.running ?? []).includes(p.sha), canRunChecks: snapshot?.checks != null,
       };
     });
 }

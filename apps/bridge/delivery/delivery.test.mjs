@@ -156,7 +156,7 @@ describe("one approved job, from the den to a merged pull request", () => {
     assert.equal(t.status(), "resolved");
     assert.equal(t.lock(), null);
     assert.deepEqual(done.pr, { number: 7, url: "https://github.com/o/r/pull/7" });
-    assert.deepEqual(done.evidence, { qa: "pass", security: null, risk: { clean: true, hits: 0, security: false, userMerge: false }, ci: "green" });
+    assert.deepEqual(done.evidence, { qa: "pass", security: null, risk: { clean: true, hits: 0, security: false, userMerge: false }, ci: "green", tests: null });
     assert.deepEqual(done.runs.map((r) => [r.role, r.state]), [["developer", "done"], ["qa", "done"]]);
   });
 
@@ -513,5 +513,100 @@ describe("after a bridge restart", () => {
     t.work(qa, { say: "VERDICT: pass" });
     await t.when((j) => j.state === "merged", "the delivery to merge");
     assert.deepEqual(t.sideEffects(), ["push", "openPr", "waitChecks", "merge"]);
+  });
+});
+
+// den-mvp/34: the checks of ci.yml, run by the bridge here (delivery/checks.mjs) after the scripted risk check and before
+// security and the push. A fake stands in for the box: `next` is the record its next run gives, `calls` what it was asked.
+function fakeChecks() {
+  const c = { calls: [], next: null, gate: null };
+  const record = (sha, state, extra = {}) => ({ id: "20261015T120000Z", sha, state, reason: null, differences: [{ fact: "bwrap", here: "present", github: "absent" }], flaky: [],
+    jobs: [{ name: "test", command: "node scripts/test-split.mjs rest", state: state === "error" ? "error" : state, failures: [], flaky: [] }], ...extra });
+  return Object.assign(c, {
+    record,
+    run: async (input) => {
+      c.calls.push(input);
+      await c.gate;
+      return typeof c.next === "function" ? c.next(input) : record(input.sha, "green");
+    },
+    recent: async () => [],
+    running: () => [],
+  });
+}
+
+describe("den-mvp/34: the checks run here before anything is pushed", () => {
+  const withChecks = async () => {
+    const checks = fakeChecks();
+    const t = await setup({ checks });
+    return { t, checks };
+  };
+
+  test("a green local run goes on to the push, and the pull request says what ran here", async () => {
+    const { t, checks } = await withChecks();
+    await t.start();
+    const sha = await t.toQaPass();
+    const done = await t.when((j) => j.state === "merged", "the delivery to merge");
+    assert.equal(checks.calls.length, 1);
+    assert.equal(checks.calls[0].sha, sha, "the checks run on the candidate commit");
+    assert.equal(done.evidence.tests.state, "green");
+    assert.deepEqual(done.evidence.tests.commands, ["node scripts/test-split.mjs rest"]);
+    assert.deepEqual(done.evidence.tests.differences, ["bwrap: present here, absent on GitHub"]);
+    assert.match(t.git.calls.find((c) => c[0] === "openPr")[1].body, /Checks run here \(ci\.yml, boxed\): green/);
+    assert.deepEqual(t.sideEffects(), ["push", "openPr", "waitChecks", "merge"], "GitHub's checks still gate the merge");
+  });
+
+  test("a local red bounces before the push, with every failing test quoted for the developer", async () => {
+    const { t, checks } = await withChecks();
+    checks.next = ({ sha }) => checks.record(sha, "red", { reason: "test: 1 test failed",
+      jobs: [{ name: "test", command: "node scripts/test-split.mjs rest", state: "red", reason: "1 test failed",
+        failures: [{ name: "the queue keeps its order", location: "apps/x.test.mjs:12:3", output: "expected: 3\nactual: 2" }], flaky: [] }] });
+    await t.start();
+    await t.toQaPass();
+    const fix = await t.spawn(2);
+    assert.equal(fix.args.role, "developer", "the developer gets a fix round");
+    assert.deepEqual(t.sideEffects(), [], "nothing was pushed");
+    const findings = readFileSync(path.join(fix.args.cwd, ".den", "findings.md"), "utf8");
+    assert.match(findings, /## test \(node scripts\/test-split\.mjs rest\): 1 test failed/);
+    assert.match(findings, /### the queue keeps its order \(apps\/x\.test\.mjs:12:3\)\n\n```\nexpected: 3\nactual: 2/);
+    const j = await t.job();
+    assert.equal(j.bounces, 1);
+  });
+
+  test("tests that only flaked do not stop the delivery, and the pull request names them", async () => {
+    const { t, checks } = await withChecks();
+    checks.next = ({ sha }) => checks.record(sha, "flaky", { jobs: [{ name: "test-browser", command: "node scripts/test-split.mjs browser", state: "flaky", failures: [], flaky: [{ name: "camera fit" }] }] });
+    await t.start();
+    await t.toQaPass();
+    const done = await t.when((j) => j.state === "merged", "the delivery to merge");
+    assert.deepEqual(done.evidence.tests.flaky, ["test-browser: camera fit"]);
+    assert.match(t.git.calls.find((c) => c[0] === "openPr")[1].body, /boxed\): flaky; passed when run again: test-browser: camera fit/);
+  });
+
+  test("checks that could not run here wait for the user, and Resume runs them again", async () => {
+    const { t, checks } = await withChecks();
+    checks.next = ({ sha }) => checks.record(sha, "error", { reason: "bubblewrap (bwrap) is not installed" });
+    await t.start();
+    await t.toQaPass();
+    const waiting = await t.paused("checks-error");
+    assert.match(waiting.pause.reason, /bwrap/);
+    assert.deepEqual(t.sideEffects(), []);
+    checks.next = null;
+    assert.equal((await t.post(`/deliveries/${waiting.id}/resume`)).status, 202);
+    await t.when((j) => j.state === "merged", "the delivery to merge");
+    assert.equal(checks.calls.length, 2);
+  });
+
+  test("Stop ends a local run that is under way", async () => {
+    const { t, checks } = await withChecks();
+    let release;
+    checks.gate = new Promise((r) => (release = r));
+    await t.start();
+    await t.toQaPass();
+    const running = await t.when((j) => j.step === "tests", "the checks to start");
+    assert.equal((await t.post(`/deliveries/${running.id}/stop`)).status, 202);
+    assert.equal(checks.calls[0].signal.aborted, true, "the run is told to stop");
+    release();
+    await t.paused("stopped");
+    assert.deepEqual(t.sideEffects(), []);
   });
 });

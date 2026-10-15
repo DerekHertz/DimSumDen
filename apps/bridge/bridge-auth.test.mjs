@@ -30,6 +30,8 @@ const BODIES = {
     bogus: { to: SHA_C },
     prepare: async () => void (await liveReleases(denState, [SHA_A, SHA_B])),
   },
+  // den-mvp/34: the checks of an open pull request (the fake git host knows #7), run by the fake checks below.
+  "POST /checks": { real: { pr: 7 }, bogus: { pr: 8 } },
   "POST /requests": {
     real: { kind: "dispatch-approve", ref: DISPATCH_REF },
     bogus: { kind: "dispatch-approve", ref: `${FEATURE}/99-nope` },
@@ -165,9 +167,13 @@ beforeEach(async () => {
   file = path.join(fx.root, ".scratch", "_requests", "requests.jsonl");
   fake = createFakeRuntime?.({ send: true, cancel: true }) ?? null;
   // The delivery rows never get past their first agent here, so the git host is only asked for the main branch's commit.
-  const gitHost = { mainSha: async () => execFileSync("git", ["-C", fx.root, "rev-parse", "HEAD"], { encoding: "utf8" }).trim() };
+  const gitHost = {
+    mainSha: async () => execFileSync("git", ["-C", fx.root, "rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+    prState: async ({ number }) => (number === 7 ? { number, state: "OPEN", sha: "a".repeat(40), checks: [], mergeable: "MERGEABLE" } : Promise.reject(new Error("not found"))),
+  };
+  const checks = { run: async () => ({}), recent: async () => [], running: () => [] };
   denState = path.join(fx.root, ".den-state"); // empty: the bridge serves the checkout's build until a test makes releases
-  bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, gitHost, denState, ...(fake ? { runtime: fake } : {}) });
+  bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, gitHost, denState, checks, ...(fake ? { runtime: fake } : {}) });
   token = await login(bridge);
 });
 afterEach(async () => {
