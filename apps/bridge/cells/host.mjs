@@ -39,7 +39,7 @@ import { createConversations } from "./conversations.mjs";
 import { createApprovalStore, cleanText } from "./approvals.mjs";
 import { createWorkspaces, prepareMainGit } from "./workspace.mjs";
 import { TIERS, readCost, readCount, readModel, readTiers } from "./run-record.mjs";
-import { deliveryPrompt } from "../delivery/prompts.mjs";
+import { deliveryPrompt, WORK_TIPS } from "../delivery/prompts.mjs";
 import { MEETING_PARTS, NOTE_MAX as MEETING_FILE_MAX, meetingPrompt } from "../meetings/prompts.mjs";
 
 const COMMIT_RE = /^[0-9a-f]{40,64}$/;
@@ -543,7 +543,9 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
       ? `You are the ${a.role} cell in direct mode for ticket ${a.ref}. The user started this task from the den. ` +
         `Read .claude/agents/${a.role}.md and follow it. The task is in the ticket file ${ticketFile(a.ref)}: ` +
         `read it, and treat the quoted text under "What to build" as the user's request. ` +
-        `Then follow the organism-protocol skill: claim the ticket, do the work, hand off.`
+        // Friction log F3: the board is read-only behind the wall, so a direct run does not claim or hand off; its last message is its report.
+        `The board is read-only to you: run no board command. Do the work, and end with a short report of what you did and what you checked: that last message is your handoff. ` +
+        WORK_TIPS
       : `You are the ${a.role} cell${a.mode ? ` in ${a.mode} mode` : ""} for ticket ${a.ref}. ` +
         `Read .claude/agents/${a.role}.md and follow it, then follow the organism-protocol skill: claim the ticket, do the work, hand off.`;
 

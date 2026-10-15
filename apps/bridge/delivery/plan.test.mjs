@@ -145,6 +145,9 @@ describe("a reviewer's verdict and the step prompts", () => {
     const dev = deliveryPrompt({ role: "developer", ref: "fx/08-plain", ticketFile: "/r/.scratch/fx/issues/08-plain.md", since: BASE });
     assert.match(dev, /developer cell for ticket fx\/08-plain/);
     assert.match(dev, /Run no board command, and do not push/);
+    // Friction log F2 and F4: foreground checks under timeout, throwaway scripts under .den/.
+    assert.match(dev, /in the foreground under `timeout`.*never in the background/);
+    assert.match(dev, /throwaway script under \.den\/ in this worktree/);
     assert.match(dev, /\/r\/\.scratch\/fx\/issues\/08-plain\.md/);
     assert.doesNotMatch(dev, /findings\.md|VERDICT/);
     assert.match(deliveryPrompt({ role: "developer", ref: "fx/08-plain", ticketFile: "/t.md", since: BASE, fix: true }), /read \.den\/findings\.md first/);

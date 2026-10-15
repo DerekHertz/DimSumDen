@@ -20,6 +20,7 @@ import { CODE, login, authed, send } from "../bridge-auth-helpers.mjs";
 import { makeBridge, until, AGENT_ID_RE, DISPATCH_REF } from "./host-test-helpers.mjs";
 import { makeStub, alive } from "./claude-stub.mjs";
 import { createClaudeRuntime } from "./claude-runtime.mjs";
+import { WORK_TIPS } from "../delivery/prompts.mjs";
 import { ROLES, TASK_MAX_BYTES, DEN_FEATURE } from "./policy.mjs";
 import { getStatus } from "../../organism-infra/board-service.mjs";
 import { unconfinedLauncher } from "./launcher-test-helpers.mjs";
@@ -77,8 +78,10 @@ describe("POST /tasks starts a role on a ticket the route writes", () => {
       `You are the architect cell in direct mode for ticket den/01-architect. The user started this task from the den. ` +
         `Read .claude/agents/architect.md and follow it. The task is in the ticket file ${path.join(issuesDir(t.fx.root), "01-architect.md")}: ` +
         `read it, and treat the quoted text under "What to build" as the user's request. ` +
-        `Then follow the organism-protocol skill: claim the ticket, do the work, hand off.`,
+        `The board is read-only to you: run no board command. Do the work, and end with a short report of what you did and what you checked: that last message is your handoff. ` +
+        WORK_TIPS,
     );
+    assert.doesNotMatch(args.prompt, /claim the ticket/, "the wall makes the board read-only: a direct run is not told to claim (friction F3)");
   });
 
   test("every role may be started, relay-hop roles included, and each task gets the next number", async () => {
