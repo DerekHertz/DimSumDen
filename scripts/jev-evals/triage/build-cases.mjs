@@ -30,6 +30,7 @@ const runOf = (run) => {
 };
 
 const rows = labels.map(({ id, label, evidence }) => {
+  if (!/^\d+-\d+$/.test(id)) throw new Error(`labels.jsonl: id must be <run>-<job> digits: ${id}`);
   const [run, job] = id.split("-");
   const r = runOf(run);
   const log = logsAt ? readFileSync(path.join(logsAt, `${id}.log`), "utf8") : gh(["run", "view", run, "--job", job, "--log-failed"]);
@@ -44,7 +45,11 @@ const out = rows.map((c) => {
   // On main every commit is its own change; on a branch, earlier pushes are the same change in progress.
   const same = (o) => o.run.branch === c.run.branch && c.run.branch !== "main";
   const history = { days: DAYS, otherChanges: shas(before.filter((o) => !same(o))), thisBranch: shas(before.filter(same)) };
-  return { id: c.id, label: c.label, text: triageState({ job: c.job, log: c.log, changed: c.run.files, history }), evidence: c.evidence };
+  return { id: c.id, label: c.label, text: triageState({ job: c.job, log: c.log, changed: c.run.files, history }), evidence: c.evidence,
+    logOnly: triageState({ job: c.job, log: c.log }) };
 });
-writeFileSync(path.join(HERE, "cases.jsonl"), out.map((c) => JSON.stringify(c)).join("\n") + "\n");
+const write = (file, key) => writeFileSync(file, out.map((c) => JSON.stringify({ id: c.id, label: c.label, text: c[key], evidence: c.evidence })).join("\n") + "\n");
+write(path.join(HERE, "cases.jsonl"), "text");
+// The baseline: the same question with the log alone, to show what the two facts add.
+write(path.join(HERE, "log-only", "cases.jsonl"), "logOnly");
 process.stdout.write(`${out.length} cases\n`);

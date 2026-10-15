@@ -186,7 +186,8 @@ export function triageState({ job, log, changed, history }) {
   const all = String(log ?? "").split("\n").map((l) => l.replace(/^[^\t]*\t[^\t]*\t\S+Z ?/, "").replace(/(?:\x1b|\^\[)\[[0-9;]*m/g, ""));
   // GitHub's own cleanup after a failed step is never the failure.
   const cleanup = all.findIndex((l) => /^Post job cleanup\.$/.test(l.trim()));
-  const lines = cleanup === -1 ? all : all.slice(0, cleanup);
+  // A secret scanner's finding names the commit's author; triage needs none of it (security review, den-mvp/40).
+  const lines = (cleanup === -1 ? all : all.slice(0, cleanup)).filter((l) => !/^\s*(Author|Email):\s/.test(l));
   const starts = lines.flatMap((l, i) => (/^\s*not ok \d+ - /.test(l) ? [i] : []));
   const names = [...new Set(starts.map((i) => lines[i].replace(/^\s*not ok \d+ - /, "").trim()))];
   let body;

@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // den-mvp/40: Jev eval harness. Runs one use case over a labelled case set and writes a report, so a use case is
 // judged on one sitting's numbers instead of days of relay trials.
-// Usage: node scripts/jev-eval.mjs <usecase> --model jev-1.13.0|jev-1.14.0 [--cases <path>] [--out <dir>] [--limit N]
+// Usage: node scripts/jev-eval.mjs <usecase> --model jev-1.13.0|jev-1.14.0 [--cases <path>] [--out <dir>] [--limit N] [--repeat N]
+// Jev is not deterministic (the same text moves its confidence by up to ~0.1 between calls), so --repeat runs the
+// set N times (default 5); the report pools every run, and a safety miss in any run counts against its floor.
 // Cases: scripts/jev-evals/<usecase>/cases.jsonl, one { id, text, label } per line (extra fields are kept, unused).
 // Writes report-<model>-<date>.md and results-<model>-<date>.jsonl beside the cases. Every case's text passes the
 // same secret check as jev.mjs; a blocked case is skipped and listed, never sent. TYPESAFE_API_KEY is read from the
@@ -117,14 +119,19 @@ export function verdict(usecase, s) {
 
 const fmtPct = (x) => (x == null ? "-" : `${(x * 100).toFixed(1)}%`);
 
-export function renderReport({ usecase, model, date, s, results }) {
+export function renderReport({ usecase, model, date, s, results, runs = [] }) {
   const u = USECASES[usecase];
   const v = verdict(usecase, s);
   const L = [];
   L.push(`# Jev eval: ${usecase}, ${model}, ${date}`, "");
   L.push(`**Result:** ${v.pass ? "PASS" : "FAIL"} on the bar.`, "");
   for (const [name, ok, text] of v.checks) L.push(`- ${ok ? "pass" : "FAIL"} ${name}: ${text}`);
-  L.push("", `Cases: ${s.total}; answered ${s.answered}; right ${s.right}; skipped ${s.skipped.length}; errors ${s.errors.length}.`, "");
+  L.push("", `Calls: ${s.total}; answered ${s.answered}; right ${s.right}; skipped ${s.skipped.length}; errors ${s.errors.length}.`, "");
+  if (runs.length > 1) {
+    L.push(`## ${runs.length} runs of the same set, pooled below`, "", "| run | accuracy | misses | lowest floor with none |", "|---|---|---|---|");
+    runs.forEach((r, i) => L.push(`| ${i + 1} | ${fmtPct(r.accuracy)} | ${r.misses.length} | ${r.safeFloor ?? "none"} |`));
+    L.push("");
+  }
   L.push("## Confusion (rows: truth, columns: Jev)", "", `| truth | ${u.labels.join(" | ")} |`, `|---|${u.labels.map(() => "---").join("|")}|`);
   for (const l of u.labels) L.push(`| ${l} | ${u.labels.map((p) => s.confusion[l][p]).join(" | ")} |`);
   L.push("", "## Accuracy by confidence", "", "| confidence | cases | right | accuracy |", "|---|---|---|---|");
@@ -138,8 +145,10 @@ export function renderReport({ usecase, model, date, s, results }) {
   L.push(`- Cost: $${s.cost.toFixed(6)} total, $${(s.costPerCase ?? 0).toFixed(6)} per case`, `- Latency: p50 ${s.p50ms ?? "-"} ms, p95 ${s.p95ms ?? "-"} ms`, "");
   if (s.skipped.length) L.push("## Skipped", "", ...s.skipped.map((x) => `- ${x.id}: ${x.why}`), "");
   if (s.errors.length) L.push("## Errors", "", ...s.errors.map((x) => `- ${x.id}: ${x.why}`), "");
-  L.push("## Per case", "", "| case | truth | Jev | confidence | ms |", "|---|---|---|---|---|");
-  for (const r of results) L.push(`| ${r.id} | ${r.label} | ${r.pick ?? r.skip ?? r.error} | ${r.conf?.toFixed(3) ?? "-"} | ${r.ms ?? "-"} |`);
+  L.push("## Per case", "", "| case | truth | Jev, each run (confidence) |", "|---|---|---|");
+  const byId = new Map();
+  for (const r of results) byId.set(r.id, [...(byId.get(r.id) ?? []), r]);
+  for (const [id, rs] of byId) L.push(`| ${id} | ${rs[0].label} | ${rs.map((r) => `${r.pick ?? r.skip ?? r.error}${r.conf != null ? ` (${r.conf.toFixed(2)})` : ""}`).join(", ")} |`);
   return L.join("\n") + "\n";
 }
 
@@ -153,7 +162,7 @@ async function main(argv, env = process.env) {
   if (!Object.hasOwn(USECASES, usecase)) return usage(`use case must be one of ${Object.keys(USECASES).join(", ")}`);
   const opts = {};
   for (let i = 1; i < argv.length; i += 2) {
-    if (!["--model", "--cases", "--out", "--limit"].includes(argv[i]) || argv[i + 1] === undefined) return usage(`bad argument ${argv[i]}`);
+    if (!["--model", "--cases", "--out", "--limit", "--repeat"].includes(argv[i]) || argv[i + 1] === undefined) return usage(`bad argument ${argv[i]}`);
     opts[argv[i].slice(2)] = argv[i + 1];
   }
   if (!MODELS.includes(opts.model)) return usage(`--model must be one of ${MODELS.join(", ")}`);
@@ -162,17 +171,21 @@ async function main(argv, env = process.env) {
   const dir = path.join(HERE, "jev-evals", usecase);
   let cases = parseCases(readFileSync(opts.cases ?? path.join(dir, "cases.jsonl"), "utf8"));
   if (opts.limit) cases = cases.slice(0, Number(opts.limit));
-  const results = await runEval({ usecase, cases, model: opts.model, apiKey });
+  const repeat = Number(opts.repeat ?? 5);
+  if (!Number.isInteger(repeat) || repeat < 1 || repeat > 20) return usage("--repeat must be 1 to 20");
+  const runs = [];
+  for (let i = 0; i < repeat; i++) runs.push((await runEval({ usecase, cases, model: opts.model, apiKey })).map((r) => ({ ...r, run: i + 1 })));
+  const results = runs.flat();
   const s = score(usecase, results);
   const date = new Date().toISOString().slice(0, 10);
   const out = opts.out ?? dir;
   mkdirSync(out, { recursive: true });
   const stem = `${opts.model}-${date}`;
-  writeFileSync(path.join(out, `report-${stem}.md`), renderReport({ usecase, model: opts.model, date, s, results }));
+  writeFileSync(path.join(out, `report-${stem}.md`), renderReport({ usecase, model: opts.model, date, s, results, runs: runs.map((r) => score(usecase, r)) }));
   writeFileSync(path.join(out, `results-${stem}.jsonl`), results.map((r) => JSON.stringify(r)).join("\n") + "\n");
   const v = verdict(usecase, s);
   process.stdout.write(`${usecase} ${opts.model}: ${v.pass ? "PASS" : "FAIL"}; accuracy ${fmtPct(s.accuracy)}; safe floor ${s.safeFloor ?? "none"}; ` +
-    `$${(s.costPerCase ?? 0).toFixed(6)}/case; p95 ${s.p95ms ?? "-"} ms; skipped ${s.skipped.length}; errors ${s.errors.length}\n`);
+    `runs ${runs.map((r) => fmtPct(score(usecase, r).accuracy)).join(" ")}; $${(s.costPerCase ?? 0).toFixed(6)}/case; p95 ${s.p95ms ?? "-"} ms; skipped ${s.skipped.length}; errors ${s.errors.length}\n`);
   return 0;
 }
 

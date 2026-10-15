@@ -66,6 +66,18 @@ test("a case that trips the secret check is skipped and listed, and never reache
   assert.match(renderReport({ usecase: "triage", model: "jev-1.13.0", date: "2026-10-15", s, results }), /## Skipped\n\n- leak: blocked-input/);
 });
 
+test("pooled runs: a miss in any run counts against its floor, and the report lists each run", async () => {
+  const cases = [caseOf("a", "code"), caseOf("b", "flake")];
+  const one = await runEval({ usecase: "triage", cases, model: "jev-1.13.0", apiKey: KEY, clock, transport: fake({ a: ["code", 0.9], b: ["flake", 0.9] }) });
+  const two = await runEval({ usecase: "triage", cases, model: "jev-1.13.0", apiKey: KEY, clock, transport: fake({ a: ["flake", 0.75], b: ["flake", 0.9] }) });
+  const s = score("triage", [...one, ...two]);
+  assert.equal(s.accuracy, 0.75);
+  assert.equal(s.safeFloor, 0.8);
+  const md = renderReport({ usecase: "triage", model: "jev-1.13.0", date: "2026-10-15", s, results: [...one, ...two], runs: [score("triage", one), score("triage", two)] });
+  assert.match(md, /## 2 runs of the same set/);
+  assert.match(md, /\| a \| code \| code \(0\.90\), flake \(0\.75\) \|/);
+});
+
 test("the transport gets the triage point, the model and the key; an error or an unknown pick is listed, not scored", async () => {
   const calls = [];
   const transport = async (req) => {
@@ -107,6 +119,8 @@ test("triageState: a header with the job and every failing test, then each faili
   assert.match(s, /^job: test\nfailing tests: first thing \| second thing\n\n--- log ---\nnot ok 2 - first thing/);
   assert.ok(s.includes("boom red") && s.includes("bold"));
   assert.ok(!/2026-10-01T|\u001b|\^\[/.test(s));
+  const scan = triageState({ job: "security", log: "Finding: x\nAuthor:      Someone\nEmail:       a@b.c\n##[error]leaks" });
+  assert.ok(!/Someone|a@b\.c/.test(scan), "a scanner's author lines are dropped");
 });
 
 test("triageState: with no failing test it quotes up to the first error and drops GitHub's post-job cleanup", () => {

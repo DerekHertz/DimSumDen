@@ -7,23 +7,27 @@ When a CI job fails, should the den rerun it or send it back for a fix? Jev pick
 - **Rebuild:** `node scripts/jev-evals/triage/build-cases.mjs` (it needs `gh`).
 - **Run:** `node scripts/jev-eval.mjs triage --model jev-1.13.0` (or `jev-1.14.0`). It needs `TYPESAFE_API_KEY`.
 
-## Results, 2026-10-15
+## Results, 2026-10-15 (each model ran the set 5 times; pooled)
 
-| | accuracy | safety misses (code called flake) | lowest floor with none | picks at that floor | right at that floor | cost per case | p95 |
-|---|---|---|---|---|---|---|---|
-| log only, jev-1.13.0 | 68% | 2 | 0.7 | 46 of 50 | 72% | $0.000067 | 128 ms |
-| log only, jev-1.14.0 | 70% | 1 | 0.6 | 47 of 50 | 70% | $0.000067 | 112 ms |
-| with facts, jev-1.13.0 | 84% | 3 | 0.7 | 36 of 50 | 97% | $0.000072 | 147 ms |
-| with facts, jev-1.14.0 | **86%** | 3 | 0.9 | 25 of 50 | 100% | $0.000072 | 151 ms |
+Jev is not deterministic. On the same text, confidence moves by up to about 0.1 between calls, and picks near 0.5 flip. So each report pools 5 runs, 250 calls in all, and a safety miss in any run counts against its floor.
 
-`log-only/` holds the first run's reports. In that run, every wrong `flake` was an assertion failure that a slow runner caused, such as "exactly one POST, got 0" or "pinch zooms out: 0.55 to 0.55". From the log, these look exactly like real bugs. A person who labels them also reads the history: the commit touched only board files, and the same test failed on unrelated commits. Adding those two facts raised accuracy by 16 points on both models.
+| | accuracy (5 runs) | lowest floor with no safety miss | decided at that floor | right at that floor | cost per case | p95 |
+|---|---|---|---|---|---|---|
+| log only, jev-1.13.0 | 72.0% (72–72) | 0.9 | 36% | 95.6% | $0.00007 | 143 ms |
+| log only, jev-1.14.0 | 71.6% (70–72) | 0.8 | 54% | 88.2% | $0.00007 | 144 ms |
+| with facts, jev-1.13.0 | 82.8% (80–84) | **0.8** | **56%** | **97.8%** | $0.00007 | 135 ms |
+| with facts, jev-1.14.0 | 84.4% (84–86) | 0.9 | 44% | 100% | $0.00007 | 189 ms |
+
+`log-only/` asks the same question with the log alone. There, the wrong flakes are assertion failures that a slow runner caused, such as "exactly one POST, got 0" or "pinch zooms out: 0.55 to 0.55". In the log these look exactly like real bugs. A person labelling them also reads the history: the commit touched only board files, and the same test failed on unrelated commits. The two facts that code knows add about 12 points on both models.
 
 **Against the bar** (den-mvp/40):
-- Accuracy is 86% on 1.14, against a bar of 85%.
-- Each model has a floor with zero safety misses: 0.9 on 1.14 and 0.7 on 1.13.
-- Cost is $0.00007 per case, against a bar of $0.001.
-- p95 latency is 151 ms, against a bar of 3 s. The first call of a run took about 2 s, which is a cold start.
+- **Accuracy: fail, narrowly.** The better model, 1.14, scores 84.4% against 85%.
+- **Safety: pass.** Each model has a floor with no miss in any of 5 runs: 0.8 on 1.13 and 0.9 on 1.14.
+- **Cost: pass.** $0.00007 per case, against a bar of $0.001.
+- **Latency: pass.** The p95 is under 200 ms, against 3 s. The first call of a session takes about 2 s.
 
-So it passes. For the den, the useful operating point is **jev-1.13.0 at a 0.7 floor**. It decides 72% of failures, it is right on 97% of those, and it has no safety misses. A pick below the floor goes to today's path: the developer gets the findings.
+The floor matters more than the headline accuracy. With a floor, a pick below it goes to today's path, and the developer gets the findings. **jev-1.13.0 at a 0.8 floor decides 56% of failures, is right on 97.8% of them, and calls no real failure a flake.** Its only errors at that floor are one flake (the three-digit test that depended on file timestamps) called `code` in 3 of 5 runs. That is the safe side: a fix round where a rerun would have done.
 
-**Caveat.** The two facts and the wording of the question were written after the first run's misses had been seen. Nothing was held out, so these numbers are optimistic. The den's next real failures are the test that counts: run triage in shadow on them before it acts.
+**Caveats.**
+- The two facts and the question's wording were written after the first single run's misses had been seen, and nothing was held out. The next real failures in the den are the test that counts.
+- After a security review, the scanner's author lines are dropped from the text. That changed 4 cases, and it was the first sign of the nondeterminism.

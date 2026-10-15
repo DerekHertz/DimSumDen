@@ -123,16 +123,19 @@ The baseline is computed once, at go-live, and frozen in the row, so later rows 
 - **What:** the start-here context file goes to every hop that starts cold (also full qa `verify`, `security`, `scout`); `scout` calls `jg` before grepping.
 - **Measure:** the shared measure over tickets with those hops, plus the `kind:"jg"` rows (bytes, skips, fallbacks). Baseline: the last 10 tickets before the change. Kill: a trial median above baseline, or a stale context file named as the cause of a bounce.
 
-### triage (eval passed 2026-10-15; den wiring is a follow-up)
+### triage (eval run 2026-10-15; the user decides keep or kill)
 
 - **Question:** why did a CI job fail: `flake | code | env | other`. It is written once in `scripts/jev.mjs` (point `triage`, state from `triageState`) so the den can call the same thing.
-- **Sent to TypeSafe:** CI output only, which ADR 0010 decision 9 already allows: the job name, the failing test names, the failing tests' lines, the commit's changed files by area, and the count of earlier failures of the same tests. At most 16k characters. Every case passes the secret check first.
-- **Eval:** `scripts/jev-evals/triage/` has 50 real failed jobs, every red CI run from 2026-09-28 to 2026-10-15, each labelled by hand from what fixed it.
-  - Results: 86% accuracy on jev-1.14.0 and 84% on jev-1.13.0, at about $0.00007 per case and a p95 of 151 ms.
-  - From the log alone, accuracy was 68–70%. Timing flakes read as real bugs until the commit's changes and the failure history were added.
-  - The facts and the question were written after that first run, so the set is not held out; see the eval's README.
-- **Safety miss:** a `code` failure labelled `flake` at or above the floor, since a rerun would hide it. None at a 0.7 floor on 1.13 (72% of failures decided, 97% right). None at 0.9 on 1.14 (50% decided, all right).
-- **Next:** run it in shadow inside the den's CI watch on new failures, which form the held-out check, then let a `flake` pick at or above the floor take the timeout re-run path. That follow-up ticket waits on the user.
+- **Sent to TypeSafe:** CI output only, which ADR 0010 decision 9 already allows: the job name, the failing test names, the failing tests' lines, the commit's changed files by area, and the count of earlier failures of the same tests. Scanner author lines are dropped. At most 16k characters, and every case passes the secret check first.
+- **Eval:** `scripts/jev-evals/triage/` has 50 real failed jobs, every red CI run from 2026-09-28 to 2026-10-15, each labelled by hand from what fixed it. Each model ran the set 5 times; the results are pooled.
+  - With the facts: 84.4% accuracy on jev-1.14.0 and 82.8% on jev-1.13.0, against a bar of 85%. From the log alone: about 72% on both.
+  - Cost is about $0.00007 per case, and p95 is under 200 ms.
+  - Jev is not deterministic: confidence on the same text moves by up to about 0.1 between calls.
+  - The facts and the question were written after the first run, so the set is not held out.
+- **Safety miss:** a `code` failure labelled `flake` at or above the floor, since a rerun would hide it.
+  - jev-1.13.0 at a 0.8 floor has none in any run: it decides 56% of failures and is right on 97.8% of them.
+  - jev-1.14.0 needs a 0.9 floor: it decides 44% and is right on all of them.
+- **Next, if kept:** run it in shadow inside the den's CI watch on new failures, which form the held-out check. Then let a `flake` pick at or above the floor take the timeout re-run path.
 
 ## Parked (not tracked until someone files them)
 
