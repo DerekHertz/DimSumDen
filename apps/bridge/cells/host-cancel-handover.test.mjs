@@ -42,6 +42,7 @@ import { CODE, login, authed, send } from "../bridge-auth-helpers.mjs";
 import { createClaudeRuntime } from "./claude-runtime.mjs";
 import { makeStub, alive } from "./claude-stub.mjs";
 import { makeBridge, openSse, until, sleep, DISPATCH_REF, UUID_RE } from "./host-test-helpers.mjs";
+import { unconfinedLauncher } from "./launcher-test-helpers.mjs";
 import { MESSAGE_QUEUE_MAX } from "./policy.mjs";
 import { transcriptView } from "../../ui/src/overlay/transcript-view.mjs";
 import { appendTranscript, entryFromFrame } from "../../ui/src/state/transcript-buffer.mjs";
@@ -398,7 +399,7 @@ describe("a hand-over through the real runtime, with the stub as the child", () 
   test("the child is stopped, the claude --resume string is shown, and no second claude is started", { timeout: 30000 }, async () => {
     const stub = await makeStub({ mode: "hang" });
     const fx = await makeStateFixture({ git: true });
-    const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+    const runtime = createClaudeRuntime({ env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin }, launcher: unconfinedLauncher() });
     const bridge = await startBridge({ root: fx.root, port: 0, auth: { launchCode: CODE }, runtime, policy: { killGraceMs: 150 } });
     const headers = authed(bridge, await login(bridge));
     cleanups.push(async () => {
