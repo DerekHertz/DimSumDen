@@ -97,7 +97,7 @@
 - **How it is built:** each case is built by `scripts/jev-evals/<use>/build-cases.mjs` from cases on the private board (`.scratch/den-mvp/evals/`). Home paths are scrubbed (`scrubHome`).
 - **Limits that still apply:** the `hasSecret` block, and the 16k cap.
 - **Never sent:** the evidence and labels, diffs, transcripts, other board files or other handoffs.
-- **Before the first send:** the user confirms TypeSafe's retention and training terms. ADR 0010 left them open, and only secondary sources describe them: no training on customer data, zero retention for enterprise only, and a DPA that names no retention period.
+- **Retention and training:** only secondary sources describe TypeSafe's terms: no training on customer data, zero retention for enterprise only, and a DPA that names no retention period. Shown those, the user chose on 2026-10-15 to send these eval sets: "Send, eval sets only".
 - **Scope:** eval only. A live use in the den, which sends a handoff during a relay, needs its own review and amendment. A case added later is re-scanned before it is sent.
 - **Board deny list:** `DENIED_PATHS` still lists board handoffs, and the narrow exception is these prebuilt eval sets only.
 - **Untrusted text:** handoff text is untrusted agent output. The call returns one fixed label, so injected text can only skew a label, which the eval measures.
