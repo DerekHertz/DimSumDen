@@ -43,12 +43,16 @@ const recordOf = (raw) => {
 // A red check is acted on once: an Actions job by its id (a re-run is a new id), any other check by its name.
 const keyOf = (c) => c.jobId ?? `name:${line(c.name, 100)}`;
 
-// A failed job's log from its first failing test on (each line without the runner's job, step and time prefix), or its end.
-const EXCERPT_LINES = 60;
+// A failed job's log (each line without the runner's job, step and time prefix): every failing test with the lines under
+// it, up to a block each, or the log's end when no test failed. Every failure, so a fix round sees the second one too.
+const EXCERPT_LINES = 120;
+const BLOCK_LINES = 25;
 const excerptOf = (log) => {
   const lines = String(log).slice(-LOG_MAX).split("\n").map((l) => l.replace(/^[^\t]*\t[^\t]*\t\S+Z ?/, ""));
-  const at = lines.findIndex((l) => /^\s*not ok \d+ - /.test(l));
-  return (at < 0 ? lines.slice(-EXCERPT_LINES) : lines.slice(at, at + EXCERPT_LINES)).join("\n").trim();
+  const starts = lines.flatMap((l, i) => (/^\s*not ok \d+ - /.test(l) ? [i] : []));
+  if (starts.length === 0) return lines.slice(-EXCERPT_LINES).join("\n").trim();
+  const blocks = starts.map((at, k) => lines.slice(at, Math.min(at + BLOCK_LINES, starts[k + 1] ?? Infinity)));
+  return blocks.flat().slice(0, EXCERPT_LINES).join("\n").trim();
 };
 
 /**
