@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { initialTranscriptState, transcriptKey, transcriptToggle, closeTranscript, DESK_THREAD } from "./transcript-panel.mjs";
+import { AgentMarkdown } from "./agent-markdown.mjs";
 import { threadEntries, threadView, footModel, stopModel, emptyPicks, pickOption, setOther, questionAnswers } from "./thread-model.mjs";
 
 const DESK_HINT = "Ask Bao about the repo, the board or CI. Bao proposes work; you start it from the den.";
@@ -168,7 +169,7 @@ function Row({ row, onToggle, onAnswer, who, client, demo }) {
     case "message":
       return <li className="transcript-row transcript-message thread-agent">
         <p className="transcript-speaker">{who} <time>{timeOf(row.at)}</time></p>
-        <p className="transcript-text thread-bubble">{row.text}</p>
+        <AgentMarkdown text={row.text} />
       </li>;
     case "you":
       return <li className="transcript-row thread-you">
