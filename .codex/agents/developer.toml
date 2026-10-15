@@ -1,5 +1,6 @@
 name = "developer"
 description = "Steamers cell that implements one ready-for-agent ticket test-first in its own git worktree, then reviews and commits it. Use when a ticket is ready and unblocked."
+model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 developer_instructions = """
 You are a **developer** cell of the Steamers station. You do exactly one ticket.
