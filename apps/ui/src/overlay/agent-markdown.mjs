@@ -2,11 +2,11 @@
 // over a renderer of our own). Agent output is untrusted: raw HTML in it is shown as its text and never parsed, a link
 // opens in a new tab with noopener and only for http(s) and mailto, and an image is shown as its alt text, so a message
 // cannot make the page fetch anything. Plain .mjs (createElement, no JSX) so node:test renders it without a build.
-import { createElement as h } from "react";
+import { Component, createElement as h } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-const SAFE_LINK = /^(https?:|mailto:)/i;
+const SAFE_LINK = /^(https?:\/\/|mailto:)/i;
 const REMARK = [remarkGfm];
 
 // Raw HTML becomes a text node holding its source, so `<script>` reads as those characters.
@@ -25,7 +25,23 @@ const COMPONENTS = {
   table: ({ children }) => h("div", { className: "agent-md-table" }, h("table", null, children)),
 };
 
+// A message the parser cannot render (thousands of nested quotes overflow the stack) is shown as its plain text, so one
+// message never takes down the den, nor every reload while it is in the history.
+export class PlainOnError extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? h("p", { className: "transcript-text thread-bubble" }, this.props.text) : this.props.children;
+  }
+}
+
 /** The markdown of one agent message as React elements, inside the bubble. */
 export function AgentMarkdown({ text }) {
-  return h("div", { className: "transcript-text thread-bubble agent-md" }, h(Markdown, { remarkPlugins: [...REMARK, htmlAsText], components: COMPONENTS }, String(text ?? "")));
+  const source = String(text ?? "");
+  return h(PlainOnError, { text: source }, h("div", { className: "transcript-text thread-bubble agent-md" }, h(Markdown, { remarkPlugins: [...REMARK, htmlAsText], components: COMPONENTS }, source)));
 }

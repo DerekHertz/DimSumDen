@@ -36,7 +36,9 @@ const MARKDOWN = 'Done. One test was wrong.\n\n## What changed\n\n- **a.test.mjs
 const history = { more: true, before: 40, entries: [
   { runId: OLD, ref: REF, id: 0, at: iso(9000), kind: 'run', mode: 'direct', resumeOf: null },
   { runId: OLD, ref: REF, id: 1, at: iso(8990), kind: 'message', role: 'agent', text: 'Yesterday I mapped the test folders.' },
-  { runId: OLD, ref: REF, id: 2, at: iso(8900), kind: 'ended', state: 'done' },
+  // den-mvp/39: a message too deeply nested to parse is shown as plain text, and the page carries on.
+  { runId: OLD, ref: REF, id: 2, at: iso(8950), kind: 'message', role: 'agent', text: `${'> '.repeat(5000)}too deep` },
+  { runId: OLD, ref: REF, id: 3, at: iso(8900), kind: 'ended', state: 'done' },
 ] };
 
 async function open({ ended = false, width = 1280 } = {}) {
@@ -152,6 +154,7 @@ test('the thread of a run that ended: opened from its panda, a follow-up continu
     assert.match(await md.innerText(), /<script>window\.__ran = true<\/script>/);
     assert.equal(await page.evaluate(() => window.__ran), undefined, 'the script in the message did not run');
     assert.equal(await md.evaluate((el) => el.scrollWidth <= el.clientWidth + 1), true, 'the wide table scrolls inside its own box, not the bubble');
+    assert.equal(await thread.locator('p.thread-bubble', { hasText: 'too deep' }).count(), 1, 'the unparseable message is plain text');
     assert.match(await thread.locator('.thread-foot-note').innerText(), /A follow-up continues its session/);
     assert.equal(await thread.locator('.thread-stop').count(), 0, 'a run that ended has no Stop');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no sideways scroll at 375px');

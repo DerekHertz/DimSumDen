@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { AgentMarkdown } from "./agent-markdown.mjs";
+import { AgentMarkdown, PlainOnError } from "./agent-markdown.mjs";
 
 const render = (text) => renderToStaticMarkup(h(AgentMarkdown, { text }));
 
@@ -43,6 +43,20 @@ test("only http(s) and mailto links are links, in a new tab with noopener; an im
   assert.match(html, /<span>rel<\/span>/);
   assert.doesNotMatch(html, /javascript:|evil\.example|<img/);
   assert.match(html, /\[image: a chart\]/);
+});
+
+test("a link must name its scheme in full: https:alert(1) is text", () => {
+  assert.match(render("[x](https:alert(1))"), /<span>x<\/span>/);
+});
+
+test("a message too deeply nested to parse falls back to its plain text instead of failing the page", () => {
+  const deep = `${"> ".repeat(5000)}deep`;
+  assert.throws(() => render(deep), RangeError, "the parser itself overflows on this input");
+  // The server renderer has no error boundaries, so the boundary's two halves are checked as React calls them.
+  assert.deepEqual(PlainOnError.getDerivedStateFromError(new RangeError("stack")), { failed: true });
+  const fallback = new PlainOnError({ text: deep });
+  fallback.state = { failed: true };
+  assert.equal(renderToStaticMarkup(fallback.render()), `<p class="transcript-text thread-bubble">${deep.replaceAll(">", "&gt;")}</p>`);
 });
 
 test("plain text with no markdown is one paragraph, and an empty message renders nothing harmful", () => {
