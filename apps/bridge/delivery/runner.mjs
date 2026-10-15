@@ -28,6 +28,8 @@ const ciFindings = (number, reasons) =>
   [`The checks of pull request #${number} failed on your last commit.`, ...reasons.map((r) => `## ${r.name}: ${r.reason}${r.excerpt ? `\n\n\`\`\`\n${r.excerpt}\n\`\`\`` : ""}`),
     "Fix the cause. If the failure is not caused by this change, say so in your last message and commit nothing."].join("\n\n").slice(0, 16000);
 
+const PUSH_LOOKS = 6; // looks at a pull request's head after a push, PUSH_WAIT_MS apart, before it counts as changed
+const PUSH_WAIT_MS = 2000;
 const KEPT = 30; // ended deliveries kept in the snapshot
 const PLAN_STEPS_MAX = 12; // bridge operations in a row before the runner stops and says the plan did not move
 const NOTE_MAX_BYTES = 2000; // the user's note with a decline
@@ -380,6 +382,11 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
         await op(job, "pr", { sha }, () => (still(job, gen), git.openPr({ branch: job.branch, title: hasSecret(job.title) ? job.ref : `${job.ref}: ${job.title}`, body: prBody(job) })));
       }
       pr = await git.findPr({ branch: job.branch });
+      // The git host can show the old head for a moment after a push: look again before calling it a changed commit.
+      for (let look = 1; pr?.state === "OPEN" && pr.sha !== sha && look < PUSH_LOOKS; look += 1) {
+        await new Promise((r) => setTimeout(r, PUSH_WAIT_MS));
+        pr = await git.findPr({ branch: job.branch });
+      }
       if (!pr) throw new Error("the pull request was not found after it was opened");
     }
     if (job.gen !== gen) return;
