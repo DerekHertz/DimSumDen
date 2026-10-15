@@ -10,7 +10,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, mkdirSync, rmSync, realpathSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { checkBoxArgv, createChecks, envDifferences, parseTap, runState, summarize } from "./checks.mjs";
+import { auditBoxArgv, checkBoxArgv, createChecks, envDifferences, parseTap, runState, summarize } from "./checks.mjs";
 
 const git = (dir, ...args) =>
   execFileSync("git", ["-C", dir, "-c", "user.name=fx", "-c", "user.email=fx@example.invalid", "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args], { encoding: "utf8" }).trim();
@@ -82,13 +82,30 @@ describe("checkBoxArgv", () => {
     assert.ok(!ro.some(([from]) => from === "/h/u" || from === "/h/u/repo" || from === "/"), "neither the home folder nor the repository is in the box whole");
   });
 
-  test("no network unless asked, a cleared environment, and the command after --", () => {
+  test("no network, a cleared environment, and the command after --", () => {
     const argv = checkBoxArgv(base);
     assert.ok(argv.includes("--unshare-all"));
     assert.ok(!argv.includes("--share-net"));
     assert.ok(argv.includes("--clearenv"));
     assert.deepEqual(argv.slice(argv.indexOf("--") + 1), base.command);
-    assert.ok(checkBoxArgv({ ...base, network: true }).includes("--share-net"));
+  });
+
+  test("only a list of /etc files is in the box, never /etc whole", () => {
+    const argv = checkBoxArgv(base);
+    assert.ok(!pairs(argv, "--ro-bind").some(([from]) => from === "/etc"));
+    const etc = pairs(argv, "--ro-bind-try").filter(([from]) => from.startsWith("/etc/")).map(([from]) => from);
+    assert.ok(etc.includes("/etc/fonts") && etc.includes("/etc/ssl") && etc.includes("/etc/passwd"));
+    assert.ok(!etc.some((f) => /shadow|sudoers|environment|profile|apt/.test(f)));
+  });
+
+  test("the audit box has the network and only the folder of package files: no worktree, no .git, no node_modules", () => {
+    const argv = auditBoxArgv({ dir: "/s/rec/audit-input", nodeDir: "/h/u/.nvm/v22", command: ["/h/u/.nvm/v22/bin/node", "npm-cli.js", "audit"] });
+    assert.ok(argv.includes("--share-net"));
+    assert.deepEqual(pairs(argv, "--bind"), []);
+    const ro = pairs(argv, "--ro-bind").map(([from]) => from);
+    assert.deepEqual(ro.filter((f) => !f.startsWith("/usr")), ["/h/u/.nvm/v22", "/s/rec/audit-input"]);
+    assert.deepEqual(pairs(argv, "--ro-bind").find(([from]) => from === "/s/rec/audit-input"), ["/s/rec/audit-input", "/audit"]);
+    assert.equal(argv[argv.indexOf("--chdir") + 1], "/audit");
   });
 
   test("a relative path is refused", () => {
@@ -121,6 +138,8 @@ function repoFixture() {
   mkdirSync(repo);
   git(repo, "init", "-q", "-b", "main");
   writeFileSync(path.join(repo, "package-lock.json"), '{"lockfileVersion":3}\n');
+  writeFileSync(path.join(repo, "package.json"), '{"name":"fx"}\n');
+  writeFileSync(path.join(repo, ".npmrc"), "registry=https://evil.example/\n");
   writeFileSync(path.join(repo, ".gitignore"), "node_modules\n.claude\n");
   git(repo, "add", "-A");
   git(repo, "commit", "-q", "-m", "base");
@@ -138,7 +157,10 @@ describe("createChecks().run", () => {
     assert.deepEqual(restJob.failures.map((f) => f.name), ["PR #162 still loads"]);
     assert.equal(restJob.rerun.command, "node --test apps/queue.test.mjs apps/ui/scene.test.mjs");
     assert.deepEqual(rec.jobs.map((j) => j.name), ["test", "test-browser", "audit"]);
-    assert.equal(rec.jobs.find((j) => j.name === "audit").box, "network on");
+    const audit = rec.jobs.find((j) => j.name === "audit");
+    assert.equal(audit.box, "network on");
+    assert.equal(audit.command, "npm audit --audit-level=high --registry=https://registry.npmjs.org/ --userconfig=/audit/npmrc --globalconfig=/dev/null");
+    assert.deepEqual(readdirSync(path.join(recordDir, sha, rec.id, "audit-input")).sort(), ["npmrc", "package-lock.json", "package.json"], "the audit box gets the two package files and an empty config, not the commit's .npmrc");
     const files = readdirSync(path.join(recordDir, sha));
     assert.ok(files.includes(`${rec.id}.json`));
     assert.ok(existsSync(path.join(recordDir, sha, rec.id, "test.log")), "each job's log is kept beside the record");
@@ -181,6 +203,34 @@ describe("createChecks().run", () => {
     assert.deepEqual(second.flaky.map((f) => [f.job, f.name, f.earlier]), [["test", "PR #162 still loads", first.id]]);
   });
 
+  test("runs go one at a time, and a run past its deadline is red with the reason", async () => {
+    const { repo, sha, recordDir } = repoFixture();
+    let inside = 0, most = 0;
+    const slow = fakeLauncherWithCwd({ allPass: () => true });
+    const launch = slow.launch;
+    slow.launch = async (input) => {
+      inside += 1;
+      most = Math.max(most, inside);
+      const res = await launch(input);
+      res.child.once("exit", () => (inside -= 1));
+      return res;
+    };
+    const checks = createChecks({ repo, launcher: slow, recordDir, bwrap: process.execPath });
+    git(repo, "commit", "-q", "--allow-empty", "-m", "second");
+    const other = git(repo, "rev-parse", "HEAD");
+    const [a, b] = await Promise.all([checks.run({ sha }), checks.run({ sha: other })]);
+    assert.deepEqual([a.state, b.state], ["green", "green"]);
+    assert.equal(most, 1, "the two commits' jobs never ran at the same time");
+
+    const hung = { enforced: true, launch: async () => {
+      const child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], { stdio: ["pipe", "pipe", "pipe"] });
+      return { child, group: { kill: () => child.kill("SIGKILL"), settled: async () => true, unit: "fake.scope" } };
+    } };
+    const late = await createChecks({ repo, launcher: hung, recordDir: path.join(recordDir, "late"), bwrap: process.execPath, deadlineMs: 300 }).run({ sha });
+    assert.equal(late.state, "red");
+    assert.match(late.reason, /past their 0-minute limit|past their/);
+  });
+
   test("a full commit id is required", async () => {
     const { repo, recordDir } = repoFixture();
     await assert.rejects(createChecks({ repo, launcher: null, recordDir }).run({ sha: "HEAD" }), /full commit id/);
@@ -195,7 +245,7 @@ function fakeLauncherWithCwd({ allPass = () => false } = {}) {
     const command = args.slice(args.indexOf("--") + 1);
     const wt = args[args.indexOf("--chdir") + 1];
     l.commands.push(command);
-    const cmd = command.join(" ");
+    const cmd = command[1] === "--test" ? "--test" : command[1] === "--input-type=module" ? "browser files" : command.join(" ");
     const pass = allPass();
     const out = pass ? "ok 1 - fine\n1..1\n"
       : cmd.includes("--test") ? `ok 1 - keeps its order\n# Subtest: PR \\#162 still loads\nnot ok 2 - PR \\#162 still loads\n  ---\n  location: '${wt}/apps/ui/scene.test.mjs:99:1'\n  failureType: 'hookFailed'\n  error: "EROFS"\n  ...\n1..2\n`

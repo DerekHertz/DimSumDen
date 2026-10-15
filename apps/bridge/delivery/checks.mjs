@@ -9,8 +9,10 @@
 // "flaky": every failing test passed when it was run again. "skipped": the commit changes the lockfile, so the installed
 // packages do not match it. "error": the box could not be made or run here (the reason says what).
 // The commit's code is not trusted: inside the box it sees its own worktree (writable), the repository's .git and
-// node_modules (read-only), the system folders, Node and the Playwright browsers, and nothing else of the home folder.
-// The test jobs have no network; the audit job has, and runs nothing from the commit (npm audit reads the lockfile).
+// node_modules (read-only), /usr, the few /etc files a test or a browser needs, Node and the Playwright browsers, and
+// nothing else of the home folder. The test jobs have no network. The audit job has, so it gets a box of its own holding
+// only the commit's package.json and package-lock.json, with npm's config files and registry fixed by the bridge.
+// The results are advisory: the commit's own test scripts produce them. GitHub CI is the merge gate.
 import { execFile } from "node:child_process";
 import { createWriteStream, existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -29,16 +31,32 @@ const LOG_MAX_BYTES = 4 * 1024 * 1024; // a job's log on disk; the rest is cut
 const OUTPUT_MAX = 4000; // one failing test's output in the record
 const FAILURES_MAX = 50;
 const KEPT_RECORDS = 10; // per commit
+const KEPT_COMMITS = 30; // commits with records; older ones are removed
+const OUTPUT_KEPT = 8 * 1024 * 1024; // a job's output held in memory for parsing; older chunks go first
+export const RUN_DEADLINE_MS = 40 * 60 * 1000; // one record, every job and re-run included
+const REGISTRY = "https://registry.npmjs.org/";
+// The /etc files the box gets: users and names, resolver and certificates (audit), fonts (Chromium), the linker cache,
+// time zone and git's system config. Everything else under /etc stays out.
+const ETC = ["passwd", "group", "hosts", "nsswitch.conf", "resolv.conf", "localtime", "ssl", "ca-certificates", "fonts", "alternatives", "ld.so.cache", "ld.so.conf", "ld.so.conf.d", "gitconfig", "mime.types"];
+const etcArgs = () => ETC.flatMap((f) => ["--ro-bind-try", `/etc/${f}`, `/etc/${f}`]);
+const systemArgs = () => ["--ro-bind", "/usr", "/usr", "--symlink", "usr/bin", "/bin", "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64", "--symlink", "usr/sbin", "/sbin", "--dir", "/etc", ...etcArgs()];
 const SLOT_CLASS = "worker";
 
 // What GitHub's runner is (ci.yml: ubuntu-latest, setup-node 22). Compared fact by fact with this machine's box.
 export const GITHUB_ENV = Object.freeze({ os: "ubuntu-latest", node: "22.x", cores: 4, memoryMiB: 16384, network: "yes", gpu: "software GL", bwrap: "absent", cgroups: "mounted" });
 
+// The browser files, one at a time: the box has one worker slot's limits (limits.json), and Node's default of a file per
+// core starts a Chromium for each at once, which the slot's task and memory caps end at launch. The file list is the
+// commit's own scripts/test-split.mjs, read inside the box.
+const BROWSER_ONE_AT_A_TIME = "const { split } = await import(new URL('scripts/test-split.mjs', 'file://' + process.cwd() + '/'));"
+  + " const r = (await import('node:child_process')).spawnSync(process.execPath, ['--test', '--test-concurrency=1', ...split().browser], { stdio: 'inherit' });"
+  + " process.exit(r.status ?? 1);";
+
 // The jobs of ci.yml, as the box runs them. `args` follow the Node binary; the commands GitHub runs are named beside them.
 export const JOBS = Object.freeze([
   { name: "test", ci: "npm run test:rest", args: ["scripts/test-split.mjs", "rest"], timeoutMs: JOB_TIMEOUT_MS, tests: true },
-  { name: "test-browser", ci: "npm run test:browser", args: ["scripts/test-split.mjs", "browser"], timeoutMs: JOB_TIMEOUT_MS, tests: true },
-  { name: "audit", ci: "npm audit --audit-level=high", npm: ["audit", "--audit-level=high"], timeoutMs: AUDIT_TIMEOUT_MS, network: true },
+  { name: "test-browser", ci: "npm run test:browser", args: ["--input-type=module", "-e", BROWSER_ONE_AT_A_TIME], shown: "node --test --test-concurrency=1 <the browser files of scripts/test-split.mjs>", timeoutMs: JOB_TIMEOUT_MS, tests: true },
+  { name: "audit", ci: "npm audit --audit-level=high", npm: ["audit", "--audit-level=high", `--registry=${REGISTRY}`, "--userconfig=/audit/npmrc", "--globalconfig=/dev/null"], timeoutMs: AUDIT_TIMEOUT_MS, network: true },
 ]);
 
 const kind = (file) => {
@@ -53,19 +71,18 @@ const kind = (file) => {
  * The bubblewrap argv (no binary name) of one command in the box. Every path is absolute and already resolved.
  * `worktree` is writable; `gitDir` (the worktree's own folder under .git/worktrees) is writable so git can keep its index.
  */
-export function checkBoxArgv({ repo, worktree, gitDir, nodeDir, browsers, command, network = false, home = "/tmp/home" }) {
+export function checkBoxArgv({ repo, worktree, gitDir, nodeDir, browsers, command, home = "/tmp/home" }) {
   for (const [name, value] of Object.entries({ repo, worktree, gitDir, nodeDir })) {
     if (typeof value !== "string" || !path.isAbsolute(value) || value.includes("\0")) throw new TypeError(`checkBoxArgv: ${name} must be an absolute path`);
   }
   if (!Array.isArray(command) || command.length === 0 || !command.every((a) => typeof a === "string")) throw new TypeError("checkBoxArgv: bad command");
   const modules = path.join(worktree, "node_modules");
   return [
-    "--unshare-all", ...(network ? ["--share-net"] : []), "--die-with-parent", "--new-session", "--cap-drop", "ALL",
+    "--unshare-all", "--die-with-parent", "--new-session", "--cap-drop", "ALL",
     "--clearenv", "--setenv", "HOME", home, "--setenv", "TMPDIR", "/tmp", "--setenv", "CI", "true",
     "--setenv", "PATH", `${path.join(nodeDir, "bin")}:/usr/bin:/bin`,
     ...(browsers ? ["--setenv", "PLAYWRIGHT_BROWSERS_PATH", browsers] : []),
-    "--ro-bind", "/usr", "/usr", "--symlink", "usr/bin", "/bin", "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64", "--symlink", "usr/sbin", "/sbin",
-    "--ro-bind", "/etc", "/etc", "--ro-bind-try", "/opt", "/opt",
+    ...systemArgs(), "--ro-bind-try", "/opt", "/opt",
     "--ro-bind", "/sys/fs/cgroup", "/sys/fs/cgroup",
     "--ro-bind", nodeDir, nodeDir,
     ...(browsers ? ["--ro-bind", browsers, browsers] : []),
@@ -77,6 +94,28 @@ export function checkBoxArgv({ repo, worktree, gitDir, nodeDir, browsers, comman
     "--tmpfs", path.join(modules, ".vite"),
     "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--dir", home,
     "--chdir", worktree,
+    "--", ...command,
+  ];
+}
+
+/**
+ * The audit job's box: the network, and nothing of the commit but its package.json and package-lock.json, copied into
+ * `dir` by the bridge. No .git, no worktree, no .npmrc; npm's config files are /dev/null and its registry is fixed.
+ */
+export function auditBoxArgv({ dir, nodeDir, command, home = "/tmp/home" }) {
+  for (const [name, value] of Object.entries({ dir, nodeDir })) {
+    if (typeof value !== "string" || !path.isAbsolute(value) || value.includes("\0")) throw new TypeError(`auditBoxArgv: ${name} must be an absolute path`);
+  }
+  if (!Array.isArray(command) || command.length === 0 || !command.every((a) => typeof a === "string")) throw new TypeError("auditBoxArgv: bad command");
+  return [
+    "--unshare-all", "--share-net", "--die-with-parent", "--new-session", "--cap-drop", "ALL",
+    "--clearenv", "--setenv", "HOME", home, "--setenv", "TMPDIR", "/tmp", "--setenv", "PATH", `${path.join(nodeDir, "bin")}:/usr/bin:/bin`,
+    ...systemArgs(),
+    "--ro-bind", nodeDir, nodeDir,
+    "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--dir", home,
+    // At a fixed place of its own, so the bridge's folder for it (wherever records are kept) is never hidden by /tmp.
+    "--ro-bind", dir, "/audit",
+    "--chdir", "/audit",
     "--", ...command,
   ];
 }
@@ -131,7 +170,7 @@ export const summarize = (rec) => rec && ({
 const stamp = (d = new Date()) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
 const tail = (text, n) => (text.length > n ? text.slice(-n) : text);
 
-export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), node = process.execPath, browsers = path.join(os.homedir(), ".cache", "ms-playwright"), exec = execFileP, jobs = JOBS, now = () => new Date() } = {}) {
+export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), node = process.execPath, browsers = path.join(os.homedir(), ".cache", "ms-playwright"), exec = execFileP, jobs = JOBS, now = () => new Date(), deadlineMs = RUN_DEADLINE_MS } = {}) {
   if (typeof repo !== "string" || !path.isAbsolute(repo)) throw new TypeError("createChecks: repo must be an absolute path");
   if (typeof recordDir !== "string" || !path.isAbsolute(recordDir)) throw new TypeError("createChecks: recordDir must be an absolute path");
   const git = (...args) => exec("git", ["-C", repo, ...args]);
@@ -153,9 +192,9 @@ export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), n
   };
 
   // One command in the box, with its output kept in `logFile`. -> { exit, timedOut, stopped, text }
-  async function boxed({ command, network, timeoutMs, wt, logFile, signal }) {
+  async function boxed({ command, audit = null, timeoutMs, wt, logFile, signal }) {
     const id = `check-${process.pid}-${(runs += 1)}`;
-    const args = checkBoxArgv({ repo, worktree: wt.dir, gitDir: wt.gitDir, nodeDir: nodeDir(), browsers: kind(browsers)?.isDirectory() ? browsers : null, command, network });
+    const args = audit ? auditBoxArgv({ dir: audit, nodeDir: nodeDir(), command }) : checkBoxArgv({ repo, worktree: wt.dir, gitDir: wt.gitDir, nodeDir: nodeDir(), browsers: kind(browsers)?.isDirectory() ? browsers : null, command });
     const { child, group } = await launcher.launch({ slotClass: SLOT_CLASS, id, bin: bwrap, args, cwd: "/", env: {} });
     if (!group) {
       child.kill("SIGKILL");
@@ -163,10 +202,13 @@ export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), n
     }
     const log = createWriteStream(logFile);
     let written = 0;
-    let text = "";
+    const chunks = []; // the output, oldest chunks dropped past OUTPUT_KEPT; joined once at the end
+    let held = 0;
     const keep = (chunk) => {
       const s = String(chunk);
-      text = tail(text + s, 8 * 1024 * 1024); // TAP of the whole rest job fits; older lines go first
+      chunks.push(s);
+      held += s.length;
+      while (held > OUTPUT_KEPT && chunks.length > 1) held -= chunks.shift().length;
       if (written < LOG_MAX_BYTES) {
         log.write(s.slice(0, LOG_MAX_BYTES - written));
         written += s.length;
@@ -189,16 +231,24 @@ export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), n
     group.kill(); // a browser a test left behind ends with the group
     await group.settled(5000);
     await new Promise((resolve) => log.end(resolve));
-    return { exit, timedOut, stopped, text };
+    return { exit, timedOut, stopped, text: chunks.join("") };
   }
 
-  async function runJob(job, { wt, dir, signal }) {
+  async function runJob(job, { wt, dir, sha, signal }) {
     const started = Date.now();
     const command = [realpathSync(node), ...(job.npm ? [npmCli(), ...job.npm] : job.args)];
-    const shown = job.npm ? `npm ${job.npm.join(" ")}` : `node ${job.args.join(" ")}`;
+    const shown = job.shown ?? (job.npm ? `npm ${job.npm.join(" ")}` : `node ${job.args.join(" ")}`);
     const logName = `${job.name}.log`;
     const result = { name: job.name, ci: job.ci, command: shown, box: job.network ? "network on" : "no network", exit: null, state: "green", durationMs: 0, failures: [], flaky: [], log: logName, reason: null };
-    const first = await boxed({ command, network: job.network, timeoutMs: job.timeoutMs, wt, logFile: path.join(dir, logName), signal });
+    let audit = null;
+    if (job.network) {
+      // Only the two package files of the commit, read from git, never from the worktree.
+      audit = path.join(dir, "audit-input");
+      await mkdir(audit);
+      for (const file of ["package.json", "package-lock.json"]) await writeFile(path.join(audit, file), String((await git("show", `${sha}:${file}`)).stdout));
+      await writeFile(path.join(audit, "npmrc"), ""); // npm's user config: empty (it will not load /dev/null twice)
+    }
+    const first = await boxed({ command, audit, timeoutMs: job.timeoutMs, wt, logFile: path.join(dir, logName), signal });
     result.exit = first.exit;
     if (first.stopped) return { ...result, state: "error", reason: "stopped", durationMs: Date.now() - started };
     if (first.timedOut) return { ...result, state: "red", reason: `timed out after ${Math.round(job.timeoutMs / 60000)} minutes`, durationMs: Date.now() - started, failures: job.tests ? parseTap(first.text, wt.dir).slice(0, FAILURES_MAX) : [] };
@@ -208,7 +258,7 @@ export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), n
     const files = [...new Set(failures.map((f) => f.file).filter((f) => f && !path.isAbsolute(f) && !f.startsWith("..")))];
     if (failures.length === 0 || files.length === 0) return { ...result, state: "red", reason: `exit ${first.exit}, no failing test named`, output: tail(first.text, OUTPUT_MAX), durationMs: Date.now() - started };
     // Each failing test's file once more, on the same commit: a test that passes now is marked flaky.
-    const again = await boxed({ command: [realpathSync(node), "--test", ...files], network: false, timeoutMs: job.timeoutMs, wt, logFile: path.join(dir, `${job.name}.rerun.log`), signal });
+    const again = await boxed({ command: [realpathSync(node), "--test", ...files], timeoutMs: job.timeoutMs, wt, logFile: path.join(dir, `${job.name}.rerun.log`), signal });
     if (again.stopped) return { ...result, state: "error", reason: "stopped", durationMs: Date.now() - started };
     const still = new Set(parseTap(again.text, wt.dir).map((f) => `${f.file}|${f.name}`));
     const rerunOk = again.exit === 0;
@@ -249,6 +299,15 @@ export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), n
     return out;
   }
 
+  // Commits beyond the newest KEPT_COMMITS lose their records.
+  async function pruneCommits() {
+    const shas = (await readdir(recordDir).catch(() => [])).filter((s) => SHA_RE.test(s));
+    if (shas.length <= KEPT_COMMITS) return;
+    const dated = await Promise.all(shas.map(async (s) => [s, (await records(s)).at(-1)?.startedAt ?? ""]));
+    dated.sort((a, b) => String(b[1]).localeCompare(String(a[1])));
+    for (const [s] of dated.slice(KEPT_COMMITS)) if (!active.has(s)) await rm(path.join(recordDir, s), { recursive: true, force: true });
+  }
+
   async function prune(sha) {
     const dir = path.join(recordDir, sha);
     const names = (await readdir(dir).catch(() => [])).filter((n) => /^\d{8}T\d{6}Z(-\d+)?$/.test(n)).sort();
@@ -274,6 +333,7 @@ export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), n
       record.endedAt = now().toISOString();
       await writeFile(path.join(base, `${id}.json`), `${JSON.stringify(record, null, 2)}\n`);
       await prune(sha).catch(() => {});
+      await pruneCommits().catch(() => {});
       return record;
     };
     if (launcher?.enforced !== true || typeof launcher.launch !== "function") return finish("error", "the checks have no resource group to run in");
@@ -292,20 +352,30 @@ export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), n
       return finish("error", `could not compare the lockfile: ${String(err?.stderr || err?.message || err).trim().slice(0, 200)}`);
     }
     await mkdir(path.join(repo, "node_modules", ".vite"), { recursive: true }).catch(() => {}); // the box mounts its own over it
+    // One deadline for the whole record: the user's Stop (signal) and the deadline both end the running job.
+    const late = new AbortController();
+    const both = new AbortController();
     const name = `check-${sha.slice(0, 12)}-${process.pid}-${(runs += 1)}`;
     const wtDir = path.join(repo, ...WORKTREES_DIR.split("/"), name);
     try {
-      await git("worktree", "add", "--detach", wtDir, sha);
+      // The checkout runs on the host, so nothing of the commit's may run there: no hooks, no LFS or other smudge filter.
+      await exec("git", ["-C", repo, "-c", "core.hooksPath=/dev/null", "-c", "filter.lfs.process=", "-c", "filter.lfs.smudge=", "-c", "filter.lfs.required=false", "worktree", "add", "--detach", wtDir, sha], { env: { ...process.env, GIT_LFS_SKIP_SMUDGE: "1" } });
     } catch (err) {
       return finish("error", `could not make a worktree at the commit: ${String(err?.stderr || err?.message || err).trim().slice(0, 200)}`);
     }
+    const deadline = setTimeout(() => (late.abort(), both.abort()), deadlineMs);
+    signal?.addEventListener("abort", () => both.abort(), { once: true });
+    if (signal?.aborted) both.abort();
+    const pastDeadline = () => finish("red", `the checks ran past their ${Math.round(deadlineMs / 60000)}-minute limit`);
     try {
       const wt = { dir: realpathSync(wtDir), gitDir: String((await exec("git", ["-C", wtDir, "rev-parse", "--absolute-git-dir"])).stdout).trim() };
       for (const job of jobs) {
+        if (late.signal.aborted) return await pastDeadline();
         if (signal?.aborted) return await finish("error", "stopped");
-        record.jobs.push(await runJob(job, { wt, dir, signal }));
+        record.jobs.push(await runJob(job, { wt, dir, sha, signal: both.signal }));
         await writeFile(path.join(base, `${id}.json`), `${JSON.stringify(record, null, 2)}\n`); // progress, for a reader
       }
+      if (late.signal.aborted) return await pastDeadline();
       record.flaky = await earlierFlakes(sha, record.jobs);
       const state = runState(record.jobs);
       const red = record.jobs.filter((j) => j.state !== "green" && j.state !== "flaky").map((j) => `${j.name}: ${j.reason}`);
@@ -314,15 +384,18 @@ export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), n
       if (err instanceof EnforcementError) return await finish("error", `the resource group refused the checks: ${err.reason ?? err.message}`);
       return await finish("error", `the checks could not run: ${String(err?.message ?? err).slice(0, 300)}`);
     } finally {
+      clearTimeout(deadline);
       await git("worktree", "remove", "--force", wtDir).catch(() => rm(wtDir, { recursive: true, force: true }));
     }
   }
 
-  /** Runs the checks of one commit. A second call for a commit that is running gets the same run. */
+  let queue = Promise.resolve(); // one run at a time: they are outside the worker slots, so they never stack up
+  /** Runs the checks of one commit, after any run before it. A second call for a commit that is queued or running gets the same run. */
   function run({ sha, why, signal } = {}) {
     if (typeof sha !== "string" || !SHA_RE.test(sha)) return Promise.reject(new TypeError("checks: sha must be a full commit id"));
     if (active.has(sha)) return active.get(sha);
-    const p = execute({ sha, why, signal }).finally(() => active.delete(sha));
+    const p = queue.then(() => execute({ sha, why, signal })).finally(() => active.delete(sha));
+    queue = p.catch(() => {});
     active.set(sha, p);
     return p;
   }
