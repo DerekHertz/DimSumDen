@@ -21,7 +21,7 @@ export function deliverState({ ticket, snapshot, steer, inflight } = {}) {
   return { show: true, enabled: true, reason: null };
 }
 
-const STEP_WORDS = { developer: "the developer is working", qa: "qa is verifying the commit", security: "security is reviewing the commit", check: "running the scripted checks", preview: "building the preview", "go-live": "putting the change live", publish: "opening the pull request", ci: "waiting for the checks", merge: "merging", resolve: "closing the ticket" };
+const STEP_WORDS = { developer: "the developer is working", qa: "qa is verifying the commit", security: "security is reviewing the commit", check: "running the scripted checks", tests: "running the checks on this machine", preview: "building the preview", "go-live": "putting the change live", publish: "opening the pull request", ci: "waiting for the checks", merge: "merging", resolve: "closing the ticket" };
 
 /** One line saying where a delivery stands. */
 export function deliveryLine(d) {
@@ -40,13 +40,40 @@ export function deliveryFacts(d) {
   if (d?.candidate?.sha) out.push(`commit ${d.candidate.sha.slice(0, 7)}`);
   if (e.qa) out.push(`qa ${e.qa}`);
   if (e.risk) out.push(e.risk.clean ? "risk check clean" : `risk check: ${e.risk.hits} hit${e.risk.hits === 1 ? "" : "s"}`);
+  if (e.tests) out.push(`checks here ${e.tests.state}`);
   if (e.security) out.push(`security ${e.security}`);
-  if (e.ci) out.push(`checks ${e.ci}`);
+  if (e.ci) out.push(`GitHub checks ${e.ci}`);
   if (d?.bounces > 0) out.push(`sent back ${d.bounces} time${d.bounces === 1 ? "" : "s"}`);
   if (d?.declines > 0) out.push(`declined by you ${d.declines} time${d.declines === 1 ? "" : "s"}`);
   if (d?.verdict === "approved") out.push("approved by you");
   if (d?.release) out.push(`live as ${shortSha(d.release)}`);
   return out;
+}
+
+// den-mvp/34: what a result counts as when the two are compared. "skipped" and "error" say nothing about the code.
+const SIDE = { green: "pass", flaky: "pass", red: "fail", timeout: "fail" };
+
+/**
+ * The local run of the checks beside GitHub's, for a delivery or a pull request card, or null when neither has a result.
+ * here: a local result ({ state, reason, commands, differences, failed, flaky, record }) as the bridge recorded it;
+ * github: GitHub's state for the same commit. A mismatch (one passes, the other fails) is called out with the facts of this
+ * machine that differ from GitHub's runner, since that is where the cause usually is.
+ */
+export function checksView({ here = null, github = null } = {}) {
+  if (!here && !github) return null;
+  const a = SIDE[here?.state], b = SIDE[github];
+  const mismatch = Boolean(a && b && a !== b);
+  const textOf = (d) => (typeof d === "string" ? d : d && typeof d.fact === "string" ? `${d.fact}: ${d.here} here, ${d.github} on GitHub` : null);
+  const names = (list) => (Array.isArray(list) ? list.map((f) => (typeof f === "string" ? f : f?.name ? `${f.job ? `${f.job}: ` : ""}${f.name}${f.location ? ` (${f.location})` : ""}` : null)).filter(Boolean) : []);
+  return {
+    here: here?.state ?? null, github: github ?? null, mismatch,
+    summary: `Here: ${here?.state ?? "not run"} · GitHub: ${github ?? "no result"}${mismatch ? " · they disagree" : ""}`,
+    reason: typeof here?.reason === "string" ? here.reason : null,
+    commands: Array.isArray(here?.commands) ? here.commands.map((c) => (typeof c === "string" ? c : c?.command)).filter(Boolean) : [],
+    differences: Array.isArray(here?.differences) ? here.differences.map(textOf).filter(Boolean) : [],
+    failed: names(here?.failed), flaky: names(here?.flaky),
+    record: typeof here?.record === "string" ? `.scratch/_run/checks/${here.record}` : here?.sha && here?.id ? `.scratch/_run/checks/${here.sha}/${here.id}` : null,
+  };
 }
 
 /** A pull request link the page may render: an https URL the bridge recorded, or null. */
@@ -62,7 +89,7 @@ const AFTER_MERGE = { "needs-update": "is merged; the den must be updated before
 export function deliveryRows(snapshot, max = 6) {
   const all = list(snapshot);
   const rows = [...all.filter((d) => LIVE.has(d.state)), ...all.filter((d) => !LIVE.has(d.state)).reverse()].slice(0, max);
-  return rows.map((d) => ({ id: d.id, ref: d.ref, short: shortRef(d.ref), title: d.title || shortRef(d.ref), state: d.state, line: deliveryLine(d), facts: deliveryFacts(d), pr: prLink(d), prNumber: d.pr?.number ?? null, canStop: d.state === "running", liveRunId: d.live?.runId ?? null }));
+  return rows.map((d) => ({ id: d.id, ref: d.ref, short: shortRef(d.ref), title: d.title || shortRef(d.ref), state: d.state, line: deliveryLine(d), facts: deliveryFacts(d), pr: prLink(d), prNumber: d.pr?.number ?? null, canStop: d.state === "running", liveRunId: d.live?.runId ?? null, checks: checksView({ here: d.evidence?.tests ?? null, github: d.evidence?.ci ?? null }) }));
 }
 
 // A wait that ends by itself is not the user's to answer.
@@ -84,6 +111,7 @@ export function deliveryRequests(snapshot) {
         next: d.pause?.next || "",
         rowText: `${short} · delivery`, preview: deliveryFacts(d), detailLabel: "What the bridge recorded",
         age: null, pr: prLink(d), prNumber: d.pr?.number ?? null,
+        checks: checksView({ here: d.evidence?.tests ?? null, github: d.evidence?.ci ?? null }),
         primary: preview ? { action: "resume", verdict: "approve", label: "Approve: merge and go live" } : visual ? { action: "resume", verdict: "approve", label: "Approve and merge" } : { action: "resume", label: "Resume" },
         // den-mvp/12: what the card of a preview adds. A decline needs a note; it goes to the developer.
         decline: visual, previewUrl: preview ? previewLink(d) : null,

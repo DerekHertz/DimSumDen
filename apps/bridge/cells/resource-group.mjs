@@ -27,9 +27,12 @@ export class EnforcementError extends Error {
 const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const intIn = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 const isGroupLimit = (g) => isPlainObject(g) && Object.keys(g).length === 3 && intIn(g.memoryMiB, 16, 1024 * 1024) && intIn(g.cpuPercent, 5, 6400) && intIn(g.tasks, 8, 65536);
-/** Checks a limits object: one group limit per slot class, the aggregate, and the storage bounds. Throws on anything else. */
+/**
+ * Checks a limits object: one group limit per slot class, the aggregate, the storage bounds, and the den's checks (one
+ * group limit: den-mvp/34). Throws on anything else.
+ */
 export function checkLimits(limits) {
-  const ok = isPlainObject(limits) && Object.keys(limits).length === 3 && isPlainObject(limits.classes) &&
+  const ok = isPlainObject(limits) && Object.keys(limits).length === 4 && isPlainObject(limits.classes) && isGroupLimit(limits.checks) &&
     Object.keys(limits.classes).length === SLOT_CLASSES.length && SLOT_CLASSES.every((c) => isGroupLimit(limits.classes[c])) &&
     isGroupLimit(limits.aggregate) && isPlainObject(limits.storage) && Object.keys(limits.storage).length === 2 &&
     intIn(limits.storage.jobMiB, 1, 1024 * 1024) && intIn(limits.storage.outputMiB, 1, 1024);
@@ -37,6 +40,12 @@ export function checkLimits(limits) {
   return limits;
 }
 export const LIMITS = Object.freeze(checkLimits(JSON.parse(readFileSync(new URL("./limits.json", import.meta.url), "utf8"))));
+
+// den-mvp/34: the limits a launcher for the den's checks is made with. A test suite is short and CPU-bound, unlike an
+// agent, so it gets the checks group of its own: in a slice of its own (den-checks), outside the agents' aggregate, one
+// run at a time (delivery/checks.mjs queues them). The checks run as the "worker" slot class of that launcher.
+export const CHECKS_SLICE = "den-checks";
+export const checksLimits = (limits = LIMITS) => checkLimits({ ...limits, classes: { ...limits.classes, worker: limits.checks }, aggregate: limits.checks });
 
 const MIB = 1024 * 1024;
 const CPU_PERIOD = 100_000; // systemd's default cpu.max period, in microseconds

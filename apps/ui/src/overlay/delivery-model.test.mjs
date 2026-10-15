@@ -31,7 +31,7 @@ test("a delivery's line says where it stands, and its facts are what the bridge 
   assert.equal(deliveryLine(paused("ci-red")), "Waiting: because ci-red");
   assert.equal(deliveryLine(d({ state: "merged", pr: { number: 7 } })), "Merged as #7");
   assert.equal(deliveryLine(d({ state: "closed" })), "Closed, not merged");
-  assert.deepEqual(deliveryFacts(d({ candidate: { sha: SHA }, bounces: 1, evidence: { qa: "pass", security: "pass", risk: { clean: false, hits: 2 }, ci: "green" } })), ["commit bbbbbbb", "qa pass", "risk check: 2 hits", "security pass", "checks green", "sent back 1 time"]);
+  assert.deepEqual(deliveryFacts(d({ candidate: { sha: SHA }, bounces: 1, evidence: { qa: "pass", security: "pass", risk: { clean: false, hits: 2 }, ci: "green" } })), ["commit bbbbbbb", "qa pass", "risk check: 2 hits", "security pass", "GitHub checks green", "sent back 1 time"]);
   assert.deepEqual(deliveryFacts(d()), []);
 });
 
@@ -90,4 +90,57 @@ test("the client sends a delivery's start and its steering, and nothing it was n
   await assert.rejects(client.deliver({}), { reason: "Write what to build first." });
   await assert.rejects(client.steerDelivery("d-1", "merge"), { reason: "Unknown action." });
   assert.equal(calls.length, 5);
+});
+
+// den-mvp/34: the checks run on this machine, beside GitHub's.
+import { checksView } from "./delivery-model.mjs";
+
+test("den-mvp/34: a delivery shows its local checks beside GitHub's, and a disagreement names the differing facts", () => {
+  const tests = { state: "green", record: `${SHA}/20261015T120000Z`, reason: null, failed: [], flaky: ["test-browser: camera fit"], commands: ["node scripts/test-split.mjs rest", "npm audit --audit-level=high"], differences: ["bwrap: present here, absent on GitHub"] };
+  const row = deliveryRows({ deliveries: [d({ candidate: { sha: SHA }, evidence: { qa: "pass", risk: { clean: true, hits: 0 }, tests, ci: "red" } })] })[0];
+  assert.deepEqual(row.facts, ["commit bbbbbbb", "qa pass", "risk check clean", "checks here green", "GitHub checks red"]);
+  assert.equal(row.checks.mismatch, true);
+  assert.equal(row.checks.summary, "Here: green · GitHub: red · they disagree");
+  assert.deepEqual(row.checks.differences, ["bwrap: present here, absent on GitHub"]);
+  assert.deepEqual(row.checks.commands, ["node scripts/test-split.mjs rest", "npm audit --audit-level=high"]);
+  assert.deepEqual(row.checks.flaky, ["test-browser: camera fit"]);
+  assert.equal(row.checks.record, `.scratch/_run/checks/${SHA}/20261015T120000Z`);
+});
+
+test("den-mvp/34: no disagreement while one side has no result, and a flaky run counts as passing", () => {
+  assert.equal(checksView(), null);
+  assert.equal(checksView({ here: { state: "red" } }).mismatch, false);
+  assert.equal(checksView({ here: { state: "flaky" }, github: "green" }).mismatch, false);
+  assert.equal(checksView({ here: { state: "skipped" }, github: "red" }).mismatch, false, "a skipped run says nothing about the code");
+  assert.equal(checksView({ here: { state: "red" }, github: "green" }).summary, "Here: red · GitHub: green · they disagree");
+  assert.equal(checksView({ github: "pending" }).summary, "Here: not run · GitHub: pending");
+});
+
+test("den-mvp/34: a red pull request card carries the latest local run of its commit, and whether one is running", () => {
+  const rec = { sha: SHA, id: "20261015T120000Z", state: "green", commands: [{ name: "test", command: "node scripts/test-split.mjs rest" }], differences: [{ fact: "cores", here: "1", github: "4" }], failed: [], flaky: [] };
+  const snapshot = { ci: { prs: [{ number: 9, sha: SHA, state: "red", url: "https://github.com/o/r/pull/9", jobs: [{ name: "test", reason: "1 test failed" }] }] }, checks: { recent: [rec], running: [] } };
+  const card = needsYouModel(snapshot, Date.now()).requests.find((r) => r.kind === "ci");
+  assert.equal(card.checks.mismatch, true);
+  assert.deepEqual(card.checks.differences, ["cores: 1 here, 4 on GitHub"]);
+  assert.deepEqual(card.checks.commands, ["node scripts/test-split.mjs rest"]);
+  assert.equal(card.canRunChecks, true);
+  assert.equal(card.checksRunning, false);
+  const running = needsYouModel({ ...snapshot, checks: { recent: [], running: [SHA] } }, Date.now()).requests.find((r) => r.kind === "ci");
+  assert.equal(running.checksRunning, true);
+  assert.equal(running.checks.here, null);
+  assert.equal(needsYouModel({ ci: snapshot.ci }, Date.now()).requests.find((r) => r.kind === "ci").canRunChecks, false, "a bridge without checks offers no button");
+});
+
+test("den-mvp/34: a checks frame replaces the den's list of local runs", () => {
+  const next = applyEvent({ seq: 4, checks: null }, { seq: 5, type: "checks", checks: { recent: [], running: [SHA] } });
+  assert.deepEqual(next.checks, { recent: [], running: [SHA] });
+});
+
+test("den-mvp/34: runChecks posts only the pull request number", async () => {
+  const calls = [];
+  const client = createBridgeClient({ fetch: async (url, init) => (calls.push([url, init]), { ok: true, status: 202, json: async () => ({ sha: SHA }) }) });
+  await client.runChecks({ pr: 9 });
+  assert.equal(calls.at(-1)[0], "/checks");
+  assert.deepEqual(JSON.parse(calls.at(-1)[1].body), { pr: 9 });
+  await assert.rejects(client.runChecks({ pr: "9" }), /No pull request/);
 });

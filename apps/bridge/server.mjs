@@ -15,6 +15,7 @@ import { createDeliveryBoard } from "./delivery/board.mjs";
 import { createGitHost } from "./delivery/git-host.mjs";
 import { createJobLog } from "./delivery/jobs.mjs";
 import { createCiWatch } from "./delivery/ci-watch.mjs";
+import { summarize } from "./delivery/checks.mjs";
 import { createMeetings } from "./meetings/runner.mjs";
 import { createMeetingStore } from "./meetings/store.mjs";
 import { createMeetingLog } from "./meetings/log.mjs";
@@ -104,7 +105,9 @@ function installProcessHandlers(host) {
 // preview and a go-live are built in; with none, both are refused.
 // den-mvp/29: watchCi starts the CI watch's timer (delivery/ci-watch.mjs); the production entry point passes true. Without
 // it the watch only reads its record, so a test never reaches the git host by the timer.
-export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, denState, box, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption, watchCi = false, usage: usageOption } = {}) {
+// den-mvp/34: checks (delivery/checks.mjs) runs ci.yml's checks here: before a delivery pushes, and on POST /checks for an
+// open pull request. With none, a delivery skips them and POST /checks is a 503.
+export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, denState, box, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption, watchCi = false, usage: usageOption, checks: checksOption = null } = {}) {
   let actualPort = port;
   const git = gitHost ?? createGitHost(root);
   // den-mvp/10 and 11: the den's own build, when it is served from release folders: previews, go-live and roll back. The
@@ -125,6 +128,18 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   const ciWatch = createCiWatch({ git, file: path.join(stateDir ?? path.join(root, ".scratch", "_run"), "ci-watch.json"), onChange: (change) => hub.publish(change), skip: ownedByDelivery,
     // den-mvp/29: a red pull request outside the den is a message to Bao's desk (den-mvp/30), once per commit.
     wake: (text) => host.converse("orchestrator", { text }) });
+  // den-mvp/34: every local run is told to the den when it starts and when it ends.
+  const checksView = async () => (checksOption ? { recent: (await checksOption.recent(10)).map(summarize), running: checksOption.running() } : null);
+  const publishChecks = () => checksView().then((checks) => hub.publish({ type: "checks", checks }), () => {});
+  const checks = checksOption && {
+    ...checksOption,
+    run(input) {
+      const done = checksOption.run(input);
+      publishChecks();
+      done.then(publishChecks, publishChecks);
+      return done;
+    },
+  };
   // Friction F19: the production bridge reads the plan-usage cache; a test bridge reads only usage.jsonl rows.
   const usageReading = usageOption ?? (() => null);
   const hub = createHub(root, {
@@ -132,6 +147,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     deliveries: () => delivery?.snapshot() ?? [],
     meetings: () => meetings?.snapshot() ?? [],
     ci: () => ciWatch.snapshot(),
+    checks: () => checksView(),
     build: () => readBuild_(),
     readUsage: usageReading,
   });
@@ -161,6 +177,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     board: createDeliveryBoard(root),
     git,
     build: denBuild,
+    checks,
     log: createJobLog(stateDir ?? path.join(root, ".scratch", "_run")),
     onChange: (change) => hub.publish(change),
     readTicket: async (ref) => {
@@ -297,6 +314,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     "POST /meetings/:id/decide": (req, res) => steerMeeting(req, res, "decide"),
     "POST /meetings/:id/ask": (req, res) => steerMeeting(req, res, "ask"),
     "POST /build/rollback": (req, res) => rollBack(req, res),
+    "POST /checks": (req, res) => postChecks(req, res),
     "POST /den-tools/:tool": (req, res) => denTool(req, res),
     // The recovery page is the bridge's own code, not a file of the UI build.
     "GET /recover": (req, res) => sendOwn(res, "text/html; charset=utf-8", RECOVER_HTML),
@@ -580,6 +598,24 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     res.writeHead(200, { "Content-Type": type, "Cache-Control": "no-store", "Content-Security-Policy": CSP, "X-Content-Type-Options": "nosniff" });
     res.end(body);
   };
+  // POST /checks (den-mvp/34): the user's "run the checks here" for an open pull request. Only `pr` is read; the commit is
+  // the one the git host names as the pull request's head now. The run goes on after the answer; the den hears of its end.
+  async function postChecks(req, res) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    if (!checks) return reply(res, 503, { error: "this bridge has no box to run the checks in" });
+    if (!Number.isInteger(body.pr) || body.pr < 1) return reply(res, 400, { error: "pr must be a pull request number" });
+    let st;
+    try {
+      st = await git.prState({ number: body.pr });
+    } catch (err) {
+      return reply(res, 502, { error: `could not read pull request #${body.pr}: ${String(err?.message ?? err).slice(0, 200)}` });
+    }
+    if (st.state !== "OPEN" || !/^[0-9a-f]{40}$/.test(st.sha ?? "")) return reply(res, 409, { error: `pull request #${body.pr} is not open` });
+    if (checks.running().includes(st.sha)) return reply(res, 409, { error: "the checks of this commit are already running" });
+    checks.run({ sha: st.sha, why: `pull request #${body.pr}` }).catch((err) => console.error(`bridge: checks of #${body.pr} failed: ${err?.message ?? err}`));
+    reply(res, 202, { sha: st.sha });
+  }
   // POST /build/rollback (ADR 0026 decision 7): the user's roll back. Only `to` is read: the release the button showed as
   // previous. Anything else, and a den that runs from the checkout, is a 409 and nothing changes.
   async function rollBack(req, res) {
@@ -713,7 +749,13 @@ if (startedDirectly()) {
   const { createResourceLauncher } = await import("./cells/resource-group.mjs");
   const { createBuildBox } = await import("./build/box.mjs");
   const launcher = createResourceLauncher({ env: process.env });
-  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }), watchCi: true, usage: createUsageReading() });
+  // den-mvp/34: the records go to the board's run folder, next to the conversations, where the user and Bao read them.
+  const { createChecks } = await import("./delivery/checks.mjs");
+  // A launcher of their own: the checks group, in its own slice, outside the agents' aggregate.
+  const { checksLimits, CHECKS_SLICE } = await import("./cells/resource-group.mjs");
+  const checksLauncher = createResourceLauncher({ env: process.env, limits: checksLimits(), slice: CHECKS_SLICE });
+  const checks = createChecks({ repo: root, launcher: checksLauncher, recordDir: path.join(root, ".scratch", "_run", "checks") });
+  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }), watchCi: true, usage: createUsageReading(), checks });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
   console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);

@@ -43,6 +43,10 @@ export function applyEvent(state, event) {
     case "ci":
       next.ci = event.ci ?? null;
       break;
+    // den-mvp/34: the local runs of ci.yml's checks: { recent, running }.
+    case "checks":
+      next.checks = event.checks ?? null;
+      break;
     // den-mvp/12 (ADR 0026 decision 8): the den's own build after a switch (a go-live or a roll back), or null.
     case "build":
       next.build = event.build ?? null;

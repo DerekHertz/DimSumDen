@@ -161,6 +161,12 @@ export function createBridgeClient({ fetch }) {
       if (body == null) throw failure(200, "The bridge sent an unreadable answer.");
       return body;
     },
+    // den-mvp/34: run ci.yml's checks on this machine for an open pull request's head commit. -> { sha }
+    async runChecks({ pr } = {}) {
+      if (!Number.isInteger(pr) || pr < 1) throw failure(0, "No pull request to check.");
+      const body = await call("/checks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pr }) });
+      return body ?? { ok: true };
+    },
     // Resume, stop or close one delivery. On a resume, `verdict` is the user's visual verdict on a UI change: "approve", or
     // "decline" with a `note` that goes to the developer.
     async steerDelivery(id, action, { verdict, note } = {}) {
