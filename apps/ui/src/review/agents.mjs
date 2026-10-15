@@ -4,7 +4,8 @@ import {isDenPositionBlocked} from '../scene/procedural/walk.mjs';
 import {compactPanda} from '../scene/procedural/compact.mjs';
 import {createTraditionalGear} from './traditional-props.mjs';
 import {compactReviewGear} from './compact-gear.mjs';
-import {ROLE_HOMES,REVIEW_PLACES,REVIEW_OBSTACLES} from './site-plan.mjs';
+import {ROLE_HOMES,REVIEW_PLACES,REVIEW_OBSTACLES,BAO_HOME,BAO_SCALE,groundY} from './site-plan.mjs';
+import {VILLAGE_PATHS} from '../scene/expansion/base-assets.mjs';
 import {LIVE_ROLES} from './live-actors.mjs';
 
 const RADIUS=0.65,STEP=0.5,BOUNDS=[-26,26,-26,26],GARDEN_REACH=27;
@@ -41,37 +42,74 @@ function nearestClear(p,obstacles,connected=false){
   }
   candidates.sort((a,b)=>distance(a,p)-distance(b,p));return candidates[0];
 }
+// den-mvp/25: the village's promenades and station approaches. Walking off them costs half as much again, so a panda
+// follows the paths between stations and cuts across the lawn only when that is much shorter.
+const PATH_WIDTH=1.1,OFF_PATH=1.5;
+const segmentDistance=(x,z,[a,b])=>{
+  const dx=b[0]-a[0],dz=b[1]-a[1],t=Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz||1)));
+  return Math.hypot(x-a[0]-dx*t,z-a[1]-dz*t);
+};
+const onPath=(x,z)=>VILLAGE_PATHS.some(seg=>segmentDistance(x,z,seg)<=PATH_WIDTH);
+export const pathCost=(a,b)=>{
+  const length=distance(a,b),n=Math.max(1,Math.ceil(length/0.5));let cost=0;
+  for(let i=0;i<n;i++){const t=(i+0.5)/n;cost+=length/n*(onPath(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t)?1:OFF_PATH);}
+  return cost;
+};
+class Heap{
+  constructor(){this.items=[];}
+  get size(){return this.items.length;}
+  push(item){const a=this.items;a.push(item);let i=a.length-1;while(i>0){const p=(i-1)>>1;if(a[p].f<=a[i].f)break;[a[p],a[i]]=[a[i],a[p]];i=p;}}
+  pop(){
+    const a=this.items,top=a[0],last=a.pop();
+    if(a.length){a[0]=last;let i=0;for(;;){const l=2*i+1,r=l+1;let m=i;if(l<a.length&&a[l].f<a[m].f)m=l;if(r<a.length&&a[r].f<a[m].f)m=r;if(m===i)break;[a[m],a[i]]=[a[i],a[m]];i=m;}}
+    return top;
+  }
+}
 export function findReviewPath(start,end,obstacles){
   if(!clear(start,obstacles)||!clear(end,obstacles))return null;
-  if(lineClear(start,end,obstacles))return [start,end];
+  // A short, open line is walked straight; a long one follows the paths when they are not much longer.
+  const direct=lineClear(start,end,obstacles);
+  if(direct&&distance(start,end)<=5)return [start,end];
   const first=nearestClear(start,obstacles,true),last=nearestClear(end,obstacles,true);
-  if(!first||!last||!lineClear(start,first,obstacles)||!lineClear(last,end,obstacles))return null;
+  if(!first||!last||!lineClear(start,first,obstacles)||!lineClear(last,end,obstacles))return direct?[start,end]:null;
   const key=p=>p.join(','),initial={p:first,g:0,f:distance(first,last),parent:null};
-  const open=[initial],best=new Map([[key(first),0]]);let finish;
-  while(open.length){
-    open.sort((a,b)=>b.f-a.f);const current=open.pop();
+  const open=new Heap(),best=new Map([[key(first),0]]);open.push(initial);let finish;
+  while(open.size){
+    const current=open.pop();
     if(current.g>best.get(key(current.p)))continue;
     if(distance(current.p,last)<0.01){finish=current;break;}
     for(const dx of [-STEP,0,STEP])for(const dz of [-STEP,0,STEP]){
-      if(!dx&&!dz)continue;const p=[current.p[0]+dx,current.p[1]+dz],g=current.g+Math.hypot(dx,dz);
+      if(!dx&&!dz)continue;const p=[current.p[0]+dx,current.p[1]+dz];
+      if(!inside(p))continue;
+      const g=current.g+pathCost(current.p,p);
       if(g>=(best.get(key(p))??Infinity)||!lineClear(current.p,p,obstacles))continue;
       best.set(key(p),g);open.push({p,g,f:g+distance(p,last),parent:current});
     }
   }
-  if(!finish)return null;
+  if(!finish)return direct?[start,end]:null;
   const path=[end];for(let n=finish;n;n=n.parent)path.unshift(n.p);path.unshift(start);
+  // Shorten only where the shortcut is no dearer than the stretch it replaces.
   const smooth=[start];let i=0;
-  while(i<path.length-1){let next=path.length-1;while(next>i+1&&!lineClear(path[i],path[next],obstacles))next--;smooth.push(path[next]);i=next;}
+  while(i<path.length-1){
+    let next=path.length-1;
+    for(;next>i+1;next--){
+      if(!lineClear(path[i],path[next],obstacles))continue;
+      let along=0;for(let k=i;k<next;k++)along+=pathCost(path[k],path[k+1]);
+      if(pathCost(path[i],path[next])<=along+1e-6)break;
+    }
+    smooth.push(path[next]);i=next;
+  }
   return smooth;
 }
 
-const FAVORITES=['dining','tea','games','training','training','training','tea','training','games','festival','festival','games','festival','tea'];
+const FAVORITES=['meeting','tea','games','training','training','training','tea','training','games','rest','rest','games','rest','tea'];
 const PLACES=REVIEW_PLACES;
 const RUNNING=new Set(['received','working','needs-you','complete']);
 export function createReviewAgents(den,createBao,{direction='traveler',onChange=()=>{}}={}){
   const root=new THREE.Group();root.name='Interactive role pandas';den.world.add(root);
   const actors=new Map(),owned=[],gears=[],events=[];let time=0,eventId=0,lastSnapshot=-1;
-  const obstacles=[...den.obstacles,...REVIEW_OBSTACLES];
+  // Posts and lantern poles are a few centimetres wide: only the player's body stops at them (site-plan.mjs `thin`).
+  const obstacles=[...den.obstacles,...REVIEW_OBSTACLES].filter(o=>!o.thin);
   function emit(){onChange(snapshot());lastSnapshot=time;}
   function log(a,text){events.push({id:++eventId,role:a.role,name:a.name,text,time});if(events.length>30)events.shift();emit();}
   function snapshot(){return {simulated:true,actors:[...actors.values()].map(a=>({role:a.role,name:a.name,station:a.station,state:a.state,activity:a.activity,bubble:a.bubble,task:a.task,reply:a.reply,concept:a.concept,stationary:a.stationary})),events:events.slice(-8)};}
@@ -90,11 +128,11 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
     return true;
   }
   for(const [i,[role,name,station,,,concept]]of CHARACTERS.entries()){
-    const panda=role==='orchestrator'?den.hero:den.crew.get(role)||createBao(THREE,{detail:'low'});
-    if(panda!==den.hero&&!den.crew.has(role)){owned.push(panda);compactPanda(THREE,panda);}
-    root.attach(panda.model);panda.model.visible=true;panda.model.scale.setScalar(role==='orchestrator'?1.75:role==='stem-cub'?0.36:0.43);
+    const panda=role==='orchestrator'?den.hero:createBao(THREE,{detail:'low'});
+    if(panda!==den.hero){owned.push(panda);compactPanda(THREE,panda);}
+    root.attach(panda.model);panda.model.visible=true;panda.model.scale.setScalar(role==='orchestrator'?BAO_SCALE:role==='stem-cub'?0.36:0.43);
     const occupied=[...actors.values()].map(a=>({type:'circle',x:a.home[0],z:a.home[1],radius:0.65}));
-    const home=role==='orchestrator'?[0,-1.25]:nearestClear(ROLE_HOMES[role],[...obstacles,...occupied]);panda.model.position.set(home[0],role==='orchestrator'?0:0.04,home[1]);panda.model.rotation.set(0,0,0);
+    const home=role==='orchestrator'?BAO_HOME:nearestClear(ROLE_HOMES[role],[...obstacles,...occupied]);panda.model.position.set(home[0],groundY(home[0],home[1])+(role==='orchestrator'?0.03:0.04),home[1]);panda.model.rotation.set(0,0,0);
     panda.model.userData.reviewAgent=role;panda.model.userData.reviewPart=`${name} · body`;panda.model.userData.actorKey=role;
     gears.push(compactReviewGear(createTraditionalGear(panda,role,direction)));
     const a={role,name,station,stationary:role==='orchestrator',concept:!!concept,index:i,panda,home,favorite:FAVORITES[i],state:'leisure',activity:role==='orchestrator'?'Hosting the den':'Getting ready for a break',bubble:'',reply:'',task:'',age:0,wave:0,path:[],destination:null};actors.set(role,a);
@@ -123,7 +161,7 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
     }
     a.bubble='The leisure spots are busy. I’ll wait here with you.';emit();return false;
   }
-  function gather(){let seat=0;for(const role of ['product','architect','designer','qa']){const a=actors.get(role);if(isBusy(a))continue;if(route(a,'dining',PLACES.dining.spots[seat++]))log(a,'is joining the dim sum table.');}}
+  function gather(){let seat=0;for(const role of ['product','architect','designer','qa']){const a=actors.get(role);if(isBusy(a))continue;if(route(a,'meeting',PLACES.meeting.spots[seat++]))log(a,'is joining the dim sum table.');}}
   // The panda the user stands with (its card is showing) holds still, so a task can be typed without chasing it.
   // One with a live agent is not held: it goes to its station and stays there anyway.
   let heldActor=null;
@@ -187,13 +225,13 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
       if(a.live)syncLive(a);
       // The same plush rig waddles; its gear stays on its head and paw bones.
       for(const name of ['Hip_L','Hip_R','Shoulder_L','Shoulder_R','Elbow_L','Elbow_R','Wrist_L','Wrist_R','Head'])b[name].rotation.set(0,0,0);
-      p.position.y=a.stationary?0:0.04;
+      p.position.y=groundY(p.position.x,p.position.z)+(a.stationary?0.03:0.04);
       if(a.state==='walking'&&!held){
         const phase=time*7+a.index,step=Math.sin(phase);b.Hip_L.rotation.x=step*0.13;b.Hip_R.rotation.x=-step*0.13;
         b.Shoulder_L.rotation.x=-step*0.08;b.Shoulder_R.rotation.x=step*0.08;p.position.y+=0.025*(1-Math.cos(phase*2));b.Torso.rotation.z=step*0.025;
       }else{
         b.Torso.rotation.z=0;animateActivity(a.panda,a.role,time);
-        if(a.destination==='dining'&&a.state==='leisure'){b.Elbow_R.rotation.x=0.1+0.15*Math.sin(time+a.index);b.Head.rotation.x=0.08;}
+        if(a.destination==='meeting'&&a.state==='leisure'){b.Elbow_R.rotation.x=0.1+0.15*Math.sin(time+a.index);b.Head.rotation.x=0.08;}
         if(a.destination==='training'&&a.state==='leisure')b.Shoulder_R.rotation.x=0.2*Math.sin(time*2+a.index);
       }
       if(a.wave>0){b.Shoulder_L.rotation.z=0.85;b.Elbow_L.rotation.z=0.55;b.Wrist_L.rotation.z=0.2*Math.sin(time*8);}
@@ -210,7 +248,7 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
     const occupied=[...actors.values()].map(a=>({type:'circle',x:a.home[0],z:a.home[1],radius:0.65}));
     const home=nearestClear(ROLE_HOMES[role],[...obstacles,...occupied]);if(!home)return null;
     const panda=createBao(THREE,{detail:'low'});compactPanda(THREE,panda);owned.push(panda);
-    root.attach(panda.model);panda.model.visible=true;panda.model.scale.setScalar(0.43);panda.model.position.set(home[0],0.04,home[1]);panda.model.rotation.set(0,0,0);
+    root.attach(panda.model);panda.model.visible=true;panda.model.scale.setScalar(0.43);panda.model.position.set(home[0],groundY(home[0],home[1])+0.04,home[1]);panda.model.rotation.set(0,0,0);
     panda.model.userData.reviewAgent=role;panda.model.userData.reviewPart=`${base.name} (split) · body`;
     const gear=compactReviewGear(createTraditionalGear(panda,role,direction));gears.push(gear);
     return {role,name:`${base.name} (split)`,station:base.station,stationary:false,concept:false,index:splitIndex++,panda,home,favorite:base.favorite,state:'working',activity:'Working',bubble:'',reply:'',task:'',age:0,wave:0,path:[],destination:'station',gear};
@@ -275,7 +313,7 @@ export function createReviewAgents(den,createBao,{direction='traveler',onChange=
   function dispose(){
     for(const g of gears)g.dispose();
     for(const p of owned){p.model.traverse(o=>o.geometry?.dispose());p.dispose();}
-    // The den owns existing residents and their geometry; leave them attached for its cleanup.
+    // Bao is the den's own; leave him attached for its cleanup.
     for(const a of actors.values())if(!owned.includes(a.panda))den.world.attach(a.panda.model);
     root.removeFromParent();
   }

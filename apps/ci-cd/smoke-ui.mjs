@@ -228,7 +228,8 @@ async function main() {
       await page.mouse.wheel(0, -3000); // back to the nearest zoom, where there is room to pan sideways
       // At the nearest zoom (0.55) the station signs sit past the viewport edge and ChipLayer hides them, so measure
       // the signs that are still on screen with room to move 100 px: Library and Drum (8 world units apart).
-      await settle((p) => p.signs["Library"] && p.signs["Drum"] && p.signs["Drum"].x - p.signs["Library"].x > 500, "zoomed in");
+      // den-mvp/25: the village's default frame is wider (camera.mjs), so 8 units at zoom 0.55 are about 400 px at 900 px tall.
+      await settle((p) => p.signs["Library"] && p.signs["Drum"] && p.signs["Drum"].x - p.signs["Library"].x > 350, "zoomed in");
       await page.waitForTimeout(800); // let the rig's easing finish before measuring
       const start = await sceneProbe();
       const names = Object.keys(start.signs).filter((n) => start.signs[n].left >= 4 && start.signs[n].right + 110 <= start.width);

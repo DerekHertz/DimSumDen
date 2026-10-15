@@ -91,15 +91,15 @@ test("the walker sees the live frontend: main.jsx reaches the ported restaurant 
     "apps/ui/src/scene/procedural/den-scene.mjs",
     "apps/ui/src/scene/procedural/restaurant.mjs",
     "apps/ui/src/review/agents.mjs",
-    "apps/ui/src/review/layout.mjs",
-    "apps/ui/src/review/leisure.mjs",
-    "apps/ui/src/review/construction-pads.mjs",
-    "apps/ui/src/review/landscape.mjs",
     "apps/ui/src/review/site-plan.mjs",
-    "apps/ui/src/review/walking-panda.mjs",
+    "apps/ui/src/scene/expansion/base-assets.mjs",
   ];
   const unreached = ported.filter((p) => !names.includes(p));
   assert.deepEqual(unreached, [], "ported modules main.jsx does not reach");
+  // den-mvp/25: the village replaces the old den; its scene code and dressing are deleted.
+  const goneWithTheOldDen = ["layout", "leisure", "construction-pads", "landscape", "walking-panda", "dining-table", "dragon-dance"]
+    .map((n) => `apps/ui/src/review/${n}.mjs`).filter((p) => existsSync(join(ROOT, p)));
+  assert.deepEqual(goneWithTheOldDen, [], "old den modules are removed");
   assert.ok(!names.includes("apps/ui/src/scene/procedural/Den.jsx"), "the old procedural Den.jsx must not be reachable (no path renders the old den)");
 });
 

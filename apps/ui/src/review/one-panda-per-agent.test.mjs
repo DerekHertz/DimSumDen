@@ -9,7 +9,6 @@ import { createBao } from "../scene/procedural/bao.mjs";
 import { createDenScene } from "../scene/procedural/den-scene.mjs";
 import { createLiveDenController } from "../scene/procedural/controller.mjs";
 import { canvasDocument } from "../scene/procedural/den-test-helpers.mjs";
-import { prepareReviewLayout } from "./layout.mjs";
 import { createReviewAgents } from "./agents.mjs";
 
 function withLiveDen(run) {
@@ -18,7 +17,7 @@ function withLiveDen(run) {
   let den, agents, controller;
   try {
     den = createDenScene(THREE, createBao);
-    prepareReviewLayout(den);
+    
     agents = createReviewAgents(den, createBao);
     controller = createLiveDenController(den, { manageResidents: false, ticketPandas: false });
     run({ den, agents, controller });

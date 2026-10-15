@@ -24,7 +24,7 @@ export function compactEnvironment(THREE,den) {
   const pandas=new Set(den.pandas.map(p=>p.model)),groups=new Map();
   den.world.traverse(m=>{
     if(!m.isMesh||m.isSkinnedMesh||Array.isArray(m.material)||Object.keys(m.geometry.morphAttributes).length)return;
-    for(let p=m;p;p=p.parent)if(pandas.has(p)||p.name==='Tally abacus'||p.userData.ticketRef)return;
+    for(let p=m;p;p=p.parent)if(pandas.has(p)||p.userData.tallyAbacus||p.userData.ticketRef)return;
     const key=m.material.uuid+'|'+m.castShadow+'|'+m.receiveShadow;
     if(!groups.has(key))groups.set(key,[]);groups.get(key).push(m);
   });

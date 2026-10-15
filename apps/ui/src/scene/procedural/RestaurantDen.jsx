@@ -2,25 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { createBao } from './bao.mjs';
-import { createWalkingBao } from '../../review/walking-panda.mjs';
 import { createDenScene } from './den-scene.mjs';
 import { compactPanda, compactEnvironment } from './compact.mjs';
 import { createLiveDenController } from './controller.mjs';
-import { createRestaurantDetails } from './restaurant.mjs';
-import { loadPandaSettings } from './panda-settings.mjs';
 import { loadReview } from '../../review/review-data.mjs';
-import { prepareReviewLayout } from '../../review/layout.mjs';
 import { mountExpansionPond } from '../expansion/pond.mjs';
 import { mountWorkZones, WORK_ZONE_IDS, OPEN_INTENTS } from '../expansion/work-zones.mjs';
-import { createLeisure } from '../../review/leisure.mjs';
 import { createReviewAgents } from '../../review/agents.mjs';
 import { liveActorsFromSnapshot } from '../../review/live-actors.mjs';
-import { createReviewLandscape, REVIEW_SKIES } from '../../review/landscape.mjs';
-import { createConstructionPads } from '../../review/construction-pads.mjs';
+import { REVIEW_SKIES } from '../../review/site-plan.mjs';
 import { agentFor, cardFor, pickedCard } from '../../overlay/proximity-card.mjs';
 
-// The den: PR #162's restaurant scene (site plan, stations, leisure gardens, build pads, simulated pandas)
-// mounted inside the app's canvas. The wrapping App owns the camera, the overlays and the board state.
+// The den: the v5 kit's village (den-mvp/25: stations, promenades, bamboo, the six leisure places) with the role pandas
+// that walk it, mounted inside the app's canvas. The wrapping App owns the camera, the overlays and the board state.
 // The frontier baskets and the tally ride on the same den through the controller. Live agents show only as
 // the role pandas (agents.applyLive): the controller adds no ticket pandas and leaves residents alone.
 
@@ -32,10 +26,9 @@ function clearSampleProps(panda) {
   if (panda.materials.scarf) { panda.materials.scarf.dispose(); delete panda.materials.scarf; }
 }
 
-// Whatever the user chose while reviewing the den (visual direction, panda shape) is the den's look.
+// Whatever the user chose while reviewing the den (visual direction) is the den's look.
 function savedLook() {
-  const review = loadReview();
-  return { direction: review?.direction || 'traveler', settings: review?.settings || loadPandaSettings() };
+  return { direction: loadReview()?.direction || 'traveler' };
 }
 
 export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSelect, onOpenTally, stage, onReady, onNearby, picked = null, onPick, zoneView = null, onZoneClick = null }) {
@@ -57,24 +50,18 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
   }, []);
 
   useEffect(() => {
-    const d = createDenScene(THREE, createBao, (T, B) => createWalkingBao(T, B, look.settings));
-    d.setLabels(false); d.setLanterns(sampleId === 'lantern');
+    const d = createDenScene(THREE, createBao);
+    d.setLabels(true); d.setLanterns(sampleId === 'lantern');
     for (const p of d.pandas) clearSampleProps(p);
     for (const p of d.pandas) compactPanda(THREE, p);
-    prepareReviewLayout(d);
     compactEnvironment(THREE, d);
     // den-mvp/17: the v5 koi pond, local only. Before the controller and actors, which copy den.obstacles.
     const pond = mountExpansionPond(d);
     // den-mvp/22: the repair bench and the archive. Marks come from the live state; a click opens a card or a thread.
     const work = mountWorkZones(d);
-    const details = createRestaurantDetails(d, sampleId);
-    const leisure = createLeisure(d, createBao);
-    const landscape = createReviewLandscape(d, sampleId);
-    const construction = createConstructionPads(d);
-    for (const resident of leisure.residents) if (!leisure.dragon.performers.includes(resident)) resident.model.visible = false;
     const agents = createReviewAgents(d, createBao, { direction: look.direction });
     const controller = createLiveDenController(d, {
-      manageResidents: false, ticketPandas: false,
+      ticketPandas: false,
       onCreate: (p) => compactPanda(THREE, p),
       onRemove: (ref) => stage.anchors.delete(ref),
     });
@@ -82,11 +69,11 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
     const previous = { background: scene.background, fog: scene.fog };
     scene.background = new THREE.Color(REVIEW_SKIES[sampleId]);
     scene.fog = new THREE.Fog(REVIEW_SKIES[sampleId], 70, 115);
-    live.current = { den: d, controller, media, details, pond, work, leisure, agents, anchored: new Set(), time: 0 };
+    live.current = { den: d, controller, media, pond, work, agents, anchored: new Set(), time: 0 };
     setDen(d); onReady(d);
     return () => {
       onReady(null); live.current = null;
-      controller.dispose(); agents.dispose(); pond.dispose(); work.dispose(); details.dispose(); leisure.dispose(); landscape.dispose(); construction.dispose(); d.dispose();
+      controller.dispose(); agents.dispose(); pond.dispose(); work.dispose(); d.dispose();
       scene.background = previous.background; scene.fog = previous.fog;
       stage.anchors.clear();
     };
@@ -117,11 +104,10 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
     const l = live.current; if (!l) return;
     const reduced = l.media.matches, dt = Math.min(delta, 0.1);
     l.controller.update(dt, {
-      reducedMotion: reduced, roaming: false, selected: inputs.current.selected,
-      player: stage.explorer?.active ? stage.explorer.camera.position : null,
+      reducedMotion: reduced, selected: inputs.current.selected,
     });
     if (!reduced) l.time += dt;
-    l.details.update(l.time, reduced); l.pond.update(l.time, reduced); l.work.update(l.time, reduced); l.leisure.update(l.time, reduced); l.agents.update(reduced ? 0 : dt, reduced);
+    l.pond.update(l.time, reduced); l.work.update(l.time, reduced); l.agents.update(reduced ? 0 : dt, reduced);
     l.den.world.updateMatrixWorld(true);
     // Chips and the card hang above the role pandas, the den's only live pandas; a ref that left drops its anchor.
     const figures = l.agents.liveFigures();
@@ -178,7 +164,7 @@ export function RestaurantDen({ snapshot, cells, frontier, tally, selected, onSe
       if (local) { e.stopPropagation(); live.current?.pond.interact(local.id); return; }
       const ref = object.userData.ticketRef;
       if (ref) { e.stopPropagation(); inputs.current.onSelect(ref); return; }
-      if (object.name === 'Tally abacus') { e.stopPropagation(); stage.tallyHit = true; inputs.current.onOpenTally(); return; }
+      if (object.userData.tallyAbacus) { e.stopPropagation(); stage.tallyHit = true; inputs.current.onOpenTally(); return; }
       object = object.parent;
     }
   };

@@ -1,24 +1,26 @@
-// Pure placement and state mapping for the code-built den.
+// Pure placement and state mapping for the code-built den, which is the v5 kit's village (den-mvp/25).
+// Station positions are the kit's: Steamers [-14,-10], Plating (Front of House) [14,-10], Tea [-14,0], Pantry [14,0].
 export const STATIONS = {
-  steamers: { index: 0, x: -8.8, z: -7.5, yaw: 0.28, label: 'Steamers' },
-  'front-of-house': { index: 1, x: 8.8, z: -7.5, yaw: -0.28, label: 'Front of House' },
-  tea: { index: 2, x: -12.5, z: 2.5, yaw: 0.18, label: 'Tea' },
-  pantry: { index: 3, x: 12.5, z: 2.5, yaw: -0.18, label: 'Pantry' },
+  steamers: { index: 0, x: -14, z: -10, yaw: 0, label: 'Steamers' },
+  'front-of-house': { index: 1, x: 14, z: -10, yaw: 0, label: 'Front of House' },
+  tea: { index: 2, x: -14, z: 0, yaw: 0, label: 'Tea' },
+  pantry: { index: 3, x: 14, z: 0, yaw: 0, label: 'Pantry' },
 };
 export const ROLE_STATION = {
   orchestrator:'pass', product:'pass', architect:'pass',
   developer:'steamers', scout:'steamers', qa:'tea', security:'pantry', designer:'front-of-house',
 };
-// The Pass roles stand on their own pads on the ground; Bao is the orchestrator, so nothing perches on him.
+// The Pass roles stand on the ground beside the Pass counter; Bao is the orchestrator, so nothing perches on him.
 export const PADS = {
-  product: { x: -4, z: -8.5, label: 'Library' },
-  architect: { x: 4, z: -8.5, label: 'Drum' },
+  product: { x: -4, z: -11, label: 'Library' },
+  architect: { x: 4, z: -11, label: 'Drum' },
 };
-export const TALLY_ANCHOR = { x: 2.62, y: 2.0, z: 6.05 };
+// The kit's abacus at [18,0,10]: the Tally's pill hangs above its sign.
+export const TALLY_ANCHOR = { x: 18, y: 3.1, z: 10 };
 export const DEN_TARGET = [0, 2.0, 0];
 export const STATION_LABELS = [
-  {id:'pass',text:'The Pass',x:0,y:9.25,z:-1.25},
-  ...Object.entries(STATIONS).map(([id,s])=>({id,text:s.label,x:s.x,y:3.55,z:s.z})),
+  {id:'pass',text:'The Pass',x:0,y:3.6,z:-10},
+  ...Object.entries(STATIONS).map(([id,s])=>({id,text:s.label,x:s.x,y:4.6,z:s.z})),
   {id:'library',text:'Library',x:PADS.product.x,y:0.3,z:PADS.product.z},
   {id:'drum',text:'Drum',x:PADS.architect.x,y:0.3,z:PADS.architect.z},
 ];
@@ -35,13 +37,13 @@ export function planCells(cells) {
     if(PADS[role]) {
       // Slot 0 takes over the resident's spot; later ones split off to alternating sides.
       const side=slot===0?0:(slot%2?1:-1)*Math.ceil(slot/2);
-      placement={parent:'world',position:[PADS[role].x+side*0.7,0.03,PADS[role].z],scale:0.25};
+      placement={parent:'world',position:[PADS[role].x+side*0.7,0.03,PADS[role].z],scale:0.34};
     } else if(STATIONS[station]) {
       const n=counts[station],cols=Math.min(4,n),row=Math.floor(slot/cols),col=slot%cols;
-      placement={parent:'stall:'+STATIONS[station].index,position:[(col-(cols-1)/2)*0.77,0.595,0.48-row*0.45],scale:n>4?0.17:0.23};
+      placement={parent:'stall:'+STATIONS[station].index,position:[(col-(cols-1)/2)*0.8,0.21,-0.5-row*0.45],scale:n>4?0.28:0.36};
     } else {
       const i=overflow++;
-      placement={parent:'world',position:[4.0+(i%4)*0.7,0,7.2+Math.floor(i/4)*0.8],scale:0.20};
+      placement={parent:'world',position:[-3.0+(i%4)*0.8,0,2.0+Math.floor(i/4)*0.8],scale:0.30};
     }
     return { ...c, station, placement };
   });

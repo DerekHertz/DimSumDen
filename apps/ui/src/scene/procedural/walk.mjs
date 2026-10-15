@@ -13,7 +13,8 @@ export const WALK = Object.freeze({
   // The floor is the site plan's disc (review/layout.mjs: radius 28 at the origin, den-mvp/22); the walker's body stays inside it.
   floorRadius: 28,
   pitchMin: -1.20, pitchMax: 1.30, lookRate: 0.0025, bob: 0.012, bobRate: 9,
-  start: Object.freeze({x: 0, z: 8.95, yaw: 0, pitch: 0.14}),
+  // Just inside the garden gate, facing north up the village; the cub's nook (4.2, 20.6) is in front, so the walk begins at a panda.
+  start: Object.freeze({x: 4.2, z: 23.4, yaw: 0, pitch: 0.14}),
 });
 
 export function isDenPositionBlocked(x,z,obstacles,radius=WALK.radius) {

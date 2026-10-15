@@ -6,16 +6,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as THREE from "three";
 import { createBao } from "../procedural/bao.mjs";
-import { createWalkingBao } from "../../review/walking-panda.mjs";
 import { createDenScene } from "../procedural/den-scene.mjs";
 import { canvasDocument } from "../procedural/den-test-helpers.mjs";
 import { compactPanda, compactEnvironment } from "../procedural/compact.mjs";
 import { isDenPositionBlocked, isWalkBlocked, walk, WALK, startWalk } from "../procedural/walk.mjs";
-import { prepareReviewLayout } from "../../review/layout.mjs";
-import { createRestaurantDetails } from "../procedural/restaurant.mjs";
-import { createLeisure } from "../../review/leisure.mjs";
-import { createReviewLandscape } from "../../review/landscape.mjs";
-import { createConstructionPads } from "../../review/construction-pads.mjs";
 import { createReviewAgents, findReviewPath } from "../../review/agents.mjs";
 import { REVIEW_OBSTACLES, REVIEW_PLACES, GARDEN_RADIUS } from "../../review/site-plan.mjs";
 import { mountExpansionPond } from "./pond.mjs";
@@ -29,20 +23,18 @@ const read = (...p) => readFileSync(join(HERE, ...p), "utf8");
 const WAVE = ["repair", "archive", "pond"].map((id) => ZONES.find((z) => z.id === id));
 
 // The den as RestaurantDen builds it, minus React.
-function withWaveOneDen(run) {
+function withWaveOneDen(run, { compact = true } = {}) {
   const previous = globalThis.document; globalThis.document = canvasDocument();
-  let den, pond, work, details, leisure, landscape, construction, agents;
+  let den, pond, work, agents;
   try {
-    den = createDenScene(THREE, createBao, (T, B) => createWalkingBao(T, B));
+    den = createDenScene(THREE, createBao);
     for (const p of den.pandas) compactPanda(THREE, p);
-    prepareReviewLayout(den); compactEnvironment(THREE, den);
+    if (compact) compactEnvironment(THREE, den);
     pond = mountExpansionPond(den); work = mountWorkZones(den);
-    details = createRestaurantDetails(den, "morning"); leisure = createLeisure(den, createBao);
-    landscape = createReviewLandscape(den, "morning"); construction = createConstructionPads(den);
     agents = createReviewAgents(den, createBao);
     run({ den, pond, work, agents });
   } finally {
-    agents?.dispose(); pond?.dispose(); work?.dispose(); details?.dispose(); leisure?.dispose(); landscape?.dispose(); construction?.dispose(); den?.dispose();
+    agents?.dispose(); pond?.dispose(); work?.dispose(); den?.dispose();
     globalThis.document = previous;
   }
 }
@@ -68,7 +60,8 @@ function footprintsOf(den, skip) {
       for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, m); out.push({ name: o.name, box: o.geometry.boundingBox.clone().applyMatrix4(m).applyMatrix4(o.matrixWorld) }); }
     } else if (o.isMesh) {
       const box = new THREE.Box3().setFromObject(o);
-      if (!box.isEmpty()) out.push({ name: o.name || o.parent?.name || o.type, box });
+      // The village's ground disc, its rim and its lawn lie under everything; they are scenery, not an object to keep clear of.
+      if (!box.isEmpty() && box.max.x - box.min.x < 40) out.push({ name: o.name || o.parent?.name || o.type, box });
     }
   });
   return out;
@@ -78,7 +71,9 @@ test("the garden is radius 28: ground, walk floor and the pandas' routing reach 
   assert.equal(GARDEN_RADIUS, 28);
   assert.equal(WALK.floorRadius, 28);
   withWaveOneDen(({ den }) => {
-    assert.equal(den.world.getObjectByName("Bamboo clearing").geometry.parameters.radiusTop, 28);
+    // The kit's ground disc (radius 28) is the widest thing in the village; environment merging keeps its bounds.
+    const box = new THREE.Box3().setFromObject(den.world);
+    assert.ok(Math.abs(box.max.x - 28) < 0.1 && Math.abs(box.min.x + 28) < 0.1, `the village ground is radius 28: x ${box.min.x}..${box.max.x}`);
     for (const z of WAVE) {
       const far = Math.hypot(Math.abs(z.position[0]) + z.radius, Math.abs(z.position[2]) + z.radius);
       assert.ok(far < GARDEN_RADIUS, `${z.id} fits the ground`);
@@ -119,7 +114,7 @@ test("from above, no wave 1 zone overlaps another object, and the three zones ke
     }
     const boxes = [pond.zone, ...work.zones.values()].map((g) => new THREE.Box3().setFromObject(g));
     for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) assert.equal(overlaps(boxes[i], boxes[j]), false);
-  });
+  }, { compact: false }); // merged environment meshes have one box for the whole garden: compare the pieces
 });
 
 test("no other walk obstacle stands inside a wave 1 zone's footprint", () => {
