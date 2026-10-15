@@ -40,10 +40,18 @@ describe("the catalog file", () => {
   });
 
   test("a field the catalog does not know is an error, so a header, a token or an environment value has nowhere to go", () => {
-    for (const extra of ["headers", "env", "token", "command", "args", "apiKey"]) rejects({ [extra]: "x" }, extra);
+    for (const extra of ["env", "token", "command", "args", "apiKey"]) rejects({ [extra]: "x" }, extra);
     assert.throws(() => parseCatalog({ connections: [], secrets: {} }), /connections\.json/);
     rejects({ credential: "sk-live-abc" }, "a credential value");
     rejects({ credential: "user" }, "an owner the den cannot hold yet");
+  });
+
+  test("a den-held credential needs a remote url; headers are plain X-MCP-* values and never carry a secret", () => {
+    const t = one({ credential: "den", headers: { "X-MCP-Toolsets": "repos,actions" } }).connections[0].target;
+    assert.deepEqual(t, { name: "docs", url: "https://docs.example.com/mcp", credential: "den", headers: { "X-MCP-Toolsets": "repos,actions" } });
+    rejects({ credential: "den", url: undefined, script: "apps/bridge/library/servers/x.mjs" }, "a script cannot hold a credential");
+    rejects({ headers: { Authorization: "Bearer abc" } }, "authorization");
+    rejects({ headers: { "X-MCP-Toolsets": "a b" } }, "value");
   });
 
   test("names, roles and tools are checked", () => {
@@ -93,5 +101,18 @@ describe("the role file's tools line", () => {
     assert.deepEqual([...toolsOfRoleFile(file("tools: Read, Bash\n"))], []);
     assert.equal(toolsOfRoleFile(file("")), null);
     assert.deepEqual([...toolsOfRoleFile(undefined)], []);
+  });
+});
+
+describe("the github entry (den-mvp/33)", () => {
+  const github = parseCatalog({ connections: [{
+    name: "github", title: "GitHub", purpose: "Read pull requests and checks.", url: "https://api.githubcopilot.com/mcp/readonly", credential: "den",
+    headers: { "X-MCP-Toolsets": "pull_requests,actions,issues,repos" }, roles: ["orchestrator", "qa", "developer"],
+    tools: { get_pull_request: "read", get_job_logs: "read", get_file_contents: "read" },
+  }] });
+  test("a read tool is allowed and a tool the catalog does not list is refused, for a role that has it", () => {
+    assert.equal(decideTool(github, "qa", "mcp__github__get_pull_request").kind, "allow");
+    for (const tool of ["merge_pull_request", "create_issue", "push_files"]) assert.equal(decideTool(github, "qa", `mcp__github__${tool}`).kind, "refuse", tool);
+    assert.equal(decideTool(github, "product", "mcp__github__get_pull_request").kind, "refuse");
   });
 });

@@ -311,3 +311,14 @@ describe("a skill's header", () => {
     assert.equal(skillOf("---\nname: long\ndescription: " + "x".repeat(900) + "\n---\n").description.length, 300);
   });
 });
+
+describe("a den-held credential (den-mvp/33)", () => {
+  const HELD = parseCatalog({ connections: [{ name: "github", title: "GitHub", purpose: "Read PRs.", url: "https://api.githubcopilot.com/mcp/readonly", credential: "den", roles: ["architect"], tools: { get_pull_request: "read" } }] });
+  test("with no token saved the card is unavailable with a reason; with one it is not", async () => {
+    const where = await den();
+    const without = (await createLibrary({ catalog: HELD, ...where, hasCredential: () => false }).view()).connections[0];
+    assert.deepEqual(without.status, { state: "unavailable", at: null, role: null, reason: "No GitHub token saved, so the den cannot reach it." });
+    const withToken = (await createLibrary({ catalog: HELD, ...where, hasCredential: () => true }).view()).connections[0];
+    assert.equal(withToken.status.state, "not-seen");
+  });
+});

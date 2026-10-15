@@ -1132,3 +1132,20 @@ describe("parseClaudeLine: connection status on the start-up line (den-mvp outco
     assert.deepEqual(events.find((e) => e.type === "connections").servers, [{ name: "ok", status: "connected" }]);
   });
 });
+
+describe("buildClaudeArgs: a connection with a credential (den-mvp/33)", () => {
+  const build = need("buildClaudeArgs");
+  const gh = { name: "github", url: "https://api.githubcopilot.com/mcp/readonly", credential: "den", headers: { "X-MCP-Toolsets": "repos" } };
+  test("the credentialed connection is not inline; its config comes by file, and no token is in argv", () => {
+    const a = build({ sessionId: SID, agent: "scout", connections: [gh], mcpConfigFile: "/home/u/.local/state/den/credentials/run/x.json" });
+    assert.ok(!a.join(" ").includes("githubcopilot"));
+    assert.equal(a[a.lastIndexOf("--mcp-config") + 1], "/home/u/.local/state/den/credentials/run/x.json");
+    assert.throws(() => build({ sessionId: SID, agent: "scout", mcpConfigFile: "relative.json" }), TypeError);
+  });
+  test("the file's config holds the token as a header", async () => {
+    const { mcpConfigWithTokens } = await import("./claude-adapter.mjs");
+    const cfg = JSON.parse(mcpConfigWithTokens([gh], { github: "tok_abcdefghijklmnopqrstuv" }));
+    assert.equal(cfg.mcpServers.github.headers.Authorization, "Bearer tok_abcdefghijklmnopqrstuv");
+    assert.equal(cfg.mcpServers.github.headers["X-MCP-Toolsets"], "repos");
+  });
+});

@@ -13,15 +13,19 @@ import { ROLES } from "../cells/policy.mjs";
 import { isConnectionTarget, CONNECTION_NAME_RE } from "../cells/claude-adapter.mjs";
 
 export const CAPABILITIES = Object.freeze(["read", "change", "publish"]);
-// "none": the service needs no credential. Nothing else is accepted yet, so the catalog has no place to put a secret.
-export const CREDENTIAL_OWNERS = Object.freeze(["none"]);
+// "none": the service needs no credential. "den": the bridge holds a token the user saved once in
+// ~/.local/state/den/credentials/<name>.token (ADR 0025 Amendment 1); the catalog never holds the secret itself.
+export const CREDENTIAL_OWNERS = Object.freeze(["none", "den"]);
+const HEADER_NAME_RE = /^X-MCP-[A-Za-z]+(?:-[A-Za-z]+)*$/;
+const HEADER_VALUE_RE = /^[A-Za-z0-9_,.-]{1,200}$/;
+const HEADERS_MAX = 4;
 const CONNECTIONS_MAX = 20;
 const TOOLS_MAX = 40;
 const TOOL_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const TEXT_RE = /^[^\u0000-\u001f\u007f]{1,200}$/;
 // A local connection's script runs outside the shell sandbox, as the user, so only one directory of the den can hold one.
 const SCRIPT_RE = /^apps\/bridge\/library\/servers\/[A-Za-z0-9][A-Za-z0-9._-]*\.mjs$/;
-const KEYS = ["name", "title", "purpose", "url", "script", "credential", "roles", "tools"];
+const KEYS = ["name", "title", "purpose", "url", "script", "credential", "headers", "roles", "tools"];
 /** The den's own checkout: where this file is, three levels up. A connection's script is resolved against it. */
 export const DEN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
@@ -45,7 +49,12 @@ export function parseCatalog(value, { denRoot = DEN_ROOT } = {}) {
     for (const key of ["title", "purpose"]) if (typeof c[key] !== "string" || !TEXT_RE.test(c[key])) fail(`${c.name}: ${key} must be one line of text`);
     if ((c.url === undefined) === (c.script === undefined)) fail(`${c.name}: give a url or a script, not both`);
     let target;
-    if (c.url !== undefined) target = { name: c.name, url: c.url };
+    if (c.headers !== undefined) {
+      if (c.url === undefined || !isPlainObject(c.headers) || Object.keys(c.headers).length === 0 || Object.keys(c.headers).length > HEADERS_MAX) fail(`${c.name}: headers must be a few X-MCP-* headers of a remote connection`);
+      for (const [k, v] of Object.entries(c.headers)) if (!HEADER_NAME_RE.test(k) || typeof v !== "string" || !HEADER_VALUE_RE.test(v)) fail(`${c.name}: header ${JSON.stringify(k)} is not a plain X-MCP-* header`);
+    }
+    if (c.credential === "den" && c.url === undefined) fail(`${c.name}: a credential needs a remote url`);
+    if (c.url !== undefined) target = { name: c.name, url: c.url, ...(c.credential === "den" ? { credential: "den" } : {}), ...(c.headers !== undefined ? { headers: Object.freeze({ ...c.headers }) } : {}) };
     else {
       if (typeof c.script !== "string" || !SCRIPT_RE.test(c.script) || c.script.split("/").some((part) => part === "." || part === "..")) fail(`${c.name}: script must be a .mjs file in apps/bridge/library/servers/ in the den`);
       target = { name: c.name, script: path.join(denRoot, c.script) };
