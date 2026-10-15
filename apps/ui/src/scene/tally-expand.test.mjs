@@ -100,10 +100,10 @@ const settle = (page) => page.waitForTimeout(450);
 // Screen position of a world point at the app's default frame (procedural/camera.mjs, den-layout/02), in page pixels
 // (the scene starts at x 0, y 0). The camera is orthographic and centred on DEN_TARGET: pixels per unit is the viewport
 // height over the frustum height, and the iso pitch squashes depth by sin and lifts height by cos.
-function screenOf(sceneBox, x, y, z) {
+function screenOf(sceneBox, x, y, z, target = DEN_TARGET) {
   const c = cameraConfig({ width: sceneBox.width, height: sceneBox.height });
   const k = sceneBox.height / (c.top - c.bottom), pitch = Math.atan(1 / Math.SQRT2);
-  const [tx, ty, tz] = DEN_TARGET;
+  const [tx, ty, tz] = target;
   return {
     x: sceneBox.x + sceneBox.width / 2 + k * (x - tx),
     y: sceneBox.y + sceneBox.height / 2 + k * ((z - tz) * Math.sin(pitch) - (y - ty) * Math.cos(pitch)),
@@ -168,7 +168,16 @@ test("a click on the abacus in the scene opens the card, and clicking it again l
   const { page, pill, scene, context } = await openApp();
   try {
     const box = await scene.boundingBox();
-    const mid = screenOf(box, TALLY_ANCHOR.x, 0.95, TALLY_ANCHOR.z); // the restaurant scene abacus: board centre about 0.95 above the ground
+    // den-mvp/25: the village's abacus is at the front-right corner, under the cards at the default frame. Drag the view
+    // right until the camera's target clamps at x 14 (camera.mjs clampTarget), which brings the abacus to the middle.
+    const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x - 250, from.y, { steps: 5 });
+    await page.mouse.move(from.x - 500, from.y, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(800); // the rig eases to its new target
+    const mid = screenOf(box, TALLY_ANCHOR.x, 1.3, TALLY_ANCHOR.z, [14, DEN_TARGET[1], DEN_TARGET[2]]); // the kit abacus: board centre about 1.3 up
     await page.mouse.click(mid.x, mid.y);
     const dialog = dialogOf(page);
     await dialog.waitFor({ state: "visible" });
@@ -233,7 +242,7 @@ test("an outside pointerdown (the scene canvas) closes the card and does not mov
     await pill.click();
     await dialogOf(page).waitFor({ state: "visible" });
     await settle(page);
-    await page.mouse.move(60, 500);
+    await page.mouse.move(700, 500); // den-mvp/25: the card opens bottom left above the pill; press the scene beside it
     await page.mouse.down();
     await page.mouse.up();
     await dialogOf(page).waitFor({ state: "hidden" });

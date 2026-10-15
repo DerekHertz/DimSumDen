@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { chipModel, stackChips } from "./chip-model.mjs";
 import { TALLY_ARIA_LABEL, TALLY_CARD_ID, TALLY_LABEL } from "./tally-face.mjs";
 import { stationLabels } from "./station-labels.mjs";
-import { stationOf, tallyAnchor } from "./banquet-layout.mjs";
+import { stationOf } from "./banquet-layout.mjs";
 import { ROAMER_TYPES } from "./roam.mjs";
 
 export const TALLY_CHIP_ID = "__tally";
@@ -39,10 +39,10 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, o
         // The camera moves in useFrame, before render; refresh its matrices so chips never lag it.
         camera.updateMatrixWorld();
         const pts = [];
-        for(const el of nodes.current.values())el.style.visibility='hidden';
+        for(const [ref,el] of nodes.current)if(ref!==TALLY_CHIP_ID)el.style.visibility='hidden';
         for (const [ref] of nodes.current) {
-          // Tally hangs from a pure world point, not a registry entry that could go stale.
-          const a = ref === TALLY_CHIP_ID ? (stage.tallyAnchor ?? tallyAnchor()) : stage.anchors.get(ref);
+          if (ref === TALLY_CHIP_ID) continue; // den-mvp/25: the Tally pill is a fixed HUD button, not hung over the abacus
+          const a = stage.anchors.get(ref);
           if (!a) continue;
           const v = (a.isVector3 ? a.clone() : new THREE.Vector3(a.x, a.y, a.z)).project(camera);
           if(v.z<-1||v.z>1||Math.abs(v.x)>1||Math.abs(v.y)>1)continue;
@@ -88,11 +88,11 @@ export function ChipLayer({ cells, tickets, selected, onSelect, stage, hearts, o
           type="button"
           ref={(el) => (el ? nodes.current.set(TALLY_CHIP_ID, el) : nodes.current.delete(TALLY_CHIP_ID))}
           className="chip chip-idle chip-tally"
+          /* den-mvp/25: fixed under the logo (beside it on a phone). The village's abacus sits where the cards cover it. */
           aria-label={TALLY_ARIA_LABEL}
           aria-haspopup="dialog"
           aria-expanded={tallyOpen}
           aria-controls={tallyOpen ? TALLY_CARD_ID : undefined} /* the card exists only while open; a dangling aria-controls is an axe finding (07) */
-          style={{ visibility: "hidden" }}
           onClick={onToggleTally}
         >
           {TALLY_LABEL}

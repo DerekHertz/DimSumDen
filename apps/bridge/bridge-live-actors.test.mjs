@@ -11,7 +11,6 @@ import { createReviewAgents } from "../ui/src/review/agents.mjs";
 import { createBao } from "../ui/src/scene/procedural/bao.mjs";
 import { createDenScene } from "../ui/src/scene/procedural/den-scene.mjs";
 import { canvasDocument } from "../ui/src/scene/procedural/den-test-helpers.mjs";
-import { prepareReviewLayout } from "../ui/src/review/layout.mjs";
 
 async function liveSnapshot(lock) {
   const fx = await makeStateFixture({ lock });
@@ -40,7 +39,6 @@ test("a locked ticket in the bridge's real /state binds the holder's panda at it
   let den, agents;
   try {
     den = createDenScene(THREE, createBao);
-    prepareReviewLayout(den);
     agents = createReviewAgents(den, createBao);
     agents.applyLive(actors);
     for (let i = 0; i < 600; i++) agents.update(0.1);
