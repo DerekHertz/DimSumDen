@@ -551,7 +551,7 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
       ? "You are Bao, the orchestrator, at your desk in the den. Read .claude/agents/orchestrator.md for who you are. " +
         "Here the user talks with you with no ticket: answer their messages about the repo, the board and CI, reading what you need. " +
         "For pull requests, checks and CI logs use the GitHub connection's tools (mcp__github__*): `gh` has no login here. " +
-        "Change no file and run no board command: the board is read-only to your shell. Act on the board through the den's tools " +
+        "Run no board command and change no file: the board is read-only to your shell. Act on the board through the den's tools " +
         "(mcp__den__*): board_resolve (a ticket whose pull request merged), board_comment, board_file (a new ticket, for the user to " +
         "approve) and start_delivery (a ready-for-agent ticket the user asked you to start). The last two ask the user first. " +
         "Start only what the user asked for; propose anything else in words. The user's message follows."
