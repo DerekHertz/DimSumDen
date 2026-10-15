@@ -4,9 +4,10 @@
 // permission requests until the host decides, and signals the whole group so no grandchild outlives a kill.
 // den-mvp outcome 1: the child is started by a launcher (resource-group.mjs) inside a resource group with hardware
 // limits; a kill goes to that group, and a hard limit that is hit ends the run with the limit named.
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import {
-  MAX_LINE_BYTES, buildClaudeArgs, buildClaudeEnv, compileCeiling, createLineSplitter, decodeControlRequest, encodeControlResponse, encodeUserMessage, isTicketFilePath, isWorktreePath,
+  MAX_LINE_BYTES, buildClaudeArgs, mcpConfigWithTokens, buildClaudeEnv, compileCeiling, createLineSplitter, decodeControlRequest, encodeControlResponse, encodeUserMessage, isTicketFilePath, isWorktreePath,
   parseClaudeLine, CREDENTIAL_PATHS, webRefusal,
 } from "./claude-adapter.mjs";
 import { UUID_RE, slotClassOf } from "./policy.mjs";
@@ -82,10 +83,47 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
       const ceiling = compileCeiling(role, { worktree: isWorktreePath(cwd) ? cwd : undefined, grants, ...(isWorktreePath(root) ? { root } : {}), ...(mainGit !== undefined ? { mainGit } : {}), ...(home === undefined ? {} : { home }), ...(credentials.length === 0 ? {} : { credentials }) });
       // Every role has a ceiling (ceilings.json); one without would start with no wall, so it does not start.
       if (ceiling === null) throw new EnforcementError(`the ${role} role has no ceiling, so it cannot be started`);
-      const args = buildClaudeArgs({ sessionId, ...(resume === true ? { resume: true } : {}), agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}), ...(ceiling ?? {}), ...(Array.isArray(connections) && connections.length > 0 ? { connections } : {}) });
+      // den-mvp/33: a connection that holds a credential gets its token from the den's credentials folder (outside every
+      // worktree, a governance credential path), and its config goes to a 0600 file there, removed when the run ends.
+      // With no token saved the connection is left out and the run still starts.
+      const secured = Array.isArray(connections) ? connections.filter((c) => c.credential !== undefined) : [];
+      let mcpConfigFile;
+      let usable = connections;
+      if (secured.length > 0) {
+        const dir = home === undefined ? undefined : `${home}/.local/state/den/credentials`;
+        const tokens = {};
+        for (const c of secured) {
+          try {
+            const t = dir === undefined ? "" : readFileSync(`${dir}/${c.name}.token`, "utf8").trim();
+            if (/^[A-Za-z0-9_-]{20,255}$/.test(t)) tokens[c.name] = t;
+          } catch {
+            // no token saved
+          }
+        }
+        const have = secured.filter((c) => tokens[c.name] !== undefined);
+        usable = connections.filter((c) => c.credential === undefined || tokens[c.name] !== undefined);
+        if (have.length > 0) {
+          const runDir = `${dir}/run`;
+          mkdirSync(runDir, { recursive: true, mode: 0o700 });
+          mcpConfigFile = `${runDir}/${randomUUID()}.json`;
+          writeFileSync(mcpConfigFile, mcpConfigWithTokens(have, tokens), { mode: 0o600 });
+        }
+      }
+      const removeConfig = () => {
+        if (mcpConfigFile !== undefined) rmSync(mcpConfigFile, { force: true });
+      };
+      const args = buildClaudeArgs({ sessionId, ...(resume === true ? { resume: true } : {}), agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}), ...(ceiling ?? {}), ...(Array.isArray(usable) && usable.length > 0 ? { connections: usable } : {}), ...(mcpConfigFile === undefined ? {} : { mcpConfigFile }) });
       const bin = typeof env.DEN_CLAUDE_BIN === "string" && env.DEN_CLAUDE_BIN !== "" ? env.DEN_CLAUDE_BIN : "claude";
       // The child is inside its resource group, limits read back, before this resolves; a host that cannot do that starts nothing.
-      const { child, group } = await launcher.launch({ slotClass: slotClassOf(role), id: runId ?? sessionId, bin, args, cwd, env: buildClaudeEnv(env) });
+      let launched;
+      try {
+        launched = await launcher.launch({ slotClass: slotClassOf(role), id: runId ?? sessionId, bin, args, cwd, env: buildClaudeEnv(env) });
+      } catch (err) {
+        removeConfig();
+        throw err;
+      }
+      const { child, group } = launched;
+      child.once("close", removeConfig);
       child.on("error", () => {});
       child.stdin.on("error", () => {});
       child.stderr.resume(); // drained, never read: a full pipe must not block the child

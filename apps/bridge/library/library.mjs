@@ -7,7 +7,7 @@
 //   noteStatus / noteUse   what the host saw
 //   view()                 connections and skills for the library panel
 import { appendFile, chmod, mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
-import { closeSync, fstatSync, openSync, readSync } from "node:fs";
+import { closeSync, existsSync, fstatSync, openSync, readSync } from "node:fs";
 import path from "node:path";
 import { hasSecret } from "../../../scripts/exposure.mjs";
 import { CONNECTION_STATES } from "../cells/claude-adapter.mjs";
@@ -50,7 +50,7 @@ export function skillOf(text) {
   return { name, description: description ? flat(description.replace(/^["']|["']$/g, ""), 300) : "" };
 }
 
-export function createLibrary({ catalog = loadCatalog(), stateDir, denRoot = DEN_ROOT, now = () => new Date() } = {}) {
+export function createLibrary({ catalog = loadCatalog(), stateDir, denRoot = DEN_ROOT, now = () => new Date(), hasCredential = (name) => { const h = process.env.HOME; return typeof h === "string" && existsSync(`${h}/.local/state/den/credentials/${name}.token`); } } = {}) {
   const file = typeof stateDir === "string" ? path.join(stateDir, "library.jsonl") : null;
   const known = new Map(catalog.connections.map((c) => [c.name, c]));
   const status = new Map(); // connection -> { state, word, role, at }; `word` is the CLI's own, kept for the log
@@ -213,7 +213,7 @@ export function createLibrary({ catalog = loadCatalog(), stateDir, denRoot = DEN
             return { role, usable, ...(usable ? {} : { reason: roleFileReason(role) }) };
           }),
           tools: Object.entries(c.tools).map(([name, capability]) => ({ name, capability })),
-          status: seen ? { state: seen.state, at: seen.at, role: seen.role, ...(REASON_OF[seen.state] ? { reason: REASON_OF[seen.state](seen.role) } : {}) } : { state: "not-seen", reason: NOT_SEEN },
+          status: c.credential === "den" && !hasCredential(c.name) ? { state: "unavailable", at: null, role: null, reason: `No ${c.title} token saved, so the den cannot reach it.` } : seen ? { state: seen.state, at: seen.at, role: seen.role, ...(REASON_OF[seen.state] ? { reason: REASON_OF[seen.state](seen.role) } : {}) } : { state: "not-seen", reason: NOT_SEEN },
           uses: u ? { count: u.count, refused: u.refused, lastAt: u.lastAt, lastRole: u.lastRole, lastTool: u.lastTool } : { count: 0, refused: 0, lastAt: null, lastRole: null, lastTool: null },
         };
       });

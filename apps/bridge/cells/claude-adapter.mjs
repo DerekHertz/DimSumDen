@@ -299,7 +299,12 @@ const CONNECTION_SCRIPT_RE = /^(?:\/[A-Za-z0-9._@+-]+)+\.mjs$/;
 const CONNECTIONS_MAX = 20;
 export const CONNECTION_STATES = Object.freeze(["connected", "failed", "needs-auth", "pending", "disabled"]); // the CLI's own words
 export function isConnectionTarget(target) {
-  if (!isPlainObject(target) || Object.keys(target).length !== 2) return false;
+  if (!isPlainObject(target)) return false;
+  const extra = Object.keys(target).filter((k) => !["name", "url", "script"].includes(k));
+  if (Object.keys(target).length - extra.length !== 2) return false;
+  if (extra.some((k) => k !== "credential" && k !== "headers")) return false;
+  if (target.credential !== undefined && (target.credential !== "den" || typeof target.url !== "string")) return false;
+  if (target.headers !== undefined && (typeof target.url !== "string" || !isPlainObject(target.headers) || !Object.entries(target.headers).every(([k, v]) => /^X-MCP-[A-Za-z-]{1,40}$/.test(k) && typeof v === "string" && /^[A-Za-z0-9_,.-]{1,200}$/.test(v)))) return false;
   if (typeof target.name !== "string" || target.name.length > CONNECTION_NAME_MAX || !CONNECTION_NAME_RE.test(target.name)) return false;
   if (typeof target.url === "string") {
     const m = CONNECTION_URL_RE.exec(target.url);
@@ -307,10 +312,16 @@ export function isConnectionTarget(target) {
   }
   return typeof target.script === "string" && CONNECTION_SCRIPT_RE.test(target.script) && !target.script.split("/").some((part) => part === "." || part === "..");
 }
-const mcpConfigFor = (connections) =>
-  JSON.stringify({
-    mcpServers: Object.fromEntries(connections.map((c) => [c.name, c.url !== undefined ? { type: "http", url: c.url } : { command: process.execPath, args: [c.script] }])),
-  });
+const serverOf = (c, token) => (c.url !== undefined
+  ? { type: "http", url: c.url, ...(c.headers || token !== undefined ? { headers: { ...(c.headers ?? {}), ...(token === undefined ? {} : { Authorization: `Bearer ${token}` }) } } : {}) }
+  : { command: process.execPath, args: [c.script] });
+const mcpConfigFor = (connections) => JSON.stringify({ mcpServers: Object.fromEntries(connections.map((c) => [c.name, serverOf(c)])) });
+/**
+ * den-mvp/33: the MCP config of the connections that hold a credential, with each one's token (`tokens`: name -> token).
+ * It is written to a 0600 file the agent cannot read, never put in argv.
+ */
+export const mcpConfigWithTokens = (connections, tokens) => JSON.stringify({ mcpServers: Object.fromEntries(connections.map((c) => [c.name, serverOf(c, tokens[c.name])])) });
+const MCP_CONFIG_FILE_RE = /^\/[A-Za-z0-9._@+-]+(?:\/[A-Za-z0-9._@+-]+)*\.json$/;
 
 /**
  * The whole argv (no binary name) for one child. Rejects anything outside { sessionId, agent, model?, ticketFile?,
@@ -320,9 +331,11 @@ const mcpConfigFor = (connections) =>
 export function buildClaudeArgs(options) {
   if (!isPlainObject(options)) throw new TypeError("buildClaudeArgs needs { sessionId, agent, model?, ticketFile?, wall?, worktree? }");
   for (const key of Object.keys(options)) {
-    if (!["sessionId", "resume", "agent", "model", "ticketFile", "wall", "worktree", "forbid", "writePaths", "readLimit", "denyAbs", "credentials", "connections"].includes(key)) throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
+    if (!["sessionId", "resume", "agent", "model", "ticketFile", "wall", "worktree", "forbid", "writePaths", "readLimit", "denyAbs", "credentials", "connections", "mcpConfigFile"].includes(key)) throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
   }
-  const { sessionId, resume, agent, model, ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs, credentials, connections } = options;
+  const { sessionId, resume, agent, model, ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs, credentials, connections, mcpConfigFile } = options;
+  if (mcpConfigFile !== undefined && (typeof mcpConfigFile !== "string" || !MCP_CONFIG_FILE_RE.test(mcpConfigFile) || mcpConfigFile.split("/").some((p) => p === "." || p === ".."))) throw new TypeError("buildClaudeArgs: mcpConfigFile must be a plain absolute .json path");
+  const inline = connections?.filter((c) => c.credential === undefined);
   if (connections !== undefined && !(isDense(connections) && connections.length > 0 && connections.length <= CONNECTIONS_MAX && connections.every(isConnectionTarget) && new Set(connections.map((c) => c.name)).size === connections.length)) throw new TypeError("buildClaudeArgs: connections must be catalog targets, each name once");
   if (resume !== undefined && resume !== true) throw new TypeError("buildClaudeArgs: resume must be true");
   if (credentials !== undefined && !(wall !== undefined && isDense(credentials) && credentials.every((p) => CREDENTIAL_PATHS.includes(p)))) throw new TypeError("buildClaudeArgs: credentials must be paths from governance.json, with the wall");
@@ -352,7 +365,8 @@ export function buildClaudeArgs(options) {
     "--setting-sources", "project,local",
     // den-mvp outcome 4: only what --mcp-config names is loaded, and it names only the catalog's connections for this role.
     "--strict-mcp-config",
-    ...(connections === undefined ? [] : ["--mcp-config", mcpConfigFor(connections)]),
+    ...(inline === undefined || inline.length === 0 ? [] : ["--mcp-config", mcpConfigFor(inline)]),
+    ...(mcpConfigFile === undefined ? [] : ["--mcp-config", mcpConfigFile]),
     "--settings", settingsFor({ ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs, credentials }),
   ];
 }

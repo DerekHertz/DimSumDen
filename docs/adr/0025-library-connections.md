@@ -76,3 +76,12 @@ So a run can send up to 16 KiB to a listed service before the user is asked anyt
 - Live, after the protected-file patch: the den's own scout, with the den's own role file and catalog, looked up a library on Context7 from a throwaway clone; the bridge allowed it with no question and the library showed one use.
 - Security review of `2e3720e` (2026-10-13): pass. Fixed after it: the run's bound on automatic allows, no allow after Stop, the log's bound, one directory for scripts, and a refusal for an input that is not an object. The fixes were not reviewed again.
 - Not checked: a service that asks for a sign-in (the status wording is covered by a test only); what the CLI itself sends a remote service beyond the tool call (headers, a stored sign-in, redirects).
+
+## Amendment 1 (2026-10-14): where the den holds a connection credential
+
+- `credential` accepts `den` as well as `none`: the bridge holds the token. Only a remote (`url`) connection may use it, and the catalog holds no secret, only the owner. An optional `headers` field carries plain `X-MCP-*` values (the GitHub toolsets); `Authorization` has no place in it.
+- The user saves a fine-grained, read-only token once, in `~/.local/state/den/credentials/<connection>.token` (0600), outside every worktree. The folder is a governance credential path, so no agent's shell can read it and no path grant may reach it. The token is never in env, argv, a ticket, a log or the catalog.
+- At spawn the runtime writes that run's MCP config, token included, to a 0600 file in `credentials/run/` and passes `--mcp-config <file>`; it removes the file when the run ends. A connection with no credential stays inline.
+- With no token saved the connection is left out, the run starts, and the Library card shows it unavailable with "No <title> token saved".
+- The first use is GitHub's official server at `/mcp/readonly` with `X-MCP-Toolsets: pull_requests,actions,issues,repos`, every listed tool `read`. Reason for a file over inline: argv is visible to other processes of the user and to `ps`.
+- The two guardrail files (`governance.json`, `connections.json`) are a patch at `docs/agents/gated/33-github-connection.patch`, applied by the user.

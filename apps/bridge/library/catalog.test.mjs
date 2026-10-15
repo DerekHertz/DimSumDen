@@ -40,10 +40,18 @@ describe("the catalog file", () => {
   });
 
   test("a field the catalog does not know is an error, so a header, a token or an environment value has nowhere to go", () => {
-    for (const extra of ["headers", "env", "token", "command", "args", "apiKey"]) rejects({ [extra]: "x" }, extra);
+    for (const extra of ["env", "token", "command", "args", "apiKey"]) rejects({ [extra]: "x" }, extra);
     assert.throws(() => parseCatalog({ connections: [], secrets: {} }), /connections\.json/);
     rejects({ credential: "sk-live-abc" }, "a credential value");
     rejects({ credential: "user" }, "an owner the den cannot hold yet");
+  });
+
+  test("a den-held credential needs a remote url; headers are plain X-MCP-* values and never carry a secret", () => {
+    const t = one({ credential: "den", headers: { "X-MCP-Toolsets": "repos,actions" } }).connections[0].target;
+    assert.deepEqual(t, { name: "docs", url: "https://docs.example.com/mcp", credential: "den", headers: { "X-MCP-Toolsets": "repos,actions" } });
+    rejects({ credential: "den", url: undefined, script: "apps/bridge/library/servers/x.mjs" }, "a script cannot hold a credential");
+    rejects({ headers: { Authorization: "Bearer abc" } }, "authorization");
+    rejects({ headers: { "X-MCP-Toolsets": "a b" } }, "value");
   });
 
   test("names, roles and tools are checked", () => {
