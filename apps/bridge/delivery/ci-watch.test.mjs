@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { createCiWatch, ciMessage } from "./ci-watch.mjs";
+import { createCiWatch, ciMessage, classify } from "./ci-watch.mjs";
 
 const SHA = "a".repeat(40);
 const SHA2 = "b".repeat(40);
@@ -199,4 +199,15 @@ test("the message fits the 2 KB cap, asks about security when routed there, and 
   assert.match(ciMessage(p, [{ name: "security", reason: "failed", excerpt: "" }], "security"), /start a security review/);
   const key = ["AKIA", "IOSFODNN7", "EXAMPLE"].join("");
   assert.doesNotMatch(ciMessage(p, [{ name: "test", reason: "failed", excerpt: `token ${key}` }], "orchestrator"), /AKIA/);
+});
+
+test("the excerpt quotes every failing test, not only the lines after the first (den-mvp/01's second failure was cut off)", async () => {
+  const pad = Array.from({ length: 80 }, (_, i) => `test\tRun\t2026-10-15T01:55:00.0000000Z     detail ${i}`);
+  const log = ["test\tRun\t2026-10-15T01:55:00.0000000Z not ok 1 - the child is stopped", ...pad,
+    "test\tRun\t2026-10-15T01:56:00.0000000Z not ok 2 - preflight fails with that reason", "test\tRun\t2026-10-15T01:56:00.0000000Z   actual: 'bwrap is not installed'"].join("\n");
+  const r = await classify({ failedLog: async () => log }, { name: "test", jobId: "1" });
+  assert.equal(r.reason, "first failing test: the child is stopped");
+  assert.match(r.excerpt, /not ok 1 - the child is stopped/);
+  assert.match(r.excerpt, /not ok 2 - preflight fails with that reason\n {2}actual: 'bwrap is not installed'/);
+  assert.ok(r.excerpt.split("\n").length <= 120);
 });
