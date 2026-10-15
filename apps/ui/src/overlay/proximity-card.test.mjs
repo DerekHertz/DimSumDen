@@ -199,6 +199,10 @@ test("Bao with no run: R opens the desk thread; with a run, its own; other resid
   assert.deepEqual([card.agentId, card.threadId], [null, 'desk']);
   const busy = cardFor([{ ...bao, agent: { id: 'c-1111111111111111', role: 'orchestrator', state: 'working' } }], [], { x: 0, z: 0, yaw: 0 });
   assert.equal(busy.threadId, 'c-1111111111111111');
+  const old = cardFor([{ ...bao, agent: { id: 'c-2222222222222222', ref: 'agent-os/05-old', role: 'orchestrator', state: 'done' } }], [], { x: 0, z: 0, yaw: 0 });
+  assert.equal(old.threadId, 'desk', "an ended run on another ticket is not where Bao's thread goes");
+  const lastDesk = cardFor([{ ...bao, agent: { id: 'c-3333333333333333', ref: 'den/00-bao', role: 'orchestrator', state: 'done' } }], [], { x: 0, z: 0, yaw: 0 });
+  assert.equal(lastDesk.threadId, 'c-3333333333333333', 'the last desk run is followed up');
   const mei = cardFor([{ ...bao, id: 'qa', role: 'qa' }], [], { x: 0, z: 0, yaw: 0 });
   assert.equal(mei.actions.R.enabled, false);
   assert.equal(mei.threadId, null);
