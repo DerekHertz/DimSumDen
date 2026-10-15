@@ -429,7 +429,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     let workspace;
     try {
       workspace = agent.resumeOf
-        ? await workspaces.reopen({ ref: agent.ref, agentId: agent.id, origin: agent.origin })
+        ? await workspaces.reopen({ ref: agent.ref, agentId: agent.id, origin: agent.origin, catchUp: agent.ref === DESK_REF })
         : await workspaces.create({ ref: agent.ref, agentId: agent.id, ...(agent.delivery ? { base: agent.delivery.at } : {}) });
     } catch (err) {
       liveByRef.delete(agent.ref);
@@ -533,6 +533,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     a.ref === DESK_REF
       ? "You are Bao, the orchestrator, at your desk in the den. Read .claude/agents/orchestrator.md for who you are. " +
         "Here the user talks with you with no ticket: answer their messages about the repo, the board and CI, reading what you need. " +
+        "For pull requests, checks and CI logs use the GitHub connection's tools (mcp__github__*): `gh` has no login here. " +
         "Do not claim, dispatch, hand off or release anything, and change no file. When work should happen, propose it in words " +
         "(a ticket to write, a delivery to start, a meeting to call): the user starts it from the den. The user's message follows."
       : a.meeting

@@ -32,6 +32,13 @@ export function workspaceNames({ ref, agentId } = {}) {
 // exec is a test seam with execFile's promise shape: (file, args) -> Promise<{ stdout }>.
 export function createWorkspaces(root, { exec = execFileP } = {}) {
   const git = (...args) => exec("git", ["-C", root, ...args]);
+  const out = async (dir, ...args) => String((await exec("git", ["-C", dir, ...args])).stdout).trim();
+  async function moveUp(dir) {
+    const [here, main] = [await out(dir, "rev-parse", "HEAD"), await out(root, "rev-parse", "HEAD")];
+    if (here === main || (await out(dir, "status", "--porcelain", "--untracked-files=no")) !== "") return;
+    const behind = await exec("git", ["-C", root, "merge-base", "--is-ancestor", here, main]).then(() => true, () => false);
+    if (behind) await exec("git", ["-C", dir, "checkout", "-q", "--detach", main]);
+  }
   return {
     // -> { dir, worktree, branch }: `dir` is the resolved absolute path the child runs in. `branch` is only the name to publish to.
     // den-mvp outcome 3: `base` is the commit a delivery step starts from (a full commit id the bridge recorded); without it, HEAD.
@@ -69,13 +76,16 @@ export function createWorkspaces(root, { exec = execFileP } = {}) {
     // den-mvp outcome 2: the worktree of an earlier run (`origin`), reopened for a follow-up by a new run. Nothing is created:
     // the directory must still be a worktree of this repository at the derived path, or this rejects. `base` is its HEAD
     // now, so publish can tell whether the follow-up committed anything. -> { dir, worktree, branch, base, reopened: true }.
-    async reopen({ ref, agentId, origin } = {}) {
+    // `catchUp` (Bao's desk, which reopens one worktree for every message): a worktree with no change of its own whose
+    // HEAD is behind the root's moves up to it first, so the run reads today's repository, its role file included.
+    async reopen({ ref, agentId, origin, catchUp = false } = {}) {
       const { worktree } = workspaceNames({ ref, agentId: origin });
       const { branch } = workspaceNames({ ref, agentId });
       const dir = await realpath(path.join(root, ...worktree.split("/")));
       const listed = String((await git("worktree", "list", "--porcelain")).stdout).split("\n").filter((l) => l.startsWith("worktree ")).map((l) => l.slice(9));
       const resolved = await Promise.all(listed.map((p) => realpath(p).catch(() => p)));
       if (!resolved.includes(dir)) throw new Error("workspace: the earlier run's directory is no longer a worktree of this repository");
+      if (catchUp) await moveUp(dir);
       const base = String((await exec("git", ["-C", dir, "rev-parse", "HEAD"])).stdout).trim();
       return { dir, worktree, branch, base, reopened: true };
     },
