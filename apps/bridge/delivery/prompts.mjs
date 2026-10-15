@@ -18,7 +18,9 @@ export const WORK_TIPS =
   "Run `node --test` with `--test-concurrency=2`: every thread counts toward your process limit, and a run over it is stopped. " +
   "Put a throwaway script under .den/ in this worktree (git ignores it), not in $TMPDIR: Node finds the repository's packages only from inside the worktree. " +
   "Stage files by name (`git add <paths>`), never `git add -A` or `git add .`: the sandbox leaves placeholder files such as .bash_profile that git cannot add. " +
-  "`gh` has no login behind the wall: read pull requests, checks and CI job logs with the GitHub connection's tools (mcp__github__*) when your role has them. ";
+  "`gh` has no login behind the wall: read pull requests, checks and CI job logs with the GitHub connection's tools (mcp__github__*) when your role has them. " +
+  "Before adding or bumping a package, check it with Socket (mcp__socket__depscore) when your role has it. " +
+  "For how a public library works inside, ask DeepWiki (mcp__deepwiki__ask_wiki_question, owner/repo) after context7's docs. ";
 
 const SHARED =
   "The den's bridge runs this delivery: it has claimed the ticket for you, and it will write your handoff to the board and release the ticket when you end. " +
