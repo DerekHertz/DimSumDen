@@ -71,8 +71,9 @@ export function buildScopeArgv({ unit, slice, limit, fileBytes, bin, args, wrapp
   const paths = [...hide, ...hideSockets];
   if (typeof wrapper !== "string" || wrapper === "" || !paths.every((p) => typeof p === "string" && ABS_RE.test(p))) throw new TypeError("buildScopeArgv: bad wrapper");
   // The run sees /sys/fs/cgroup read-only (no limit file, no cgroup.procs, no new mount) and none of the service
-  // manager's bus sockets: the directories are covered by an empty tmpfs, a lone socket by /dev/null.
-  const wrap = [wrapper, "--dev-bind", "/", "/", "--ro-bind", CGROUP_ROOT, CGROUP_ROOT, ...hide.flatMap((d) => ["--tmpfs", d]), ...hideSockets.flatMap((f) => ["--ro-bind", "/dev/null", f]), "--die-with-parent", "--"];
+  // manager's bus sockets: the directories are covered by an empty tmpfs, a lone socket by /dev/null. A private pid
+  // namespace with its own /proc keeps /proc/<pid>/root of the host's processes (which see the unwrapped mounts) out of reach.
+  const wrap = [wrapper, "--dev-bind", "/", "/", "--unshare-pid", "--proc", "/proc", "--ro-bind", CGROUP_ROOT, CGROUP_ROOT, ...hide.flatMap((d) => ["--tmpfs", d]), ...hideSockets.flatMap((f) => ["--ro-bind", "/dev/null", f]), "--die-with-parent", "--"];
   return [
     "--user", "--scope", "--quiet", "--collect", "--unit", unit, "--slice", `${slice}.slice`,
     ...[...groupProperties(limit), "OOMPolicy=continue"].flatMap((p) => ["-p", p]),
@@ -116,12 +117,28 @@ export function busPlaces(env, { uid = process.getuid?.() } = {}) {
 // The probe's command: it tries to loosen its own limits, the slice's, and to leave its group, and to reach the bus.
 // Every attempt that works is named on stdout; a contained run prints only "contained" and exits 0.
 export const PROBE_SCRIPT = `d=/sys/fs/cgroup$(sed -n 's/^0:://p' /proc/self/cgroup); bad=0
+if [ ! -r "$d/memory.max" ] || [ ! -r "$d/../memory.max" ]; then echo "probe could not run: the group's limit files are not readable at $d"; exit 2; fi
 for f in "$d/memory.max" "$d/pids.max" "$d/cpu.max" "$d/../memory.max" "$d/../pids.max"; do
   if (echo max > "$f") 2>/dev/null; then echo "limit file $f was writable"; bad=1; fi
 done
-if (echo $$ > /sys/fs/cgroup/cgroup.procs) 2>/dev/null; then echo "the process moved itself to the root control group"; bad=1; fi
+for f in "$d/../cgroup.procs" "$d/../cgroup.subtree_control"; do
+  if (echo $$ > "$f") 2>/dev/null; then echo "the process could write $f of the slice"; bad=1; fi
+done
+if command -v unshare >/dev/null 2>&1; then
+  t=$(mktemp -d 2>/dev/null) && {
+    if unshare -Urm sh -c "mount -t cgroup2 none $t && [ -w $t/cgroup.procs ]" >/dev/null 2>&1; then echo "a new cgroup2 mount was writable"; bad=1; fi
+    if unshare -Urm sh -c "mount -o remount,rw /sys/fs/cgroup" >/dev/null 2>&1; then echo "/sys/fs/cgroup was remounted writable"; bad=1; fi
+    rmdir "$t" 2>/dev/null
+  }
+fi
 for s in "$@" "/run/user/$(id -u)/bus"; do if [ -S "$s" ]; then echo "the service manager's bus socket $s is visible"; bad=1; fi; done
-if command -v busctl >/dev/null 2>&1 && busctl --user --no-pager status >/dev/null 2>&1; then echo "the service manager answered a connection"; bad=1; fi
+for r in /proc/*/root; do
+  if [ -S "$r/run/user/$(id -u)/bus" ] 2>/dev/null; then echo "the bus is reachable through $r"; bad=1; break; fi
+  if (echo max > "$r/sys/fs/cgroup/memory.max") 2>/dev/null; then echo "limit files writable through $r"; bad=1; break; fi
+done
+if command -v busctl >/dev/null 2>&1; then
+  if busctl --user --no-pager status >/dev/null 2>&1; then echo "the service manager answered a connection"; bad=1; fi
+else echo "busctl not tested: it is not installed" >&2; fi
 [ $bad = 0 ] && echo contained; exit $bad`;
 
 /** The probe's verdict from its exit code and what it printed: null when contained, else the reason. */

@@ -11,7 +11,7 @@ import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn as spawnChild, execFile } from "node:child_process";
-import { EnforcementError, GATE_REFUSED, LIMITS, START_GATE, buildScopeArgv, cgroupOf, checkLimits, createResourceLauncher, findUserBus, groupFiles, groupProperties, judgeProbe, measureTree, watchStorage } from "./resource-group.mjs";
+import { EnforcementError, GATE_REFUSED, LIMITS, START_GATE, buildScopeArgv, cgroupOf, checkLimits, createResourceLauncher, findUserBus, groupFiles, groupProperties, judgeProbe, PROBE_SCRIPT, measureTree, watchStorage } from "./resource-group.mjs";
 import { createClaudeRuntime } from "./claude-runtime.mjs";
 import { SLOTS } from "./policy.mjs";
 
@@ -73,7 +73,7 @@ describe("the scope argv and the values it must produce", () => {
 
   test("the launcher's bus variables are removed before the CLI, and the CLI's own flags are never read as the launcher's", () => {
     const rest = argv.slice(argv.indexOf("--") + 1);
-    assert.deepEqual(rest, ["env", "-u", "XDG_RUNTIME_DIR", "-u", "DBUS_SESSION_BUS_ADDRESS", "prlimit", "--fsize=4294967296:4294967296", "--", "/bin/sh", "-c", START_GATE, "den-gate", "bwrap", "--dev-bind", "/", "/", "--ro-bind", "/sys/fs/cgroup", "/sys/fs/cgroup", "--die-with-parent", "--", "claude", "-p", "--agent", "scout"]);
+    assert.deepEqual(rest, ["env", "-u", "XDG_RUNTIME_DIR", "-u", "DBUS_SESSION_BUS_ADDRESS", "prlimit", "--fsize=4294967296:4294967296", "--", "/bin/sh", "-c", START_GATE, "den-gate", "bwrap", "--dev-bind", "/", "/", "--unshare-pid", "--proc", "/proc", "--ro-bind", "/sys/fs/cgroup", "/sys/fs/cgroup", "--die-with-parent", "--", "claude", "-p", "--agent", "scout"]);
   });
 
   test("the gate runs the command only on the launcher's word: a closed pipe or another word ends it with the refusal code", async () => {
@@ -295,6 +295,15 @@ echo done`);
     assert.deepEqual(await run.exit, { code: 0, signal: null });
     assert.equal(run.out, "done\n");
     assert.equal(value(run.group, "memory.max"), String(TEST_LIMITS.classes.worker.memoryMiB * MIB));
+    run.group.kill();
+  });
+
+  test("the probe's own script finds nothing loosened: remounts, a new cgroup2 mount, the slice's files and /proc/<pid>/root included", async () => {
+    const bus = findUserBus(process.env).env;
+    const addr = bus.DBUS_SESSION_BUS_ADDRESS.replace(/^unix:path=/, "");
+    const run = await start(`set -- ${addr}\n${PROBE_SCRIPT}`);
+    assert.deepEqual(await run.exit, { code: 0, signal: null });
+    assert.match(run.out, /^contained$/m);
     run.group.kill();
   });
 
