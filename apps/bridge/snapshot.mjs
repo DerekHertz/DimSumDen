@@ -1,5 +1,6 @@
 // Snapshot builder for the bridge (ADR 0011 decision 3). Reads a .scratch/ tree
 // and returns the GET /state payload. Read-only: no Board write paths.
+import { newerUsage } from "./usage-reading.mjs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { parsePriority, orderFrontier } from "../organism-infra/priority.mjs";
@@ -99,7 +100,7 @@ async function newestHandoff(scratch, feature, nn) {
   };
 }
 
-export async function buildSnapshot(root, seq = 0) {
+export async function buildSnapshot(root, seq = 0, { readUsage = () => null } = {}) {
   const scratch = path.join(root, ".scratch");
   const [events, usageRows, requestRows] = await Promise.all([
     readJsonl(path.join(scratch, "events.jsonl")),
@@ -227,6 +228,8 @@ export async function buildSnapshot(root, seq = 0) {
       usage = { fiveHour: r.five_hour, weekly: r.weekly ?? null, sampledAt: r.ts ?? null };
     }
   }
+  // Friction F19: the plan-usage cache, when it is newer than the last row (usage-reading.mjs).
+  usage = newerUsage(usage, readUsage());
 
   return {
     schema: 1,
