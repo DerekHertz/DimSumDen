@@ -34,7 +34,8 @@ const metricsOk = () => ({
 const usageAt = (fiveHour, weekly) => ({ fiveHour, weekly, sampledAt: new Date(Date.now() - 12 * 60_000).toISOString() });
 
 // ci-cd/07: one browser and dev server, scenarios in parallel (each opens its own context).
-describe("tally expand", { concurrency: 3 }, () => {
+// Two at a time with 20 s per action: since the village (#256), three software-GL pages on a CI runner timed out at random.
+describe("tally expand", { concurrency: 2 }, () => {
 let server;
 let browser;
 let base;
@@ -83,7 +84,7 @@ async function openApp({ usage = usageAt(79, 41), metrics = metricsOk(), metrics
     metricsStatus === 200 ? r.fulfill({ json: metrics }) : r.fulfill({ status: metricsStatus, body: "boom" }));
   await page.goto(base);
   await page.locator(PILL).waitFor({ state: "visible", timeout: 30000 });
-  page.setDefaultTimeout(8000);
+  page.setDefaultTimeout(20000);
   return { page, context, errors, pill: page.locator(PILL), scene: page.locator('main[aria-label="Den scene"]') };
 }
 
