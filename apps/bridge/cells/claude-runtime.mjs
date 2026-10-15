@@ -10,6 +10,7 @@ import {
   MAX_LINE_BYTES, buildClaudeArgs, mcpConfigWithTokens, buildClaudeEnv, compileCeiling, createLineSplitter, decodeControlRequest, encodeControlResponse, encodeUserMessage, isTicketFilePath, isWorktreePath,
   parseClaudeLine, CREDENTIAL_PATHS, webRefusal,
 } from "./claude-adapter.mjs";
+import { snapshotPlaceholders, sweepPlaceholders } from "./placeholders.mjs";
 import { UUID_RE, slotClassOf } from "./policy.mjs";
 import { EnforcementError, createResourceLauncher, watchStorage } from "./resource-group.mjs";
 
@@ -114,6 +115,7 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
       };
       const args = buildClaudeArgs({ sessionId, ...(resume === true ? { resume: true } : {}), agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}), ...(ceiling ?? {}), ...(Array.isArray(usable) && usable.length > 0 ? { connections: usable } : {}), ...(mcpConfigFile === undefined ? {} : { mcpConfigFile }) });
       const bin = typeof env.DEN_CLAUDE_BIN === "string" && env.DEN_CLAUDE_BIN !== "" ? env.DEN_CLAUDE_BIN : "claude";
+      const placeholders = await snapshotPlaceholders({ mainGit, worktree: isWorktreePath(cwd) ? cwd : undefined });
       // The child is inside its resource group, limits read back, before this resolves; a host that cannot do that starts nothing.
       let launched;
       try {
@@ -216,6 +218,7 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
           limitHit ??= group?.exhausted() ?? null;
           killAll(); // the leader is gone: reap any descendant left behind
           if (group && !(await group.settled(GROUP_SETTLE_MS))) console.error(`bridge: processes are still in ${group.unit} after its kill`);
+          await sweepPlaceholders(placeholders); // den-mvp/28
           resolve({ code, signal, ...(limitHit === null ? {} : { resourceLimit: limitHit }) });
         });
       });
