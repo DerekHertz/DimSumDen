@@ -15,7 +15,8 @@ export function readVerdict(report) {
 export const WORK_TIPS =
   "Run every check in the foreground under `timeout` (a command may take up to 10 minutes), never in the background: you have no tool to wait for a background run, and `sleep` before a command is blocked. " +
   "Put a throwaway script under .den/ in this worktree (git ignores it), not in $TMPDIR: Node finds the repository's packages only from inside the worktree. " +
-  "Stage files by name (`git add <paths>`), never `git add -A` or `git add .`: the sandbox leaves placeholder files such as .bash_profile that git cannot add. ";
+  "Stage files by name (`git add <paths>`), never `git add -A` or `git add .`: the sandbox leaves placeholder files such as .bash_profile that git cannot add. " +
+  "`gh` has no login behind the wall: read pull requests, checks and CI job logs with the GitHub connection's tools (mcp__github__*) when your role has them. ";
 
 const SHARED =
   "The den's bridge runs this delivery: it has claimed the ticket for you, and it will write your handoff to the board and release the ticket when you end. " +

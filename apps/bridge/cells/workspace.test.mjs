@@ -172,3 +172,44 @@ describe("createWorkspaces", () => {
     assert.equal(await exists(path.join(fx.root, ".claude", "worktrees", "den-fx-02-ready-p0-01234567")), false);
   });
 });
+
+// Bao's desk reopens one worktree for every message, so without this it would read the repository (its own role file
+// included) as it was at the desk's first run: GitHub's tools stayed hidden after the role file named them on main.
+describe("reopen with catchUp (Bao's desk)", () => {
+  const ID2 = "c-fedcba9876543210";
+  const commitIn = async (dir, name) => {
+    await writeFile(path.join(dir, name), `${name}\n`);
+    await git(dir, "add", name);
+    await git(dir, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", name);
+  };
+  test("a clean worktree behind the root's HEAD moves up to it, and base is the new HEAD", async () => {
+    const { createWorkspaces } = await load();
+    const fx = await fixture({ git: true });
+    const ws = createWorkspaces(fx.root);
+    const made = await ws.create({ ref: REF, agentId: ID });
+    await commitIn(fx.root, "later.txt");
+    const head = (await git(fx.root, "rev-parse", "HEAD")).trim();
+    const again = await ws.reopen({ ref: REF, agentId: ID2, origin: ID, catchUp: true });
+    assert.equal(again.dir, made.dir);
+    assert.equal((await git(made.dir, "rev-parse", "HEAD")).trim(), head);
+    assert.equal(again.base, head);
+    const plain = await ws.reopen({ ref: REF, agentId: ID2, origin: ID });
+    assert.equal(plain.base, head, "without catchUp nothing moves");
+  });
+  test("a worktree with its own change or its own commit stays where it is", async () => {
+    const { createWorkspaces } = await load();
+    const fx = await fixture({ git: true });
+    const ws = createWorkspaces(fx.root);
+    await commitIn(fx.root, "base.txt");
+    const made = await ws.create({ ref: REF, agentId: ID });
+    await commitIn(fx.root, "later.txt");
+    const start = (await git(made.dir, "rev-parse", "HEAD")).trim();
+    const tracked = "base.txt";
+    await writeFile(path.join(made.dir, tracked), "edited\n");
+    assert.equal((await ws.reopen({ ref: REF, agentId: ID2, origin: ID, catchUp: true })).base, start, "an edit keeps it");
+    await git(made.dir, "checkout", "-q", "--", tracked);
+    await commitIn(made.dir, "mine.txt");
+    const own = (await git(made.dir, "rev-parse", "HEAD")).trim();
+    assert.equal((await ws.reopen({ ref: REF, agentId: ID2, origin: ID, catchUp: true })).base, own, "its own commit keeps it");
+  });
+});
