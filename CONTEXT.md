@@ -8,6 +8,18 @@ Formerly Agent Office. A personal control room for observing and steering AI age
 One project (one git repo) and every cell working on it.
 _Avoid_: Office, workspace, swarm
 
+**Control project**:
+This repo: the den's bridge code, role files, governance and policy. It is never taken from a working directory or a client.
+_Avoid_: Home repo, host repo
+
+**Target project**:
+A repo the den works on: its source, worktrees and board. The den itself is one; the first other is `safety-aware-route-planner`. Its `.claude/` and `CLAUDE.md` are never loaded; its docs are read as project knowledge (ADR 0021 Amendment 4).
+_Avoid_: Client repo, workspace
+
+**Active project**:
+The one target project the den works on now, chosen with the project picker in the den. A switch is refused while runs are active.
+_Avoid_: Current repo, selected workspace
+
 **Station**:
 A group of cell types that owns one SDLC outcome, drawn as a place on Bao: the Pass (orchestrator, product, architect), Steamers (developer, scout), Tea & Pantry (qa, security), Front of House (designer), Service, Meter, Recipe book, Order rail. See the table in `design-brief.md` §4.2.
 _Avoid_: Organ (the old name, renamed in organism-infra/53), team, department, squad
