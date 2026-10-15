@@ -137,6 +137,30 @@ The baseline is computed once, at go-live, and frozen in the row, so later rows 
   - jev-1.14.0 needs a 0.9 floor: it decides 44% and is right on all of them.
 - **Next, if kept:** run it in shadow inside the den's CI watch on new failures, which form the held-out check. Then let a `flake` pick at or above the floor take the timeout re-run path.
 
+### claim-check (eval run 2026-10-15; failed the bar)
+
+- **Question:** does this developer handoff show that this one acceptance criterion is met: `met | not-met | unclear`. It is in `scripts/jev.mjs` (point `claim-check`, state from `claimCheckState`).
+- **Sent to TypeSafe:** one criterion, the ticket title and one developer handoff, with home paths scrubbed. This is allowed for the eval only, under ADR 0010 Amendment 2: security passed it, and the user said "Send, eval sets only".
+- **Eval:** 64 (criterion, handoff) pairs from 18 bridge-written handoffs: 36 not-met, 21 met and 7 unclear. Each is labelled from what the handoff shows, cross-checked with qa's verdict and CI. The set includes the den-mvp/22 and 25 handoffs, which qa passed but whose `npm test` then failed on CI. The cases and reports are on the private board under `.scratch/den-mvp/evals/claim-check/`.
+- **Result:** 68.8% accuracy on jev-1.13.0 and 71.6% on jev-1.14.0, each over 5 runs. The bar is 85%.
+  - No overclaim got through at a 0.7 floor on 1.13 or a 0.8 floor on 1.14.
+  - Jev is strict to a fault: 11 of the 21 met criteria were called not-met in every run. It almost never answers `unclear`.
+  - Some met labels are lenient on criteria with several parts, so part of that strictness may be fair. The set was not relabelled after the results were seen.
+- **Verdict:** the user's. As an escalate-only check it would send about half of the good work back for a full verify.
+
+### grade (eval run 2026-10-15; failed the bar)
+
+- **Question:** score a developer handoff from 0 to 5 on one rubric item. Five items: what changed, the checks run, what is not done, no claim without evidence, and what the next reader must do. Jev's score is the probability-weighted mean of its answer.
+- **Eval:** 25 handoffs, each with 5 hand scores, which Claude wrote standing in for the user. The cases are on the private board under `.scratch/den-mvp/evals/grade/`.
+- **Result** (5 runs per model):
+
+  | | within one point (bar 80%) | Spearman on totals (bar 0.7) |
+  |---|---|---|
+  | jev-1.13.0 | 83.7% (passes) | 0.58 |
+  | jev-1.14.0 | 79.8% | 0.57 |
+
+  Jev scores lower than the hand scores by 0.2 to 0.4 points on average. Item by item it is close, but it does not rank whole handoffs the way the hand scores do.
+
 ## Parked (not tracked until someone files them)
 
 Security second opinion (ticket 75), the partial-return check and compaction filtering (ticket 76) stay parked (user, 2026-10-04).

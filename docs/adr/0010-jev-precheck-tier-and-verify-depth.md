@@ -89,3 +89,15 @@
 - **Replaces decision 3's "default of `--mode` is shadow, so going live is a reviewed code diff".** The code default stays `shadow`, but the mode of each use case comes from its latest `config` row in `usage.jsonl` (`mode: live|shadow|advisory|off`), so a keep, kill or rollback is an appended row, not a code change. `decide` already receives `usageRows`, so the seam is unchanged: the mode is resolved from rows passed in.
 - **Unchanged:** decision 1's "not Jev's" list except as ADR 0015 changed it; decision 5's row shape (a `live` row gets no new fields; the config row is new); decision 6 (cap $0.50); decision 8's override mechanism; decision 9 (Data exposure: ticket text and test output only; a use that sends handoff text or a diff needs `security` review 42 first, see ADR 0015 Amendment 2).
 - **Conflicts.** Listed once, with how the user settled each on 2026-10-07, at the end of ADR 0015 Amendment 2 (C1 to C7).
+
+**Amendment 2 (2026-10-15, den-mvp/41 and 42, security review on den-mvp/41): developer handoff text may be sent to TypeSafe for the `claim-check` and `grade` evals only.** Decision 9 kept handoffs from TypeSafe until a security review. The user chose a review first, and security passed it with the conditions below. The isolated-eval rule (`docs/jev-usecases.md`) means proving each use on a labelled set before the den calls it.
+- **What may be sent:**
+  - for `claim-check`: one acceptance criterion, the ticket's title and one developer handoff;
+  - for `grade`: one developer handoff, with one rubric item as the question.
+- **How it is built:** each case is built by `scripts/jev-evals/<use>/build-cases.mjs` from cases on the private board (`.scratch/den-mvp/evals/`). Home paths are scrubbed (`scrubHome`).
+- **Limits that still apply:** the `hasSecret` block, and the 16k cap.
+- **Never sent:** the evidence and labels, diffs, transcripts, other board files or other handoffs.
+- **Retention and training:** only secondary sources describe TypeSafe's terms: no training on customer data, zero retention for enterprise only, and a DPA that names no retention period. Shown those, the user chose on 2026-10-15 to send these eval sets: "Send, eval sets only".
+- **Scope:** eval only. A live use in the den, which sends a handoff during a relay, needs its own review and amendment. A case added later is re-scanned before it is sent.
+- **Board deny list:** `DENIED_PATHS` still lists board handoffs, and the narrow exception is these prebuilt eval sets only.
+- **Untrusted text:** handoff text is untrusted agent output. The call returns one fixed label, so injected text can only skew a label, which the eval measures.

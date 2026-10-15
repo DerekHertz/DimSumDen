@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { parseCases, renderReport, runEval, score, verdict } from "./jev-eval.mjs";
-import { areasOf, triageState } from "./jev.mjs";
+import { expectedScore, parseCases, renderReport, runEval, score, spearman, verdict } from "./jev-eval.mjs";
+import { areasOf, claimCheckState, triageState } from "./jev.mjs";
 
 const KEY = "fake-key";
 const caseOf = (id, label, text = `job: test\nfailing tests: ${id}`) => ({ id, label, text });
@@ -163,4 +163,47 @@ test("the CLI refuses an unknown use case, a model outside the two, and a missin
   const r = run(["triage", "--model", "jev-1.13.0"]);
   assert.equal(r.status, 2);
   assert.match(r.stderr, /TYPESAFE_API_KEY is not set/);
+});
+
+test("claim-check: an overclaim (not-met called met) is its safety miss; unclear is a label, not a miss", async () => {
+  const cases = [caseOf("a", "not-met"), caseOf("b", "met"), caseOf("c", "unclear"), caseOf("d", "not-met")];
+  const results = await runEval({ usecase: "claim-check", cases, model: "jev-1.13.0", apiKey: KEY, clock,
+    transport: fake({ a: ["met", 0.85], b: ["met", 0.9], c: ["not-met", 0.7], d: ["unclear", 0.6] }) });
+  const s = score("claim-check", results);
+  assert.deepEqual(s.misses, [{ id: "a", conf: 0.85 }]);
+  assert.equal(s.safeFloor, 0.9);
+  assert.equal(s.confusion["not-met"].unclear, 1);
+});
+
+test("claimCheckState: the criterion, the ticket title and the handoff, capped at 16k from the front", () => {
+  const s = claimCheckState({ criterion: " A test pins it. ", title: "# 28: Lock", handoff: "## Report\nDone." });
+  assert.equal(s, "criterion: A test pins it.\n\n--- ticket ---\n# 28: Lock\n\n--- handoff ---\n## Report\nDone.");
+  const long = claimCheckState({ criterion: "c", title: "t", handoff: "x".repeat(20000) });
+  assert.equal(long.length, 16000);
+  assert.ok(long.startsWith("criterion: c"));
+  const home = claimCheckState({ criterion: "c", title: "t", handoff: "rm /home/someone/repo/.git/config.lock and /Users/x/y" });
+  assert.ok(!/someone|\/Users\/x/.test(home) && home.includes("/home/<user>/repo/.git/config.lock"));
+});
+
+
+test("grade: the score is the probability-weighted mean; within one point and Spearman on totals are the measures", async () => {
+  assert.equal(expectedScore({ 4: 0.5, 5: 0.5 }), 4.5);
+  assert.equal(expectedScore({ other: 1 }), null);
+  assert.equal(spearman([1, 2, 3, 4], [10, 20, 30, 40]), 1);
+  assert.equal(spearman([1, 2, 3, 4], [4, 3, 2, 1]), -1);
+  const calls = [];
+  const cases = ["h1", "h2", "h3"].flatMap((h, i) => ["a", "b"].map((it) => ({ id: `${h}:${it}`, group: h, label: String(i + 2), instructions: `item ${it}`, text: `handoff ${h}` })));
+  const transport = async (req) => {
+    calls.push(req);
+    const n = Number(req.text.slice(-1)) + 1; // h1 -> 2, h2 -> 3, h3 -> 4: the hand score, so all within one
+    return { pick: String(n), probs: { [String(n)]: 0.8, [String(n + 1)]: 0.2 }, usage: { tokens: 10, cost: 1e-6 } };
+  };
+  const results = await runEval({ usecase: "grade", cases, model: "jev-1.13.0", apiKey: KEY, clock, transport });
+  assert.deepEqual([...new Set(calls.map((c) => c.instructions))], ["item a", "item b"]);
+  const s = score("grade", results);
+  assert.equal(s.within1, 1);
+  assert.equal(s.spearman, 1);
+  assert.ok(Math.abs(s.meanError - 0.2) < 1e-9);
+  assert.equal(verdict("grade", s).pass, true);
+  assert.match(renderReport({ usecase: "grade", model: "jev-1.13.0", date: "2026-10-15", s, results }), /\| h3 \| 8 \| 8\.4 \|/);
 });
