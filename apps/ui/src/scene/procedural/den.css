@@ -112,6 +112,18 @@
 .thread-reason-none { color:var(--ink-muted); font-style:italic; }
 .thread-intent, .thread-hint { margin-top:var(--space-1); font-size:12px; line-height:16px; color:var(--ink-muted); }
 .thread-hint { text-align:right; }
+/* den-mvp/37: an agent's question, answered in the thread */
+.question-set { border:0; padding:0; margin:var(--space-2) 0 0; min-width:0; }
+.question-set legend { padding:0; font:600 14px/20px var(--font-sans); color:var(--ink); }
+.question-header { display:inline-block; margin-right:var(--space-2); padding:0 var(--space-1); border:1px solid var(--line-strong); border-radius:var(--radius-s); font:600 11px/16px var(--font-sans); color:var(--ink-muted); vertical-align:1px; }
+.question-hint { font-weight:400; color:var(--ink-muted); }
+.question-options { display:flex; flex-direction:column; gap:var(--space-1); margin-top:var(--space-2); }
+.question-option { display:flex; flex-direction:column; align-items:flex-start; gap:2px; width:100%; padding:var(--space-2) var(--space-3); border:1px solid var(--line-strong); border-radius:var(--radius-m); background:transparent; color:var(--ink); text-align:left; font:14px/20px var(--font-sans); cursor:pointer; }
+.question-option[aria-pressed="true"] { border-color:var(--qi-fill); box-shadow:inset 0 0 0 1px var(--qi-fill); }
+.question-option:disabled { opacity:0.5; cursor:not-allowed; }
+.question-label { font-weight:600; }
+.question-description { font-size:12px; line-height:16px; color:var(--ink-muted); }
+.question-other { min-height:32px; padding:0 var(--space-2); border:1px solid var(--line-strong); border-radius:var(--radius-m); background:transparent; color:var(--ink); font:14px/20px var(--font-sans); }
 .thread-details { margin-top:var(--space-2); font-size:12px; }
 .thread-details summary { cursor:pointer; font-weight:600; }
 .thread-earlier { margin:0 0 var(--space-3); text-align:center; }
