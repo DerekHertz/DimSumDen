@@ -117,6 +117,33 @@ const POINTS = {
       other: "Not caused by the commit and not cleared by a rerun (such as a new dependency advisory), or cannot tell",
     },
   },
+  // den-mvp/41: does a handoff show one acceptance criterion is met? Eval only until security review and ADR 0010
+  // Amendment 3 allow handoff text for this use (claimCheckState builds the text).
+  "claim-check": {
+    labels: ["met", "not-met", "unclear"],
+    fallback: "orchestrator",
+    instructions:
+      "Does this handoff show that this one acceptance criterion is met? Pick met only when the handoff gives evidence for it: a named test that covers it and passed, a command run with its result, or a recorded measurement. Pick not-met when the handoff shows it missing, partly done or untested, or claims it with no evidence. Pick unclear when only a person can judge it, such as a live run on another host.",
+    criteria: {
+      met: "The handoff gives evidence that this criterion holds",
+      "not-met": "Missing, partly done, untested, or claimed without evidence",
+      unclear: "Only a person can judge it from here",
+    },
+  },
+  // den-mvp/42: one rubric item per call; the caller passes the item as the question's instructions (gradeInstructions).
+  grade: {
+    labels: ["0", "1", "2", "3", "4", "5"],
+    fallback: "orchestrator",
+    instructions: "Score this developer handoff on the rubric item, 0 to 5.",
+    criteria: {
+      0: "Absent: the handoff does not do this at all",
+      1: "Barely: one vague mention",
+      2: "Weak: partly, with large gaps",
+      3: "Adequate: mostly, with some gaps",
+      4: "Good: clearly, with small gaps",
+      5: "Fully: clearly and completely",
+    },
+  },
   scope: {
     labels: ["small", "medium", "large", "other"],
     fallback: "orchestrator",
@@ -209,7 +236,17 @@ export function triageState({ job, log, changed, history }) {
   return text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) : text;
 }
 
-export async function fetchTransport({ point, text, model, apiKey, signal, labels }) {
+// den-mvp/41: what claim-check sends: one criterion, the ticket's title, and the developer's handoff, capped at 16k.
+// A home path names the user; security review den-mvp/41 asks for it to be scrubbed before anything is sent.
+export const scrubHome = (t) => String(t ?? "").replace(/\/(home|Users)\/[^/\s`'"]+/g, "/home/<user>");
+export const gradeInstructions = (item) => `Score this developer handoff on one rubric item, from 0 (absent) to 5 (fully met). The item: ${item}`;
+
+export function claimCheckState({ criterion, title, handoff }) {
+  const text = scrubHome(`criterion: ${String(criterion ?? "").trim()}\n\n--- ticket ---\n${String(title ?? "").trim()}\n\n--- handoff ---\n${String(handoff ?? "").trim()}`);
+  return text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) : text;
+}
+
+export async function fetchTransport({ point, text, model, apiKey, signal, labels, instructions }) {
   const p = POINTS[point];
   const criteria = labels
     ? Object.fromEntries(Object.entries(p.criteria).filter(([l]) => labels.includes(l)))
@@ -221,7 +258,7 @@ export async function fetchTransport({ point, text, model, apiKey, signal, label
     body: JSON.stringify({
       state: text,
       model,
-      questions: { [point]: { type: "choice", instructions: p.instructions, criteria } },
+      questions: { [point]: { type: "choice", instructions: instructions ?? p.instructions, criteria } },
     }),
   });
   if (!res.ok) {
