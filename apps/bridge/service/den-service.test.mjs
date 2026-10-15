@@ -179,6 +179,22 @@ describe("den:install and den:update", () => {
     assert.deepEqual(sysCalls, ["show-environment", "restart den.service"]);
   });
 
+  test("update refuses when the checkout's own build code is behind main, and changes nothing (friction F15)", async () => {
+    await den().install();
+    await mkdir(path.join(origin, "apps", "bridge", "build"), { recursive: true });
+    await writeFile(path.join(origin, "apps", "bridge", "build", "box.mjs"), "// new wrapper\n");
+    git(origin, "add", "-A");
+    git(origin, "commit", "-q", "-m", "box change");
+    const boxesBefore = boxCalls.length;
+    sysCalls.length = 0;
+    await assert.rejects(den().update(), /apps\/bridge\/build\/box\.mjs.*git pull --ff-only/);
+    assert.equal(boxCalls.length, boxesBefore, "no release was built");
+    assert.deepEqual(sysCalls, ["show-environment"], "nothing was restarted");
+    git(checkout, "pull", "-q", "--ff-only");
+    await den().update();
+    assert.equal(link("bridge", "current"), `../releases/${git(origin, "rev-parse", "HEAD").slice(0, 12)}`);
+  });
+
   test("update with nothing new does not restart the service", async () => {
     await den().install();
     sysCalls.length = 0;
