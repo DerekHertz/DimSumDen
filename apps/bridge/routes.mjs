@@ -3,6 +3,7 @@
 //   auth: "none"   a read; no Origin or token needed (GET only)
 //         "origin" Origin and Content-Type checked, no Bearer (POST /session: this is how a token is obtained)
 //         "token"  Origin, Content-Type and a valid session token
+//         "run"    Origin, Content-Type and the token of a live run (den-mvp/38: the den script calling back for Bao)
 // A request that matches no row is a 404 (GET and HEAD fall through to the static UI build).
 export const ROUTES = [
   { method: "GET", path: "/state", auth: "none", mutating: false },
@@ -33,6 +34,7 @@ export const ROUTES = [
   { method: "POST", path: "/meetings/:id/decide", auth: "token", mutating: true },
   { method: "POST", path: "/meetings/:id/ask", auth: "token", mutating: true },
   { method: "POST", path: "/build/rollback", auth: "token", mutating: true },
+  { method: "POST", path: "/den-tools/:tool", auth: "run", mutating: true },
   { method: "GET", path: "/recover", auth: "none", mutating: false },
   { method: "GET", path: "/recover/script", auth: "none", mutating: false },
 ];

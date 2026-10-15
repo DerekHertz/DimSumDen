@@ -48,6 +48,22 @@
         "list_branches": "read",
         "search_code": "read"
       }
+    },
+    {
+      "name": "den",
+      "title": "The den",
+      "purpose": "Bao's hands on the den: resolve, comment on and file tickets, and start a delivery the user asked for.",
+      "script": "apps/bridge/library/servers/den.mjs",
+      "credential": "run",
+      "roles": [
+        "orchestrator"
+      ],
+      "tools": {
+        "board_resolve": "board",
+        "board_comment": "board",
+        "board_file": "change",
+        "start_delivery": "change"
+      }
     }
   ]
 }

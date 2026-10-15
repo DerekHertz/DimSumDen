@@ -3,7 +3,7 @@
 // SSE, /metrics, POST /requests and static files arrive in tickets 05 and 06.
 import http from "node:http";
 import { fileURLToPath } from "node:url";
-import { realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -20,7 +20,8 @@ import { createMeetingStore } from "./meetings/store.mjs";
 import { createMeetingLog } from "./meetings/log.mjs";
 import { TOPIC_MAX_BYTES } from "./meetings/types.mjs";
 import { DEN_FEATURE, DESK_REF, TASK_MAX_BYTES } from "./cells/policy.mjs";
-import { createTicket } from "../organism-infra/board-service.mjs";
+import { BoardError, comment, createTicket, resolve, resolveShortRef } from "../organism-infra/board-service.mjs";
+import { cleanText } from "./cells/approvals.mjs";
 import { hasSecret } from "../../scripts/exposure.mjs";
 import { REQUEST_KINDS, appendRequestLine } from "./requests-log.mjs";
 import { createHub } from "./watch.mjs";
@@ -135,6 +136,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   host = createHost({
     root,
     runtime,
+    bridgeUrl: () => `http://127.0.0.1:${actualPort}`,
     policy,
     library,
     onChange: (change) => hub.publish(change),
@@ -218,6 +220,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     if (!handler) return reply(res, 404, { error: "not found" });
     await handler(req, res);
   }
+  const bearerOf = (req) => /^Bearer ([A-Za-z0-9_-]{1,512})$/.exec(req.headers.authorization ?? "")?.[1] ?? null;
   // Gate order: Origin and Content-Type (403), then the session token (401). All before the body is read, so an
   // unauthenticated caller learns nothing about ids or validation.
   function passesGate(req, res, route) {
@@ -229,6 +232,10 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     }
     if (req.method !== "GET" && !/^application\/json\s*(;|$)/i.test(req.headers["content-type"] ?? "")) {
       reply(res, 403, { error: "content-type must be application/json" });
+      return false;
+    }
+    if (route.auth === "run" && !host.runAgent(bearerOf(req))) {
+      reply(res, 401, { error: "unauthorized" });
       return false;
     }
     if (route.auth === "token" && !auth.verify(req.headers.authorization)) {
@@ -286,6 +293,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     "POST /meetings/:id/decide": (req, res) => steerMeeting(req, res, "decide"),
     "POST /meetings/:id/ask": (req, res) => steerMeeting(req, res, "ask"),
     "POST /build/rollback": (req, res) => rollBack(req, res),
+    "POST /den-tools/:tool": (req, res) => denTool(req, res),
     // The recovery page is the bridge's own code, not a file of the UI build.
     "GET /recover": (req, res) => sendOwn(res, "text/html; charset=utf-8", RECOVER_HTML),
     "GET /recover/script": (req, res) => sendOwn(res, "text/javascript; charset=utf-8", RECOVER_SCRIPT),
@@ -437,6 +445,68 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     const result = await host.converse(role, { text: body.text, ...(body.runId === undefined ? {} : { runId: body.runId }) });
     if (!result.ok) return reply(res, result.status, { error: result.error });
     reply(res, result.status, { ok: true, runId: result.runId, messageId: result.messageId, resumed: result.resumed, ...(result.agent ? { agent: result.agent } : {}), ...(result.usageUnknown ? { usageUnknown: true } : {}) });
+  }
+  // POST /den-tools/:tool (den-mvp/38): the den script, for the run whose token it holds. The bridge does the work with its
+  // own board and git-host rights; the run's role must be one the catalog gives the den connection. board_resolve checks
+  // the pull request merged; board_file and start_delivery go ahead only on the user's own allow of that exact call.
+  async function denTool(req, res) {
+    const agent = host.runAgent(bearerOf(req));
+    if (!agent) return reply(res, 401, { error: "unauthorized" });
+    const tool = new URL(req.url, "http://x").pathname.split("/")[2];
+    const verdict = library.decide(agent.role, `mcp__den__${tool}`, {});
+    if (!verdict || verdict.kind === "refuse") return reply(res, 403, { error: "the den's catalog does not give this run that tool" });
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    const done = (text) => reply(res, 200, { text });
+    const refused = (status, error) => reply(res, status, { error });
+    const fullRef = (ref) => {
+      if (typeof ref !== "string" || !ref) throw new BoardError("ref must be a ticket ref such as den-mvp/02");
+      return resolveShortRef(root, ref);
+    };
+    const allowed = (match) => host.takeAllowed(agent.id, `mcp__den__${tool}`, match);
+    try {
+      if (tool === "board_resolve") {
+        const ref = fullRef(body.ref);
+        if (!Number.isInteger(body.pr) || body.pr < 1 || body.pr > 9_999_999) return refused(400, "pr must be the number of the merged pull request");
+        try {
+          await git.mergeCommit({ number: body.pr });
+        } catch {
+          return refused(409, `pull request #${body.pr} is not merged, so ${ref} was not resolved`);
+        }
+        await resolve(root, [ref], { pr: String(body.pr), note: "resolved by Bao from the desk" });
+        return done(`resolved ${ref} (PR #${body.pr})`);
+      }
+      if (tool === "board_comment") {
+        const ref = fullRef(body.ref);
+        if (typeof body.text !== "string" || !body.text.trim()) return refused(400, "text must be the comment");
+        if (hasSecret(body.text)) return refused(400, "text looks like it holds a secret; nothing was written");
+        await comment(root, ref, body.text.trim(), { as: agent.role });
+        return done(`commented on ${ref}`);
+      }
+      if (tool === "board_file") {
+        const { feature = DEN_FEATURE, title, text, priority = "P2" } = body;
+        if (typeof feature !== "string" || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(feature) || !existsSync(path.join(root, ".scratch", feature, "issues"))) return refused(400, "feature must be a board feature that has an issues folder");
+        if (typeof title !== "string" || !title.trim() || typeof text !== "string" || !text.trim()) return refused(400, "title and text must be given");
+        if (!["P0", "P1", "P2", "P3"].includes(priority)) return refused(400, "priority must be P0 to P3");
+        if (Buffer.byteLength(text) > TASK_MAX_BYTES) return refused(400, `text must be at most ${TASK_MAX_BYTES} bytes`);
+        if (hasSecret(text) || hasSecret(title)) return refused(400, "text looks like it holds a secret; nothing was written");
+        if (!allowed((input) => input.title === cleanText(title) && input.text === cleanText(text))) return refused(403, "the user has not allowed filing this ticket");
+        const { ref } = await createTicket(root, { feature, slug: "proposed", title: title.trim(), text, priority, source: "den desk", status: "ready-for-human" });
+        return done(`filed ${ref} at ready-for-human`);
+      }
+      if (tool === "start_delivery") {
+        const ref = fullRef(body.ref);
+        if (!allowed((input) => input.ref === cleanText(body.ref))) return refused(403, "the user has not allowed starting this delivery");
+        const result = await delivery.start({ ref });
+        if (!result.ok) return refused(result.status, result.error);
+        return done(`started the delivery of ${ref} (${result.delivery.id})`);
+      }
+      return refused(404, "no such den tool");
+    } catch (err) {
+      if (err instanceof BoardError) return refused(400, err.message);
+      console.error(`bridge: den tool ${tool} failed: ${err?.stack ?? err}`);
+      return refused(500, "the bridge could not do that");
+    }
   }
   // POST /deliveries (den-mvp outcome 3): the user's approval of a ticket's delivery. Only `ref`, or `title` and `text`, are
   // read. With a ref, that ticket is delivered. With text, the board service writes a ticket for it first (the same one
