@@ -14,8 +14,9 @@
 // The recorded settings (ADR 0021 amendment 1, and the spike's finding that Write in the worktree still asks):
 //   - sandbox: the wall block with an EMPTY host list, for every role with a ceiling (no role has a host yet)
 //   - permissions.deny: the four deny rules stay, so git push and gh pr create are still refused with the wall on
-//   - permissions.allow: Write and Edit inside the worktree for the roles that write (developer, qa, security);
-//     none for scout. Rules use the adapter's absolute-path form, the same as the ticket Read rule: `Write(/${worktree}/**)`.
+//   - permissions.allow: Bash for every role with the wall on (den-mvp/27: every shell command is sandboxed and an
+//     unsandboxed one is refused, so a Bash request protects nothing; the deny rules and the sandbox do the refusing),
+//     plus Write and Edit inside the worktree for the roles that write (developer, qa, security); none for scout. Rules use the adapter's absolute-path form, the same as the ticket Read rule: `Write(/${worktree}/**)`.
 //   - a worktree the adapter cannot write as a rule (not plain absolute segments) is a TypeError.
 // Expected values below are hand-written literals, never computed with the code under test.
 import assert from "node:assert/strict";
@@ -76,23 +77,23 @@ describe("compileCeiling: the four ceilings", () => {
   }
 
   for (const role of WRITERS) {
-    test(`${role}: Write and Edit inside the worktree are allowed, and nothing else is`, () => {
+    test(`${role}: Bash, and Write and Edit inside the worktree are allowed, and nothing else is`, () => {
       const settings = settingsOf(argvFor(role));
-      assert.deepEqual(sorted(settings.permissions.allow), sorted([`Write(/${WT}/**)`, `Edit(/${WT}/**)`]));
+      assert.deepEqual(sorted(settings.permissions.allow), sorted(["Bash", `Write(/${WT}/**)`, `Edit(/${WT}/**)`]));
     });
 
     test(`${role}: the ticket Read rule stays beside the worktree rules`, () => {
       const settings = settingsOf(argvFor(role, { ticketFile: TICKET }));
-      assert.deepEqual(sorted(settings.permissions.allow), sorted([`Read(/${TICKET})`, `Write(/${WT}/**)`, `Edit(/${WT}/**)`]));
+      assert.deepEqual(sorted(settings.permissions.allow), sorted(["Bash", `Read(/${TICKET})`, `Write(/${WT}/**)`, `Edit(/${WT}/**)`]));
       assert.deepEqual(noFs(settings.sandbox), noFs(WALL_NO_HOSTS)); // agent-os/02: sandbox.filesystem (governance denyWrite) may now ride along
     });
   }
 
   test("scout: no Write or Edit allow at all (read the project and the web, no write)", () => {
     const withTicket = settingsOf(argvFor("scout", { ticketFile: TICKET }));
-    assert.deepEqual(withTicket.permissions.allow, [`Read(/${TICKET})`]);
+    assert.deepEqual(sorted(withTicket.permissions.allow), ["Bash", `Read(/${TICKET})`]);
     const bare = settingsOf(argvFor("scout"));
-    assert.deepEqual(bare.permissions.allow ?? [], []);
+    assert.deepEqual(bare.permissions.allow, ["Bash"]);
   });
 
   test("no ceiling adds a network host, a wildcard or a broader path than the worktree", () => {
@@ -100,9 +101,23 @@ describe("compileCeiling: the four ceilings", () => {
       const settings = settingsOf(argvFor(role, { ticketFile: TICKET }));
       assert.deepEqual(settings.sandbox.network.allowedDomains, [], role);
       for (const rule of settings.permissions.allow ?? []) {
-        assert.ok(rule === `Read(/${TICKET})` || rule === `Write(/${WT}/**)` || rule === `Edit(/${WT}/**)`, `${role}: unexpected allow ${rule}`);
+        assert.ok(rule === "Bash" || rule === `Read(/${TICKET})` || rule === `Write(/${WT}/**)` || rule === `Edit(/${WT}/**)`, `${role}: unexpected allow ${rule}`);
       }
     }
+  });
+
+  // den-mvp/27 (live probe 2026-10-14, real CLI, haiku): with the wall on, `cd <wt>/sub && cat > f <<'EOF'` and a heredoc into
+  // $TMPDIR still raised a request although autoAllowBashIfSandboxed was set; allowing Bash ended them, while a write outside the
+  // worktree stayed "Read-only file system" and git push and gh pr create stayed denied. Deny rules win over this allow.
+  test("Bash is allowed outright only behind the wall, and every deny rule stays", () => {
+    for (const role of CEILING_ROLES) {
+      const settings = settingsOf(argvFor(role));
+      assert.ok(settings.permissions.allow.includes("Bash"), role);
+      assert.equal(settings.sandbox.allowUnsandboxedCommands, false, role);
+      for (const rule of DENY) assert.ok(settings.permissions.deny.includes(rule), `${role} keeps ${rule}`);
+    }
+    const plain = settingsOf(need("buildClaudeArgs")({ sessionId: SID, agent: "developer" }));
+    assert.ok(!(plain.permissions.allow ?? []).includes("Bash"), "without the wall a shell command stays a request");
   });
 
   test("the argv outside --settings is the plain template: the ceiling touches the settings value only", () => {
@@ -134,7 +149,7 @@ describe("compileCeiling: no role is left without a ceiling (den-mvp outcome 1)"
       assert.equal(settings.sandbox.failIfUnavailable, true, role);
     }
     for (const role of NO_WRITE_ROLES) {
-      assert.deepEqual(settingsOf(argvFor(role, { ticketFile: TICKET })).permissions.allow, [`Read(/${TICKET})`], role);
+      assert.deepEqual(settingsOf(argvFor(role, { ticketFile: TICKET })).permissions.allow, ["Bash", `Read(/${TICKET})`], role);
       assert.throws(() => need("compileCeiling")(role, { worktree: WT, grants: [{ kind: "host", value: "example.com" }] }), TypeError, `${role} takes no grants`);
     }
   });

@@ -32,12 +32,23 @@ const prNumber = (v) => {
   if (!Number.isInteger(v) || v < 1 || v > 999999999) throw new TypeError("git host: not a pull request number");
   return String(v);
 };
+const idOf = (v, what) => {
+  if (typeof v !== "string" || !/^[1-9][0-9]{0,19}$/.test(v)) throw new TypeError(`git host: not a ${what} id`);
+  return v;
+};
 const oneLine = (v, max) => String(v ?? "").replace(/[\u0000-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/g, " ").trim().slice(0, max);
 
 // One check of a pull request, from either shape the git host reports. -> { name, done, ok }
 const checkOf = (raw) => {
   if (raw?.__typename === "StatusContext" || raw?.context !== undefined) return { name: oneLine(raw.context, 100), done: raw.state !== "PENDING" && raw.state !== "EXPECTED", ok: raw.state === "SUCCESS" };
   return { name: oneLine(raw?.name, 100), done: raw?.status === "COMPLETED", ok: raw?.status === "COMPLETED" && PASSED.includes(raw?.conclusion) };
+};
+
+// den-mvp/29: a check of an open pull request with what the CI watch needs: its job and run ids (from its Actions link)
+// and whether it was cancelled (a timeout is a cancel; the job's annotations say which). -> { name, done, ok, cancelled, jobId, runId }
+const watchedCheckOf = (raw) => {
+  const link = /\/actions\/runs\/([0-9]{1,20})\/job\/([0-9]{1,20})/.exec(String(raw?.detailsUrl ?? ""));
+  return { ...checkOf(raw), cancelled: raw?.conclusion === "CANCELLED", runId: link?.[1] ?? null, jobId: link?.[2] ?? null };
 };
 
 export function createGitHost(root, { exec = execFileP, remote = "origin", main = "main", riskScript = path.join(root, "scripts", "risk-check.mjs"), env = process.env, waitMs = NO_CHECKS_WAIT_MS } = {}) {
@@ -50,7 +61,7 @@ export function createGitHost(root, { exec = execFileP, remote = "origin", main 
     return {
       number: pr.number, url: oneLine(pr.url, 300), state: ["OPEN", "MERGED", "CLOSED"].includes(pr.state) ? pr.state : "CLOSED",
       sha: COMMIT_RE.test(pr.headRefOid) ? pr.headRefOid : null, mergeable: ["MERGEABLE", "CONFLICTING"].includes(pr.mergeable) ? pr.mergeable : "UNKNOWN",
-      checks: (Array.isArray(pr.statusCheckRollup) ? pr.statusCheckRollup : []).map(checkOf),
+      checks: (Array.isArray(pr.statusCheckRollup) ? pr.statusCheckRollup : []).map(watchedCheckOf),
     };
   };
   return {
@@ -112,7 +123,7 @@ export function createGitHost(root, { exec = execFileP, remote = "origin", main 
     async openPr({ branch, title, body }) {
       await gh("pr", "create", "--head", branchName(branch), "--base", main, "--title", oneLine(title, 200), "--body", String(body).slice(0, 8000));
     },
-    /** -> { number, url, state, sha, mergeable, checks: [{ name, done, ok }] } as the git host reports it now. */
+    /** -> { number, url, state, sha, mergeable, checks: [{ name, done, ok, cancelled, jobId, runId }] } as the git host reports it now. */
     prState: ({ number }) => view(number),
     /** Resolves once the pull request's checks have finished, whatever they showed; prState then says what they showed. */
     async waitChecks({ number }) {
@@ -125,6 +136,29 @@ export function createGitHost(root, { exec = execFileP, remote = "origin", main 
           await new Promise((r) => setTimeout(r, waitMs));
         }
       }
+    },
+    /**
+     * den-mvp/29: every open pull request, from inside the den or not. One call per poll.
+     * -> [{ number, url, title, branch, sha, files: [path], checks: [{ name, done, ok, cancelled, jobId, runId }] }]
+     */
+    async openPrs() {
+      const list = JSON.parse(await gh("pr", "list", "--state", "open", "--limit", "50", "--json", "number,url,title,headRefName,headRefOid,files,statusCheckRollup"));
+      return (Array.isArray(list) ? list : []).filter((p) => Number.isInteger(p?.number) && COMMIT_RE.test(p?.headRefOid ?? "")).map((p) => ({
+        number: p.number, url: oneLine(p.url, 300), title: oneLine(p.title, 200), branch: oneLine(p.headRefName, 200), sha: p.headRefOid,
+        files: (Array.isArray(p.files) ? p.files : []).map((f) => String(f?.path ?? "")).filter(Boolean),
+        checks: (Array.isArray(p.statusCheckRollup) ? p.statusCheckRollup : []).map(watchedCheckOf),
+      }));
+    },
+    /** A job's annotation messages (a timeout says "exceeded the maximum execution time"). */
+    async annotations({ jobId }) {
+      const list = JSON.parse(await gh("api", `repos/{owner}/{repo}/check-runs/${idOf(jobId, "job")}/annotations`));
+      return (Array.isArray(list) ? list : []).map((a) => oneLine(a?.message, 300));
+    },
+    /** The log lines of a job's failed steps. */
+    failedLog: async ({ jobId }) => gh("run", "view", "--job", idOf(jobId, "job"), "--log-failed"),
+    /** Runs a workflow run's failed (and cancelled) jobs again, on the same commit. */
+    async rerunFailed({ runId }) {
+      await gh("run", "rerun", idOf(runId, "run"), "--failed");
     },
     /** The commit a merged pull request left on the main branch. -> a full commit id */
     async mergeCommit({ number }) {

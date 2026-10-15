@@ -8,6 +8,8 @@
   "scripts": {
     "pretest": "npm run check:bom",
     "test": "node scripts/test-lock.mjs node --test \"apps/**/*.test.mjs\" \"packages/**/*.test.mjs\" \"scripts/**/*.test.mjs\"",
+    "test:browser": "node scripts/test-split.mjs browser",
+    "test:rest": "node scripts/test-split.mjs rest",
     "test:path": "node scripts/test-path.mjs",
     "dev": "node apps/ci-cd/dev-server.mjs",
     "smoke": "node apps/ci-cd/smoke.mjs",
@@ -26,7 +28,7 @@
     "den:install": "node apps/bridge/service/den-service.mjs install",
     "den:update": "node apps/bridge/service/den-service.mjs update",
     "ui": "npm run ui:build && npm run bridge",
-    "ui:build": "vite build --config apps/ui/vite.config.mjs",
+    "ui:build": "vite build --config apps/ui/vite.config.mjs --configLoader native",
     "ui:dev": "vite --config apps/ui/vite.config.mjs"
   },
   "devDependencies": {

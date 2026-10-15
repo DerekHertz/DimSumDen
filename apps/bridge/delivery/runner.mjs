@@ -20,6 +20,13 @@ import { REF_RE } from "../cells/policy.mjs";
 import { JOB_ID_RE } from "./jobs.mjs";
 import { DELIVERABLE_TYPES, VISUAL_TYPES, isCiPath, isUiPath, isUserMergePath, nextStep } from "./plan.mjs";
 import { readVerdict } from "./prompts.mjs";
+import { classify } from "./ci-watch.mjs";
+
+const CI_RERUN_LOOKS = 20; // with ciWaitMs at 15 s, five minutes for the re-run's jobs to show
+// What a fix round after red checks reads in .den/findings.md: each red job, why, and its log from the first failing test on.
+const ciFindings = (number, reasons) =>
+  [`The checks of pull request #${number} failed on your last commit.`, ...reasons.map((r) => `## ${r.name}: ${r.reason}${r.excerpt ? `\n\n\`\`\`\n${r.excerpt}\n\`\`\`` : ""}`),
+    "Fix the cause. If the failure is not caused by this change, say so in your last message and commit nothing."].join("\n\n").slice(0, 16000);
 
 const KEPT = 30; // ended deliveries kept in the snapshot
 const PLAN_STEPS_MAX = 12; // bridge operations in a row before the runner stops and says the plan did not move
@@ -38,7 +45,8 @@ const quoteOutput = (text) =>
   String(text ?? "").replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "").replace(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, " ")
     .split("\n").map((l) => l.trimEnd()).filter(Boolean).slice(-40).map((l) => `    ${l.slice(0, 300)}`).join("\n");
 
-export function createDelivery({ host, board, git, log, readTicket, onChange = () => {}, build = null }) {
+// ciWaitMs: how long the runner waits between looks for a re-run's jobs to replace the timed-out ones (a test seam).
+export function createDelivery({ host, board, git, log, readTicket, onChange = () => {}, build = null, ciWaitMs = 15000 }) {
   const jobs = new Map(); // id -> job; insertion order is snapshot order
   let mergeChain = Promise.resolve(); // merges go one at a time
   // The preview that is open for the job's candidate: { url, sha } | null.
@@ -155,7 +163,7 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     if ([...jobs.values()].some((j) => j.ref === ref && live(j))) return refuse(409, "this ticket already has a delivery; resume or close it");
     const job = {
       id: `d-${randomBytes(8).toString("hex")}`, ref, title: ticket.title ?? "", type: ticket.type, visual: VISUAL_TYPES.includes(ticket.type), state: "running", pause: null, step: null,
-      base, branch: null, candidate: null, evidence: { qa: null, security: null, risk: null, pr: null, ci: null, verdict: null, preview: null, live: null }, bounces: 0, declines: 0, findings: null,
+      base, branch: null, candidate: null, evidence: { qa: null, security: null, risk: null, pr: null, ci: null, verdict: null, preview: null, live: null }, bounces: 0, declines: 0, findings: null, ciRerun: null, ciBounced: null,
       live: null, claimed: false, runs: [], pr: null, startedAt: new Date().toISOString(), updatedAt: null, gen: 0,
     };
     jobs.set(job.id, job);
@@ -185,12 +193,13 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
         else if (next.kind === "go-live") await goLive(job, gen);
         else if (next.kind === "publish") await publish(job, gen);
         else if (next.kind === "ci") await watchChecks(job, gen);
+        else if (next.kind === "ci-rerun") await rerunChecks(job, gen);
         else if (next.kind === "merge") await (mergeChain = mergeChain.catch(() => {}).then(() => merge(job, gen)));
         else if (next.kind === "resolve") return await resolveTicket(job, gen);
       } catch (err) {
         console.error(`bridge: delivery ${job.id} could not ${next.kind}: ${err?.message ?? err}`);
         const kind = { check: "environment", preview: "environment", "go-live": "go-live-failed" }[next.kind] ?? "publish-failed";
-        const what = { ci: "read the checks", preview: "build the preview", "go-live": "put the change live" }[next.kind] ?? next.kind;
+        const what = { ci: "read the checks", "ci-rerun": "run the timed-out checks again", preview: "build the preview", "go-live": "put the change live" }[next.kind] ?? next.kind;
         if (job.gen === gen) await pause(job, kind, `could not ${what}: ${errorText(err)}`, "Resume to try again: the bridge looks at what is there first.");
         return;
       }
@@ -390,9 +399,38 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     if (st.state === "CLOSED") return void (await pause(job, "pr-closed", `pull request #${st.number} was closed without a merge`, "Reopen it, or close the delivery."));
     if (st.state === "OPEN" && st.sha !== sha) return void (await pause(job, "changed-commit", `pull request #${st.number} is not at the commit the den checked`, "Close the delivery, or put the branch back and Resume."));
     job.evidence.pr = { sha, number: st.number, state: st.state, mergeable: st.mergeable };
-    job.evidence.ci = { sha, state: ciOf(st.checks), failed: st.checks.filter((c) => c.done && !c.ok).map((c) => c.name).slice(0, 10) };
+    const failed = st.checks.filter((c) => c.done && !c.ok);
+    let state = ciOf(st.checks);
+    // den-mvp/29: why it is red. Only timeouts, not yet run again on this commit: run again once. Anything else is a bounce,
+    // counted once per commit, and the developer's fix round is given what the checks said.
+    if (state === "red") {
+      const reasons = await Promise.all(failed.map((c) => classify(git, c)));
+      if (job.gen !== gen) return null;
+      if (reasons.every((r) => r.timeout) && job.ciRerun !== sha) state = "timeout";
+      else if (job.ciBounced !== sha) {
+        job.ciBounced = sha;
+        job.bounces += 1;
+        job.findings = ciFindings(st.number, reasons);
+      }
+    }
+    job.evidence.ci = { sha, state, failed: failed.map((c) => c.name).slice(0, 10), runs: [...new Set(failed.map((c) => c.runId).filter(Boolean))], jobs: failed.map((c) => c.jobId).filter(Boolean) };
     await save(job);
     return st;
+  }
+  // A timed-out check, run again once on this commit. The commit is marked before the git host is asked, so a restart
+  // never runs it twice; then the runner waits for the re-run's jobs to replace the old ones before it watches them.
+  async function rerunChecks(job, gen) {
+    const { sha } = job.candidate;
+    const { runs, jobs: old } = job.evidence.ci;
+    job.ciRerun = sha;
+    job.evidence.ci = null;
+    await save(job);
+    for (const runId of runs) await git.rerunFailed({ runId });
+    for (let look = 0; look < CI_RERUN_LOOKS; look += 1) {
+      const st = await git.prState({ number: job.pr.number });
+      if (job.gen !== gen || !st.checks.some((c) => old.includes(c.jobId))) return;
+      await new Promise((r) => setTimeout(r, ciWaitMs));
+    }
   }
   async function watchChecks(job, gen) {
     await git.waitChecks({ number: job.pr.number });

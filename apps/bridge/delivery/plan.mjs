@@ -35,6 +35,10 @@ const USER_MERGE = [...USER_MERGE_PATHS.map(matcher), (p) => p.startsWith(".")];
 const CI = CI_PATHS.map(matcher);
 /** Is this repository path CI configuration? */
 export const isCiPath = (file) => typeof file === "string" && CI.some((m) => m(file));
+// den-mvp/29: the wall (what an agent may do, and the code that enforces it) and CI. A red check on a change to one goes to security.
+const WALL = [...governance.guardrailPaths, "apps/bridge/cells/**"].map(matcher);
+/** Is this repository path part of the wall or CI configuration? */
+export const isWallPath = (file) => typeof file === "string" && (WALL.some((m) => m(file)) || isCiPath(file));
 // What the UI build bundles: apps/ui/ and the shared packages it imports. (It also imports from apps/bridge/, which is a
 // user-merge path.) delivery/ui-paths.test.mjs walks the UI's imports and fails when a file outside these is bundled.
 export const UI_PATHS = ["apps/ui/", "packages/"];
@@ -80,7 +84,12 @@ export function nextStep(job) {
     return pause("go-live-failed", live.reason || "the merged change could not be put live", "The merge stands and nothing went live. Resume to try again.");
   }
   if (!ci) return { kind: "ci" };
-  if (ci.state === "red") return pause("ci-red", `a required check failed: ${ci.failed?.join(", ") || "see the pull request"}`, "Fix the check, or Resume once it passes.");
+  // den-mvp/29: a timeout is run again once; any other red goes back to the developer with the log, like a review's bounce.
+  if (ci.state === "timeout") return { kind: "ci-rerun" };
+  if (ci.state === "red") {
+    if (job.bounces >= MAX_BOUNCES) return pause("failed-twice", `a required check failed, and the work has now been sent back twice: ${ci.failed?.join(", ") || "see the pull request"}`, "Read the findings on the ticket, then Resume for one more round or close the delivery.");
+    return { kind: "run", role: "developer", at: c.sha, since: job.base, fix: true };
+  }
   if (ci.state === "none") return pause("no-checks", "no check ran on the pull request, so nothing was merged", "Resume once the checks have run.");
   if (ci.state !== "green") return pause("ci-pending", "the checks have not finished", "Resume to watch them again.");
   if (risk.userMerge) return pause("guardrail", "the change touches the den's own guardrails, the bridge, its checks or a script that runs by itself: the review and the merge are yours", "Review and merge the pull request yourself, then Resume to close the ticket.");

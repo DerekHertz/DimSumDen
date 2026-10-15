@@ -14,7 +14,7 @@
 //   sections  h3 "The rods" and h3 "Pipeline" (the existing <Dashboard> renders under the second)
 //   meters    exactly two role="meter" in the scene at any time: hidden twins when closed, the card's
 //             5 h and Week rows when open (the sidebar's own usage meter is outside the scene)
-import { test, before, after } from "node:test";
+import { test, before, after, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "vite";
 import { chromium } from "playwright";
@@ -33,12 +33,14 @@ const metricsOk = () => ({
 });
 const usageAt = (fiveHour, weekly) => ({ fiveHour, weekly, sampledAt: new Date(Date.now() - 12 * 60_000).toISOString() });
 
+// ci-cd/07: one browser and dev server, scenarios in parallel (each opens its own context).
+describe("tally expand", { concurrency: 3 }, () => {
 let server;
 let browser;
 let base;
 
 before(async () => {
-  server = await createServer({ configFile: "apps/ui/vite.config.mjs", server: { port: 0, host: "127.0.0.1" } });
+  server = await createServer({ configFile: "apps/ui/vite.config.mjs", configLoader: "native", server: { port: 0, host: "127.0.0.1" } });
   await server.listen();
   base = server.resolvedUrls.local[0];
   browser = await chromium.launch(buildLaunchOptions());
@@ -467,4 +469,5 @@ test("the cards have no Pipeline or usage slot, and the Dashboard charts are mou
   } finally {
     await context.close();
   }
+});
 });

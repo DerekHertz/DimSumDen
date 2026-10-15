@@ -108,6 +108,33 @@ export function answerCardFor(card, requests) {
  * Every waiting request: the bridge's permission requests first (they expire), then the board's, in board order:
  * a ticket whose gate is merge or dispatch (gates-model.mjs).
  */
+// den-mvp/29: a red pull request the CI watch found, as a Needs you request. A re-run the bridge started is not the
+// user's to answer, and a pull request a delivery is waiting on already has the delivery's card.
+const CI_NEXT = {
+  red: "Look at the failing job on the pull request: fix it, or re-run it if it is flaky.",
+  "asks-user": "Red twice on this commit, so the den starts nothing more. Fix it, or re-run it yourself.",
+};
+const httpsLink = (url) => (typeof url === "string" && /^https:\/\/[A-Za-z0-9.-]+\//.test(url) ? url : null);
+export function ciRequests(snapshot) {
+  const delivered = new Set((snapshot?.deliveries ?? []).filter((d) => d?.state === "paused" || d?.state === "running").map((d) => d.pr?.number));
+  return (Array.isArray(snapshot?.ci?.prs) ? snapshot.ci.prs : [])
+    .filter((p) => Number.isInteger(p?.number) && CI_NEXT[p.state] && !delivered.has(p.number))
+    .map((p) => {
+      const role = p.route === "security" ? "security" : "orchestrator";
+      const station = stationIdOf(role);
+      const jobs = Array.isArray(p.jobs) ? p.jobs : [];
+      const short = `PR #${p.number}`;
+      return {
+        key: `ci:${p.number}`, kind: "ci", ref: null, short, role, station,
+        eyebrow: `${STATION_NAME[station]} · ${role === "security" ? "security" : "Bao"} · ${short}`,
+        title: `${short} is red${p.state === "asks-user" ? " again on the same commit" : ""}: ${jobs.map((j) => j.name).join(", ") || "a check failed"}`,
+        reason: jobs.map((j) => `${j.name}: ${j.reason}`).join("; ") || "A check failed.", reasonFallback: false, plain: true,
+        next: typeof p.bao === "string" && p.bao ? `${CI_NEXT[p.state]} ${p.bao}.` : CI_NEXT[p.state], rowText: `${short} · red`, preview: typeof p.title === "string" && p.title ? [p.title] : [], detailLabel: "The pull request",
+        age: null, pr: httpsLink(p.url), prNumber: p.number,
+      };
+    });
+}
+
 export function needsYouModel(snapshot, nowMs) {
   const byRef = new Map((snapshot?.tickets ?? []).map((t) => [t.ref, t]));
   const gates = gatesModel(snapshot).cards.map((card) => {
@@ -136,7 +163,7 @@ export function needsYouModel(snapshot, nowMs) {
   });
   // den-mvp outcome 3: a delivery that waits on the user sits between the two.
   // den-mvp outcome 4: so does a meeting that is paused, or whose brief waits for the user's choice.
-  const requests = [...permissionRequests(snapshot, nowMs), ...deliveryRequests(snapshot), ...meetingRequests(snapshot), ...gates];
+  const requests = [...permissionRequests(snapshot, nowMs), ...deliveryRequests(snapshot), ...ciRequests(snapshot), ...meetingRequests(snapshot), ...gates];
   return { count: requests.length, requests };
 }
 

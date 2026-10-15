@@ -54,7 +54,7 @@ describe("the runtime passes the wall for a role with a ceiling", () => {
     test(`${role}: the sandbox has no hosts, Write and Edit are allowed in cwd, and the deny rules stay`, async () => {
       const { cwd, settings } = await launch(role);
       assert.deepEqual(noFs(settings.sandbox), noFs(WALL_NO_HOSTS)); // agent-os/02: sandbox.filesystem may now ride along
-      assert.deepEqual([...settings.permissions.allow].sort(), [`Edit(/${cwd}/**)`, `Write(/${cwd}/**)`]);
+      assert.deepEqual([...settings.permissions.allow].sort(), ["Bash", `Edit(/${cwd}/**)`, `Write(/${cwd}/**)`]);
       for (const rule of DENY) assert.ok(settings.permissions.deny.includes(rule), `deny keeps ${rule}`); // agent-os/02: governance denies join the four
     });
   }
@@ -62,21 +62,21 @@ describe("the runtime passes the wall for a role with a ceiling", () => {
   test("scout: the sandbox has no hosts and nothing may be written", async () => {
     const { settings } = await launch("scout");
     assert.deepEqual(noFs(settings.sandbox), noFs(WALL_NO_HOSTS)); // agent-os/02: sandbox.filesystem may now ride along
-    assert.deepEqual(settings.permissions.allow ?? [], []);
+    assert.deepEqual(settings.permissions.allow, ["Bash"]);
     for (const rule of DENY) assert.ok(settings.permissions.deny.includes(rule), `deny keeps ${rule}`); // agent-os/02: governance denies join the four
   });
 
   test("the ticket file rule is kept beside the worktree rules", async () => {
     const ticketFile = "/repo/.scratch/den/issues/01-developer.md";
     const { cwd, settings } = await launch("developer", { extra: { ticketFile } });
-    assert.deepEqual([...settings.permissions.allow].sort(), [`Edit(/${cwd}/**)`, `Read(/${ticketFile})`, `Write(/${cwd}/**)`]);
+    assert.deepEqual([...settings.permissions.allow].sort(), ["Bash", `Edit(/${cwd}/**)`, `Read(/${ticketFile})`, `Write(/${cwd}/**)`]);
     assert.deepEqual(noFs(settings.sandbox), noFs(WALL_NO_HOSTS)); // agent-os/02: sandbox.filesystem may now ride along
   });
 
   test("a cwd that cannot be written as a plain rule keeps the wall and drops the write rules", async () => {
     const { settings } = await launch("developer", { dirName: "den wall cwd " });
     assert.deepEqual(noFs(settings.sandbox), noFs(WALL_NO_HOSTS)); // agent-os/02: sandbox.filesystem may now ride along
-    assert.deepEqual(settings.permissions.allow ?? [], [], "the Write request stays a request");
+    assert.deepEqual(settings.permissions.allow, ["Bash"], "the Write request stays a request");
     for (const rule of DENY) assert.ok(settings.permissions.deny.includes(rule), `deny keeps ${rule}`); // agent-os/02: governance denies join the four
   });
 });

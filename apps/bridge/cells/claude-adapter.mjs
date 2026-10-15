@@ -137,6 +137,10 @@ const sandboxFor = (wall, worktree, forbid, writePaths, readLimit, ticketFile, d
 const ruleForm = (p) => (p.startsWith("/") ? `/${p}` : p);
 const settingsFor = ({ ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs, credentials }) => {
   const allow = [
+    // den-mvp/27: behind the wall every shell command is sandboxed and an unsandboxed one is refused, yet the CLI still asked
+    // for some (a heredoc written after a cd, a write to $TMPDIR) despite autoAllowBashIfSandboxed. The request protected
+    // nothing, so Bash is allowed; the deny rules below still win, and the sandbox still refuses writes outside the worktree.
+    ...(wall === undefined ? [] : ["Bash"]),
     // A host the ceiling or a grant names may be fetched without a question; any other fetch is one (or is refused, see webRefusal).
     ...(wall?.hosts ?? []).map((h) => `WebFetch(domain:${h})`),
     ...(ticketFile === undefined ? [] : [`Read(/${ticketFile})`]),

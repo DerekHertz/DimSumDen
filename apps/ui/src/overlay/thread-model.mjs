@@ -170,13 +170,15 @@ export function threadView(list, ui = {}) {
  *   mode: "message" (a live run takes it), "follow-up" (an ended run whose session can be continued), "ended", "off"
  * `reason` is the visible text for a disabled foot. Stop is shown for a live run only, and works when `canStop`.
  */
-export function footModel({ agent, connection, signedIn = true, demo = false } = {}) {
+export function footModel({ agent, connection, signedIn = true, demo = false, desk = false } = {}) {
   const live = !!agent && !ENDED.includes(agent.state);
   // A live run always shows Stop; where it cannot be used it is disabled, with the reason beside it.
   const base = { mode: "off", canSend: false, canStop: false, stopShown: live, placeholder: "", sendLabel: "Send", reason: null, readOnly: true };
   if (demo) return { ...base, reason: "Demo mode: actions are off" };
   if (connection?.phase === "offline") return { ...base, reason: "Bridge offline: run npm run ui" };
   if (!signedIn) return { ...base, reason: "Couldn't send: not signed in to steer" };
+  // den-mvp/30: Bao's desk with no run yet: the first message starts one.
+  if (!agent && desk) return { ...base, mode: "desk", canSend: true, readOnly: false, placeholder: "Message Bao" };
   if (!agent) return { ...base, reason: "The agent ended." };
   const name = titled(str(agent.role));
   if (live) {

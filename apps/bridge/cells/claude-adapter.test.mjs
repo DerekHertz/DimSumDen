@@ -269,14 +269,14 @@ describe("buildClaudeArgs: the wall (agent-os/01 spike)", () => {
   });
 
   test("wall with no hosts: the sandbox is on, strict, with an empty host list, and the deny rules stay", () => {
-    assert.deepEqual(settingsOf(build({ wall: { hosts: [] } })), { disableAllHooks: true, permissions: { deny: DENY_RULES }, sandbox: sandbox([]) });
+    assert.deepEqual(settingsOf(build({ wall: { hosts: [] } })), { disableAllHooks: true, permissions: { deny: DENY_RULES, allow: ["Bash"] }, sandbox: sandbox([]) });
   });
 
   test("wall hosts are the allowed domains, in order, and the ticket file rule is kept beside them", () => {
     const file = "/home/u/den/.scratch/den/issues/01-scout.md";
     const got = settingsOf(build({ wall: { hosts: ["registry.npmjs.org", "example.com"] }, ticketFile: file }));
     // den-mvp outcome 1: a host the wall allows may also be fetched by the CLI's own web tool without a question.
-    assert.deepEqual(got, { disableAllHooks: true, permissions: { deny: DENY_RULES, allow: ["WebFetch(domain:registry.npmjs.org)", "WebFetch(domain:example.com)", `Read(/${file})`] }, sandbox: sandbox(["registry.npmjs.org", "example.com"]) });
+    assert.deepEqual(got, { disableAllHooks: true, permissions: { deny: DENY_RULES, allow: ["Bash", "WebFetch(domain:registry.npmjs.org)", "WebFetch(domain:example.com)", `Read(/${file})`] }, sandbox: sandbox(["registry.npmjs.org", "example.com"]) });
   });
 
   test("nothing but the --settings value changes", () => {

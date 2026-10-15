@@ -49,6 +49,8 @@ export function validateJob(raw) {
       verdict: forSha(ev.verdict, (r) => ({ ok: r.ok === true })),
     },
     bounces: count(raw.bounces), declines: count(raw.declines), findings: typeof raw.findings === "string" ? raw.findings.slice(0, 16000) : null,
+    // den-mvp/29: the commit whose timed-out checks were run again, and the commit whose red checks were counted as a bounce.
+    ciRerun: sha(raw.ciRerun), ciBounced: sha(raw.ciBounced),
     live: runOf(raw.live), claimed: raw.claimed === true,
     runs: (Array.isArray(raw.runs) ? raw.runs : []).slice(-50).flatMap((r) => (runOf(r) && END_STATES.includes(r.state) ? [{ ...runOf(r), state: r.state, sha: sha(r.sha) }] : [])),
     pr, startedAt: raw.startedAt, updatedAt: ts(raw.updatedAt) ?? raw.startedAt,

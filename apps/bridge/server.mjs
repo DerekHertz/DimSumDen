@@ -4,7 +4,7 @@
 import http from "node:http";
 import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
@@ -14,11 +14,12 @@ import { createDelivery } from "./delivery/runner.mjs";
 import { createDeliveryBoard } from "./delivery/board.mjs";
 import { createGitHost } from "./delivery/git-host.mjs";
 import { createJobLog } from "./delivery/jobs.mjs";
+import { createCiWatch } from "./delivery/ci-watch.mjs";
 import { createMeetings } from "./meetings/runner.mjs";
 import { createMeetingStore } from "./meetings/store.mjs";
 import { createMeetingLog } from "./meetings/log.mjs";
 import { TOPIC_MAX_BYTES } from "./meetings/types.mjs";
-import { DEN_FEATURE, TASK_MAX_BYTES } from "./cells/policy.mjs";
+import { DEN_FEATURE, DESK_REF, TASK_MAX_BYTES } from "./cells/policy.mjs";
 import { createTicket } from "../organism-infra/board-service.mjs";
 import { hasSecret } from "../../scripts/exposure.mjs";
 import { REQUEST_KINDS, appendRequestLine } from "./requests-log.mjs";
@@ -40,6 +41,31 @@ const HOST = "127.0.0.1";
 const MAX_BODY = 4096;
 // 07 security forward: the panel renders agent text; forbid inline and foreign script.
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'";
+
+// den-mvp/30: Bao's desk ticket, written the first time the user talks to Bao, if it is missing (flag "wx": never over the board's own copy). Parked, so it is
+// in no queue, no audit flags it idle, and no route can dispatch a run on it.
+const DESK_TICKET = `# ${DESK_REF.split("/")[1].slice(0, 2)}: Bao's desk
+
+**Type:** task
+
+**Priority:** P3
+
+**Status:** parked
+
+**Blocked by:** none
+
+**Source:** den-mvp/30. The bridge keeps this ticket: the user's conversation with Bao in the den runs on it. It is never worked.
+
+## Comments
+`;
+async function ensureDesk(root) {
+  const [feature, name] = DESK_REF.split("/");
+  const dir = path.join(root, ".scratch", feature, "issues");
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, `${name}.md`), DESK_TICKET, { flag: "wx" }).catch((err) => {
+    if (err?.code !== "EEXIST") throw err;
+  });
+}
 
 // Process-level handlers (ADR 0016 decision 2, process lifetime): the bridge owns its children, so a signal, a crash
 // or an exit ends them. Returns the function that removes every handler it installed.
@@ -74,7 +100,9 @@ function installProcessHandlers(host) {
 // the UI is served from that release (a hashed file it lacks is looked for in ui/previous); with no usable link, and when
 // denState is not given, the UI comes from uiDir, the checkout's build, as before. `box` is the build box (build/box.mjs) a
 // preview and a go-live are built in; with none, both are refused.
-export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, denState, box, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption } = {}) {
+// den-mvp/29: watchCi starts the CI watch's timer (delivery/ci-watch.mjs); the production entry point passes true. Without
+// it the watch only reads its record, so a test never reaches the git host by the timer.
+export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, denState, box, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption, watchCi = false } = {}) {
   let actualPort = port;
   const git = gitHost ?? createGitHost(root);
   // den-mvp/10 and 11: the den's own build, when it is served from release folders: previews, go-live and roll back. The
@@ -90,10 +118,16 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   let host;
   let delivery;
   let meetings;
+  // A pull request a delivery is running or waiting on is the delivery's: its runner re-runs a timeout or sends a red back.
+  const ownedByDelivery = (number) => (delivery?.snapshot() ?? []).some((d) => (d.state === "running" || d.state === "paused") && d.pr?.number === number);
+  const ciWatch = createCiWatch({ git, file: path.join(stateDir ?? path.join(root, ".scratch", "_run"), "ci-watch.json"), onChange: (change) => hub.publish(change), skip: ownedByDelivery,
+    // den-mvp/29: a red pull request outside the den is a message to Bao's desk (den-mvp/30), once per commit.
+    wake: (text) => host.converse("orchestrator", { text }) });
   const hub = createHub(root, {
     agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts(), capacity: (lockedRefs) => host.capacity(lockedRefs),
     deliveries: () => delivery?.snapshot() ?? [],
     meetings: () => meetings?.snapshot() ?? [],
+    ci: () => ciWatch.snapshot(),
     build: () => readBuild_(),
   });
   // den-mvp outcome 4: the production entry point passes the den's catalog; with none, no agent is given a connection.
@@ -113,6 +147,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
       return !snap.tickets.some((t) => t.ref === ref) ? "unknown" : snap.frontier.includes(ref) ? "ok" : "nofrontier";
     },
     lockedRefs: async () => (await hub.snapshot()).tickets.filter((t) => t.holder).map((t) => t.ref),
+    openDesk: () => ensureDesk(root),
   });
   await host.ready;
   delivery = createDelivery({
@@ -143,6 +178,8 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     proposeTicket: ({ title, text }) => createTicket(root, { feature: DEN_FEATURE, slug: "proposed", title, text, source: "den meeting", status: "ready-for-human" }),
   });
   await meetings.ready;
+  await ciWatch.ready;
+  if (watchCi) ciWatch.start();
   let postChain = Promise.resolve();
   await hub.ready;
   const server = http.createServer(async (req, res) => {
@@ -561,11 +598,13 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     newLaunchCode: auth.newLaunchCode,
     previewReads,
     host: { start: host.start, message: host.message, shutdown: host.shutdown },
+    pollCi: () => ciWatch.poll(), // one look of the CI watch now, for a test (its timer is off there)
     close: async () => {
       await host.shutdown();
       await new Promise((resolve) => setImmediate(resolve)); // the runs' end hooks are queued behind the shutdown
       await delivery.shutdown();
       await meetings.shutdown();
+      ciWatch.stop();
       uninstallProcessHandlers();
       await new Promise((resolve) => {
         hub.close();
@@ -600,7 +639,7 @@ if (startedDirectly()) {
   const { createResourceLauncher } = await import("./cells/resource-group.mjs");
   const { createBuildBox } = await import("./build/box.mjs");
   const launcher = createResourceLauncher({ env: process.env });
-  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }) });
+  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }), watchCi: true });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
   console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);

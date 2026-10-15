@@ -19,3 +19,12 @@ Local clone for diffing: `vendor/mattpocock-skills/` (git-ignored). Update with 
 | code-review | **adapted** | Adds a Pro token-budget note (sonnet sub-agents, diff command not pasted, current ticket only). |
 | organism-protocol | **new** | Shared cell rules: board, claims, gates, apoptosis, token hygiene. |
 | asset-critique | **new** | Visual critique rounds for rigged glb assets; `scripts/measure-glb.mjs` measures per-bone proportions. |
+
+## ponytail
+
+Source: https://github.com/DietrichGebert/ponytail (MIT, see `PONYTAIL-LICENSE`)
+Upstream commit: `2961b52fc1fe6a5a87c7a959a79512e5c2f3ffe5` (2026-10-13), file `.openclaw/skills/ponytail/SKILL.md`.
+
+| Skill | Status | Local changes |
+|---|---|---|
+| ponytail | as-is | none. Preloaded by developer, qa and architect: the smallest complete change, and `shortcut: <limit>, <when to upgrade>` comments for known limits. The upstream review, audit and debt skills were not copied. |
