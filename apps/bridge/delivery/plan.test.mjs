@@ -148,6 +148,9 @@ describe("a reviewer's verdict and the step prompts", () => {
     // Friction log F2 and F4: foreground checks under timeout, throwaway scripts under .den/.
     assert.match(dev, /in the foreground under `timeout`.*never in the background/);
     assert.match(dev, /throwaway script under \.den\/ in this worktree/);
+    // Friction log F17: the Bash tool's own timeout, and node --test under the process limit.
+    assert.match(dev, /set the Bash tool's own timeout/);
+    assert.match(dev, /--test-concurrency=2/);
     assert.match(dev, /\/r\/\.scratch\/fx\/issues\/08-plain\.md/);
     assert.doesNotMatch(dev, /findings\.md|VERDICT/);
     assert.match(deliveryPrompt({ role: "developer", ref: "fx/08-plain", ticketFile: "/t.md", since: BASE, fix: true }), /read \.den\/findings\.md first/);

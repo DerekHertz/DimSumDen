@@ -14,6 +14,8 @@ export function readVerdict(report) {
 // The den's friction log (.scratch/den-mvp/friction.md, F2 and F4): what a walled run cannot do, said before it tries.
 export const WORK_TIPS =
   "Run every check in the foreground under `timeout` (a command may take up to 10 minutes), never in the background: you have no tool to wait for a background run, and `sleep` before a command is blocked. " +
+  "For a check longer than 2 minutes, also set the Bash tool's own timeout (up to 600000 ms), or it moves the command to the background. " +
+  "Run `node --test` with `--test-concurrency=2`: every thread counts toward your process limit, and a run over it is stopped. " +
   "Put a throwaway script under .den/ in this worktree (git ignores it), not in $TMPDIR: Node finds the repository's packages only from inside the worktree. " +
   "Stage files by name (`git add <paths>`), never `git add -A` or `git add .`: the sandbox leaves placeholder files such as .bash_profile that git cannot add. " +
   "`gh` has no login behind the wall: read pull requests, checks and CI job logs with the GitHub connection's tools (mcp__github__*) when your role has them. ";
