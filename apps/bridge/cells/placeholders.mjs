@@ -16,13 +16,16 @@ export async function snapshotPlaceholders({ mainGit, worktree } = {}) {
   ];
   const existed = new Set();
   await Promise.all(candidates.map(async (p) => { if (await present(p)) existed.add(p); }));
-  return { candidates, existed };
+  return { candidates, existed, mainGit: typeof mainGit === "string" ? mainGit : null };
 }
 
-/** Removes each candidate that is new, a regular empty file with no write bit. Never throws. */
-export async function sweepPlaceholders({ candidates, existed }) {
+/** Removes each candidate (new, or stale in the main .git) that is a regular empty file with no write bit. Never throws. */
+export async function sweepPlaceholders({ candidates, existed, mainGit = null }) {
   await Promise.all(candidates.map(async (p) => {
-    if (existed.has(p)) return;
+    // A path in the main .git is never tracked content, and a live git lock is writable: an empty read-only file or a
+    // /dev/null bind there is a placeholder even if it predates this run (a stale one from an earlier run). The worktree
+    // holds tracked files, so only what this run created is eligible there. A bind another live run holds fails to unlink (EBUSY).
+    if (existed.has(p) && !(mainGit !== null && p.startsWith(mainGit + path.sep))) return;
     try {
       const info = await lstat(p);
       const empty = info.isFile() && info.size === 0 && (info.mode & 0o222) === 0;

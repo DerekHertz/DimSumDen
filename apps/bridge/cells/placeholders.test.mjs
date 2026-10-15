@@ -13,7 +13,8 @@ test("removes new empty read-only placeholders, keeps pre-existing, non-empty an
   const dir = await mkdtemp(path.join(tmpdir(), "ph-"));
   const git = path.join(dir, ".git"), wt = path.join(dir, "wt");
   await mkdir(git); await mkdir(wt);
-  await empty(path.join(git, "HEAD.lock")); // existed before: left alone
+  await empty(path.join(git, "HEAD.lock")); // stale in the main .git: swept
+  await empty(path.join(wt, ".gitmodules")); // existed before in the worktree: left alone
   const snap = await snapshotPlaceholders({ mainGit: git, worktree: wt });
   await empty(path.join(git, "config.lock"));
   await empty(path.join(wt, ".bash_profile"));
@@ -22,7 +23,8 @@ test("removes new empty read-only placeholders, keeps pre-existing, non-empty an
   await sweepPlaceholders(snap);
   assert.ok(await gone(path.join(git, "config.lock")));
   assert.ok(await gone(path.join(wt, ".bash_profile")));
-  assert.ok(!(await gone(path.join(git, "HEAD.lock"))));
+  assert.ok(await gone(path.join(git, "HEAD.lock")));
+  assert.ok(!(await gone(path.join(wt, ".gitmodules"))));
   assert.ok(!(await gone(path.join(wt, ".mcp.json"))));
   assert.ok(!(await gone(path.join(git, "index.lock"))));
   await rm(dir, { recursive: true, force: true });
