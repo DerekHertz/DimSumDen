@@ -13,11 +13,11 @@ This repo: the den's bridge code, role files, governance and policy. It is never
 _Avoid_: Home repo, host repo
 
 **Target project**:
-A repo the den works on: its source, worktrees and board. The den itself is one; the first other is `safety-aware-route-planner`. Its `.claude/` and `CLAUDE.md` are never loaded; its docs are read as project knowledge (ADR 0021 Amendment 4).
+A repo the den works for, like a client of an agency: its own source, tickets, board and queue, all reached from the den. The den's own repo is one too; the first other is `safety-aware-route-planner`. On another project, nothing of its `.claude/` loads; the bridge passes in its `CLAUDE.md` or `AGENTS.md` as project knowledge (ADR 0021 Amendment 4).
 _Avoid_: Client repo, workspace
 
 **Active project**:
-The one target project the den works on now, chosen with the project picker in the den. A switch is refused while runs are active.
+The one target project runs and deliveries happen in, chosen in the den. Every project's board and queue can be opened at any time; a switch is refused while runs are active.
 _Avoid_: Current repo, selected workspace
 
 **Station**:

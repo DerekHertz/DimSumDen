@@ -184,21 +184,29 @@ Not shown: that a genome's `skills:` preload works under the plugin namespace. A
 - A role that needs a skill's text at start (the `skills:` preload) gets it by the prompt naming it, one tool call later, until a preload under a plugin namespace is shown to work.
 - Step 4 (board calls through the bridge) removes the `board.mjs` path from the prompt and the requests it raises.
 
-**Status of Amendment 3:** accepted in part by Amendment 4 (decisions 18 and 20); decision 19 replaced; decision 21 deferred.
+**Status of Amendment 3:** accepted in part by Amendment 4 (decision 18 for other projects only, decision 20 with the project chosen in the den); decision 19 replaced; decision 21 deferred.
 
-## Amendment 4 (decided by the user 2026-10-15, question tool, in the outcome 6 grilling): the target project for the MVP
+## Amendment 4 (decided by the user 2026-10-15, question tool, in the outcome 6 grilling): the den works for other projects
 
 The den-mvp spec's outcome 6 ("one real change in the routing project, from the den") settled what Amendment 3 left open. Spec: `.scratch/den-mvp/outcome-6-spec.md`.
 
-- **Decision 18 is accepted as written.** Every child starts with `--setting-sources ""` and `--plugin-dir <control>/.claude`, as `den:<role>`, on every project, the den included. Den runs on this repo stop loading `.claude/settings.json` (its hooks and allow rules); the wall and the inline settings are the boundary. A target's `AGENTS.md`, `CONTEXT.md` and ADRs are project knowledge an agent reads; nothing of the target's `.claude/` loads.
-- **Decision 20 is accepted, with one change: the target is chosen in the den, not at bridge start.** Projects are registered at setup (a path and a slug in the den's state, checked like decision 20's start check). The den shows a project picker; one project is active at a time, and the bridge refuses a switch while any run of the active project is running. `control` stays this repo, from the bridge module's location. This also replaces decision 14's "chosen when the bridge starts".
+**The model (the user's words).** "The den is its own organization that you can imagine is contracted out to do development for these other projects." Dim Sum Den is its own product and its own project. An onboarded project has its own repo, its own tickets, board and queue, and all of it is reached and dispatched from the den's interface. What the den brings to every project is its way of working: the guardrails, the sandbox, and how work is passed around efficiently and safely.
+
+- **Decision 18 applies to other projects; the den's own runs start as today.** A run on another project starts with `--setting-sources ""` and `--plugin-dir <control>/.claude`, as `den:<role>`. Nothing of that project's `.claude/` loads: no hooks, roles, skills or settings. A run on the den's own repo keeps `--setting-sources project,local`, its own roles and `CLAUDE.md`, with hooks already off (`disableAllHooks`, den-mvp/03). The bridge picks the path by whether the project is the control project; an agent can't choose it.
+- **A project's own instructions are passed in by the bridge.** The bridge reads the project's `CLAUDE.md` or `AGENTS.md` from its main checkout's committed `HEAD`, never from the agent-editable worktree, and adds it to the run as project knowledge. Its `CONTEXT.md` and ADRs stay files the agent reads.
+- **Decision 20 is accepted, with the project chosen in the den, not at bridge start.**
+  - Projects are onboarded at setup: a path and a slug, checked like decision 20's start check.
+  - The den lists every onboarded project, and its board and queue can be opened, with tickets added or approved, at any time.
+  - Runs and deliveries happen only in the **active project**. The bridge refuses a switch while a run of the active project is running.
+  - `control` stays this repo, from the bridge module's location. This also replaces decision 14's "chosen when the bridge starts".
 - **Decision 19 is replaced: a target's board is its own tracker.** For `safety-aware-route-planner` that is its GitHub Issues, where its `docs/agents/issue-tracker.md` already puts tickets. The bridge reads and writes them with the git-host login it holds; no agent gets the token. A claim is a `den:in-progress` label plus a comment naming the run; removing the label releases it. The den's own board stays the markdown board in `.scratch/`.
 - **Decision 21 is deferred.** Runs on a target get no network. Its toolchain (compilers, a Python virtualenv, `node_modules`) is installed once at setup outside the wall and mounted read-only. A changed requirements file is a setup step for the user. A host list returns when a project needs network.
 - **Delivery on a target** follows ADR 0024 and merges on green GitHub checks. The den's own local checks (den-mvp/34) stay den-only. Setup turns on branch protection on the target's `main` (`test.yml` and `lint.yml` required), so GitHub enforces the merge rule the bridge follows.
 
 **Consequences.**
 - A board adapter: the bridge's board operations (list, read, claim, comment, resolve, create) get a GitHub Issues implementation beside the markdown one, chosen per project.
-- The adapter change (decision 18) touches every run, the den's included, so it ships first and is tested on the den before any target.
+- The adapter's clean start (decision 18) touches only runs on other projects. Its first test is the real genomes as plugin roles; a genome's `skills:` preload under the plugin is unshown (Amendment 3), so the prompt names the skills until it is.
+- Two start paths exist, chosen by the bridge. A change to one is checked against the other in review.
 - Ticket states the den uses (`ready-for-human`, `ready-for-agent`, resolved) map onto the target's issues: labels for the first two, closing the issue for the last.
 
 ## Consequences
