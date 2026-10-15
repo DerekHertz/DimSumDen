@@ -11,7 +11,7 @@ import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn as spawnChild, execFile } from "node:child_process";
-import { EnforcementError, GATE_REFUSED, LIMITS, START_GATE, buildScopeArgv, cgroupOf, checkLimits, createResourceLauncher, findUserBus, groupFiles, groupProperties, judgeProbe, PROBE_SCRIPT, measureTree, watchStorage } from "./resource-group.mjs";
+import { EnforcementError, GATE_REFUSED, LIMITS, START_GATE, buildScopeArgv, busPlaces, cgroupOf, checkLimits, createResourceLauncher, findUserBus, groupFiles, groupProperties, judgeProbe, PROBE_SCRIPT, measureTree, watchStorage } from "./resource-group.mjs";
 import { createClaudeRuntime } from "./claude-runtime.mjs";
 import { SLOTS } from "./policy.mjs";
 
@@ -450,4 +450,19 @@ echo done`);
     for (const run of [...first, last]) run.group.kill();
     for (const run of [...first, last]) assert.equal(await run.group.settled(3000), true);
   });
+});
+
+test("only the bus socket in the den's state folder is hidden, not the folder: the build box reads its packages there", async (t) => {
+  const { createServer } = await import("node:net");
+  const home = await mkdtemp(path.join(tmpdir(), "den-home-"));
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const state = path.join(home, ".local", "state", "den");
+  await mkdir(path.join(state, "deps"), { recursive: true });
+  const sock = path.join(state, "user-bus");
+  const server = createServer().listen(sock);
+  await new Promise((r) => server.once("listening", r));
+  t.after(() => server.close());
+  const { hide, hideSockets } = busPlaces({ HOME: home, XDG_RUNTIME_DIR: path.join(home, "run") }, { uid: 99999 });
+  assert.equal(hide.includes(state), false, "the state folder stays visible");
+  assert.deepEqual(hideSockets, [sock]);
 });

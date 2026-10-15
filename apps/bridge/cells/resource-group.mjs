@@ -108,9 +108,11 @@ const isDir = (f) => { try { return statSync(f).isDirectory(); } catch { return 
 /** What the wrapper must hide so a run cannot reach the service manager: bus directories, and lone bus sockets. */
 export function busPlaces(env, { uid = process.getuid?.() } = {}) {
   const rd = typeof env?.XDG_RUNTIME_DIR === "string" && ABS_RE.test(env.XDG_RUNTIME_DIR.replace(/\/+$/, "")) ? env.XDG_RUNTIME_DIR.replace(/\/+$/, "") : `/run/user/${uid}`;
-  const dirs = [`/run/user/${uid}`, rd, typeof env?.HOME === "string" ? `${env.HOME}/.local/state/den` : null];
+  // The den's state folder holds the build box's packages and the releases, so only its bus socket is hidden, not the folder.
+  const dirs = [`/run/user/${uid}`, rd];
   const hide = [...new Set(dirs.filter((d) => d && ABS_RE.test(d) && isDir(d)))];
-  const hideSockets = [env?.DEN_USER_BUS].filter((f) => typeof f === "string" && ABS_RE.test(f) && isSocket(f) && !hide.some((d) => f.startsWith(`${d}/`)));
+  const denBus = typeof env?.HOME === "string" ? `${env.HOME}/.local/state/den/user-bus` : null;
+  const hideSockets = [...new Set([env?.DEN_USER_BUS, denBus])].filter((f) => typeof f === "string" && ABS_RE.test(f) && isSocket(f) && !hide.some((d) => f.startsWith(`${d}/`)));
   return { hide, hideSockets, sockets: [`${rd}/bus`, env?.DEN_USER_BUS, typeof env?.HOME === "string" ? `${env.HOME}/.local/state/den/user-bus` : null].filter((f) => typeof f === "string" && ABS_RE.test(f)) };
 }
 
