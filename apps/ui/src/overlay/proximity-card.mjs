@@ -1,4 +1,5 @@
 import { DESK_THREAD } from './transcript-panel.mjs';
+import { DESK_REF } from '../../../bridge/cells/policy.mjs';
 
 // den-v1/04: pure proximity selection. Positions and yaw use the walk core's world coordinates.
 // The scene supplies {id, name, role, station, position:{x,z}, ref?, state?, tool?, agent?} per panda.
@@ -63,7 +64,9 @@ function cardOf(nearest, approvals) {
   const inactive = agent ? null : state === 'resident' ? 'no agent running' : 'agent controls unavailable';
   const permissionReason = inactive || (agent.capabilities?.approve !== true ? 'runtime cannot answer permissions' : !approval ? 'no pending permission request' : null);
   const start = !agent && state === 'resident' && START_ROLES.includes(nearest.role);
-  const desk = nearest.role === 'orchestrator'; // den-mvp/30: Bao's thread always opens; with no run it is the desk's
+  // den-mvp/30: Bao's thread always opens. With no live run it is the desk's: its last desk run, else the empty desk. An
+  // ended run on another ticket (a meeting, an old task) is not followed up from here; its worktree may be gone.
+  const desk = nearest.role === 'orchestrator';
   const actions = {
     // The QERT row (live den run, 2026-10-10): A and D walk, so no action sits on them.
     Q: action(permissionReason), E: action(permissionReason),
@@ -73,7 +76,7 @@ function cardOf(nearest, approvals) {
   };
   return {
     id: nearest.id, name: nearest.name, role: nearest.role, station: nearest.station,
-    agentId: agent?.id ?? null, threadId: agent?.id ?? past?.id ?? (desk ? DESK_THREAD : null), ref: agent?.ref ?? nearest.ref ?? null, start,
+    agentId: agent?.id ?? null, threadId: agent?.id ?? (desk ? (past?.ref === DESK_REF ? past.id : DESK_THREAD) : past?.id ?? null), ref: agent?.ref ?? nearest.ref ?? null, start,
     state, tool: agent ? agent.tool ?? null : nearest.agent ? null : nearest.tool ?? null, approval, actions,
     last: past ? {
       state: past.state, ref: typeof past.ref === 'string' ? past.ref : null, label: `Last task: ${LAST[past.state]}`,

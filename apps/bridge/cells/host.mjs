@@ -923,7 +923,10 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     }
     // The run is closing (it reported done, or was stopped): the follow-up starts once it is over.
     if (isLive(target)) await target.finished;
-    return followUp(target, text);
+    const followed = await followUp(target, text);
+    // den-mvp/30: a desk session that cannot be continued (its worktree was cleaned up) is not a dead end: Bao starts afresh.
+    if (!followed.ok && followed.status === 409 && target.ref === DESK_REF && !liveByRef.has(DESK_REF)) return desk(text);
+    return followed;
   }
 
   // den-mvp/30: a new run at Bao's desk. The user's text is its first message, never part of the prompt.

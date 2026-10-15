@@ -437,3 +437,18 @@ describe("Bao's desk: talking to Bao with no ticket", () => {
     assert.equal(t.fake.spawns.length, 0);
   });
 });
+
+test("a desk session whose worktree is gone starts a fresh desk run instead of a 409 (den-mvp/30)", async () => {
+  const t = await setup();
+  const first = await t.say("orchestrator", { text: "first" });
+  const rec = t.fake.spawns.at(-1);
+  for (const m of rec.sent) rec.emit({ type: "message-applied", id: m.id });
+  rec.emit({ type: "done", ok: true });
+  await t.ended(first.body.runId);
+  await rm(rec.args.cwd, { recursive: true, force: true });
+  const res = await t.say("orchestrator", { text: "again", runId: first.body.runId });
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  const fresh = t.fake.spawns.at(-1);
+  assert.deepEqual([fresh.args.ref, fresh.args.resume ?? false], ["den/00-bao", false]);
+  assert.deepEqual(fresh.sent.map((m) => m.text), ["again"]);
+});
