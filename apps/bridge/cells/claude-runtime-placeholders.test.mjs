@@ -15,10 +15,10 @@ test("spawn's exit removes the placeholders the child's sandbox left, in the mai
   const dir = await mkdtemp(path.join(tmpdir(), "den-ph-"));
   const git = path.join(dir, "main", ".git"), wt = path.join(dir, "wt");
   await mkdir(git, { recursive: true }); await mkdir(wt);
-  const stale = path.join(git, "HEAD.lock");
+  const stale = path.join(git, "config.lock");
   await writeFile(stale, ""); await chmod(stale, 0o444);
   const inner = unconfinedLauncher();
-  const made = [path.join(git, "config.lock"), path.join(wt, ".bash_profile")];
+  const made = [path.join(wt, ".bash_profile"), path.join(wt, ".zshrc")];
   const launcher = { ...inner, async launch(o) {
     for (const p of made) { await writeFile(p, ""); await chmod(p, 0o444); }
     return inner.launch(o);
@@ -33,6 +33,6 @@ test("spawn's exit removes the placeholders the child's sandbox left, in the mai
 test("the wall still denies the main .git config and refs for a writing role", () => {
   const c = compileCeiling("developer", { worktree: "/w/t", mainGit: "/m/.git" });
   const deny = JSON.stringify(c);
-  assert.ok(deny.includes("/m/.git"), "main .git denies are present");
+  for (const p of ["/m/.git/refs/**", "/m/.git/HEAD", "/m/.git/packed-refs", "/m/.git/index"]) assert.ok(deny.includes(p), `${p} denied`);
   assert.ok(buildClaudeArgs({ sessionId: "0b8f1c1e-5c1a-4c0e-9a55-3f2d9e7a4b10", agent: "developer", ...c }).includes("--settings"));
 });
