@@ -113,6 +113,17 @@ describe("checkBoxArgv", () => {
   });
 });
 
+describe("the jobs", () => {
+  test("the test files run a few at a time, browser files one at a time, from the commit's own split, with the BOM check first", async () => {
+    const { JOBS, REST_CONCURRENCY } = await import("./checks.mjs");
+    const [rest, browser] = JOBS;
+    assert.match(rest.args[2], new RegExp(`--test-concurrency=${REST_CONCURRENCY}'.*split\\(\\)\\.rest`));
+    assert.ok(rest.args[2].indexOf("bom-check.mjs") < rest.args[2].indexOf("--test-concurrency"));
+    assert.match(browser.args[2], /--test-concurrency=2'.*split\(\)\.browser/);
+    assert.match(rest.shown, /^node scripts\/bom-check\.mjs && node --test --test-concurrency=4/);
+  });
+});
+
 describe("envDifferences and runState", () => {
   test("only the facts that differ from GitHub's runner; any 22.x Node counts as the same", () => {
     const got = envDifferences({ node: "22.23.3", cores: 1, network: "yes", bwrap: "present", gpu: "software GL" });
@@ -245,7 +256,7 @@ function fakeLauncherWithCwd({ allPass = () => false } = {}) {
     const command = args.slice(args.indexOf("--") + 1);
     const wt = args[args.indexOf("--chdir") + 1];
     l.commands.push(command);
-    const cmd = command[1] === "--test" ? "--test" : command[1] === "--input-type=module" ? "browser files" : command.join(" ");
+    const cmd = command[1] === "--test" ? "--test" : command[1] === "--input-type=module" ? (command[3].includes("split().rest") ? "split rest" : "browser files") : command.join(" ");
     const pass = allPass();
     const out = pass ? "ok 1 - fine\n1..1\n"
       : cmd.includes("--test") ? `ok 1 - keeps its order\n# Subtest: PR \\#162 still loads\nnot ok 2 - PR \\#162 still loads\n  ---\n  location: '${wt}/apps/ui/scene.test.mjs:99:1'\n  failureType: 'hookFailed'\n  error: "EROFS"\n  ...\n1..2\n`

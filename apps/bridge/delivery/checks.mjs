@@ -45,17 +45,23 @@ const SLOT_CLASS = "worker";
 // What GitHub's runner is (ci.yml: ubuntu-latest, setup-node 22). Compared fact by fact with this machine's box.
 export const GITHUB_ENV = Object.freeze({ os: "ubuntu-latest", node: "22.x", cores: 4, memoryMiB: 16384, network: "yes", gpu: "software GL", bwrap: "absent", cgroups: "mounted" });
 
-// The browser files, one at a time: the box has one worker slot's limits (limits.json), and Node's default of a file per
-// core starts a Chromium for each at once, which the slot's task and memory caps end at launch. The file list is the
-// commit's own scripts/test-split.mjs, read inside the box.
-const BROWSER_ONE_AT_A_TIME = "const { split } = await import(new URL('scripts/test-split.mjs', 'file://' + process.cwd() + '/'));"
-  + " const r = (await import('node:child_process')).spawnSync(process.execPath, ['--test', '--test-concurrency=1', ...split().browser], { stdio: 'inherit' });"
+// The box has the checks group's limits (limits.json "checks": four CPUs). Node's default runs a test file per host core
+// at once, which starts more Chromiums than the memory and task caps allow and starves timing-sensitive files until they
+// hang. So the files run a few at a time, browser files two at a time.
+// The file lists are the commit's own scripts/test-split.mjs, read inside the box; the rest job runs its BOM check first,
+// as test-split does.
+export const REST_CONCURRENCY = 4;
+export const BROWSER_CONCURRENCY = 2;
+const splitRun = (group, concurrency) => "const cp = await import('node:child_process');"
+  + " const { split } = await import(new URL('scripts/test-split.mjs', 'file://' + process.cwd() + '/'));"
+  + (group === "rest" ? " const bom = cp.spawnSync(process.execPath, ['scripts/bom-check.mjs'], { stdio: 'inherit' }); if (bom.status !== 0) process.exit(bom.status ?? 1);" : "")
+  + ` const r = cp.spawnSync(process.execPath, ['--test', '--test-concurrency=${concurrency}', ...split().${group}], { stdio: 'inherit' });`
   + " process.exit(r.status ?? 1);";
 
 // The jobs of ci.yml, as the box runs them. `args` follow the Node binary; the commands GitHub runs are named beside them.
 export const JOBS = Object.freeze([
-  { name: "test", ci: "npm run test:rest", args: ["scripts/test-split.mjs", "rest"], timeoutMs: JOB_TIMEOUT_MS, tests: true },
-  { name: "test-browser", ci: "npm run test:browser", args: ["--input-type=module", "-e", BROWSER_ONE_AT_A_TIME], shown: "node --test --test-concurrency=1 <the browser files of scripts/test-split.mjs>", timeoutMs: JOB_TIMEOUT_MS, tests: true },
+  { name: "test", ci: "npm run test:rest", args: ["--input-type=module", "-e", splitRun("rest", REST_CONCURRENCY)], shown: `node scripts/bom-check.mjs && node --test --test-concurrency=${REST_CONCURRENCY} <the rest files of scripts/test-split.mjs>`, timeoutMs: JOB_TIMEOUT_MS, tests: true },
+  { name: "test-browser", ci: "npm run test:browser", args: ["--input-type=module", "-e", splitRun("browser", BROWSER_CONCURRENCY)], shown: `node --test --test-concurrency=${BROWSER_CONCURRENCY} <the browser files of scripts/test-split.mjs>`, timeoutMs: JOB_TIMEOUT_MS, tests: true },
   { name: "audit", ci: "npm audit --audit-level=high", npm: ["audit", "--audit-level=high", `--registry=${REGISTRY}`, "--userconfig=/audit/npmrc", "--globalconfig=/dev/null"], timeoutMs: AUDIT_TIMEOUT_MS, network: true },
 ]);
 
@@ -183,7 +189,7 @@ export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), n
     try {
       playwright = JSON.parse(readFileSync(path.join(repo, "node_modules", "playwright", "package.json"), "utf8")).version;
     } catch {}
-    const limit = LIMITS.classes[SLOT_CLASS];
+    const limit = LIMITS.checks; // the launcher passed in is made with checksLimits() (cells/resource-group.mjs)
     return {
       os: `${os.type()} ${os.release()}`, node: process.versions.node, playwright,
       cores: Math.max(1, Math.round(limit.cpuPercent / 100)), hostCores: os.cpus().length, memoryMiB: limit.memoryMiB, hostMemoryMiB: Math.round(os.totalmem() / 1048576),

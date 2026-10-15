@@ -751,7 +751,10 @@ if (startedDirectly()) {
   const launcher = createResourceLauncher({ env: process.env });
   // den-mvp/34: the records go to the board's run folder, next to the conversations, where the user and Bao read them.
   const { createChecks } = await import("./delivery/checks.mjs");
-  const checks = createChecks({ repo: root, launcher, recordDir: path.join(root, ".scratch", "_run", "checks") });
+  // A launcher of their own: the checks group, in its own slice, outside the agents' aggregate.
+  const { checksLimits, CHECKS_SLICE } = await import("./cells/resource-group.mjs");
+  const checksLauncher = createResourceLauncher({ env: process.env, limits: checksLimits(), slice: CHECKS_SLICE });
+  const checks = createChecks({ repo: root, launcher: checksLauncher, recordDir: path.join(root, ".scratch", "_run", "checks") });
   const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }), watchCi: true, usage: createUsageReading(), checks });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
