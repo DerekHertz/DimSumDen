@@ -84,4 +84,4 @@ So a run can send up to 16 KiB to a listed service before the user is asked anyt
 - At spawn the runtime writes that run's MCP config, token included, to a 0600 file in `credentials/run/` and passes `--mcp-config <file>`; it removes the file when the run ends. A connection with no credential stays inline.
 - With no token saved the connection is left out, the run starts, and the Library card shows it unavailable with "No <title> token saved".
 - The first use is GitHub's official server at `/mcp/readonly` with `X-MCP-Toolsets: pull_requests,actions,issues,repos`, every listed tool `read`. Reason for a file over inline: argv is visible to other processes of the user and to `ps`.
-- The two guardrail files (`governance.json`, `connections.json`) are a patch at `docs/agents/gated/33-github-connection.patch`, applied by the user.
+- The two guardrail files (`governance.json`, `connections.json`) were left by the den as a patch for the user, who applied it to this pull request.

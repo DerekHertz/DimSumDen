@@ -79,11 +79,8 @@ test("a launch failure removes the config file", async () => {
   assert.deepEqual(await readdir(path.join(credDir, "run")), []);
 });
 
-test("the gated governance patch closes the credentials folder, which covers the token and the run config", async () => {
-  const patch = readFileSync(new URL("../../../docs/agents/gated/33-github-connection.patch", import.meta.url), "utf8");
-  const line = patch.split("\n").find((l) => l.startsWith("+") && l.includes('"credentialPaths"'));
-  assert.ok(line, "the patch adds credentialPaths");
-  const paths = JSON.parse(`{${line.slice(1).trim().replace(/,$/, "")}}`).credentialPaths;
+test("governance closes the credentials folder, which covers the token and the run config", async () => {
+  const paths = JSON.parse(readFileSync(new URL("./governance.json", import.meta.url), "utf8")).credentialPaths;
   for (const p of ["~/.local/state/den/credentials/github.token", "~/.local/state/den/credentials/run/x.json"]) {
     assert.ok(paths.some((d) => p === d || p.startsWith(`${d}/`)), `${p} is denied`);
   }

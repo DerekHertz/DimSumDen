@@ -6,10 +6,45 @@
       "purpose": "Current documentation and code examples for a named library, from the public Context7 service.",
       "url": "https://mcp.context7.com/mcp",
       "credential": "none",
-      "roles": ["scout", "developer", "architect"],
+      "roles": [
+        "scout",
+        "developer",
+        "architect"
+      ],
       "tools": {
         "resolve-library-id": "read",
         "query-docs": "read"
+      }
+    },
+    {
+      "name": "github",
+      "title": "GitHub",
+      "purpose": "Read pull requests, checks, job logs, issues and repository files on GitHub, read-only.",
+      "url": "https://api.githubcopilot.com/mcp/readonly",
+      "credential": "den",
+      "headers": {
+        "X-MCP-Toolsets": "pull_requests,actions,issues,repos"
+      },
+      "roles": [
+        "orchestrator",
+        "qa",
+        "security",
+        "developer",
+        "scout"
+      ],
+      "tools": {
+        "get_pull_request": "read",
+        "get_pull_request_files": "read",
+        "get_pull_request_status": "read",
+        "list_pull_requests": "read",
+        "get_job_logs": "read",
+        "list_workflow_runs": "read",
+        "list_workflow_jobs": "read",
+        "get_workflow_run": "read",
+        "get_issue": "read",
+        "list_issues": "read",
+        "get_file_contents": "read",
+        "list_commits": "read"
       }
     }
   ]
