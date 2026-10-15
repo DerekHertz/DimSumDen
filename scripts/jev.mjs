@@ -15,7 +15,7 @@ import { hasSecret, isDenied } from "./exposure.mjs";
 import { resolveRoot, resolveShortRef } from "../apps/organism-infra/board-service.mjs";
 
 const MODEL = "jev-1.13.0";
-const MAX_CHARS = 16000;
+export const MAX_CHARS = 16000;
 const MAX_TESTS_BYTES = 1024 * 1024;
 const BOUNCE_CAP = 2000;
 const WAKE_CAP = 4000;
@@ -104,6 +104,19 @@ const POINTS = {
       other: "Cannot tell from this text",
     },
   },
+  // den-mvp/40: CI-failure triage, proved by scripts/jev-eval.mjs before the den calls it. The state is triageState's.
+  triage: {
+    labels: ["flake", "code", "env", "other"],
+    fallback: "orchestrator",
+    instructions:
+      "A CI job failed. Why? Pick flake when the failure is random (a timeout, a race, a test that depends on timing or load) and a rerun of the same commit would likely pass: a failing test the commit's changes cannot reach, or one that also failed on other changes, points here. Pick code when the commit's own change breaks the check and a rerun would fail the same way: the same test failing on earlier pushes of this branch points here. Pick env when the CI runner or a tool is missing something or breaks. Pick other when the commit did not cause it and a rerun would not clear it, such as a new advisory against a dependency, or when the text does not say.",
+    criteria: {
+      flake: "Random: a timeout, race or timing-dependent test; a rerun would likely pass",
+      code: "The commit's own change breaks the check; a rerun would fail the same way",
+      env: "The CI runner or a tool is missing something, lacks a permission, or crashes",
+      other: "Not caused by the commit and not cleared by a rerun (such as a new dependency advisory), or cannot tell",
+    },
+  },
   scope: {
     labels: ["small", "medium", "large", "other"],
     fallback: "orchestrator",
@@ -154,6 +167,48 @@ export function offeredLabels({ codeTicket = true, forbid = [] } = {}) {
   );
 }
 
+// den-mvp/40: what triage sends. A header (job, failing test names, and two facts code knows: what the commit
+// changed, by top-level area, and where the same tests failed before), then every failing test's lines, as the
+// bridge's CI findings quote them (ci-watch.mjs); a log with no failing test gives the lines up to its first error.
+// The log alone cannot tell a timing flake from a real failure (the eval's first run, 2026-10-15); the facts can.
+export function areasOf(files) {
+  const n = {};
+  for (const f of files) {
+    const parts = String(f).split("/");
+    const area = parts[0] === "apps" && parts.length > 2 ? `${parts[0]}/${parts[1]}` : parts.length > 1 ? parts[0] : "(root)";
+    n[area] = (n[area] ?? 0) + 1;
+  }
+  return Object.entries(n).sort((a, b) => b[1] - a[1]);
+}
+const TRIAGE_BLOCK_LINES = 40;
+const TRIAGE_TAIL_LINES = 60;
+export function triageState({ job, log, changed, history }) {
+  const all = String(log ?? "").split("\n").map((l) => l.replace(/^[^\t]*\t[^\t]*\t\S+Z ?/, "").replace(/(?:\x1b|\^\[)\[[0-9;]*m/g, ""));
+  // GitHub's own cleanup after a failed step is never the failure.
+  const cleanup = all.findIndex((l) => /^Post job cleanup\.$/.test(l.trim()));
+  // A secret scanner's finding names the commit's author; triage needs none of it (security review, den-mvp/40).
+  const lines = (cleanup === -1 ? all : all.slice(0, cleanup)).filter((l) => !/^\s*(Author|Email):\s/.test(l));
+  const starts = lines.flatMap((l, i) => (/^\s*not ok \d+ - /.test(l) ? [i] : []));
+  const names = [...new Set(starts.map((i) => lines[i].replace(/^\s*not ok \d+ - /, "").trim()))];
+  let body;
+  if (starts.length) {
+    body = starts.flatMap((at, k) => lines.slice(at, Math.min(at + TRIAGE_BLOCK_LINES, starts[k + 1] ?? Infinity)));
+  } else {
+    const err = lines.findIndex((l) => /##\[error\]/.test(l));
+    body = err === -1 ? lines.slice(-TRIAGE_TAIL_LINES) : lines.slice(Math.max(0, err - TRIAGE_TAIL_LINES), err + 1);
+  }
+  const head = [`job: ${String(job ?? "").slice(0, 100)}`, `failing tests: ${names.length ? names.join(" | ").slice(0, 2000) : "none named"}`];
+  if (Array.isArray(changed)) {
+    head.push(`commit changes: ${changed.length ? areasOf(changed).map(([a, k]) => `${a} (${k} files)`).join(", ").slice(0, 500) : "no files"}`);
+  }
+  if (history) {
+    head.push(`same failing tests in the last ${history.days} days: failed on ${history.otherChanges} other changes (main commits or other branches), ` +
+      `and on ${history.thisBranch} earlier pushes of this branch`);
+  }
+  const text = `${head.join("\n")}\n\n--- log ---\n${body.join("\n").trim()}`;
+  return text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) : text;
+}
+
 export async function fetchTransport({ point, text, model, apiKey, signal, labels }) {
   const p = POINTS[point];
   const criteria = labels
@@ -179,7 +234,7 @@ export async function fetchTransport({ point, text, model, apiKey, signal, label
   return {
     pick: a?.choice,
     probs: a?.probabilities,
-    usage: { cost: (body?.usage?.input_tokens ?? 0) * PRICE_PER_INPUT_TOKEN },
+    usage: { cost: (body?.usage?.input_tokens ?? 0) * PRICE_PER_INPUT_TOKEN, tokens: body?.usage?.input_tokens ?? 0 },
   };
 }
 

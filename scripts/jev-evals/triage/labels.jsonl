@@ -1,0 +1,50 @@
+{"id": "36449488488-109020262476", "label": "code", "evidence": "gitleaks flagged a Stripe- and key-shaped string in a committed board file (organism-infra/08 issue, line 32); fails again until the text changes"}
+{"id": "36453814343-109034918693", "label": "code", "evidence": "same gitleaks finding (organism-infra/08 issue file, line 32) in the scanned range; repo content, not chance"}
+{"id": "36510316871-109220752013", "label": "code", "evidence": "gitleaks flagged an AWS-shaped key literal in scripts/jev.test.mjs:129; fixed by building fake secrets at runtime"}
+{"id": "36510510736-109221351319", "label": "code", "evidence": "same AWS-shaped literal in scripts/jev.test.mjs on the next push of the branch"}
+{"id": "36641964490-109656068890", "label": "code", "evidence": "CLAUDE.md rewrite broke the 'Cells section names the stations' test; the doc change itself fails the check"}
+{"id": "36648366738-109676531404", "label": "env", "evidence": "gitleaks crashed: 'failed to scan Git repository ... stderr is not empty', scanned 0 bytes, no leaks; the scanner broke, not the commit"}
+{"id": "36752695653-110015041544", "label": "flake", "evidence": "smoke --url timed out at 45 s on a board-and-genome-only branch; the same test timed out at random on main runs 37397125048 and 37398104427"}
+{"id": "36892672737-110471887246", "label": "flake", "evidence": "Tally card click timed out (smoke:ui and pill test); next main run bb1139ab passed with only genome/CLAUDE.md changes"}
+{"id": "36899639408-110495289934", "label": "flake", "evidence": "flake: failed on a commit that touched only two .claude genome files; the next main run passed with no change to the failing test or its code (1c2f73e8)"}
+{"id": "36919826164-110562795958", "label": "flake", "evidence": "flake: failed on a commit that touched only docs; the next main run passed with no change to the failing test or its code"}
+{"id": "37029162141-110911341906", "label": "flake", "evidence": "flake: failed on a commit that touched only board files, CONTEXT.md and docs; the next main run passed with no change to the failing test or its code; the Ctrl+Enter note test failed at random on five main commits"}
+{"id": "37032726331-110923294592", "label": "flake", "evidence": "commit ff08f79: the three-digit test 'depended on creation timing' (file mtimes at ms resolution); fixed by pinning mtimes"}
+{"id": "37034561600-110929431408", "label": "flake", "evidence": "Ctrl+Enter note test (actual 0); next main run f91b02f8 passed with only scripts/docs changes; same test failed on board-only commits"}
+{"id": "37060542304-111015819944", "label": "flake", "evidence": "Ctrl+Enter note test (actual 0); next main run fb7c98ee passed with only .codex/AGENTS.md changes"}
+{"id": "37084216484-111091037714", "label": "flake", "evidence": "pinch-zoom test (0.55 to 0.55) on a board CLI branch; the same test failed and passed at random on main (37085300954, 37093654139)"}
+{"id": "37085238561-111094045071", "label": "code", "evidence": "procedural den frontend changed chip counts (expected 3, got 6) and App wiring; fixed by 94221b2 'Tests follow the procedural den'"}
+{"id": "37085300954-111094230716", "label": "flake", "evidence": "flake: failed on a commit that touched only board files (.scratch); the next main run passed with no change to the failing test or its code; pinch-zoom test"}
+{"id": "37085694087-111095400294", "label": "code", "evidence": "same procedural den branch: chips expected 3 got 6, App wiring test; deterministic across three pushes"}
+{"id": "37085861836-111095910345", "label": "flake", "evidence": "pinch-zoom test; next main run 8a41c44c passed with only board files changed"}
+{"id": "37085939702-111096151080", "label": "code", "evidence": "procedural den branch: camera zoom and pan checks fail on every push (also in 37085238561, 37085694087); the new camera rig, not chance"}
+{"id": "37093654139-111119060358", "label": "flake", "evidence": "flake: failed on a commit that touched only board files (.scratch); the next main run passed with no change to the failing test or its code; pinch-zoom test"}
+{"id": "37094184070-111120609717", "label": "flake", "evidence": "flake: failed on a commit that touched only board files (.scratch); the next main run passed with no change to the failing test or its code; Ctrl+Enter note test"}
+{"id": "37397125048-112055629009", "label": "flake", "evidence": "npm run smoke did not finish within 30 s; the same smoke timeout hit board-only main commits 37496077633 and 37497586325"}
+{"id": "37398104427-112058793002", "label": "flake", "evidence": "both smoke tests timed out (30 s, 45 s); timeouts recur at random on main, including on board-only and .claude-only commits"}
+{"id": "37400375015-112065996315", "label": "other", "evidence": "npm audit: a new high advisory GHSA-68fv-2mgg-jv7q against source-map-js (gitleaks clean); fixed by a lockfile bump in PR #158, not by this board commit"}
+{"id": "37403130417-112074578370", "label": "other", "evidence": "npm audit: the same new source-map-js advisory GHSA-68fv-2mgg-jv7q on a docs-only branch"}
+{"id": "37408423009-112091126904", "label": "flake", "evidence": "Ctrl+Enter note test (actual 0); the same test failed and passed at random on main, including board-only commits"}
+{"id": "37415941323-112114448376", "label": "code", "evidence": "lively-den-scene-lab branch added files unreachable from main.jsx and failing review/restaurant tests; deterministic on all six pushes"}
+{"id": "37417938982-112120635015", "label": "code", "evidence": "same branch: unreachable files and failing review/restaurant tests"}
+{"id": "37419922469-112126770376", "label": "code", "evidence": "same branch: unreachable files and failing review/restaurant tests"}
+{"id": "37488267737-112353920158", "label": "code", "evidence": "same branch: unreachable files and failing review/agents/restaurant tests"}
+{"id": "37492236729-112367646139", "label": "code", "evidence": "same branch: unreachable files and failing review/agents/restaurant tests"}
+{"id": "37493290696-112371263950", "label": "code", "evidence": "same branch: unreachable files and failing review/agents/restaurant tests"}
+{"id": "37496077633-112380849332", "label": "flake", "evidence": "flake: failed on a commit that touched only two board files; the next main run passed with no change to the failing test or its code; npm run smoke 30 s timeout"}
+{"id": "37497586325-112385991799", "label": "flake", "evidence": "flake: failed on a commit that touched only three board files; the next main run passed with no change to the failing test or its code; npm run smoke 30 s timeout"}
+{"id": "37694384761-113042295900", "label": "flake", "evidence": "npm run smoke 30 s timeout on a commit that touched one .claude file; runs before (b8616b45) and after (7cb8ec21) passed"}
+{"id": "38336307513-115097058740", "label": "env", "evidence": "den-mvp/01 host tests expect a spawn refusal that needs bwrap and a user bus; CI has neither (friction F11); fixed by 1314247 'stand-in bwrap, since CI has none'"}
+{"id": "38347156620-115131107123", "label": "code", "evidence": "a tracked file tripped the root secret scan; fixed by c5ccf0a 'the build box test trips the root secret scan'"}
+{"id": "38514387350-115693976348", "label": "code", "evidence": "reachability test: a new fixtures file counted as unreachable; failed again on rerun (attempt 2); fixed by e835beb"}
+{"id": "38592028412-115949092992", "label": "code", "evidence": "moving the board out of the repo broke '.scratch/_run/ is git-ignored' and the sessions.jsonl test; the commit's own change"}
+{"id": "38592906530-115961464864", "label": "code", "evidence": "same branch, same two tests; failed again on rerun (attempt 2)"}
+{"id": "38651060212-116149669040", "label": "code", "evidence": "the new vite-native-config test matched its own source line; fixed by 7935998 'test skips its own file'"}
+{"id": "38662038548-116185334070", "label": "code", "evidence": "bridge-live-actors.test imported review/layout.mjs, which the village removed; fixed by 72c0d30"}
+{"id": "38662038548-116185334305", "label": "code", "evidence": "the village moved the abacus under the Tally pill, so the card click failed; fixed by 72c0d30 (pill becomes a HUD button, smoke threshold follows the frame)"}
+{"id": "38665984160-116197945836", "label": "flake", "evidence": "tally-expand timed out at random once the village made the scene heavier (friction F12); fixed by PR #269, two pages at a time and 20 s per action"}
+{"id": "38667742365-116203453112", "label": "flake", "evidence": "tally-expand random timeouts (friction F12) on a prompt-text-only branch"}
+{"id": "38667859999-116203812029", "label": "env", "evidence": "CI has no bwrap or user bus: 'bwrap is not installed' and resume returns 503 (friction F11); fixed by 154b1c7 and 1314247"}
+{"id": "38667859999-116203812095", "label": "flake", "evidence": "tally-expand random timeouts (friction F12), inherited from main"}
+{"id": "38671115520-116214218814", "label": "env", "evidence": "hand-over test needs a user bus CI lacks (resume 503); fixed by 154b1c7 'since CI has no bwrap or user bus'"}
+{"id": "38760833360-116511365575", "label": "code", "evidence": "the desk prompt rewording broke host-conversation.test's /change no file/ match; fixed by rewording the prompt"}

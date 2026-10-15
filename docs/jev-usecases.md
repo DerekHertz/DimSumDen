@@ -2,6 +2,20 @@
 
 One entry per use case. Terms come from ADR 0010 Amendment 1 and ADR 0015 Amendment 2 (2026-10-07, organism-infra/136); read those for the authority rules (Jev picks only among allowed options, may raise and never skip, never bypasses a gate, the user approves every ticket). Nothing below is live until the build tickets merge and append a `config` row per use case. The start date is that row's `ts`.
 
+## The service (checked 2026-10-15)
+
+- Hosted Jev is `POST https://api.typesafe.ai/v1/systemone`, and it takes text only. Models: `jev-1.13.0` (`jev-latest`, our pin) and `jev-1.14.0` (`jev-preview`). A request holds up to 64k tokens, and one question up to 32k. Input costs $0.042 per 1M tokens and output is free ([api](https://docs.typesafe.ai/api.md), [models and pricing](https://docs.typesafe.ai/models.md)). Our 16k-character cap per call (ADR 0010 decision 9) sits well inside these limits.
+- The image classifier TypeSafe showcased is JEV-27B-VL, a separate open-weights vision model that has to be self-hosted. The hosted API cannot take an image.
+
+## Trying a new use case: an eval first (2026-10-15)
+
+The user's direction: "performing isolated tests on the jev usecases first (not days of relay tests) that verify it does what we need it to do is enough to trial it in the den." A new use case is proved with `scripts/jev-eval.mjs`, which needs three things:
+- a labelled case set with the evidence for each label, under `scripts/jev-evals/<usecase>/`;
+- a run of both models on that set;
+- a pass bar that includes a safety miss with zero tolerance at the chosen floor.
+
+The user judges keep or kill from the report. The 10-ticket trial below still governs the use cases written before this date.
+
 ## Shared rules
 
 **Trial.** A use case runs on 10 resolved tickets on which it fired (a `jev` row at that point in the use case's mode, no fallback), then gets one keep-or-kill verdict from the user, on the `jev-report.mjs` section for that use case. If it has not reached 10 after 20 resolved tickets, the verdict is made on what exists. At most one acting use case per hop at a time, so a change in tokens has one cause: qa done-check starts only after verify's verdict, since both act on qa verify.
@@ -108,6 +122,20 @@ The baseline is computed once, at go-live, and frozen in the row, so later rows 
 
 - **What:** the start-here context file goes to every hop that starts cold (also full qa `verify`, `security`, `scout`); `scout` calls `jg` before grepping.
 - **Measure:** the shared measure over tickets with those hops, plus the `kind:"jg"` rows (bytes, skips, fallbacks). Baseline: the last 10 tickets before the change. Kill: a trial median above baseline, or a stale context file named as the cause of a bounce.
+
+### triage (eval run 2026-10-15; the user decides keep or kill)
+
+- **Question:** why did a CI job fail: `flake | code | env | other`. It is written once in `scripts/jev.mjs` (point `triage`, state from `triageState`) so the den can call the same thing.
+- **Sent to TypeSafe:** CI output only, which ADR 0010 decision 9 already allows: the job name, the failing test names, the failing tests' lines, the commit's changed files by area, and the count of earlier failures of the same tests. Scanner author lines are dropped. At most 16k characters, and every case passes the secret check first.
+- **Eval:** `scripts/jev-evals/triage/` has 50 real failed jobs, every red CI run from 2026-09-28 to 2026-10-15, each labelled by hand from what fixed it. Each model ran the set 5 times; the results are pooled.
+  - With the facts: 84.4% accuracy on jev-1.14.0 and 82.8% on jev-1.13.0, against a bar of 85%. From the log alone: about 72% on both.
+  - Cost is about $0.00007 per case, and p95 is under 200 ms.
+  - Jev is not deterministic: confidence on the same text moves by up to about 0.1 between calls.
+  - The facts and the question were written after the first run, so the set is not held out.
+- **Safety miss:** a `code` failure labelled `flake` at or above the floor, since a rerun would hide it.
+  - jev-1.13.0 at a 0.8 floor has none in any run: it decides 56% of failures and is right on 97.8% of them.
+  - jev-1.14.0 needs a 0.9 floor: it decides 44% and is right on all of them.
+- **Next, if kept:** run it in shadow inside the den's CI watch on new failures, which form the held-out check. Then let a `flake` pick at or above the floor take the timeout re-run path.
 
 ## Parked (not tracked until someone files them)
 
