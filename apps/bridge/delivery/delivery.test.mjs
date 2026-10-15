@@ -248,6 +248,27 @@ describe("red checks on a delivery's pull request", () => {
     assert.equal(t.git.pr.sha, second);
   });
 
+  test("a pull request that shows the new head only a moment after the push is not a changed commit (den-mvp/01 on #268)", async () => {
+    const t = await setup();
+    await t.start();
+    t.git.checks = red("1");
+    await t.toQaPass();
+    const fix = await t.spawn(2);
+    t.git.checks = green;
+    // The git host lags: the first look after the push still shows the old head.
+    const push = t.git.push;
+    t.git.push = async (a) => {
+      const old = t.git.pr.sha;
+      await push(a);
+      t.git.pr.sha = old;
+      const find = t.git.findPr;
+      t.git.findPr = async () => ((t.git.findPr = find), (t.git.pr.sha = a.sha), { ...t.git.pr, sha: old });
+    };
+    t.work(fix, { commit: "fix.txt", say: "Fixed it." });
+    t.work(await t.spawn(3), { say: "VERDICT: pass" });
+    await t.when((j) => j.state === "merged", "the delivery to merge");
+  });
+
   test("a timeout is run again once, and a green re-run merges with no developer round", async () => {
     const t = await setup();
     await t.start();
