@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { initialTranscriptState, transcriptKey, transcriptToggle, closeTranscript, DESK_THREAD } from "./transcript-panel.mjs";
-import { threadEntries, threadView, footModel, stopModel } from "./thread-model.mjs";
+import { threadEntries, threadView, footModel, stopModel, emptyPicks, pickOption, setOther, questionAnswers } from "./thread-model.mjs";
 
 const DESK_HINT = "Ask Bao about the repo, the board or CI. Bao proposes work; you start it from the den.";
 
@@ -117,8 +117,54 @@ function Chips({ chips }) {
 }
 
 // Every string a row shows (the agent's words, a reason, a note, a command) is untrusted and rendered as a text node.
-function Row({ row, onToggle, onAnswer, who }) {
+// den-mvp/37: an agent's question, answered here. Each option is a button; "Other" takes the user's own words.
+function QuestionRow({ row, who, client, disabled }) {
+  const [picks, setPicks] = useState(() => emptyPicks(row.questions));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const answers = questionAnswers(row.questions, picks);
+  const send = async (decision) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await client.decide(row.approvalId, decision === "allow" ? { decision, answers } : { decision, note: "The user dismissed the question." });
+    } catch (err) {
+      setError(err?.reason ?? "The bridge did not answer.");
+      setBusy(false);
+    }
+  };
+  const off = disabled || busy || !row.answerable || !client;
+  return <li className="transcript-row transcript-permission transcript-asking transcript-question" role="group" aria-label={`${who} is asking you`}>
+    <p className="transcript-waiting"><span className="transcript-glyph transcript-glyph-needs-you" aria-hidden="true" />{row.head}</p>
+    {row.questions.map((q, qi) => <fieldset key={qi} className="question-set" disabled={off}>
+      <legend>{q.header ? <span className="question-header">{q.header}</span> : null}{q.question}{q.multiSelect ? <span className="question-hint"> Pick any.</span> : null}</legend>
+      <div className="question-options">
+        {q.options.map((o) => {
+          const on = picks[qi].labels.includes(o.label);
+          return <button key={o.label} type="button" className="question-option" aria-pressed={on} onClick={() => setPicks(pickOption(row.questions, picks, qi, o.label))}>
+            <span className="question-label">{o.label}</span>
+            {o.description ? <span className="question-description">{o.description}</span> : null}
+          </button>;
+        })}
+        <button type="button" className="question-option" aria-pressed={picks[qi].other !== null} onClick={() => setPicks(pickOption(row.questions, picks, qi, null))}>
+          <span className="question-label">Other</span>
+        </button>
+        {picks[qi].other !== null ? <input type="text" className="question-other" aria-label={`Your answer to: ${q.question}`} maxLength={500} autoFocus
+          value={picks[qi].other} onChange={(e) => setPicks(setOther(picks, qi, e.target.value))} /> : null}
+      </div>
+    </fieldset>)}
+    {error ? <p className="approval-banner" role="alert">{error}</p> : null}
+    <div className="transcript-answer">
+      <button type="button" className="approval-deny" disabled={off} onClick={() => send("deny")}>Dismiss</button>
+      <button type="button" className="approval-allow" disabled={off || !answers} onClick={() => send("allow")}>{busy ? "Sending" : "Send answer"}</button>
+    </div>
+  </li>;
+}
+
+function Row({ row, onToggle, onAnswer, who, client, demo }) {
   switch (row.kind) {
+    case "question":
+      return <QuestionRow row={row} who={who} client={client} disabled={demo} />;
     case "message":
       return <li className="transcript-row transcript-message thread-agent">
         <p className="transcript-speaker">{who} <time>{timeOf(row.at)}</time></p>
@@ -346,7 +392,7 @@ export function TranscriptPanel({ tx, transcripts, agents, approvals, onAnswer, 
         {history.error ? <p className="transcript-dropped">Earlier messages could not be loaded: {history.error}</p> : null}
         {view.empty ? <p className="transcript-empty">{agentId === DESK_THREAD ? DESK_HINT : view.emptyText}</p> : <>
           {view.droppedNotice ? <p className="transcript-dropped">{view.droppedText}</p> : null}
-          <ul className="transcript-list">{view.rows.map((row) => <Row key={row.n} row={row} who={name} onToggle={toggleRow} onAnswer={() => onAnswer?.(agentId)} />)}</ul>
+          <ul className="transcript-list">{view.rows.map((row) => <Row key={row.n} row={row} who={name} onToggle={toggleRow} onAnswer={() => onAnswer?.(agentId)} client={signedIn ? client : null} demo={demo} />)}</ul>
         </>}
       </div>
       <div className="transcript-jump" aria-live="polite">

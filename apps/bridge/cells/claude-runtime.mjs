@@ -53,6 +53,13 @@ function createChannel() {
 
 // den-mvp outcome 1: `launcher` starts the child inside its resource group (resource-group.mjs). The default is the
 // enforced one and there is no switch for it; only a test passes another.
+// den-mvp/37: the CLI reads the user's answers to AskUserQuestion from `answers` in updatedInput, keyed by each
+// question's own text (checked live against claude 2.1.293). The original text is used, not the den's cleaned copy.
+function withAnswers(input, answers) {
+  if (!Array.isArray(answers) || !Array.isArray(input?.questions) || answers.length !== input.questions.length) return input;
+  return { ...input, answers: Object.fromEntries(input.questions.map((q, i) => [q.question, answers[i]])) };
+}
+
 export function createClaudeRuntime({ env = process.env, launcher = createResourceLauncher({ env }) } = {}) {
   return {
     id: "claude",
@@ -257,11 +264,11 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
             throw err;
           }
         },
-        async decide(requestId, { allow, reason } = {}) {
+        async decide(requestId, { allow, reason, answers } = {}) {
           if (!held.has(requestId)) return;
           const input = held.get(requestId);
           held.delete(requestId);
-          await write(encodeControlResponse({ requestId, allow: allow === true, reason, input }));
+          await write(encodeControlResponse({ requestId, allow: allow === true, reason, input: withAnswers(input, answers) }));
         },
       };
     },

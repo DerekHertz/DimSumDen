@@ -37,10 +37,11 @@ export function createBridgeClient({ fetch }) {
       if (body == null) throw failure(200, "The bridge sent an unreadable answer.");
       return body;
     },
-    async decide(id, { decision, note } = {}) {
+    async decide(id, { decision, note, answers } = {}) {
       if (decision !== "allow" && decision !== "deny") throw failure(0, "Decision must be allow or deny.");
       const payload = { decision };
       if (note !== undefined && note !== null && note !== "") payload.note = note;
+      if (Array.isArray(answers)) payload.answers = answers; // den-mvp/37: one per question, for an agent's question
       const body = await call(route(id), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
