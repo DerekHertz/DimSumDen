@@ -7,11 +7,11 @@
 import { test, describe, after } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn as spawnChild, execFile } from "node:child_process";
-import { EnforcementError, GATE_REFUSED, LIMITS, START_GATE, buildScopeArgv, cgroupOf, checkLimits, createResourceLauncher, findUserBus, groupFiles, groupProperties, measureTree, watchStorage } from "./resource-group.mjs";
+import { EnforcementError, GATE_REFUSED, LIMITS, START_GATE, buildScopeArgv, cgroupOf, checkLimits, createResourceLauncher, findUserBus, groupFiles, groupProperties, judgeProbe, PROBE_SCRIPT, measureTree, watchStorage } from "./resource-group.mjs";
 import { createClaudeRuntime } from "./claude-runtime.mjs";
 import { SLOTS } from "./policy.mjs";
 
@@ -73,7 +73,7 @@ describe("the scope argv and the values it must produce", () => {
 
   test("the launcher's bus variables are removed before the CLI, and the CLI's own flags are never read as the launcher's", () => {
     const rest = argv.slice(argv.indexOf("--") + 1);
-    assert.deepEqual(rest, ["env", "-u", "XDG_RUNTIME_DIR", "-u", "DBUS_SESSION_BUS_ADDRESS", "prlimit", "--fsize=4294967296:4294967296", "--", "/bin/sh", "-c", START_GATE, "den-gate", "claude", "-p", "--agent", "scout"]);
+    assert.deepEqual(rest, ["env", "-u", "XDG_RUNTIME_DIR", "-u", "DBUS_SESSION_BUS_ADDRESS", "prlimit", "--fsize=4294967296:4294967296", "--", "/bin/sh", "-c", START_GATE, "den-gate", "bwrap", "--dev-bind", "/", "/", "--unshare-pid", "--proc", "/proc", "--ro-bind", "/sys/fs/cgroup", "/sys/fs/cgroup", "--die-with-parent", "--", "claude", "-p", "--agent", "scout"]);
   });
 
   test("the gate runs the command only on the launcher's word: a closed pipe or another word ends it with the refusal code", async () => {
@@ -117,10 +117,14 @@ describe("a host that cannot enforce the limits starts nothing", () => {
   after(async () => {
     for (const dir of dirs) await rm(dir, { recursive: true, force: true });
   });
+  // CI has no bwrap: these hosts get a stand-in on PATH so the refusal under test is the bus's, not the wrapper's.
   const emptyHost = async () => {
     const dir = await mkdtemp(path.join(tmpdir(), "den-nobus-"));
     dirs.push(dir);
-    return { PATH: process.env.PATH, HOME: dir, XDG_RUNTIME_DIR: dir };
+    const bin = path.join(dir, "bin");
+    await mkdir(bin);
+    await writeFile(path.join(bin, "bwrap"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+    return { PATH: `${bin}:${process.env.PATH}`, HOME: dir, XDG_RUNTIME_DIR: dir };
   };
 
   test("no reachable bus: findUserBus gives a reason that names the place it looked", async () => {
@@ -141,6 +145,13 @@ describe("a host that cannot enforce the limits starts nothing", () => {
     assert.equal(spawns, 0);
   });
 
+  test("a host without bwrap is refused at startup, with the reason, and nothing is spawned", async () => {
+    const launcher = createResourceLauncher({ env: { PATH: "/nonexistent" }, spawn: () => assert.fail("nothing may be spawned") });
+    const check = await launcher.preflight();
+    assert.equal(check.ok, false);
+    assert.match(check.reason, /bwrap is not installed/);
+  });
+
   test("the default runtime is the enforced one: its spawn rejects and the binary it names is never run", async () => {
     const env = await emptyHost();
     const marker = path.join(env.HOME, "ran");
@@ -156,6 +167,18 @@ describe("a host that cannot enforce the limits starts nothing", () => {
     const launcher = createResourceLauncher({ env: process.env, spawn: () => assert.fail("nothing may be spawned"), exec: () => assert.fail("nothing may be run") });
     await assert.rejects(launcher.launch({ slotClass: "huge", id: "abc", bin: "true", args: [], cwd: "/", env: {} }), TypeError);
     await assert.rejects(launcher.launch({ slotClass: "worker", id: "A B", bin: "true", args: [], cwd: "/", env: {} }), TypeError);
+  });
+});
+
+describe("the probe's verdict", () => {
+  test("only a clean exit that said 'contained' passes; any named attempt, a bad code or no answer is a refusal with its reason", () => {
+    assert.equal(judgeProbe(0, "contained\n"), null);
+    assert.match(judgeProbe(1, "limit file /x/memory.max was writable\n"), /was writable/);
+    assert.match(judgeProbe(1, "the service manager's bus socket /run/user/1/bus is visible\n"), /is visible/);
+    assert.match(judgeProbe(0, "the process moved itself to the root control group\n"), /moved itself/);
+    assert.match(judgeProbe(1, "the service manager answered a connection\n"), /answered a connection/);
+    assert.match(judgeProbe(0, ""), /code 0/);
+    assert.match(judgeProbe(null, ""), /no answer/);
   });
 });
 
@@ -261,6 +284,39 @@ describe("live: the launcher under reduced limits", { skip }, () => {
     await until(async () => (await launcher.active(id)) === false, { what: "the scope to be gone" });
     assert.equal(await launcher.active(`never-${process.pid}`), false);
     await assert.rejects(launcher.active("A B"), TypeError);
+  });
+
+  test("a run cannot change its own or the slice's limit files, leave its group, or reach the service manager's bus", async () => {
+    const bus = findUserBus(process.env).env;
+    const addr = bus.DBUS_SESSION_BUS_ADDRESS.replace(/^unix:path=/, "");
+    const run = await start(`d=/sys/fs/cgroup$(sed -n 's/^0:://p' /proc/self/cgroup)
+for f in "$d/memory.max" "$d/pids.max" "$d/cpu.max" "$d/../memory.max"; do (echo max > "$f") 2>/dev/null && echo "WROTE $f"; done
+(echo $$ > /sys/fs/cgroup/cgroup.procs) 2>/dev/null && echo MOVED
+for s in ${addr} ${process.env.HOME}/.local/state/den/user-bus /run/user/$(id -u)/bus; do [ -S "$s" ] && echo "BUS $s"; done
+if command -v busctl >/dev/null; then busctl --user --no-pager status >/dev/null 2>&1 && echo "BUS CONNECTED"; fi
+if command -v systemctl >/dev/null; then systemctl --user is-system-running >/dev/null 2>&1 && echo "SYSTEMCTL CONNECTED"; fi
+echo done`);
+    assert.deepEqual(await run.exit, { code: 0, signal: null });
+    assert.equal(run.out, "done\n");
+    assert.equal(value(run.group, "memory.max"), String(TEST_LIMITS.classes.worker.memoryMiB * MIB));
+    run.group.kill();
+  });
+
+  test("the probe's own script finds nothing loosened: remounts, a new cgroup2 mount, the slice's files and /proc/<pid>/root included", async () => {
+    const bus = findUserBus(process.env).env;
+    const addr = bus.DBUS_SESSION_BUS_ADDRESS.replace(/^unix:path=/, "");
+    const run = await start(`set -- ${addr}\n${PROBE_SCRIPT}`);
+    assert.deepEqual(await run.exit, { code: 0, signal: null });
+    assert.match(run.out, /^contained$/m);
+    run.group.kill();
+  });
+
+  test("the preflight passes here, and a missing bwrap is a refusal with its reason", async () => {
+    assert.deepEqual(await launcher.preflight(), { ok: true });
+    const bare = createResourceLauncher({ env: { ...process.env, PATH: "/nonexistent" }, limits: TEST_LIMITS, slice: SLICE });
+    const check = await bare.preflight();
+    assert.equal(check.ok, false);
+    assert.match(check.reason, /bwrap is not installed/);
   });
 
   test("a command that ends at once is still a start: the launcher saw it in its scope before it ran", async () => {
