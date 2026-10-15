@@ -7,7 +7,7 @@
 import { test, describe, after } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn as spawnChild, execFile } from "node:child_process";
@@ -117,10 +117,14 @@ describe("a host that cannot enforce the limits starts nothing", () => {
   after(async () => {
     for (const dir of dirs) await rm(dir, { recursive: true, force: true });
   });
+  // CI has no bwrap: these hosts get a stand-in on PATH so the refusal under test is the bus's, not the wrapper's.
   const emptyHost = async () => {
     const dir = await mkdtemp(path.join(tmpdir(), "den-nobus-"));
     dirs.push(dir);
-    return { PATH: process.env.PATH, HOME: dir, XDG_RUNTIME_DIR: dir };
+    const bin = path.join(dir, "bin");
+    await mkdir(bin);
+    await writeFile(path.join(bin, "bwrap"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+    return { PATH: `${bin}:${process.env.PATH}`, HOME: dir, XDG_RUNTIME_DIR: dir };
   };
 
   test("no reachable bus: findUserBus gives a reason that names the place it looked", async () => {
