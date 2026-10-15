@@ -27,10 +27,12 @@ const snapshot = ({ ended = false } = {}) => ({
     { id: 3, at: iso(180), kind: 'tool', name: 'Read', summary: 'apps/ui/src/a.test.mjs', status: 'done', result: 'ok' },
     { id: 4, at: iso(120), kind: 'message', role: 'user', text: 'Use port 5173.', messageId: '7b0c2f1e-3a4d-4e5f-8a6b-9c0d1e2f3a4b', status: 'applied' },
     ...(ended
-      ? [{ id: 5, at: iso(60), kind: 'message', role: 'agent', text: 'Done. One test was wrong.' }, { id: 6, at: iso(50), kind: 'ended', state: 'done' }]
+      ? [{ id: 5, at: iso(60), kind: 'message', role: 'agent', text: MARKDOWN }, { id: 6, at: iso(50), kind: 'ended', state: 'done' }]
       : [{ id: 5, at: iso(5), kind: 'permission', name: 'Bash', status: 'pending', approvalId: APPROVAL }]),
   ] } },
 });
+// den-mvp/39: the ended run's last message is markdown, with a table wider than the 375px panel and raw HTML in it.
+const MARKDOWN = 'Done. One test was wrong.\n\n## What changed\n\n- **a.test.mjs** used the wrong port\n\n| file | before | after | why the port moved |\n|---|---|---|---|\n| apps/ui/src/a.test.mjs | `4317` | `5173` | the dev server listens on 5173 in every walled run |\n\n<script>window.__ran = true</script>';
 const history = { more: true, before: 40, entries: [
   { runId: OLD, ref: REF, id: 0, at: iso(9000), kind: 'run', mode: 'direct', resumeOf: null },
   { runId: OLD, ref: REF, id: 1, at: iso(8990), kind: 'message', role: 'agent', text: 'Yesterday I mapped the test folders.' },
@@ -142,6 +144,14 @@ test('the thread of a run that ended: opened from its panda, a follow-up continu
     const thread = page.getByRole('complementary', { name: /Conversation with/ });
     await thread.waitFor();
     assert.match(await thread.locator('.transcript-log').innerText(), /Done\. One test was wrong\.[\s\S]*Agent ended: done/);
+    // den-mvp/39: the message is formatted; its table stays inside the bubble, and its script is text that never ran.
+    const md = thread.locator('.thread-bubble.agent-md').last();
+    assert.equal(await md.locator('h2').innerText(), 'What changed');
+    assert.equal(await md.locator('li strong').innerText(), 'a.test.mjs');
+    assert.equal(await md.locator('table th').count(), 4);
+    assert.match(await md.innerText(), /<script>window\.__ran = true<\/script>/);
+    assert.equal(await page.evaluate(() => window.__ran), undefined, 'the script in the message did not run');
+    assert.equal(await md.evaluate((el) => el.scrollWidth <= el.clientWidth + 1), true, 'the wide table scrolls inside its own box, not the bubble');
     assert.match(await thread.locator('.thread-foot-note').innerText(), /A follow-up continues its session/);
     assert.equal(await thread.locator('.thread-stop').count(), 0, 'a run that ended has no Stop');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no sideways scroll at 375px');
