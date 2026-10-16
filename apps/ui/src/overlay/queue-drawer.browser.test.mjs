@@ -76,7 +76,11 @@ test('the queue drawer: goals with counts, a ticket row opens Run and Details, E
     assert.equal(await routing.locator('.run-select').inputValue(), 'architect', 'a design ticket preselects the architect');
     await routing.getByRole('button', { name: 'Details' }).click();
     assert.equal(await drawer.getAttribute('data-open'), 'false', 'Details closes the drawer');
-    await page.locator('.panda-detail').waitFor();
+    const details = page.getByRole('dialog', { name: 'Ticket details' });
+    await details.waitFor();
+    assert.match(await details.innerText(), /den-mvp\/57-routing-rewrite-architecture/);
+    await details.getByRole('button', { name: 'Close ticket details' }).click();
+    await button.waitFor({ state: 'visible' });
 
     await button.click();
     await page.keyboard.press('Escape');

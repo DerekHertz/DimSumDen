@@ -31,12 +31,14 @@ export function isDenPositionBlocked(x,z,obstacles,radius=WALK.radius) {
   return false;
 }
 
-export function startWalk() {
-  return {...WALK.start, y: WALK.eyeHeight, walkTime: 0};
+export function startWalk(start = WALK.start) {
+  return {...start, y: start.eyeHeight??WALK.eyeHeight, walkTime: 0};
 }
 
 export function isWalkBlocked(x,z,world) {
-  if(Math.hypot(x,z)>WALK.floorRadius-WALK.radius)return true;
+  const center=world.floorCenter||{x:0,z:0};
+  if(Math.hypot(x-center.x,z-center.z)>(world.floorRadius??WALK.floorRadius)-WALK.radius)return true;
+  if(world.navigation?.groundAt(x,z,world.groundY??0)===null)return true;
   if(isDenPositionBlocked(x,z,world.obstacles||[]))return true;
   for(const a of world.avoid||[])if(Math.hypot(x-a.x,z-a.z)<a.r)return true;
   return false;
@@ -49,6 +51,12 @@ export function walk(state,input,dt,world) {
   const forward=input.forward||0,strafe=input.strafe||0;
   const length=Math.hypot(forward,strafe);
   let {x,z,walkTime}=state;
+  let groundY=state.groundY??0;
+  const canMove=(nx,nz)=>{
+    const nextGround=world.navigation?.groundAt(nx,nz,groundY)??(world.navigation?null:0);
+    if(nextGround===null||isWalkBlocked(nx,nz,{...world,groundY:nextGround}))return false;
+    groundY=nextGround;return true;
+  };
   if(length){
     const speed=input.sprint?WALK.sprintSpeed:WALK.speed;
     const dx=(-Math.sin(yaw)*forward+Math.cos(yaw)*strafe)/length*speed*dt;
@@ -56,11 +64,11 @@ export function walk(state,input,dt,world) {
     // Sub-steps no longer than a stride keep a long frame from jumping a prop; each axis slides on its own.
     const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/WALK.stepLength));
     for(let i=0;i<steps;i++){
-      if(!isWalkBlocked(x+dx/steps,z,world))x+=dx/steps;
-      if(!isWalkBlocked(x,z+dz/steps,world))z+=dz/steps;
+      if(canMove(x+dx/steps,z))x+=dx/steps;
+      if(canMove(x,z+dz/steps))z+=dz/steps;
     }
     walkTime+=dt;
   }
   const bob=length&&!input.reducedMotion?WALK.bob*Math.sin(walkTime*WALK.bobRate):0;
-  return {x,z,y:WALK.eyeHeight+bob,yaw,pitch,walkTime};
+  return {...(world.navigation?{groundY}:{}),x,z,y:groundY+(world.eyeHeight??WALK.eyeHeight)+bob,yaw,pitch,walkTime};
 }

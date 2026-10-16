@@ -5,14 +5,14 @@
 // Markup contract the developer must meet (everything else is free):
 //   pill      button.chip-tally, aria-label "Tally: open the dashboard", aria-expanded, aria-controls=<dialog id>,
 //             aria-haspopup="dialog"
-//   card      role="dialog" aria-modal="false" labelled by its "Tally" heading, class "tally-card", inside main.scene
+//   card      role="dialog" aria-modal="false" labelled by its "Tally" heading, class "tally-card", inside the focused desk
 //   heading   the "Tally" heading takes focus on open (an h1-h6 inside the dialog)
 //   close     a button named "Close Tally"
 //   body      role="region" aria-label="Tally metrics", tabindex 0, overflow-y auto
 //   rows      one element per rod with data-rod = five-hour|week|served|tokens|spills, in that order, carrying
 //             data-counted="<0..10>"; the 5 h and Week rows contain an element with data-mark="80"
 //   sections  h3 "The rods" and h3 "Pipeline" (the existing <Dashboard> renders under the second)
-//   meters    exactly two role="meter" in the scene at any time: hidden twins when closed, the card's
+//   meters    exactly two role="meter" in the app at any time: hidden twins when closed, the card's
 //             5 h and Week rows when open (the sidebar's own usage meter is outside the scene)
 import { test, before, after, describe } from "node:test";
 import assert from "node:assert/strict";
@@ -21,7 +21,7 @@ import { chromium } from "playwright";
 import { buildLaunchOptions } from "../../../ci-cd/launch-options.mjs";
 import { lightenScene } from "../../../ci-cd/light-scene.mjs";
 import { cameraConfig } from "./procedural/camera.mjs";
-import { DEN_TARGET, TALLY_ANCHOR } from "./procedural/bindings.mjs";
+import { DEN_TARGET } from "./procedural/bindings.mjs";
 
 const TALLY_RODS_CAPTION = "Tally rods: Served 1 bead = 1 ticket this window; Tokens 1 bead = 20k per ticket; Spills 1 bead = 0.1 per ticket.";
 const VIEW = { width: 1280, height: 800 };
@@ -33,9 +33,8 @@ const metricsOk = () => ({
 });
 const usageAt = (fiveHour, weekly) => ({ fiveHour, weekly, sampledAt: new Date(Date.now() - 12 * 60_000).toISOString() });
 
-// ci-cd/07: one browser and dev server, scenarios in parallel (each opens its own context).
-// Two at a time with 20 s per action: since the village (#256), three software-GL pages on a CI runner timed out at random.
-describe("tally expand", { concurrency: 2 }, () => {
+// One browser and dev server; scenarios run serially with one model-loading GL context at a time.
+describe("tally expand", { concurrency: 1 }, () => {
 let server;
 let browser;
 let base;
@@ -98,8 +97,7 @@ const focusInfo = (page) =>
   });
 const settle = (page) => page.waitForTimeout(450);
 
-// Screen position of a world point at the app's default frame (procedural/camera.mjs, den-layout/02), in page pixels
-// (the scene starts at x 0, y 0). The camera is orthographic and centred on DEN_TARGET: pixels per unit is the viewport
+// Screen position of a world point at the app's default frame, in page pixels of the garden canvas. The camera is orthographic and centred on DEN_TARGET: pixels per unit is the viewport
 // height over the frustum height, and the iso pitch squashes depth by sin and lifts height by cos.
 function screenOf(sceneBox, x, y, z, target = DEN_TARGET) {
   const c = cameraConfig({ width: sceneBox.width, height: sceneBox.height });
@@ -125,7 +123,7 @@ test("click on the pill opens the card in place: dialog shown, aria-expanded tru
     assert.equal(await pill.getAttribute("aria-expanded"), "true");
     assert.equal(await pill.getAttribute("aria-controls"), await dialog.getAttribute("id"));
     assert.equal(await dialog.getAttribute("aria-modal"), "false");
-    assert.ok(await dialog.evaluate((el) => !!el.closest('main[aria-label="Den scene"]')), "card is inside the scene");
+    assert.ok(await dialog.evaluate((el) => !!el.closest('aside[aria-label="Your desk"]')), "Tally occupies the focused desk");
     const f = await focusInfo(page);
     assert.match(f.tag, /^H[1-6]$/, "focus moves to a heading");
     assert.equal(f.text, "Tally");
@@ -154,10 +152,10 @@ for (const key of ["Enter", "Space"]) {
   });
 }
 
-test("a quiet den (no active tickets, caption showing) does not block the pill: it still opens the card", { timeout: 90000 }, async () => {
+test("a quiet den with fourteen resting residents does not block the pill: it still opens the card", { timeout: 90000 }, async () => {
   const { page, pill, context } = await openApp({ quiet: true });
   try {
-    assert.equal(await page.locator(".scene-empty").count(), 1, "the quiet caption is showing");
+    assert.match(await page.getByLabel("Garden activity").innerText(), /0 working[\s\S]*14 resting/, "quiet state retains the resident activity legend");
     await pill.click();
     await dialogOf(page).waitFor({ state: "visible" });
   } finally {
@@ -168,17 +166,10 @@ test("a quiet den (no active tickets, caption showing) does not block the pill: 
 test("a click on the abacus in the scene opens the card, and clicking it again leaves it open (criterion 2)", { timeout: 90000 }, async () => {
   const { page, pill, scene, context } = await openApp();
   try {
-    const box = await scene.boundingBox();
-    // den-mvp/25: the village's abacus is at the front-right corner, under the cards at the default frame. Drag the view
-    // right until the camera's target clamps at x 14 (camera.mjs clampTarget), which brings the abacus to the middle.
-    const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-    await page.mouse.move(from.x, from.y);
-    await page.mouse.down();
-    await page.mouse.move(from.x - 250, from.y, { steps: 5 });
-    await page.mouse.move(from.x - 500, from.y, { steps: 5 });
-    await page.mouse.up();
-    await page.waitForTimeout(800); // the rig eases to its new target
-    const mid = screenOf(box, TALLY_ANCHOR.x, 1.3, TALLY_ANCHOR.z, [14, DEN_TARGET[1], DEN_TARGET[2]]); // the kit abacus: board centre about 1.3 up
+    await page.waitForFunction(() => document.querySelector('.den-entry button') && document.querySelector('.den-entry button').getAttribute('aria-disabled') !== 'true', null, { timeout: 60000 });
+    const box = await page.locator('.forest-canvas').boundingBox();
+    // The new abacus is at [16, 0, 18]. Hit its solid right frame rather than a gap between beads.
+    const mid = screenOf(box, 17.05, 1.15, 18);
     await page.mouse.click(mid.x, mid.y);
     const dialog = dialogOf(page);
     await dialog.waitFor({ state: "visible" });
@@ -254,7 +245,7 @@ test("an outside pointerdown (the scene canvas) closes the card and does not mov
   }
 });
 
-test("exactly two role=meter in the scene, closed and open, with the exact percent in the name (criterion 4)", { timeout: 90000 }, async () => {
+test("exactly two role=meter across garden and desk, closed and open, with the exact percent in the name (criterion 4)", { timeout: 90000 }, async () => {
   const { page, pill, scene, context } = await openApp({ usage: usageAt(79, 41) });
   try {
     const read = (loc) =>
@@ -269,13 +260,13 @@ test("exactly two role=meter in the scene, closed and open, with the exact perce
       { label: "5-hour window 79%", min: "0", max: "100", now: "79", tabindex: null },
       { label: "Week 41%", min: "0", max: "100", now: "41", tabindex: null },
     ];
-    assert.deepEqual(await read(scene.getByRole("meter")), want, "closed: the hidden twins");
+    assert.deepEqual(await read(page.getByRole("meter")), want, "closed: the hidden twins");
     assert.equal(await page.locator(".card").getByRole("meter").count(), 0, "the floating cards carry no usage meter (07 removed it)");
     await pill.click();
     const dialog = dialogOf(page);
     await dialog.waitFor({ state: "visible" });
-    const open = await read(scene.getByRole("meter"));
-    assert.equal(open.length, 2, "open: still exactly two in the scene");
+    const open = await read(page.getByRole("meter"));
+    assert.equal(open.length, 2, "open: still exactly two across garden and desk");
     assert.deepEqual(open.map((m) => [m.label, m.now]), [["5-hour window 79%", "79"], ["Week 41%", "41"]]);
     assert.equal(await dialog.getByRole("meter").count(), 2, "open: they are the card's rows");
     for (const m of open) assert.deepEqual([m.min, m.max], ["0", "100"]);
@@ -314,7 +305,7 @@ test("card rows: five in order with the counted-bead counts and the 80% mark on 
     assert.equal(await dialog.locator("figure.chart").count(), 3, "the three Dashboard charts are in the card");
     const region = dialog.getByRole("region", { name: "Tally metrics" });
     assert.equal(await region.getAttribute("tabindex"), "0");
-    assert.equal(await region.evaluate((el) => getComputedStyle(el).overflowY), "auto");
+    assert.equal(await page.getByRole("complementary", { name: "Your desk" }).evaluate((el) => getComputedStyle(el).overflowY), "auto", "the desk supplies a single scroll area for all metrics");
   } finally {
     await context.close();
   }
@@ -340,7 +331,7 @@ test("usage at 96 shows At limit and ten counted beads; 86 shows Wind down; belo
 test("no usage sample: 5 h and Week read 'not sampled' with no valuenow and no Sampled line (criterion 6)", { timeout: 90000 }, async () => {
   const { page, pill, scene, context } = await openApp({ usage: null });
   try {
-    const labels = () => scene.getByRole("meter").evaluateAll((els) => els.map((e) => [e.getAttribute("aria-label"), e.getAttribute("aria-valuenow")]));
+    const labels = () => page.getByRole("meter").evaluateAll((els) => els.map((e) => [e.getAttribute("aria-label"), e.getAttribute("aria-valuenow")]));
     assert.deepEqual(await labels(), [["5-hour window not sampled", null], ["Week not sampled", null]], "closed twins");
     await pill.click();
     const dialog = dialogOf(page);
@@ -419,7 +410,7 @@ test("arrow keys, + and - pressed inside the card do not reach the camera rig (c
   }
 });
 
-test("placement: above the pill with 8px gap, inside the scene with a 16px margin, 480px wide, at least 280px tall (spec 3)", { timeout: 90000 }, async () => {
+test("placement: the Tally fits the focused desk and leaves the garden available", { timeout: 90000 }, async () => {
   const { page, pill, scene, context } = await openApp();
   try {
     await pill.click();
@@ -427,13 +418,12 @@ test("placement: above the pill with 8px gap, inside the scene with a 16px margi
     await dialog.waitFor({ state: "visible" });
     await settle(page);
     const d = await dialog.boundingBox();
-    const s = await scene.boundingBox();
-    const p = await pill.boundingBox();
-    assert.ok(Math.abs(d.width - 480) <= 1, `width ${d.width}`);
-    assert.ok(d.height >= 279, `height ${d.height}`);
-    assert.ok(d.x >= s.x + 15 && d.x + d.width <= s.x + s.width - 15, "inside the scene horizontally with margin");
-    assert.ok(d.y >= s.y + 15, `top ${d.y}`);
-    assert.ok(d.y + d.height <= p.y - 6, `card bottom ${d.y + d.height} sits above the pill top ${p.y}`);
+    const desk = await page.getByRole("complementary", { name: "Your desk" }).boundingBox();
+    const garden = await scene.boundingBox();
+    assert.ok(d.x >= desk.x && d.x + d.width <= desk.x + desk.width, "all metrics fit inside the desk width");
+    assert.ok(d.y >= desk.y && d.y < desk.y + desk.height, "dialog starts within the desk");
+    assert.ok(desk.x >= garden.x + garden.width, "the desk does not cover the garden");
+    assert.equal(await page.locator('.forest-desk-home').isVisible(), false, "home cards give the detail panel their space");
   } finally {
     await context.close();
   }

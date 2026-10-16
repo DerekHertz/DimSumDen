@@ -649,7 +649,7 @@ export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZo
  * The right-hand column. Needs you opens by itself while something waits, until the user toggles it; Stations & queue,
  * Meetings and Library start closed. Under 600 px all start closed and opening one closes the others.
  */
-export function Cards({ snapshot, ownBuild = null, now, connection, placeholder, camera, steering, onAnswer, onOpenThread = null, onOpenTicket = null, demo = false, libraryRequest = 0 }) {
+export function Cards({ snapshot, ownBuild = null, now, connection, placeholder, camera, steering, onAnswer, onOpenThread = null, onOpenTicket = null, demo = false, libraryRequest = 0, focusRequest = null }) {
   const [needsOpen, setNeedsOpen] = useState(null); // null: follow the data
   const [stationsOpen, setStationsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -667,6 +667,15 @@ export function Cards({ snapshot, ownBuild = null, now, connection, placeholder,
   const meetings = useMeetings(client);
   const capacity = capacityFromSnapshot(snapshot);
   const steer = { state: steering.state, demo };
+
+  // The garden shell opens the existing controllers; it never creates another runner or reader.
+  useEffect(() => {
+    if (!focusRequest) return;
+    setNeedsOpen(focusRequest.section === 'home');
+    setStationsOpen(focusRequest.section === 'work');
+    setLibraryOpen(focusRequest.section === 'library');
+    setMeetingsOpen(focusRequest.section === 'meetings');
+  }, [focusRequest]);
 
   // den-mvp/62: the Queue drawer, over the scene and this column. A ticket row uses the same Run and Deliver controls as
   // Stations & queue; a Needs-you row opens the Needs you card, where acting stays.

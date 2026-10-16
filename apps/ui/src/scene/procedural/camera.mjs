@@ -17,10 +17,10 @@ export function dragPan(target,{dx,dy},view){
 export function keyPan(target,key,view){return dragPan(target,{dx:key==='ArrowLeft'?48:key==='ArrowRight'?-48:0,dy:0},view);}
 export const pinchZoom=(zoom,from,to)=>clampZoom(zoom*from/Math.max(to,1));
 export const wheelZoom=(zoom,delta)=>clampZoom(zoom*Math.exp(Math.max(-20,Math.min(20,delta*0.001))));
-export function createDenCameraStore(base,onNavigate=()=>{}) {
+export function createDenCameraStore(base,onNavigate=()=>{},targets=null) {
   base.setTarget(DEN_TARGET);
   return {...base,
     goToLevel(level){onNavigate();base.goToLevel(level);if(level===1)base.setTarget(DEN_TARGET);},
-    goToStation(id){onNavigate();base.setZoom(0.75);const s=STATIONS[id];base.setTarget(s?[s.x,1,s.z]:id==='pass'?[0,2,-10]:DEN_TARGET);},
+    goToStation(id){onNavigate();base.setZoom(0.75);const s=STATIONS[id];base.setTarget(targets?.[id]??(s?[s.x,1,s.z]:id==='pass'?[0,2,-10]:DEN_TARGET));},
   };
 }

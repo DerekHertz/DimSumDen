@@ -55,6 +55,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const bom = spawnSync(process.execPath, ["scripts/bom-check.mjs"], { cwd: ROOT, stdio: "inherit" });
     if (bom.status !== 0) process.exit(bom.status ?? 1);
   }
-  const r = spawnSync(process.execPath, ["--test", ...groups[mode]], { cwd: ROOT, stdio: "inherit" });
+  // Each browser file loads the complete garden. Bound file concurrency so
+  // model decoding and Chromium contexts do not exhaust the CI runner.
+  const concurrency = mode === "browser" ? ["--test-concurrency=1"] : [];
+  const r = spawnSync(process.execPath, ["--test", ...concurrency, ...groups[mode]], { cwd: ROOT, stdio: "inherit" });
   process.exit(r.status ?? 1);
 }
