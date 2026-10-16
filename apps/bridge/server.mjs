@@ -522,7 +522,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
         if (Number.isInteger(b)) {
           if (b < 1 || b > i) return fail(`${at}: a blocker in the batch must name an earlier ticket by its position (1 to ${i})`);
         } else if (!boardRefExists(b)) {
-          return fail(`${at}: blocker ${String(b).slice(0, 80)} is not a ticket on the board`);
+          return fail(`${at}: blocker ${cleanText(String(b).slice(0, 80))} is not a ticket on the board`);
         }
       }
       drafts.push({ title: title.trim(), text, priority, type: type.replace(/\s+/g, " ").trim(), blockedBy, slug });
