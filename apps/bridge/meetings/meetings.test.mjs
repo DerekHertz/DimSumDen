@@ -25,6 +25,9 @@ const BRIEF = [
   "## Only you can answer", "- How long must a log be kept?",
 ].join("\n");
 
+// A meeting folder once the store has no write in flight: it writes "<file>.tmp" and then renames it (den-mvp/63).
+const settled = (dir) => until(() => { const names = readdirSync(dir); return names.some((n) => n.endsWith(".tmp")) ? null : names.sort(); }, { what: `no .tmp left in ${dir}` });
+
 const cleanups = [];
 afterEach(async () => {
   for (const fn of cleanups.splice(0).reverse()) await fn();
@@ -106,7 +109,7 @@ describe("a meeting, from a topic to a saved brief and a decision", () => {
     assert.deepEqual(briefed.brief, { version: 1, options: [{ key: "A", title: "One log for all jobs" }, { key: "B", title: "One log per job" }], recommended: "A" });
     assert.equal(t.fake.spawns.length, 4, "nothing runs after the brief until the user acts");
     // Saved on the board, by the bridge.
-    assert.deepEqual(readdirSync(t.dirOf(briefed)).sort(), ["brief.md", "meeting.md", "take-architect.md"]);
+    assert.deepEqual(await settled(t.dirOf(briefed)), ["brief.md", "meeting.md", "take-architect.md"]);
     assert.match(t.file(briefed, "take-architect.md"), /Saved by the den's bridge from run c-[0-9a-f]{16}[\s\S]*\n---\n\nClaim: one log is enough/);
     assert.match(t.file(briefed, "brief.md"), /## Option B: One log per job/);
     assert.match(t.file(briefed, "meeting.md"), /\*\*Status:\*\* briefed[\s\S]*- security: declined \(nothing here touches access or secrets\)[\s\S]*None yet\. A brief authorizes nothing by itself\./);
@@ -339,7 +342,7 @@ describe("a meeting can be rejoined for 24 hours, then only the decision and a s
     const rebriefed = await t.when((m) => m.state === "briefed" && m.brief.version === 2, "the second brief");
     assert.equal(rebriefed.brief.recommended, "B");
     assert.equal(rebriefed.decisions.length, 1, "the earlier decision stays on the record");
-    const files = readdirSync(t.dirOf(rebriefed)).sort();
+    const files = await settled(t.dirOf(rebriefed));
     assert.deepEqual(files, ["brief-2.md", "brief.md", "meeting.md", "take-architect-2.md", "take-architect.md", "take-qa.md", "thread.jsonl"]);
     assert.match(t.file(rebriefed, "take-architect.md"), /architect says one log/);
     const again = await t.post(`/meetings/${id}/decide`, { option: "B" });
@@ -387,7 +390,7 @@ describe("a meeting can be rejoined for 24 hours, then only the decision and a s
     const old = await b.when((m) => m.retired === true, "the meeting retired");
     assert.equal(old.state, "decided");
     assert.equal(old.rejoinUntil, null);
-    assert.deepEqual(readdirSync(dir).sort(), ["brief.md", "meeting.md", "summary.md"]);
+    assert.deepEqual(await settled(dir), ["brief.md", "meeting.md", "summary.md"]);
     const summary = readFileSync(path.join(dir, "summary.md"), "utf8");
     assert.match(summary, /> Should the den keep one log per job/);
     assert.match(summary, new RegExp(`option A, "One log for all jobs" \\(brief version 1\\)\\. Proposed work: ${decided.ticket.ref}\\.`));
