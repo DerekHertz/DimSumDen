@@ -39,7 +39,7 @@ export function validateLine(raw) {
     const follows = AGENT_ID_RE.test(raw.origin) && AGENT_ID_RE.test(raw.resumeOf) ? { origin: raw.origin, resumeOf: raw.resumeOf } : {};
     const names = { worktree: workspaceNames({ ref: raw.ref, agentId: follows.origin ?? raw.agentId }).worktree, branch: workspaceNames({ ref: raw.ref, agentId: raw.agentId }).branch };
     const own = raw.worktree === names.worktree && raw.branch === names.branch;
-    return { ...base, event: "spawn", role: raw.role, sessionId: raw.sessionId, worktree: own ? names.worktree : null, branch: own ? names.branch : null, ...(own ? follows : {}) };
+    return { ...base, event: "spawn", role: raw.role, sessionId: raw.sessionId, worktree: own ? names.worktree : null, branch: own ? names.branch : null, ...(own ? follows : {}), ...(typeof raw.project === "string" && /^[a-z0-9][a-z0-9-]{0,31}$/.test(raw.project) ? { project: raw.project } : {}) };
   }
   if (raw.event === "stop") return { ...base, event: "stop" };
   if (raw.event === "end") {
@@ -104,7 +104,7 @@ export function createSessions(root) {
           if (!agents.has(line.agentId)) {
             agents.set(line.agentId, {
               agentId: line.agentId, ref: line.ref, role: line.role, sessionId: line.sessionId, worktree: line.worktree, branch: line.branch,
-              ...(line.origin ? { origin: line.origin, resumeOf: line.resumeOf } : {}),
+              ...(line.origin ? { origin: line.origin, resumeOf: line.resumeOf } : {}), ...(line.project ? { project: line.project } : {}),
               startedAt: line.ts, endedAt: null, state: "terminated", reason: "bridge-restart-unverified",
             });
           }

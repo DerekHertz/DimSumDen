@@ -102,20 +102,23 @@ async function newestHandoff(scratch, feature, nn) {
   };
 }
 
-export async function buildSnapshot(root, seq = 0, { readUsage = () => null } = {}) {
-  const scratch = path.join(root, ".scratch");
+// den-mvp/49: `boardRoot` is the active project's root when it is not the den's. Its tickets, their handoffs and their events
+// are read from there; usage, requests and the orchestrator's handoffs stay the den's (control-keyed).
+export async function buildSnapshot(root, seq = 0, { readUsage = () => null, boardRoot = root } = {}) {
+  const control = path.join(root, ".scratch");
+  const scratch = path.join(boardRoot, ".scratch");
   const [events, usageRows, requestRows] = await Promise.all([
     readJsonl(path.join(scratch, "events.jsonl")),
-    readJsonl(path.join(scratch, "usage.jsonl")),
-    readJsonl(path.join(scratch, "_requests", "requests.jsonl")),
+    readJsonl(path.join(control, "usage.jsonl")),
+    readJsonl(path.join(control, "_requests", "requests.jsonl")),
   ]);
 
   // orchestrator handoffs
   const handoffTimestamps = [];
-  for (const name of await listDir(path.join(scratch, "_handoffs"))) {
+  for (const name of await listDir(path.join(control, "_handoffs"))) {
     if (!/-orchestrator-[^/]*\.md$/.test(name)) continue;
     try {
-      const st = await stat(path.join(scratch, "_handoffs", name));
+      const st = await stat(path.join(control, "_handoffs", name));
       handoffTimestamps.push(new Date(st.mtimeMs).toISOString());
     } catch {
       // vanished
