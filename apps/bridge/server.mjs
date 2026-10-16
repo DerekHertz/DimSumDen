@@ -1,6 +1,7 @@
 // Localhost bridge (ADR 0011 decision 2). Tickets 04 and 05: GET /state and GET /events, plus
 // the loopback binding and Host-header hardening that apply to every route.
 // SSE, /metrics, POST /requests and static files arrive in tickets 05 and 06.
+import { goalProblem } from "../organism-infra/goals.mjs";
 import http from "node:http";
 import { wallTables } from "./cells/claude-adapter.mjs";
 import { fileURLToPath } from "node:url";
@@ -503,7 +504,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     if (!isPlainObj(body)) return fail("the call must be an object { feature?, tickets }");
     const { feature = DEN_FEATURE, tickets } = body;
     if (typeof feature !== "string" || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(feature) || !existsSync(path.join(root, ".scratch", feature, "issues"))) return fail("feature must be a board feature that has an issues folder");
-    if (!Array.isArray(tickets) || tickets.length < 1 || tickets.length > FILE_BATCH_MAX) return fail(`tickets must be a list of 1 to ${FILE_BATCH_MAX} tickets, each { title, text, priority?, type?, blockedBy?, slug? }`);
+    if (!Array.isArray(tickets) || tickets.length < 1 || tickets.length > FILE_BATCH_MAX) return fail(`tickets must be a list of 1 to ${FILE_BATCH_MAX} tickets, each { title, text, goal, priority?, type?, blockedBy?, slug? }`);
     const drafts = [];
     for (const [i, t] of tickets.entries()) {
       const at = `ticket ${i + 1}`;
@@ -517,6 +518,9 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
       // The card shows a control or direction character as an escape, so the bytes written must be the bytes approved.
       if (cleanText(text) !== text || cleanText(title) !== title) return fail(`${at}: text holds control or direction characters; nothing was written`);
       if (!/^## Acceptance criteria[ \t]*$/m.test(text)) return fail(`${at}: text needs its own ## Acceptance criteria section`);
+      // den-mvp/61: every ticket names the goal it serves, from the user's .scratch/goals.md.
+      const goalWrong = goalProblem(root, t.goal);
+      if (goalWrong) return fail(`${at}: ${goalWrong}`);
       if (!Array.isArray(blockedBy)) return fail(`${at}: blockedBy must be a list`);
       for (const b of blockedBy) {
         if (Number.isInteger(b)) {
@@ -525,7 +529,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
           return fail(`${at}: blocker ${cleanText(String(b).slice(0, 80))} is not a ticket on the board`);
         }
       }
-      drafts.push({ title: title.trim(), text, priority, type: type.replace(/\s+/g, " ").trim(), blockedBy, slug });
+      drafts.push({ title: title.trim(), text, priority, type: type.replace(/\s+/g, " ").trim(), blockedBy, slug, goal: t.goal });
     }
     return { feature, drafts };
   }
@@ -574,7 +578,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
         const refs = [];
         for (const d of drafts) {
           const blockers = d.blockedBy.map((b) => (Number.isInteger(b) ? refs[b - 1] : fullRef(b)));
-          const { ref } = await createTicket(root, { feature, slug: d.slug, title: d.title, text: d.text, priority: d.priority, form: "ticket", type: d.type, blockedBy: blockers, source: "den desk", status: "ready-for-human" }).catch((err) => {
+          const { ref } = await createTicket(root, { feature, slug: d.slug, title: d.title, text: d.text, priority: d.priority, form: "ticket", type: d.type, blockedBy: blockers, goal: d.goal, source: "den desk", status: "ready-for-human" }).catch((err) => {
             // Checked above, so this is the board changing underneath: say what was already filed.
             throw new BoardError(`${err.message}${refs.length ? ` (already filed: ${refs.join(", ")})` : ""}`);
           });

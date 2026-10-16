@@ -105,6 +105,10 @@ The tickets that are ready, unblocked, and unclaimed right now. An unordered set
 The frontier in its computed order: the active feature's tickets first, then the rest, each group ordered by unblock count, then priority, then ticket number. Only a P0 with a named reason jumps the active feature. It is computed on every read, never stored.
 _Avoid_: Backlog, board (the board is the whole tracker, not the order)
 
+**Goal**:
+One of the user's few standing aims for the den, listed with its reason and "done when" in `.scratch/goals.md`. Every open ticket names the goal it serves on a `Goal:` line, so the board can show what each ticket is for. Only the user changes the list; Bao may propose a change.
+_Avoid_: Epic, theme, initiative. Not the same as a ticket's `Serves:` line, which is the admission gate's machine form.
+
 **Active feature**:
 The one feature whose ready tickets outrank all others in the Queue. Only the user sets it.
 

@@ -6,6 +6,9 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { readStatus, OFF_RELAY_STATUSES } from "./board-service.mjs";
 import { compareRefs } from "../../packages/board-refs/src/compare-refs.mjs";
+import { readGoalsSync } from "./goals.mjs";
+
+const GOAL_LINE_RE = /^\*\*Goal:\*\*[ \t]*(.*?)[ \t]*$/m;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const REF_RE = /^([a-z0-9-]+)\/(\d{2,})(?:-[a-z0-9-]+)?$/;
@@ -173,12 +176,22 @@ export async function audit(root, { staleDays = 7, feature, now = Date.now() } =
   const findings = [];
   const add = (ref, kind, detail) => findings.push({ ref, kind, detail });
   const lockKeys = new Set(locks.map((l) => `${l.feature}/${l.nn}`));
+  // den-mvp/61: once the board has a goals file, every open ticket names one of its goals.
+  const goalsFile = readGoalsSync(root);
+  const goalKeys = goalsFile.missing ? null : new Set(goalsFile.goals.map((g) => g.key));
+  if (!goalsFile.missing) for (const e of goalsFile.errors) add("goals.md", "goals-file", e);
 
   for (const [key, t] of tickets) {
     if ((t.status === "claimed" || t.status === "in-review") && !lockKeys.has(key)) {
       add(t.ref, "no-lock", `status is ${t.status} but there is no claim lock`);
     }
     if (t.status === "resolved" || OFF_RELAY_STATUSES.includes(t.status)) continue;
+
+    if (goalKeys) {
+      const goal = GOAL_LINE_RE.exec(t.content)?.[1] ?? "";
+      if (!goal) add(t.ref, "no-goal", "no Goal line naming one of the goals in .scratch/goals.md");
+      else if (!goalKeys.has(goal)) add(t.ref, "unknown-goal", `Goal ${JSON.stringify(goal.slice(0, 40))} is not in .scratch/goals.md`);
+    }
 
     const bs = blockers(t.content, t.feature);
     let allResolved = bs.length > 0;
