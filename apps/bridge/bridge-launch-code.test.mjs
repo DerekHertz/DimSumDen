@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
+import path from "node:path";
 import { startBridge } from "./server.mjs";
 import { makeStateFixture, FEATURE } from "./bridge-fixture.mjs";
 import { CODE, origin, send, redeem, login, authed } from "./bridge-auth-helpers.mjs";
@@ -249,7 +250,8 @@ const freePort = () =>
 async function startChild({ env = {}, args = [] } = {}) {
   const port = await freePort();
   const child = spawn(process.execPath, [SERVER, ...args], {
-    env: { ...process.env, ORGANISM_ROOT: fx.root, PORT: String(port), ...env },
+    // Its own state folder: with the caller's, the child bridge's delivery runner sweeps the live den's previews (F31).
+    env: { ...process.env, ORGANISM_ROOT: fx.root, PORT: String(port), DEN_STATE_DIR: path.join(fx.root, ".den-state"), XDG_STATE_HOME: path.join(fx.root, ".state"), ...env },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let text = "";
