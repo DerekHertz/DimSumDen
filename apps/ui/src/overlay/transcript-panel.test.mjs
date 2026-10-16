@@ -59,6 +59,12 @@ describe("opening and closing", () => {
     assert.equal(handled, true);
   });
 
+  test("Esc closes Bao's pinned desk thread without requiring walk mode", () => {
+    const { state, handled } = key({agentId: 'desk', notice: null}, "Escape", null, "diorama");
+    assert.equal(handled, true);
+    assert.equal(state.agentId, null);
+  });
+
   test("Esc with the panel closed is not consumed, so it leaves walk mode as before", () => {
     const start = initialTranscriptState();
     const { state, handled } = key(start, "Escape", live("c-1"));
