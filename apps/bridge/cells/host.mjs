@@ -645,8 +645,7 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
         // Run does not claim or hand off through the board (as F3 settled for direct runs); its last message is its report.
         `The board is read-only to you: run no board command, and do not stop because you cannot claim; the den already ` +
         `holds this ticket for you. Do the work in your worktree, and end with a short report of what you did and what you ` +
-        `checked: that last message is your handoff. ` +
-        WORK_TIPS;
+        `checked: that last message is your handoff.`;
 
   // Consume the process's events, then finalise once it has exited (and its event stream has drained).
   async function watch(agent) {
