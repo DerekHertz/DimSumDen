@@ -65,22 +65,69 @@ describe("Bao's den tools", () => {
     assert.match(yes.body.text, /resolved/);
   });
 
-  test("filing a ticket needs the user's allow of that exact call, and the allow is used once", async () => {
-    const { run, tool } = await desk();
-    const call = { feature: FEATURE, title: "Transcript renders markdown", text: "Render the agent's markdown." };
-    assert.equal((await tool("board_file", call)).status, 403, "no allow yet");
-    run.emit({ type: "permission-request", requestId: "r-1", tool: "mcp__den__board_file", input: call });
+  // den-mvp/55: Bao files a batch on one ask. Each ticket is a drafted one (its own criteria, real Type and Blocked by),
+  // and a blocker is an existing ref or the 1-based position of an earlier ticket in the same batch.
+  const AC = "\n\n## Acceptance criteria\n\n- [ ] It is done.";
+  const BATCH = {
+    feature: FEATURE,
+    tickets: [
+      { title: "Outcome 6 design: target worktrees", text: `## What to decide\n\nWhere worktrees live.${AC}`, priority: "P1", type: "design question" },
+      { title: "Outcome 6 slice 1: clean start", text: `## What to build\n\nThe adapter.${AC}`, priority: "P1", type: "feature", blockedBy: [1] },
+      { title: "Outcome 6 slice 2: two roots", text: `## What to build\n\nTwo roots.${AC}`, type: "feature", blockedBy: [1, DISPATCH_REF], slug: "two-roots" },
+    ],
+  };
+  async function allow(run, input, requestId = "r-1") {
+    run.emit({ type: "permission-request", requestId, tool: "mcp__den__board_file", input });
     const approval = await until(async () => (await t.state()).approvals.find((a) => a.tool === "mcp__den__board_file" && a.state === "pending"), { what: "the ask" });
     await send(t.bridge, { path: `/approvals/${approval.id}`, headers: t.headers });
     assert.equal((await t.post(`/approvals/${approval.id}`, { decision: "allow" })).status, 200);
-    assert.equal((await tool("board_file", { ...call, title: "Something else" })).status, 403, "an allow covers only the call the user saw");
-    const res = await tool("board_file", call);
+    return approval;
+  }
+  const issues = () => readdir(path.join(t.fx.root, ".scratch", FEATURE, "issues"));
+  const ticketText = async (ref) => readFile(path.join(t.fx.root, ".scratch", FEATURE, "issues", `${ref.split("/")[1]}.md`), "utf8");
+
+  test("a batch of tickets is filed on one allow of exactly that batch, and the allow is used once", async () => {
+    const { run, tool } = await desk();
+    assert.equal((await tool("board_file", BATCH)).status, 403, "no allow yet");
+    const approval = await allow(run, BATCH);
+    assert.match(approval.summary, /^file 3 tickets in /, "the ask's summary says what it files");
+    const changed = { ...BATCH, tickets: BATCH.tickets.slice(0, 2) };
+    assert.equal((await tool("board_file", changed)).status, 403, "an allow covers only the batch the user saw");
+    const res = await tool("board_file", BATCH);
     assert.equal(res.status, 200, res.text);
-    const filed = res.body.text.match(/filed (\S+) at ready-for-human/)[1];
-    const files = await readdir(path.join(t.fx.root, ".scratch", FEATURE, "issues"));
-    const body = await readFile(path.join(t.fx.root, ".scratch", FEATURE, "issues", files.find((f) => filed.endsWith(f.replace(/\.md$/, "")))), "utf8");
-    assert.match(body, /\*\*Status:\*\* ready-for-human/);
-    assert.equal((await tool("board_file", call)).status, 403, "the allow was used up");
+    const refs = [...res.body.text.matchAll(new RegExp(`${FEATURE}/\\d+-[a-z0-9-]+`, "g"))].map((m) => m[0]);
+    assert.equal(refs.length, 3, res.body.text);
+    assert.match(refs[0], /\/\d+-outcome-6-design-target-worktrees$/, "the slug comes from the title");
+    assert.match(refs[2], /\/\d+-two-roots$/, "an explicit slug is kept");
+    const [design, slice1, slice2] = await Promise.all(refs.map(ticketText));
+    assert.match(design, /^\*\*Type:\*\* design question$/m);
+    assert.match(design, /^\*\*Blocked by:\*\* none$/m);
+    assert.match(slice1, new RegExp(`^\\*\\*Blocked by:\\*\\* ${refs[0]}$`, "m"), "a batch position becomes the real ref");
+    assert.match(slice2, new RegExp(`^\\*\\*Blocked by:\\*\\* ${refs[0]}, ${DISPATCH_REF}$`, "m"));
+    for (const md of [design, slice1, slice2]) {
+      assert.match(md, /^\*\*Status:\*\* ready-for-human$/m);
+      assert.doesNotMatch(md, /quoted as its author wrote it|The request above is done/);
+    }
+    assert.equal((await tool("board_file", BATCH)).status, 403, "the allow was used up");
+  });
+
+  test("a batch with an unknown blocker, a forward position or a ticket without criteria writes nothing", async () => {
+    const { run, tool } = await desk();
+    const before = await issues();
+    const bad = [
+      { ...BATCH, tickets: [{ ...BATCH.tickets[0], blockedBy: [`${FEATURE}/99`] }] },
+      { ...BATCH, tickets: [{ ...BATCH.tickets[0], blockedBy: [2] }, BATCH.tickets[1]] },
+      { ...BATCH, tickets: [BATCH.tickets[0], { ...BATCH.tickets[1], text: "No criteria." }] },
+      { feature: FEATURE, title: "One ticket", text: `Body.${AC}` },
+      { feature: FEATURE, tickets: [] },
+      { ...BATCH, tickets: [{ ...BATCH.tickets[0], text: `hi \u001b[2J \u202e${AC}` }] },
+    ];
+    for (const [i, call] of bad.entries()) {
+      await allow(run, call, `r-${i}`);
+      const res = await tool("board_file", call);
+      assert.equal(res.status, 400, JSON.stringify(call));
+    }
+    assert.deepEqual(await issues(), before);
   });
 
   test("start_delivery is refused without the user's allow", async () => {

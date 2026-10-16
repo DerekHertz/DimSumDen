@@ -20,6 +20,24 @@ const escapeUnsafe = (text, keepNewlines = false) => Array.from(text, (ch) => {
   return hex.length > 4 ? "\\u{" + hex + "}" : "\\u" + hex;
 }).join("");
 
+// den-mvp/55: Bao's board_file batch is shown as the tickets it files (title, priority, type, blockers, the text as
+// markdown), not as escaped JSON. Anything that is not a well-formed batch keeps the plain JSON view.
+const BATCH_TOOL = "mcp__den__board_file";
+const str = (v, fallback) => (typeof v === "string" && v.trim() ? v : fallback);
+export function inputViewOf(tool, input) {
+  if (tool !== BATCH_TOOL || !Array.isArray(input?.tickets) || input.tickets.length === 0) return null;
+  const tickets = input.tickets.map((t, i) => {
+    if (t === null || typeof t !== "object" || typeof t.title !== "string" || typeof t.text !== "string") return null;
+    const blockedBy = Array.isArray(t.blockedBy) ? t.blockedBy.map((b) => (Number.isInteger(b) ? `ticket ${b} above` : escapeUnsafe(String(b)))) : [];
+    return {
+      n: i + 1, title: escapeUnsafe(t.title), text: escapeUnsafe(t.text, true),
+      priority: escapeUnsafe(str(t.priority, "P2")), type: escapeUnsafe(str(t.type, "task")), blockedBy,
+    };
+  });
+  if (tickets.some((t) => t === null)) return null;
+  return { kind: "tickets", feature: escapeUnsafe(str(input.feature, "den")), tickets };
+}
+
 const reasonOf = (err) => (typeof err?.reason === "string" && err.reason.trim() ? err.reason : "The bridge did not answer.");
 const statusOf = (err) => (Number.isInteger(err?.status) ? err.status : 0);
 
@@ -55,7 +73,7 @@ export function createApprovalReview({ client, now = Date.now, hooks = {} }) {
     if (!s.open) {
       return {
         open: false, phase: "closed", heading: "", meta: "", ariaLabel: "", expiresLabel: null, countLabel: null,
-        inputText: null, allowEnabled: false, denyEnabled: false, sending: null, noteReadOnly: false, note: "",
+        inputText: null, inputView: null, allowEnabled: false, denyEnabled: false, sending: null, noteReadOnly: false, note: "",
         noteCounter: `0 / ${NOTE_MAX}`, banner: null, focus: null, focusSeq, focusReturn: s.focusReturn, announcement: s.announcement,
       };
     }
@@ -81,6 +99,7 @@ export function createApprovalReview({ client, now = Date.now, hooks = {} }) {
       expiresLabel: expiresLabel(),
       countLabel,
       inputText: !s.final && loaded ? s.inputText : null,
+      inputView: !s.final && loaded ? s.inputView : null,
       allowEnabled: !s.final && !s.sending && ok,
       denyEnabled: !s.final && !s.sending,
       sending: s.sending,
@@ -107,6 +126,7 @@ export function createApprovalReview({ client, now = Date.now, hooks = {} }) {
     s.refusal = null;
     s.input = null;
     s.inputText = null;
+    s.inputView = null;
     setFocus("close");
     emit();
   }
@@ -141,6 +161,7 @@ export function createApprovalReview({ client, now = Date.now, hooks = {} }) {
       s.input = input;
       s.inputCount = JSON.stringify(input).length;
       s.inputText = escapeUnsafe(JSON.stringify(input, null, 2), true);
+      s.inputView = inputViewOf(res?.tool ?? s.card.approval?.tool, input);
       s.loadStatus = "loaded";
       emit();
     }, (err) => {
@@ -169,7 +190,7 @@ export function createApprovalReview({ client, now = Date.now, hooks = {} }) {
         agentId: card.agentId ?? card.approval.agentId ?? null, inputLength: card.approval.inputLength,
         expiresAt: Number.isFinite(expires) ? expires : null,
       },
-      loadStatus: "loading", loadError: null, input: null, inputText: null, inputCount: 0,
+      loadStatus: "loading", loadError: null, input: null, inputText: null, inputView: null, inputCount: 0,
       sending: null, refusal: null, final: null, note: "", focus: "deny", focusReturn: null, announcement: null, warned: false,
     };
     focusSeq += 1;
