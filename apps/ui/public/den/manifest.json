@@ -1,0 +1,820 @@
+{
+  "version": 1,
+  "assets": {
+    "bao": {
+      "url": "/den/models/bao.glb",
+      "kind": "character",
+      "sourceFilename": "bao-web.glb",
+      "triangles": 20786,
+      "bytes": 1066656,
+      "sha256": "3f54daf8a796bf482a6cdfdce2ec08bff26c5c25723bf80bb645adee2ecd52f2",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        }
+      ]
+    },
+    "props.orchestrator": {
+      "url": "/den/models/props/orchestrator.glb",
+      "kind": "prop",
+      "sourceFilename": "Meshy_AI_Orchestrator_Token_Ra_1008061335_image-to-3d-texture.glb",
+      "triangles": 59996,
+      "bytes": 1872208,
+      "sha256": "60d6dfe20b2212768c2549040cba5b371b02fb0ca6a0b38e318bcabee8e3eae6",
+      "textures": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        }
+      ],
+      "roleId": "orchestrator"
+    },
+    "props.architect": {
+      "url": "/den/models/props/architect.glb",
+      "kind": "prop",
+      "sourceFilename": "Meshy_AI_Architect_Scroll_and__1008061309_image-to-3d-texture.glb",
+      "triangles": 59992,
+      "bytes": 1789260,
+      "sha256": "82763e461429e953067de86696d3e5d50190b8250d3f55f9cdefc46f0538b81a",
+      "textures": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        }
+      ],
+      "roleId": "architect"
+    },
+    "props.developer": {
+      "url": "/den/models/props/developer.glb",
+      "kind": "prop",
+      "sourceFilename": "Meshy_AI_Developer_Jig_and_Mal_1008061300_image-to-3d-texture.glb",
+      "triangles": 59942,
+      "bytes": 2044416,
+      "sha256": "853f780235af5becb292607a89a439613f308ed1cef26102a8d85106230e5a18",
+      "textures": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        }
+      ],
+      "roleId": "developer"
+    },
+    "props.designer": {
+      "url": "/den/models/props/designer.glb",
+      "kind": "prop",
+      "sourceFilename": "Meshy_AI_Designer_Palette_Brus_1008061329_image-to-3d-texture.glb",
+      "triangles": 59996,
+      "bytes": 1727068,
+      "sha256": "af85aa357356cbb29db60a2c9d4994a0338f517249d3899a2704d728f2e7e4ec",
+      "textures": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        }
+      ],
+      "roleId": "designer"
+    },
+    "props.product": {
+      "url": "/den/models/props/product.glb",
+      "kind": "prop",
+      "sourceFilename": "Meshy_AI_Product_Dim_Sum_Menu__1008061246_image-to-3d-texture.glb",
+      "triangles": 59992,
+      "bytes": 2040780,
+      "sha256": "c0ab85c1d8489e56e1358fdbca960fe08e6bd27e28fc5264de0ecec5be825377",
+      "textures": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        }
+      ],
+      "roleId": "product"
+    },
+    "props.qa": {
+      "url": "/den/models/props/qa.glb",
+      "kind": "prop",
+      "sourceFilename": "Meshy_AI_QA_Tasting_Spoon_Dish_1008061332_image-to-3d-texture.glb",
+      "triangles": 59998,
+      "bytes": 1641764,
+      "sha256": "4983f4cc4875613035d0c240e6397369ccdefe79d99d3ee3d0a8e413bc2c2658",
+      "textures": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        }
+      ],
+      "roleId": "qa"
+    },
+    "props.security": {
+      "url": "/den/models/props/security.glb",
+      "kind": "prop",
+      "sourceFilename": "Meshy_AI_Security_Seal_Stamp_3_1008061235_image-to-3d-texture.glb",
+      "triangles": 59998,
+      "bytes": 1780164,
+      "sha256": "65773731c57158e30a51a227589bcd6ca9c62136b2d460cfeb66d248ee34b85a",
+      "textures": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        }
+      ],
+      "roleId": "security"
+    },
+    "props.scout": {
+      "url": "/den/models/props/scout.glb",
+      "kind": "prop",
+      "sourceFilename": "Meshy_AI_Scout_Brass_Compass_3_1008061239_image-to-3d-texture.glb",
+      "triangles": 59996,
+      "bytes": 1821560,
+      "sha256": "1c1681f299942ebbe1a97721be320d5c51710cee62faeed90120189ecea79797",
+      "textures": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        }
+      ],
+      "roleId": "scout"
+    },
+    "props.debugger": {
+      "url": "/den/models/props/debugger.glb",
+      "kind": "prop",
+      "sourceFilename": "Meshy_AI_Debugger_Lantern_3D_1008061338_image-to-3d-texture.glb",
+      "triangles": 59984,
+      "bytes": 1948288,
+      "sha256": "db714bca367a41d199de1a9aa5e71f764820cd06495f344da7dc56d394af54eb",
+      "textures": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        }
+      ],
+      "roleId": "debugger"
+    },
+    "props.docs-writer": {
+      "url": "/den/models/props/docs-writer.glb",
+      "kind": "prop",
+      "sourceFilename": "Meshy_AI_Docs_Writer_Brush_Boo_1008061252_image-to-3d-texture.glb",
+      "triangles": 59966,
+      "bytes": 1877044,
+      "sha256": "beee83ce0d813d8cc623fbf5e76d70f18ba40386ccdd45a5a31d43ce9e4ac664",
+      "textures": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        }
+      ],
+      "roleId": "docs-writer"
+    },
+    "props.knowledge-keeper": {
+      "url": "/den/models/props/knowledge-keeper.glb",
+      "kind": "prop",
+      "sourceFilename": "Meshy_AI_Knowledge_Keeper_Slip_1008061251_image-to-3d-texture.glb",
+      "triangles": 59958,
+      "bytes": 2084572,
+      "sha256": "0548fdbdeef568aa16f5fd59a9d0074dc19449a4556537629abefac89ab4cae0",
+      "textures": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        }
+      ],
+      "roleId": "knowledge-keeper"
+    },
+    "props.herald": {
+      "url": "/den/models/props/herald.glb",
+      "kind": "prop",
+      "sourceFilename": "Meshy_AI_Herald_Wooden_Clapper_1008061230_image-to-3d-texture.glb",
+      "triangles": 60000,
+      "bytes": 1693424,
+      "sha256": "cf09f1120b93e24850f757889eab41a79006caa3a32479b31361f680a08ee200",
+      "textures": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        }
+      ],
+      "roleId": "herald"
+    },
+    "props.release-manager": {
+      "url": "/den/models/props/release-manager.glb",
+      "kind": "prop",
+      "sourceFilename": "Meshy_AI_Release_Manager_Hand__1008061325_image-to-3d-texture.glb",
+      "triangles": 60000,
+      "bytes": 1766100,
+      "sha256": "570152e7020243449dbe378b2c56d8f2371b464c3304f9c89d61b2b5f4a202ab",
+      "textures": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        }
+      ],
+      "roleId": "release-manager"
+    },
+    "props.stem-cub": {
+      "url": "/den/models/props/stem-cub.glb",
+      "kind": "prop",
+      "sourceFilename": "Meshy_AI_STEM_Cub_Cushion_3D_1008061242_image-to-3d-texture.glb",
+      "triangles": 60000,
+      "bytes": 1658264,
+      "sha256": "3a1a318ae2436527bc88d809bbf04b8eb94a32e789a07d9c6a4f7a4a8ced6e08",
+      "textures": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg"
+        }
+      ],
+      "roleId": "stem-cub"
+    },
+    "scenery.steamers": {
+      "url": "/den/models/scenery/steamers.glb",
+      "kind": "scenery",
+      "sourceFilename": "Meshy_AI_Steamers_Kiosk_3D_1008061211_image-to-3d-texture.glb",
+      "triangles": 119938,
+      "bytes": 4839448,
+      "sha256": "c84bb0ac0ae45f228d1aa8fefd23f96162a60146b28e375f649120b2891503cf",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        }
+      ]
+    },
+    "scenery.front": {
+      "url": "/den/models/scenery/front.glb",
+      "kind": "scenery",
+      "sourceFilename": "Meshy_AI_Front_of_House_Kiosk__1008061203_image-to-3d-texture.glb",
+      "triangles": 119986,
+      "bytes": 5113776,
+      "sha256": "e749ddd4997eaad141d0f718b9e6e0c871b169ed6d4542352a9f421e06080254",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        }
+      ]
+    },
+    "scenery.games": {
+      "url": "/den/models/scenery/games.glb",
+      "kind": "scenery",
+      "sourceFilename": "Meshy_AI_Bamboo_Mahjong_Table__1008061216_image-to-3d-texture.glb",
+      "triangles": 59974,
+      "bytes": 2631904,
+      "sha256": "e68fd1e63f43e84e6232d5adb0ab965a79909687a070d4a9e7bd45a74cc430bf",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        }
+      ]
+    },
+    "scenery.center": {
+      "url": "/den/models/scenery/center.glb",
+      "kind": "scenery",
+      "sourceFilename": "scenery-center.glb",
+      "triangles": 98940,
+      "bytes": 6369904,
+      "sha256": "b6e3e36350a928844c46e73573f199a3ffbfac28e3d304a24cd56292136ef240",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        }
+      ]
+    },
+    "scenery.tea": {
+      "url": "/den/models/scenery/tea.glb",
+      "kind": "scenery",
+      "sourceFilename": "scenery-tea.glb",
+      "triangles": 98309,
+      "bytes": 9112504,
+      "sha256": "cd9c8a7e6e30a05c06e236bf4be990db3269bf945a97a10a420195177f56e3e8",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        }
+      ]
+    },
+    "scenery.pantry": {
+      "url": "/den/models/scenery/pantry.glb",
+      "kind": "scenery",
+      "sourceFilename": "scenery-pantry.glb",
+      "triangles": 98186,
+      "bytes": 6748884,
+      "sha256": "793dd9888bce0df2ed209516fbb36f8017c6a8f41094f8b57d5c10d87be92eb1",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        }
+      ]
+    },
+    "scenery.pavilion": {
+      "url": "/den/models/scenery/pavilion.glb",
+      "kind": "scenery",
+      "sourceFilename": "scenery-pavilion.glb",
+      "triangles": 100036,
+      "bytes": 8927784,
+      "sha256": "f6eb49d2ef4c814952440f14ff6f4300731a970b9f15f4a1b265cfb8e2ad681b",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        }
+      ]
+    },
+    "scenery.training": {
+      "url": "/den/models/scenery/training.glb",
+      "kind": "scenery",
+      "sourceFilename": "scenery-training.glb",
+      "triangles": 98393,
+      "bytes": 7113448,
+      "sha256": "f9ca51dfd9ad3e0654d789df3f0736f9a098d5d79a95d8ac00ce5cadf19beffb",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        }
+      ]
+    },
+    "scenery.festival": {
+      "url": "/den/models/scenery/festival.glb",
+      "kind": "scenery",
+      "sourceFilename": "scenery-festival.glb",
+      "triangles": 97344,
+      "bytes": 8447864,
+      "sha256": "6f4d14e72f582deb44e3709da58c6e113cdc0fd0b48b7e01d9d41526f56a4748",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        }
+      ]
+    },
+    "scenery.dragon": {
+      "url": "/den/models/scenery/dragon.glb",
+      "kind": "scenery",
+      "sourceFilename": "scenery-dragon.glb",
+      "triangles": 103686,
+      "bytes": 7898500,
+      "sha256": "156f205398f6ba41c0ae07ebdc24e3b0fa460653e3a9ea310ecaf9e83252de8d",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        }
+      ]
+    },
+    "vegetation.bamboo": {
+      "url": "/den/models/vegetation/bamboo.glb",
+      "kind": "vegetation",
+      "sourceFilename": "vegetation-bamboo.glb",
+      "triangles": 30613,
+      "bytes": 2790216,
+      "sha256": "f60f13c1e04444a409678e2801470e8f2ae48f5ff0bbd00dffc0846210dfbe97",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg"
+        }
+      ]
+    },
+    "scenery.library": {
+      "url": "/den/models/scenery/library.glb",
+      "kind": "scenery",
+      "sourceFilename": "library-refine.glb",
+      "triangles": 17448,
+      "bytes": 1527196,
+      "sha256": "dc7c4e3adb64ab331cf9141f963d01226e1fa33cecff4424c997aab8a6052c4a",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        }
+      ]
+    },
+    "scenery.gate-tea-table": {
+      "url": "/den/models/scenery/gate-tea-table.glb",
+      "kind": "scenery",
+      "sourceFilename": "gate-tea-table-refine.glb",
+      "triangles": 8205,
+      "bytes": 789748,
+      "sha256": "446e378a3ae3166ac510e3f1ffa640f1e7252afed3a48c1784803d4bab44d7c4",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        }
+      ]
+    },
+    "scenery.developer-workstation": {
+      "url": "/den/models/scenery/developer-workstation.glb",
+      "kind": "scenery",
+      "sourceFilename": "developer-workstation-refine.glb",
+      "triangles": 5696,
+      "bytes": 578296,
+      "sha256": "4100a742968d489175c817fc3e5501e0c649f6cf28cff668a427a45e106ff289",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        }
+      ]
+    },
+    "vegetation.ancient-grove": {
+      "url": "/den/models/vegetation/ancient-grove.glb",
+      "kind": "vegetation",
+      "sourceFilename": "ancient-grove-refine.glb",
+      "triangles": 31111,
+      "bytes": 2223444,
+      "sha256": "5696e84ec8c26c9a73b1113131250ac9d690c257035057f9ebe03af6eb80ebbc",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        }
+      ]
+    },
+    "scenery.forest-gate": {
+      "url": "/den/models/scenery/forest-gate.glb",
+      "kind": "scenery",
+      "sourceFilename": "forest-gate-refine.glb",
+      "triangles": 17798,
+      "bytes": 1514240,
+      "sha256": "563268030185aeb043266d1e3abf401b2282178920018ccce70a5dfcc0e4d4d0",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        }
+      ]
+    },
+    "wardrobe.developer-vest": {
+      "url": "/den/models/wardrobe/developer-vest.glb",
+      "kind": "wardrobe",
+      "sourceFilename": "developer-vest-refine.glb",
+      "triangles": 6034,
+      "bytes": 384640,
+      "sha256": "a4e4c8e98614e70546c2c7086cede370a451e98a60c7a13e35e5583dbb23fefd",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        }
+      ],
+      "roleId": "developer"
+    },
+    "wardrobe.developer-headphones": {
+      "url": "/den/models/wardrobe/developer-headphones.glb",
+      "kind": "wardrobe",
+      "sourceFilename": "developer-headphones-refine.glb",
+      "triangles": 4086,
+      "bytes": 234616,
+      "sha256": "c8739e9915c1f589aa6fe06228c2a215db47739a670c6aad30ce1bd33ac855bf",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        }
+      ],
+      "roleId": "developer"
+    },
+    "wardrobe.developer-boba": {
+      "url": "/den/models/wardrobe/developer-boba.glb",
+      "kind": "wardrobe",
+      "sourceFilename": "developer-boba-refine.glb",
+      "triangles": 2556,
+      "bytes": 230272,
+      "sha256": "0408c5e0d06508e104d770e166822ca75710e8c3f5df30921cf72685b8292ff5",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        }
+      ],
+      "roleId": "developer"
+    },
+    "wardrobe.developer-tablet": {
+      "url": "/den/models/wardrobe/developer-tablet.glb",
+      "kind": "wardrobe",
+      "sourceFilename": "developer-tablet-refine.glb",
+      "triangles": 1295,
+      "bytes": 108424,
+      "sha256": "bdc57813360bc2fd7419011f5ea9f1bfe600893618b6f55055f9e57799ace1c4",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        }
+      ],
+      "roleId": "developer"
+    },
+    "wardrobe.qa-scarf": {
+      "url": "/den/models/wardrobe/qa-scarf.glb",
+      "kind": "wardrobe",
+      "sourceFilename": "qa-scarf-refine.glb",
+      "triangles": 3116,
+      "bytes": 197812,
+      "sha256": "eb646356c5e14b22b3cea0314c9e8da709fe0ea504de7523e4c48ac166b3d6b2",
+      "textures": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp"
+        }
+      ],
+      "roleId": "qa"
+    }
+  },
+  "bytes": 104594488
+}

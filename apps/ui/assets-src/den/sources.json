@@ -1,0 +1,218 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "key": "bao",
+      "source": "bao-customizer/browser_assets/bao-web.glb",
+      "kind": "character"
+    },
+    {
+      "key": "props.orchestrator",
+      "source": "bao-customizer/assets/Meshy_AI_Orchestrator_Token_Ra_1008061335_image-to-3d-texture.glb",
+      "kind": "prop",
+      "roleId": "orchestrator",
+      "maxTextureSize": 512
+    },
+    {
+      "key": "props.architect",
+      "source": "bao-customizer/assets/Meshy_AI_Architect_Scroll_and__1008061309_image-to-3d-texture.glb",
+      "kind": "prop",
+      "roleId": "architect",
+      "maxTextureSize": 512
+    },
+    {
+      "key": "props.developer",
+      "source": "bao-customizer/assets/Meshy_AI_Developer_Jig_and_Mal_1008061300_image-to-3d-texture.glb",
+      "kind": "prop",
+      "roleId": "developer",
+      "maxTextureSize": 512
+    },
+    {
+      "key": "props.designer",
+      "source": "bao-customizer/assets/Meshy_AI_Designer_Palette_Brus_1008061329_image-to-3d-texture.glb",
+      "kind": "prop",
+      "roleId": "designer",
+      "maxTextureSize": 512
+    },
+    {
+      "key": "props.product",
+      "source": "bao-customizer/assets/Meshy_AI_Product_Dim_Sum_Menu__1008061246_image-to-3d-texture.glb",
+      "kind": "prop",
+      "roleId": "product",
+      "maxTextureSize": 512
+    },
+    {
+      "key": "props.qa",
+      "source": "bao-customizer/assets/Meshy_AI_QA_Tasting_Spoon_Dish_1008061332_image-to-3d-texture.glb",
+      "kind": "prop",
+      "roleId": "qa",
+      "maxTextureSize": 512
+    },
+    {
+      "key": "props.security",
+      "source": "bao-customizer/assets/Meshy_AI_Security_Seal_Stamp_3_1008061235_image-to-3d-texture.glb",
+      "kind": "prop",
+      "roleId": "security",
+      "maxTextureSize": 512
+    },
+    {
+      "key": "props.scout",
+      "source": "bao-customizer/assets/Meshy_AI_Scout_Brass_Compass_3_1008061239_image-to-3d-texture.glb",
+      "kind": "prop",
+      "roleId": "scout",
+      "maxTextureSize": 512
+    },
+    {
+      "key": "props.debugger",
+      "source": "bao-customizer/assets/Meshy_AI_Debugger_Lantern_3D_1008061338_image-to-3d-texture.glb",
+      "kind": "prop",
+      "roleId": "debugger",
+      "maxTextureSize": 512
+    },
+    {
+      "key": "props.docs-writer",
+      "source": "bao-customizer/assets/Meshy_AI_Docs_Writer_Brush_Boo_1008061252_image-to-3d-texture.glb",
+      "kind": "prop",
+      "roleId": "docs-writer",
+      "maxTextureSize": 512
+    },
+    {
+      "key": "props.knowledge-keeper",
+      "source": "bao-customizer/assets/Meshy_AI_Knowledge_Keeper_Slip_1008061251_image-to-3d-texture.glb",
+      "kind": "prop",
+      "roleId": "knowledge-keeper",
+      "maxTextureSize": 512
+    },
+    {
+      "key": "props.herald",
+      "source": "bao-customizer/assets/Meshy_AI_Herald_Wooden_Clapper_1008061230_image-to-3d-texture.glb",
+      "kind": "prop",
+      "roleId": "herald",
+      "maxTextureSize": 512
+    },
+    {
+      "key": "props.release-manager",
+      "source": "bao-customizer/assets/Meshy_AI_Release_Manager_Hand__1008061325_image-to-3d-texture.glb",
+      "kind": "prop",
+      "roleId": "release-manager",
+      "maxTextureSize": 512
+    },
+    {
+      "key": "props.stem-cub",
+      "source": "bao-customizer/assets/Meshy_AI_STEM_Cub_Cushion_3D_1008061242_image-to-3d-texture.glb",
+      "kind": "prop",
+      "roleId": "stem-cub",
+      "maxTextureSize": 512
+    },
+    {
+      "key": "scenery.steamers",
+      "source": "bao-customizer/assets/Meshy_AI_Steamers_Kiosk_3D_1008061211_image-to-3d-texture.glb",
+      "kind": "scenery"
+    },
+    {
+      "key": "scenery.front",
+      "source": "bao-customizer/assets/Meshy_AI_Front_of_House_Kiosk__1008061203_image-to-3d-texture.glb",
+      "kind": "scenery"
+    },
+    {
+      "key": "scenery.games",
+      "source": "bao-customizer/assets/Meshy_AI_Bamboo_Mahjong_Table__1008061216_image-to-3d-texture.glb",
+      "kind": "scenery"
+    },
+    {
+      "key": "scenery.center",
+      "source": "bao-customizer/meshy_output/models/scenery-center.glb",
+      "kind": "scenery"
+    },
+    {
+      "key": "scenery.tea",
+      "source": "bao-customizer/meshy_output/browser_models/scenery-tea.glb",
+      "kind": "scenery"
+    },
+    {
+      "key": "scenery.pantry",
+      "source": "bao-customizer/meshy_output/models/scenery-pantry.glb",
+      "kind": "scenery"
+    },
+    {
+      "key": "scenery.pavilion",
+      "source": "bao-customizer/meshy_output/models/scenery-pavilion.glb",
+      "kind": "scenery"
+    },
+    {
+      "key": "scenery.training",
+      "source": "bao-customizer/meshy_output/models/scenery-training.glb",
+      "kind": "scenery"
+    },
+    {
+      "key": "scenery.festival",
+      "source": "bao-customizer/meshy_output/models/scenery-festival.glb",
+      "kind": "scenery"
+    },
+    {
+      "key": "scenery.dragon",
+      "source": "bao-customizer/meshy_output/models/scenery-dragon.glb",
+      "kind": "scenery"
+    },
+    {
+      "key": "vegetation.bamboo",
+      "source": "bao-customizer/meshy_output/models/vegetation-bamboo.glb",
+      "kind": "vegetation"
+    },
+    {
+      "key": "scenery.library",
+      "source": "frontend-layout-mockup/meshy-workspaces/models/library-refine.glb",
+      "kind": "scenery"
+    },
+    {
+      "key": "scenery.gate-tea-table",
+      "source": "frontend-layout-mockup/meshy-workspaces/models/gate-tea-table-refine.glb",
+      "kind": "scenery"
+    },
+    {
+      "key": "scenery.developer-workstation",
+      "source": "frontend-layout-mockup/meshy-workspaces/models/developer-workstation-refine.glb",
+      "kind": "scenery"
+    },
+    {
+      "key": "vegetation.ancient-grove",
+      "source": "frontend-layout-mockup/meshy-forest/models/ancient-grove-refine.glb",
+      "kind": "vegetation"
+    },
+    {
+      "key": "scenery.forest-gate",
+      "source": "frontend-layout-mockup/meshy-forest/models/forest-gate-refine.glb",
+      "kind": "scenery"
+    },
+    {
+      "key": "wardrobe.developer-vest",
+      "source": "bao-customizer/wardrobe_output/models/developer-vest-refine.glb",
+      "kind": "wardrobe",
+      "roleId": "developer"
+    },
+    {
+      "key": "wardrobe.developer-headphones",
+      "source": "bao-customizer/wardrobe_output/models/developer-headphones-refine.glb",
+      "kind": "wardrobe",
+      "roleId": "developer"
+    },
+    {
+      "key": "wardrobe.developer-boba",
+      "source": "bao-customizer/wardrobe_output/models/developer-boba-refine.glb",
+      "kind": "wardrobe",
+      "roleId": "developer"
+    },
+    {
+      "key": "wardrobe.developer-tablet",
+      "source": "bao-customizer/wardrobe_output/models/developer-tablet-refine.glb",
+      "kind": "wardrobe",
+      "roleId": "developer"
+    },
+    {
+      "key": "wardrobe.qa-scarf",
+      "source": "bao-customizer/wardrobe_output/models/qa-scarf-refine.glb",
+      "kind": "wardrobe",
+      "roleId": "qa"
+    }
+  ]
+}
