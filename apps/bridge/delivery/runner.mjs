@@ -521,14 +521,14 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     job.state = "merged";
     job.step = null;
     await save(job);
-    await retireRuns(job);
+    await retireRuns(job, { merged: true });
   }
 
   // den-mvp/43: the delivery has ended, so no fix round or follow-up reopens its worktrees: they and their den/ branches go.
   // Unsaved work is kept on a wip/ branch by the host. A failure is logged and leaves the leftover to scripts/worktree-gc.mjs.
-  async function retireRuns(job) {
+  async function retireRuns(job, { merged = false } = {}) {
     for (const r of job.runs) {
-      await host.retire?.({ ref: job.ref, agentId: r.runId }).catch((err) => console.error(`bridge: could not clean up run ${r.runId}: ${err?.message ?? err}`));
+      await host.retire?.({ ref: job.ref, agentId: r.runId, merged }).catch((err) => console.error(`bridge: could not clean up run ${r.runId}: ${err?.message ?? err}`));
     }
   }
 

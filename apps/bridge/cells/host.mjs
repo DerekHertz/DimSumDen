@@ -1061,7 +1061,7 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
     start: (input) => admit(input, { entry: "start" }),
     direct,
     // den-mvp/43: a finished delivery asks for the worktrees of its runs to go (Bao's desk never does).
-    retire: ({ ref, agentId }) => (ref === DESK_REF ? Promise.resolve({ removed: false, saved: null }) : workspaces.retire({ ref, agentId })),
+    retire: ({ ref, agentId, merged }) => (ref === DESK_REF ? Promise.resolve({ removed: false, saved: null }) : workspaces.retire({ ref, agentId, merged })),
     stop,
     message: (id, body) => message(id, body),
     cancel,

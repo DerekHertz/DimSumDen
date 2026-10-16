@@ -103,10 +103,10 @@ export function createWorkspaces(root, { exec = execFileP } = {}) {
       return { branch, sha };
     },
     // den-mvp/43: removes a finished run's worktree and its published den/ branch. Nothing is lost: a change in the worktree
-    // is committed to wip/<ref>-<short> first, and a HEAD that is not on main is kept on that branch too. Untracked files
+    // is committed to wip/<ref>-<short> first, and a HEAD that is not on main (and not merged on the host) is kept there too. Untracked files
     // under .agents/skills/ (the copies every worktree carries) and ignored files are not changes.
     // -> { removed, saved }: `saved` is the wip branch or null. A worktree that is already gone removes nothing.
-    async retire({ ref, agentId } = {}) {
+    async retire({ ref, agentId, merged = false } = {}) {
       const { worktree, branch } = workspaceNames({ ref, agentId });
       const dir = path.join(root, ...worktree.split("/"));
       const short = agentId.slice(2, 10);
@@ -123,7 +123,9 @@ export function createWorkspaces(root, { exec = execFileP } = {}) {
           saved = wip;
         } else {
           const here = await out(dir, "rev-parse", "HEAD");
-          const onMain = await exec("git", ["-C", root, "merge-base", "--is-ancestor", here, "HEAD"]).then(() => true, () => false);
+          // `merged`: the delivery's pull request was merged on the git host, so the commit is there even though the
+          // checkout's HEAD has not moved (and a squash merge makes a new commit): nothing is left to keep.
+          const onMain = merged || await exec("git", ["-C", root, "merge-base", "--is-ancestor", here, "HEAD"]).then(() => true, () => false);
           if (!onMain) {
             await git("branch", wip, here);
             saved = wip;

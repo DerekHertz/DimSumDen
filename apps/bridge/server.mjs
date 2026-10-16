@@ -782,7 +782,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     port: actualPort,
     newLaunchCode: auth.newLaunchCode,
     previewReads,
-    host: { start: host.start, message: host.message, shutdown: host.shutdown },
+    host: { start: host.start, message: host.message, retire: host.retire, shutdown: host.shutdown },
     pollCi: () => ciWatch.poll(), // one look of the CI watch now, for a test (its timer is off there)
     close: async () => {
       await host.shutdown();
