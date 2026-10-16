@@ -97,7 +97,7 @@ const NO_CONNECTIONS = parseCatalog({ connections: [] });
 
 // den-mvp outcome 4: `library` is the catalog of connections and its record (library/library.mjs). Without one, an agent is
 // started with no connection and every connection tool is refused.
-export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], openDesk = async () => {}, onChange = () => {}, recordRun = async () => {}, onEnd = async () => {}, library = createLibrary({ catalog: NO_CONNECTIONS }) }) {
+export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], openDesk = async () => {}, checkCall = () => null, onChange = () => {}, recordRun = async () => {}, onEnd = async () => {}, library = createLibrary({ catalog: NO_CONNECTIONS }) }) {
   const maxConcurrent = Math.min(policy.maxConcurrent ?? MAX_CONCURRENT_AGENTS, SESSION_CAP);
   const sessionCap = Math.min(policy.sessionCap ?? SESSION_CAP, SESSION_CAP);
   const graceMs = policy.killGraceMs ?? KILL_GRACE_MS;
@@ -793,6 +793,12 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
           Promise.resolve(agent.proc.decide(event.requestId, verdict.kind === "allow" ? { allow: true } : { allow: false, reason: verdict.reason })).catch(() => {});
           return touch(agent);
         }
+      }
+      // F34: a den call the bridge would refuse anyway is denied now with its reason, and never asks the user.
+      const unfit = typeof event.tool === "string" && event.tool.startsWith("mcp__den__") ? checkCall(event.tool, event.input) : null;
+      if (unfit) {
+        Promise.resolve(agent.proc.decide(event.requestId, { allow: false, reason: `Refused before asking the user: ${unfit}` })).catch(() => {});
+        return touch(agent);
       }
       approvals.hold(agent.id, event, { accepting: !agent.stopRequested && !shuttingDown, says: agent.said ?? null });
       return;

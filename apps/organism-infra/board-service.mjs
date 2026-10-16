@@ -37,6 +37,7 @@ export const STATUSES = [
 ];
 
 const MAX_ARG_LEN = 4000;
+const TICKET_TEXT_MAX = 8192; // a ticket body; a design ticket runs past the other arguments' bound (F34)
 const WRITE_LOCK_AGE_FLOOR_MS = 5000;
 // Total time a mutation waits on a live write lock before giving up.
 const WRITE_LOCK_WAIT_MS = 2500;
@@ -1641,9 +1642,10 @@ function existingRef(root, ref) {
 }
 
 export async function createTicket(root, { feature, slug, title, text, source, priority = "P2", class: ticketClass, origin, serves, p0Reason, type = "task", status = "ready-for-agent", form = "request", blockedBy } = {}) {
-  for (const [value, name] of [[feature, "feature"], [slug, "slug"], [title, "title"], [text, "text"], [source, "source"], [serves, "serves"], [p0Reason, "p0 reason"]]) {
+  for (const [value, name] of [[feature, "feature"], [slug, "slug"], [title, "title"], [source, "source"], [serves, "serves"], [p0Reason, "p0 reason"]]) {
     checkArgLength(value, name);
   }
+  if (typeof text === "string" && text.length > TICKET_TEXT_MAX) throw new BoardError(`text exceeds the maximum length of ${TICKET_TEXT_MAX}`);
   if (typeof feature !== "string" || !FEATURE_RE.test(feature)) throw new BoardError(`invalid feature segment: ${feature}`);
   if (typeof slug !== "string" || !SLUG_RE.test(slug)) throw new BoardError(`invalid ticket slug: ${slug}`);
   if (typeof title !== "string" || !title.trim() || title.length > TITLE_MAX || LINE_TERMINATOR_RE.test(title) || CONTROL_RE.test(title)) {
