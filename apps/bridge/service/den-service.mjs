@@ -100,11 +100,19 @@ export function createDen({ env = process.env, say = (line) => console.log(line)
     }
   }
 
+  // The files this script runs from the checkout while it builds a release of main (its imports, and the build box).
+  const OWN_CODE = ["apps/bridge/service", "apps/bridge/build", "apps/bridge/cells/resource-group.mjs", "apps/organism-infra/board-service.mjs"];
   // Fetch main, then the packages and the release for its tip. `state.sha` is what the later steps use.
   const prepare = (state) => [
     [`fetch ${remote} main`, async () => {
       await gitOut(["fetch", remote, "main"]);
       state.sha = await gitOut(["rev-parse", `${remote}/main`]);
+      // Friction F15: this script, and the box and wrapper it builds with, are the checkout's own files, not main's. A
+      // checkout behind main whose copy of them differs builds the new release with the old code, so it stops here.
+      const changed = (await gitOut(["diff", "--name-only", "HEAD", state.sha, "--", ...OWN_CODE])).split("\n").filter(Boolean);
+      if (changed.length) {
+        throw new DenServiceError(`the checkout's own install code differs from ${remote}/main (${changed.slice(0, 3).join(", ")}${changed.length > 3 ? ", ..." : ""}), and this script builds with the checkout's copy. Bring the checkout up to main (git switch main && git pull --ff-only), then run this again.`);
+      }
       return state.sha.slice(0, 12);
     }],
     ["make the packages folder (needs the network, only here)", async () => {

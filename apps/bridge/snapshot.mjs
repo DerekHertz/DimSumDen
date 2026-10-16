@@ -1,5 +1,6 @@
 // Snapshot builder for the bridge (ADR 0011 decision 3). Reads a .scratch/ tree
 // and returns the GET /state payload. Read-only: no Board write paths.
+import { newerUsage } from "./usage-reading.mjs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { parsePriority, orderFrontier } from "../organism-infra/priority.mjs";
@@ -68,6 +69,8 @@ function parseTicket(md) {
   return { title, type, status, blockers, blockedReason, md };
 }
 
+const TICKET_TEXT_CAP = 6000;
+
 function capText(buf) {
   if (buf.length <= HANDOFF_CAP) return { text: buf.toString("utf8"), truncated: false };
   let end = HANDOFF_CAP;
@@ -99,7 +102,7 @@ async function newestHandoff(scratch, feature, nn) {
   };
 }
 
-export async function buildSnapshot(root, seq = 0) {
+export async function buildSnapshot(root, seq = 0, { readUsage = () => null } = {}) {
   const scratch = path.join(root, ".scratch");
   const [events, usageRows, requestRows] = await Promise.all([
     readJsonl(path.join(scratch, "events.jsonl")),
@@ -206,6 +209,8 @@ export async function buildSnapshot(root, seq = 0) {
       request: req ? { id: req.id, kind: req.kind, ts: req.ts } : null,
       handoff: await newestHandoff(scratch, t.feature, t.nn),
     };
+    // den-mvp/13: the ticket's own text, only while it waits on the user, so Needs you can show it before Approve.
+    if (t.status === "ready-for-human") row.text = t.md.slice(0, TICKET_TEXT_CAP);
     tickets.push(row);
     if (ready && !holder) candidates.push({ ref: t.ref, priority, readySince });
   }
@@ -227,6 +232,8 @@ export async function buildSnapshot(root, seq = 0) {
       usage = { fiveHour: r.five_hour, weekly: r.weekly ?? null, sampledAt: r.ts ?? null };
     }
   }
+  // Friction F19: the plan-usage cache, when it is newer than the last row (usage-reading.mjs).
+  usage = newerUsage(usage, readUsage());
 
   return {
     schema: 1,

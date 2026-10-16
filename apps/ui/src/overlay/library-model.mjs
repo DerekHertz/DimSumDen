@@ -14,7 +14,7 @@ const STATUS = {
   unavailable: { label: "Unavailable", tone: "bad" },
   "not-seen": { label: "Not checked yet", tone: "wait" },
 };
-const TOOL_NOTE = { read: "reads; allowed without asking", change: "changes something; asks you each time", publish: "publishes; asks you each time" };
+const TOOL_NOTE = { read: "reads; allowed without asking", board: "writes the den's board; allowed without asking", change: "changes something; asks you each time", publish: "publishes; asks you each time" };
 const CREDENTIAL = { none: "No credential" };
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 

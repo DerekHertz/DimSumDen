@@ -33,6 +33,16 @@ describe("limits.json: the spec's defaults", () => {
     assert.deepEqual(LIMITS.classes.scout, { memoryMiB: 1024, cpuPercent: 50, tasks: 128 });
     assert.deepEqual(LIMITS.aggregate, { memoryMiB: 6144, cpuPercent: 300, tasks: 768 });
     assert.deepEqual(LIMITS.storage, { jobMiB: 4096, outputMiB: 20 });
+    assert.deepEqual(LIMITS.checks, { memoryMiB: 4096, cpuPercent: 400, tasks: 1024 }, "den-mvp/34: the den's checks, one run at a time");
+  });
+
+  test("den-mvp/34: a checks launcher's limits put the checks group on its worker class and as its slice's aggregate", async () => {
+    const { checksLimits } = await import("./resource-group.mjs");
+    const l = checksLimits();
+    assert.deepEqual(l.classes.worker, LIMITS.checks);
+    assert.deepEqual(l.aggregate, LIMITS.checks);
+    assert.deepEqual(l.classes.bao, LIMITS.classes.bao);
+    assert.deepEqual(LIMITS.classes.worker, { memoryMiB: 2048, cpuPercent: 100, tasks: 256 }, "the agents' own limits are unchanged");
   });
 
   test("every slot at its class limit fits inside the aggregate", () => {
@@ -57,6 +67,8 @@ describe("limits.json: the spec's defaults", () => {
     bad((l) => (l.aggregate.tasks = "768"));
     bad((l) => (l.classes.worker.swap = true));
     bad((l) => delete l.storage.jobMiB);
+    bad((l) => delete l.checks);
+    bad((l) => (l.checks.cpuPercent = 0));
   });
 });
 
@@ -238,7 +250,7 @@ describe("job storage: the monitor around a run's work area", () => {
 // ---- live: real processes under reduced limits ------------------------------------------------
 const production = await createResourceLauncher({ env: process.env }).preflight();
 const skip = production.ok ? false : `this host cannot enforce the limits: ${production.reason}`;
-const TEST_LIMITS = { classes: { worker: { memoryMiB: 96, cpuPercent: 20, tasks: 24 }, bao: { memoryMiB: 64, cpuPercent: 10, tasks: 16 }, scout: { memoryMiB: 64, cpuPercent: 10, tasks: 16 } }, aggregate: { memoryMiB: 256, cpuPercent: 40, tasks: 64 }, storage: { jobMiB: 1, outputMiB: 1 } };
+const TEST_LIMITS = { classes: { worker: { memoryMiB: 96, cpuPercent: 20, tasks: 24 }, bao: { memoryMiB: 64, cpuPercent: 10, tasks: 16 }, scout: { memoryMiB: 64, cpuPercent: 10, tasks: 16 } }, aggregate: { memoryMiB: 256, cpuPercent: 40, tasks: 64 }, storage: { jobMiB: 1, outputMiB: 1 }, checks: { memoryMiB: 96, cpuPercent: 20, tasks: 24 } };
 const SLICE = `den-test-p${process.pid}`;
 let seq = 0;
 

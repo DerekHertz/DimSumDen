@@ -23,6 +23,7 @@ const titled = (word) => (word ? word[0].toUpperCase() + word.slice(1) : "Agent"
 const VERBS = {
   Bash: ["run a command", "Command"], Write: ["change a file", "File"], Edit: ["change a file", "File"], Read: ["read a file", "File"],
   Glob: ["search files", "Query"], Grep: ["search files", "Query"], WebFetch: ["open a web page", "Query"], WebSearch: ["search the web", "Query"],
+  AskUserQuestion: ["ask you", "Question"],
 };
 /** What a tool's request asks to do, in plain words: "run a command", or "use <tool>" for a tool not listed. */
 export function toolVerb(tool) {
@@ -87,6 +88,13 @@ const MESSAGE_CHIPS = { queued: chip("pending", "Queued"), applied: chip("done",
 function askRow(entry, n, approval, { nowMs, live }) {
   const verb = toolVerb(entry.name);
   const pending = entry.status === "pending" && approval?.id && (approval.status ?? approval.state ?? "pending") === "pending";
+  // den-mvp/37: an agent's question shows its options and is answered in the thread, not through Allow/Deny.
+  if (pending && Array.isArray(approval.questions) && approval.questions.length) {
+    return {
+      kind: "question", n, at: entry.at, approvalId: approval.id, questions: approval.questions, answerable: live,
+      head: ["Asking you", "waiting on you", expiresIn(approval.expiresAt, nowMs)].filter(Boolean).join(" · "),
+    };
+  }
   if (pending) {
     const reason = reasonText(approval);
     const intent = str(approval.intent).trim();
@@ -101,10 +109,41 @@ function askRow(entry, n, approval, { nowMs, live }) {
   if (entry.status === "allowed" || entry.status === "denied") {
     const denied = entry.status === "denied";
     const note = str(entry.note).trim();
+    if (entry.name === "AskUserQuestion") return { kind: "answer", n, at: entry.answeredAt ?? entry.at, asked: "Asked you · answered", text: denied ? "Dismissed." : note || "Answered.", note: denied ? note || null : null, denied };
     return { kind: "answer", n, at: entry.answeredAt ?? entry.at, asked: `Asked to ${verb} · answered`, text: denied ? "Denied." : "Allowed.", note: note || null, denied };
   }
   // Expired, or still pending with no approval to show (a reloaded page, an approval the bridge no longer holds).
   return { kind: "asked", n, at: entry.at, label: entry.status === "expired" ? `Asked to ${verb} · expired: denied` : `Asked to ${verb} · waiting on you`, waiting: entry.status !== "expired" };
+}
+
+/**
+ * den-mvp/37: the form under an agent's question. `picks` holds, per question, { labels, other } where `other` is null
+ * until "Other" is chosen. Choosing in a single-select question replaces the pick; in a multiSelect it toggles.
+ *   pickOption(questions, picks, qi, label | null)   null picks "Other"
+ *   questionAnswers(questions, picks) -> the answers to send (a string, or labels for a multiSelect), or null while any
+ *     question is still unanswered
+ */
+export const emptyPicks = (questions) => questions.map(() => ({ labels: [], other: null }));
+export function pickOption(questions, picks, qi, label) {
+  const multi = questions[qi]?.multiSelect === true;
+  return picks.map((p, i) => {
+    if (i !== qi) return p;
+    if (label === null) return multi ? { ...p, other: p.other === null ? "" : null } : { labels: [], other: p.other ?? "" };
+    if (!multi) return { labels: [label], other: null };
+    return { ...p, labels: p.labels.includes(label) ? p.labels.filter((l) => l !== label) : [...p.labels, label] };
+  });
+}
+export const setOther = (picks, qi, text) => picks.map((p, i) => (i === qi ? { ...p, other: text } : p));
+export function questionAnswers(questions, picks) {
+  const out = [];
+  for (const [i, q] of questions.entries()) {
+    const p = picks[i] ?? { labels: [], other: null };
+    const other = p.other?.trim() ?? "";
+    const parts = [...p.labels, ...(other ? [other] : [])];
+    if (!parts.length || (p.other !== null && !other)) return null;
+    out.push(q.multiSelect ? parts : parts[0]);
+  }
+  return out;
 }
 
 /**
@@ -114,6 +153,7 @@ function askRow(entry, n, approval, { nowMs, live }) {
  *   you      { text, at, chips }                           a typed message, or a stop
  *   answer   { asked, text, note, at, chips }              an ask the user answered
  *   ask      { head, reason, intent, command, ... }        an ask still waiting
+ *   question { head, questions, approvalId, answerable }   an agent's question still waiting (den-mvp/37)
  *   asked    { label }                                     an ask that expired or cannot be answered from here
  *   tool, ended, run, unreadable
  */

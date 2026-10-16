@@ -48,6 +48,56 @@
         "list_branches": "read",
         "search_code": "read"
       }
+    },
+    {
+      "name": "den",
+      "title": "The den",
+      "purpose": "Bao's hands on the den: resolve, comment on and file tickets, and start a delivery the user asked for.",
+      "script": "apps/bridge/library/servers/den.mjs",
+      "credential": "run",
+      "roles": [
+        "orchestrator"
+      ],
+      "tools": {
+        "board_resolve": "board",
+        "board_comment": "board",
+        "board_file": "change",
+        "start_delivery": "change"
+      }
+    },
+    {
+      "name": "socket",
+      "title": "Package security",
+      "purpose": "Socket's scores for an npm, PyPI or Cargo package (supply chain, vulnerabilities, license), and its published files.",
+      "url": "https://mcp.socket.dev/",
+      "credential": "none",
+      "roles": [
+        "security",
+        "developer"
+      ],
+      "tools": {
+        "depscore": "read",
+        "package_files": "read",
+        "package_file_contents": "read",
+        "package_file_grep": "read"
+      }
+    },
+    {
+      "name": "deepwiki",
+      "title": "Repo wiki",
+      "purpose": "DeepWiki's answers about how a public GitHub repository works inside, from its generated wiki.",
+      "url": "https://mcp.deepwiki.com/mcp",
+      "credential": "none",
+      "roles": [
+        "scout",
+        "architect",
+        "developer"
+      ],
+      "tools": {
+        "read_wiki_structure": "read",
+        "read_wiki_contents": "read",
+        "ask_wiki_question": "read"
+      }
     }
   ]
 }

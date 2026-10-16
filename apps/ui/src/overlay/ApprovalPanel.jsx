@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { createApprovalReview, NOTE_MAX } from "./approval-review.mjs";
+import { AgentMarkdown } from "./agent-markdown.mjs";
 
 // den-v1/06: the permission review. The controller (approval-review.mjs) owns every rule; this file renders its
 // state and forwards keys, clicks and each new snapshot. Refusal text is inserted as plain text.
@@ -73,7 +74,8 @@ export function ApprovalPanel({ review, state }) {
       <div className="approval-body">
         <p className="approval-label"><span>Tool input</span><span>{state.countLabel}</span></p>
         <div className="approval-well" tabIndex={0} role="region" aria-label="Tool input">
-          {state.inputText !== null ? <pre className="approval-input">{state.inputText}</pre>
+          {state.inputView?.kind === "tickets" ? <TicketsInput view={state.inputView} raw={state.inputText} />
+            : state.inputText !== null ? <pre className="approval-input">{state.inputText}</pre>
             : state.phase === "loading" ? <div className="approval-skeleton" aria-hidden="true"><i /><i /><i /></div> : null}
         </div>
         {state.banner ? <p className="approval-banner" role="alert">{state.banner}</p> : null}
@@ -95,4 +97,31 @@ export function ApprovalPanel({ review, state }) {
       </footer>
     </aside>
   </>;
+}
+
+// den-mvp/55: Bao's board_file batch, as the tickets it files. The raw input stays one click away.
+export function TicketsInput({ view, raw }) {
+  const n = view.tickets.length;
+  return (
+    <div className="approval-tickets">
+      <p className="approval-tickets-head">File {n} ticket{n === 1 ? "" : "s"} in <code>{view.feature}</code>, each at ready-for-human</p>
+      <ol>
+        {view.tickets.map((t) => (
+          <li key={t.n} className="approval-ticket">
+            <details>
+              <summary>
+                <span className="approval-ticket-title">{t.title}</span>
+                <span className="approval-ticket-meta">{[t.priority, t.type, t.blockedBy.length ? `after ${t.blockedBy.join(", ")}` : null].filter(Boolean).join(" · ")}</span>
+              </summary>
+              <AgentMarkdown text={t.text} />
+            </details>
+          </li>
+        ))}
+      </ol>
+      <details className="approval-raw">
+        <summary>Raw input</summary>
+        <pre className="approval-input">{raw}</pre>
+      </details>
+    </div>
+  );
 }

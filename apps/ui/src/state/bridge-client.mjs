@@ -37,10 +37,11 @@ export function createBridgeClient({ fetch }) {
       if (body == null) throw failure(200, "The bridge sent an unreadable answer.");
       return body;
     },
-    async decide(id, { decision, note } = {}) {
+    async decide(id, { decision, note, answers } = {}) {
       if (decision !== "allow" && decision !== "deny") throw failure(0, "Decision must be allow or deny.");
       const payload = { decision };
       if (note !== undefined && note !== null && note !== "") payload.note = note;
+      if (Array.isArray(answers)) payload.answers = answers; // den-mvp/37: one per question, for an agent's question
       const body = await call(route(id), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -160,8 +161,26 @@ export function createBridgeClient({ fetch }) {
       if (body == null) throw failure(200, "The bridge sent an unreadable answer.");
       return body;
     },
+    // den-mvp/13: the user's answer to a ticket at ready-for-human. Decline needs a note: it is the reason it closes.
+    async answerTicket(ref, action, { note } = {}) {
+      if (!["approve", "decline"].includes(action)) throw failure(0, "Unknown action.");
+      const trimmed = typeof note === "string" ? note.trim() : "";
+      if (action === "decline" && !trimmed) throw failure(0, "Write why first.");
+      const body = await call(`/tickets/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action === "decline" ? { ref, note: trimmed } : { ref }),
+      });
+      return body ?? { ok: true };
+    },
+    // den-mvp/34: run ci.yml's checks on this machine for an open pull request's head commit. -> { sha }
+    async runChecks({ pr } = {}) {
+      if (!Number.isInteger(pr) || pr < 1) throw failure(0, "No pull request to check.");
+      const body = await call("/checks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pr }) });
+      return body ?? { ok: true };
+    },
     // Resume, stop or close one delivery. On a resume, `verdict` is the user's visual verdict on a UI change: "approve", or
-    // "decline" with a `note` that goes to the developer.
+    // "decline" with a `note` that goes to the developer. A Resume without a verdict may carry a `note` for the next run.
     async steerDelivery(id, action, { verdict, note } = {}) {
       if (!["resume", "stop", "close"].includes(action)) throw failure(0, "Unknown action.");
       const trimmed = typeof note === "string" ? note.trim() : "";
@@ -169,7 +188,7 @@ export function createBridgeClient({ fetch }) {
       const body = await call(`/deliveries/${encodeURIComponent(id)}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(action === "resume" && verdict ? { verdict, ...(verdict === "decline" ? { note: trimmed } : {}) } : {}),
+        body: JSON.stringify(action !== "resume" ? {} : verdict ? { verdict, ...(verdict === "decline" ? { note: trimmed } : {}) } : trimmed ? { note: trimmed } : {}),
       });
       return body ?? { ok: true };
     },

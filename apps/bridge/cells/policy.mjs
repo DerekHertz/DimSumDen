@@ -40,6 +40,7 @@ export const WORKSPACE_BRANCH_PREFIX = "den"; // den/<ref>-<short agent id>; als
 
 // organism-infra/141 (ADR 0016 decision 4 and 6.5, 6.7): held permission requests.
 export const APPROVAL_TTL_MS = 10 * 60 * 1000; // an undecided approval expires, and the child is answered deny
+export const QUESTION_TTL_MS = 4 * 60 * 60 * 1000; // den-mvp/37: an agent's question to the user waits far longer than a tool ask
 export const APPROVAL_CAP_PER_AGENT = 20; // pending approvals per agent; the 21st expires the oldest
 export const APPROVAL_ID_RE = /^a-[0-9a-f]{16}$/;
 export const APPROVAL_NOTE_MAX = 500; // characters in a decision note

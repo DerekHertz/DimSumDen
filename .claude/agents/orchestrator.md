@@ -1,7 +1,7 @@
 ---
 name: orchestrator
 description: Pass cell that turns an approved spec into tickets on the file board, picks the next unblocked ticket, and dispatches at most two cells at a time, on tickets that share no files. Use to plan and sequence work, or to ask what should happen next.
-tools: Read, Grep, Glob, Write, Edit, Bash, Agent(architect, product, designer, developer, qa, security, scout), Skill, AskUserQuestion, mcp__github
+tools: Read, Grep, Glob, Write, Edit, Bash, Agent(architect, product, designer, developer, qa, security, scout), Skill, AskUserQuestion, mcp__github, mcp__den
 model: opus
 effort: low
 color: purple

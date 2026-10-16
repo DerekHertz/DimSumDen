@@ -19,7 +19,7 @@ import {
   mkdtemp,
   rm,
 } from "node:fs/promises";
-import { constants as fsConstants, readdirSync } from "node:fs";
+import { constants as fsConstants, existsSync, readdirSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -1423,6 +1423,8 @@ const OFF_RELAY = {
   close: { to: "closed", label: "Closed", from: (s) => s !== "resolved" && s !== "closed" },
   unpark: { to: "ready-for-agent", label: "Unparked", from: (s) => s === "parked" },
   reopen: { to: "ready-for-agent", label: "Reopened", from: (s) => s === "closed" },
+  // den-mvp/13: the user's approval of a ticket waiting at ready-for-human, from the den.
+  approve: { to: "ready-for-agent", label: "Approved", from: (s) => s === "ready-for-human" },
 };
 export const OFF_RELAY_STATUSES = ["parked", "closed"];
 
@@ -1622,8 +1624,23 @@ function quoteLines(text) {
 // den-mvp outcome 4: `type` and `status` let the bridge write a ticket that is not work for an agent yet: a meeting's
 // discussion ticket, and the work a chosen option proposes, both start at ready-for-human.
 const CREATE_STATUSES = ["ready-for-agent", "ready-for-human"];
-const TYPE_RE = /^[a-z][a-z-]{0,29}$/;
-export async function createTicket(root, { feature, slug, title, text, source, priority = "P2", class: ticketClass, origin, serves, p0Reason, type = "task", status = "ready-for-agent" } = {}) {
+const TYPE_RE = /^[a-z][a-z -]{0,39}$/;
+// den-mvp/55: a drafted ticket (form "ticket") is written as given, so it may not hold what only the board writes: a header
+// field, a top heading or a Comments section. It must carry its own acceptance criteria.
+const DRAFT_FORGERY_RE = /^[ \t>]*(?:\*\*\s*(?:Type|Priority|Status|Blocked by|Source|Class|Origin|Serves|P0-reason)\s*:|#\s|#{1,6}\s*Comments\b)/im;
+const DRAFT_CRITERIA_RE = /^## Acceptance criteria[ \t]*$/m;
+const FULL_REF_RE = /^[a-z0-9-]+\/\d+(?:-[a-z0-9-]+)?$/;
+const BLOCKERS_MAX = 12;
+
+function existingRef(root, ref) {
+  if (typeof ref !== "string" || !FULL_REF_RE.test(ref)) throw new BoardError(`a blocker must be a ticket ref such as den-mvp/02: ${ref}`);
+  const full = resolveShortRef(root, ref);
+  const [feature, ticket] = full.split("/");
+  if (!existsSync(path.join(root, ".scratch", feature, "issues", `${ticket}.md`))) throw new BoardError(`ticket not found: ${ref}`);
+  return full;
+}
+
+export async function createTicket(root, { feature, slug, title, text, source, priority = "P2", class: ticketClass, origin, serves, p0Reason, type = "task", status = "ready-for-agent", form = "request", blockedBy } = {}) {
   for (const [value, name] of [[feature, "feature"], [slug, "slug"], [title, "title"], [text, "text"], [source, "source"], [serves, "serves"], [p0Reason, "p0 reason"]]) {
     checkArgLength(value, name);
   }
@@ -1651,6 +1668,17 @@ export async function createTicket(root, { feature, slug, title, text, source, p
     throw new BoardError("p0 reason only applies to a P0 ticket");
   }
   const originLine = origin ?? (ticketClass !== undefined ? "added" : undefined);
+  if (form !== "request" && form !== "ticket") throw new BoardError("form must be request or ticket");
+  if (form === "request" && blockedBy !== undefined) throw new BoardError("Blocked by is for drafted tickets (form ticket)");
+  let blockers = [];
+  if (form === "ticket") {
+    if (!DRAFT_CRITERIA_RE.test(text)) throw new BoardError("a drafted ticket needs its own ## Acceptance criteria section");
+    if (DRAFT_FORGERY_RE.test(text)) throw new BoardError("a drafted ticket's text cannot hold a header field, a top heading or a Comments section");
+    // An unclosed fence would swallow the Comments section the board appends, in any rendered view.
+    if ((text.match(/^[ \t]*(?:```|~~~)/gm) ?? []).length % 2 !== 0) throw new BoardError("a drafted ticket's text has an unclosed code fence");
+    if (blockedBy !== undefined && !(Array.isArray(blockedBy) && blockedBy.length <= BLOCKERS_MAX)) throw new BoardError(`blockedBy must be a list of at most ${BLOCKERS_MAX} ticket refs`);
+    blockers = [...new Set((blockedBy ?? []).map((ref) => existingRef(root, ref)))];
+  }
 
   const issuesDir = path.join(root, ".scratch", feature, "issues");
   await assertWithinRoot(root, issuesDir);
@@ -1670,11 +1698,16 @@ export async function createTicket(root, { feature, slug, title, text, source, p
       ...(originLine ? [`**Origin:** ${originLine}`, ""] : []),
       ...(serves ? [`**Serves:** ${serves.trim()}`, ""] : []),
       ...(priority === "P0" ? [`**P0-reason:** ${p0Reason}`, ""] : []),
-      "## What to build", "",
-      "The request, quoted as its author wrote it:", "",
-      quoteLines(text.trim()), "",
-      "## Acceptance criteria", "",
-      "- [ ] The request above is done or answered, and the final reply says what was done.", "",
+      ...(form === "ticket" ? [
+        `**Blocked by:** ${blockers.length ? blockers.join(", ") : "none"}`, "",
+        text.trim(), "",
+      ] : [
+        "## What to build", "",
+        "The request, quoted as its author wrote it:", "",
+        quoteLines(text.trim()), "",
+        "## Acceptance criteria", "",
+        "- [ ] The request above is done or answered, and the final reply says what was done.", "",
+      ]),
       "## Comments", "",
     ].join("\n");
     await commitWithEvent(paths.eventsPath, () => createExclusive(paths.ticketPath, content), {

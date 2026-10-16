@@ -92,3 +92,14 @@ test("a red pull request is a Needs you card for Bao, or for security; a re-run 
   assert.equal(ci[1].pr, null, "only an https link is rendered");
   assert.equal(needsYouModel({ tickets: [], ci: null }, 0).count, 0);
 });
+
+test("den-mvp/13: a ready-for-human ticket is a Needs you request with its text; others are not", () => {
+  const snapshot = { tickets: [
+    { ref: "f/06-human", title: "06: Human", status: "ready-for-human", text: "# 06: Human\n\nDo the thing." },
+    { ref: "f/08-plain", title: "08", status: "ready-for-agent" },
+  ] };
+  const reqs = needsYouModel(snapshot, NOW).requests.filter((r) => r.kind === "ticket");
+  assert.equal(reqs.length, 1);
+  assert.equal(reqs[0].ref, "f/06-human");
+  assert.match(reqs[0].preview[0], /Do the thing/);
+});

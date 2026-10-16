@@ -4,7 +4,7 @@
 import http from "node:http";
 import { wallTables } from "./cells/claude-adapter.mjs";
 import { fileURLToPath } from "node:url";
-import { realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -16,15 +16,29 @@ import { createDeliveryBoard } from "./delivery/board.mjs";
 import { createGitHost } from "./delivery/git-host.mjs";
 import { createJobLog } from "./delivery/jobs.mjs";
 import { createCiWatch } from "./delivery/ci-watch.mjs";
+import { summarize } from "./delivery/checks.mjs";
 import { createMeetings } from "./meetings/runner.mjs";
 import { createMeetingStore } from "./meetings/store.mjs";
 import { createMeetingLog } from "./meetings/log.mjs";
 import { TOPIC_MAX_BYTES } from "./meetings/types.mjs";
 import { DEN_FEATURE, DESK_REF, TASK_MAX_BYTES } from "./cells/policy.mjs";
-import { createTicket } from "../organism-infra/board-service.mjs";
+import { BoardError, comment, createTicket, resolve, resolveShortRef, setOffRelay } from "../organism-infra/board-service.mjs";
+import { cleanText } from "./cells/approvals.mjs";
+
+// den-mvp/55: Bao's board_file batch. The allow is matched against the whole batch as the user saw it (cleaned the way
+// the approval store cleans an input), so a changed list is a new request.
+const FILE_BATCH_MAX = 12;
+const FULL_REF_RE = /^[a-z0-9-]+\/\d+(?:-[a-z0-9-]+)?$/;
+const isPlainObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+const slugOf = (title) => title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+/, "").slice(0, 40).replace(/-+$/, "") || "ticket";
+const cleanDeep = (v) => (typeof v === "string" ? cleanText(v) : Array.isArray(v) ? v.map(cleanDeep)
+  : isPlainObj(v) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [cleanText(k), cleanDeep(x)])) : v);
+const canonical = (v) => (Array.isArray(v) ? v.map(canonical) : isPlainObj(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canonical(v[k])])) : v);
+const sameJson = (a, b) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 import { hasSecret } from "../../scripts/exposure.mjs";
 import { REQUEST_KINDS, appendRequestLine } from "./requests-log.mjs";
 import { createHub } from "./watch.mjs";
+import { createUsageReading } from "./usage-reading.mjs";
 import { parseCatalog } from "./library/catalog.mjs";
 import { createLibrary } from "./library/library.mjs";
 import { createAuth } from "./auth.mjs";
@@ -103,7 +117,9 @@ function installProcessHandlers(host) {
 // preview and a go-live are built in; with none, both are refused.
 // den-mvp/29: watchCi starts the CI watch's timer (delivery/ci-watch.mjs); the production entry point passes true. Without
 // it the watch only reads its record, so a test never reaches the git host by the timer.
-export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, denState, box, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption, watchCi = false } = {}) {
+// den-mvp/34: checks (delivery/checks.mjs) runs ci.yml's checks here: before a delivery pushes, and on POST /checks for an
+// open pull request. With none, a delivery skips them and POST /checks is a 503.
+export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, denState, box, auth: authOptions, runtime, policy, gitHost, stateDir, library: libraryOption, watchCi = false, usage: usageOption, checks: checksOption = null } = {}) {
   let actualPort = port;
   const git = gitHost ?? createGitHost(root);
   // den-mvp/10 and 11: the den's own build, when it is served from release folders: previews, go-live and roll back. The
@@ -124,19 +140,36 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   const ciWatch = createCiWatch({ git, file: path.join(stateDir ?? path.join(root, ".scratch", "_run"), "ci-watch.json"), onChange: (change) => hub.publish(change), skip: ownedByDelivery,
     // den-mvp/29: a red pull request outside the den is a message to Bao's desk (den-mvp/30), once per commit.
     wake: (text) => host.converse("orchestrator", { text }) });
+  // den-mvp/34: every local run is told to the den when it starts and when it ends.
+  const checksView = async () => (checksOption ? { recent: (await checksOption.recent(10)).map(summarize), running: checksOption.running() } : null);
+  const publishChecks = () => checksView().then((checks) => hub.publish({ type: "checks", checks }), () => {});
+  const checks = checksOption && {
+    ...checksOption,
+    run(input) {
+      const done = checksOption.run(input);
+      publishChecks();
+      done.then(publishChecks, publishChecks);
+      return done;
+    },
+  };
+  // Friction F19: the production bridge reads the plan-usage cache; a test bridge reads only usage.jsonl rows.
+  const usageReading = usageOption ?? (() => null);
   const hub = createHub(root, {
     agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts(), capacity: (lockedRefs) => host.capacity(lockedRefs),
     deliveries: () => delivery?.snapshot() ?? [],
     meetings: () => meetings?.snapshot() ?? [],
     ci: () => ciWatch.snapshot(),
+    checks: () => checksView(),
     build: () => readBuild_(),
     wall: () => wallTables(),
+    readUsage: usageReading,
   });
   // den-mvp outcome 4: the production entry point passes the den's catalog; with none, no agent is given a connection.
   const library = libraryOption ?? createLibrary({ catalog: parseCatalog({ connections: [] }) });
   host = createHost({
     root,
     runtime,
+    bridgeUrl: () => `http://127.0.0.1:${actualPort}`,
     policy,
     library,
     onChange: (change) => hub.publish(change),
@@ -157,6 +190,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     board: createDeliveryBoard(root),
     git,
     build: denBuild,
+    checks,
     log: createJobLog(stateDir ?? path.join(root, ".scratch", "_run")),
     onChange: (change) => hub.publish(change),
     readTicket: async (ref) => {
@@ -220,6 +254,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     if (!handler) return reply(res, 404, { error: "not found" });
     await handler(req, res);
   }
+  const bearerOf = (req) => /^Bearer ([A-Za-z0-9_-]{1,512})$/.exec(req.headers.authorization ?? "")?.[1] ?? null;
   // Gate order: Origin and Content-Type (403), then the session token (401). All before the body is read, so an
   // unauthenticated caller learns nothing about ids or validation.
   function passesGate(req, res, route) {
@@ -231,6 +266,10 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     }
     if (req.method !== "GET" && !/^application\/json\s*(;|$)/i.test(req.headers["content-type"] ?? "")) {
       reply(res, 403, { error: "content-type must be application/json" });
+      return false;
+    }
+    if (route.auth === "run" && !host.runAgent(bearerOf(req))) {
+      reply(res, 401, { error: "unauthorized" });
       return false;
     }
     if (route.auth === "token" && !auth.verify(req.headers.authorization)) {
@@ -288,6 +327,10 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     "POST /meetings/:id/decide": (req, res) => steerMeeting(req, res, "decide"),
     "POST /meetings/:id/ask": (req, res) => steerMeeting(req, res, "ask"),
     "POST /build/rollback": (req, res) => rollBack(req, res),
+    "POST /tickets/approve": (req, res) => steerTicket(req, res, "approve"),
+    "POST /tickets/decline": (req, res) => steerTicket(req, res, "decline"),
+    "POST /checks": (req, res) => postChecks(req, res),
+    "POST /den-tools/:tool": (req, res) => denTool(req, res),
     // The recovery page is the bridge's own code, not a file of the UI build.
     "GET /recover": (req, res) => sendOwn(res, "text/html; charset=utf-8", RECOVER_HTML),
     "GET /recover/script": (req, res) => sendOwn(res, "text/javascript; charset=utf-8", RECOVER_SCRIPT),
@@ -440,6 +483,106 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     if (!result.ok) return reply(res, result.status, { error: result.error });
     reply(res, result.status, { ok: true, runId: result.runId, messageId: result.messageId, resumed: result.resumed, ...(result.agent ? { agent: result.agent } : {}), ...(result.usageUnknown ? { usageUnknown: true } : {}) });
   }
+  // POST /den-tools/:tool (den-mvp/38): the den script, for the run whose token it holds. The bridge does the work with its
+  // own board and git-host rights; the run's role must be one the catalog gives the den connection. board_resolve checks
+  // the pull request merged; board_file and start_delivery go ahead only on the user's own allow of that exact call.
+  async function denTool(req, res) {
+    const agent = host.runAgent(bearerOf(req));
+    if (!agent) return reply(res, 401, { error: "unauthorized" });
+    const tool = new URL(req.url, "http://x").pathname.split("/")[2];
+    const verdict = library.decide(agent.role, `mcp__den__${tool}`, {});
+    if (!verdict || verdict.kind === "refuse") return reply(res, 403, { error: "the den's catalog does not give this run that tool" });
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    const done = (text) => reply(res, 200, { text });
+    const refused = (status, error) => reply(res, status, { error });
+    const fullRef = (ref) => {
+      if (typeof ref !== "string" || !ref) throw new BoardError("ref must be a ticket ref such as den-mvp/02");
+      return resolveShortRef(root, ref);
+    };
+    const allowed = (match) => host.takeAllowed(agent.id, `mcp__den__${tool}`, match);
+    const refExists = (ref) => {
+      if (typeof ref !== "string" || !FULL_REF_RE.test(ref)) return false;
+      try {
+        const [feature, ticket] = fullRef(ref).split("/");
+        return existsSync(path.join(root, ".scratch", feature, "issues", `${ticket}.md`));
+      } catch {
+        return false;
+      }
+    };
+    try {
+      if (tool === "board_resolve") {
+        const ref = fullRef(body.ref);
+        if (!Number.isInteger(body.pr) || body.pr < 1 || body.pr > 9_999_999) return refused(400, "pr must be the number of the merged pull request");
+        try {
+          await git.mergeCommit({ number: body.pr });
+        } catch {
+          return refused(409, `pull request #${body.pr} is not merged, so ${ref} was not resolved`);
+        }
+        await resolve(root, [ref], { pr: String(body.pr), note: "resolved by Bao from the desk" });
+        return done(`resolved ${ref} (PR #${body.pr})`);
+      }
+      if (tool === "board_comment") {
+        const ref = fullRef(body.ref);
+        if (typeof body.text !== "string" || !body.text.trim()) return refused(400, "text must be the comment");
+        if (hasSecret(body.text)) return refused(400, "text looks like it holds a secret; nothing was written");
+        await comment(root, ref, body.text.trim(), { as: agent.role });
+        return done(`commented on ${ref}`);
+      }
+      if (tool === "board_file") {
+        // den-mvp/55: one ask files a batch. Every ticket is checked, its blockers included, before any is written.
+        const { feature = DEN_FEATURE, tickets } = body;
+        if (typeof feature !== "string" || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(feature) || !existsSync(path.join(root, ".scratch", feature, "issues"))) return refused(400, "feature must be a board feature that has an issues folder");
+        if (!Array.isArray(tickets) || tickets.length < 1 || tickets.length > FILE_BATCH_MAX) return refused(400, `tickets must be a list of 1 to ${FILE_BATCH_MAX} tickets, each { title, text, priority?, type?, blockedBy?, slug? }`);
+        const drafts = [];
+        for (const [i, t] of tickets.entries()) {
+          const at = `ticket ${i + 1}`;
+          if (!isPlainObj(t) || typeof t.title !== "string" || !t.title.trim() || typeof t.text !== "string" || !t.text.trim()) return refused(400, `${at}: title and text must be given`);
+          const { title, text, priority = "P2", type = "task", blockedBy = [], slug = slugOf(title) } = t;
+          if (!["P0", "P1", "P2", "P3"].includes(priority)) return refused(400, `${at}: priority must be P0 to P3`);
+          if (typeof type !== "string" || !/^[a-z][a-z -]{0,39}$/.test(type)) return refused(400, `${at}: type must be a few lowercase words`);
+          if (typeof slug !== "string" || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(slug)) return refused(400, `${at}: slug must be lowercase words joined by -`);
+          if (Buffer.byteLength(text) > TASK_MAX_BYTES) return refused(400, `${at}: text must be at most ${TASK_MAX_BYTES} bytes`);
+          if (hasSecret(text) || hasSecret(title)) return refused(400, `${at}: text looks like it holds a secret; nothing was written`);
+          // The card shows a control or direction character as an escape, so the bytes written must be the bytes approved.
+          if (cleanText(text) !== text || cleanText(title) !== title) return refused(400, `${at}: text holds control or direction characters; nothing was written`);
+          if (!/^## Acceptance criteria[ \t]*$/m.test(text)) return refused(400, `${at}: text needs its own ## Acceptance criteria section`);
+          if (!Array.isArray(blockedBy)) return refused(400, `${at}: blockedBy must be a list`);
+          for (const b of blockedBy) {
+            if (Number.isInteger(b)) {
+              if (b < 1 || b > i) return refused(400, `${at}: a blocker in the batch must name an earlier ticket by its position (1 to ${i})`);
+            } else if (!refExists(b)) {
+              return refused(400, `${at}: blocker ${String(b).slice(0, 80)} is not a ticket on the board`);
+            }
+          }
+          drafts.push({ title: title.trim(), text, priority, type: type.replace(/\s+/g, " ").trim(), blockedBy, slug });
+        }
+        if (!allowed((input) => sameJson(input, cleanDeep(body)))) return refused(403, "the user has not allowed filing this batch");
+        const refs = [];
+        for (const d of drafts) {
+          const blockers = d.blockedBy.map((b) => (Number.isInteger(b) ? refs[b - 1] : fullRef(b)));
+          const { ref } = await createTicket(root, { feature, slug: d.slug, title: d.title, text: d.text, priority: d.priority, form: "ticket", type: d.type, blockedBy: blockers, source: "den desk", status: "ready-for-human" }).catch((err) => {
+            // Checked above, so this is the board changing underneath: say what was already filed.
+            throw new BoardError(`${err.message}${refs.length ? ` (already filed: ${refs.join(", ")})` : ""}`);
+          });
+          refs.push(ref);
+        }
+        return done(`filed ${refs.length} ticket${refs.length === 1 ? "" : "s"} at ready-for-human: ${refs.join(", ")}`);
+      }
+      if (tool === "start_delivery") {
+        const ref = fullRef(body.ref);
+        if (!allowed((input) => input.ref === cleanText(body.ref))) return refused(403, "the user has not allowed starting this delivery");
+        const result = await delivery.start({ ref });
+        if (!result.ok) return refused(result.status, result.error);
+        return done(`started the delivery of ${ref} (${result.delivery.id})`);
+      }
+      return refused(404, "no such den tool");
+    } catch (err) {
+      if (err instanceof BoardError) return refused(400, err.message);
+      console.error(`bridge: den tool ${tool} failed: ${err?.stack ?? err}`);
+      return refused(500, "the bridge could not do that");
+    }
+  }
   // POST /deliveries (den-mvp outcome 3): the user's approval of a ticket's delivery. Only `ref`, or `title` and `text`, are
   // read. With a ref, that ticket is delivered. With text, the board service writes a ticket for it first (the same one
   // Board write as POST /tasks), and that ticket is delivered. Nothing in the body reaches a prompt, argv or a branch name.
@@ -467,12 +610,12 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     reply(res, result.status, { delivery: result.delivery, ...ticket });
   }
   // POST /deliveries/:id/resume | stop | close. Resume reads `verdict` ("approve" or "decline": the user's visual verdict) and,
-  // with a decline, `note`; nothing else.
+  // with a decline, `note`; without a verdict, an optional `note` for the next run; nothing else.
   async function steerDelivery(req, res, action) {
     const body = await readJsonObject(req, res);
     if (!body) return;
     const id = new URL(req.url, "http://x").pathname.split("/")[2];
-    const result = action === "resume" ? await delivery.resume(id, body.verdict === undefined ? {} : { verdict: body.verdict, note: body.note }) : await delivery[action](id);
+    const result = action === "resume" ? await delivery.resume(id, body.verdict === undefined ? (body.note === undefined ? {} : { note: body.note }) : { verdict: body.verdict, note: body.note }) : await delivery[action](id);
     if (!result.ok) return reply(res, result.status, { error: result.error });
     reply(res, result.status, { delivery: result.delivery });
   }
@@ -508,6 +651,48 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     res.writeHead(200, { "Content-Type": type, "Cache-Control": "no-store", "Content-Security-Policy": CSP, "X-Content-Type-Options": "nosniff" });
     res.end(body);
   };
+  // POST /checks (den-mvp/34): the user's "run the checks here" for an open pull request. Only `pr` is read; the commit is
+  // the one the git host names as the pull request's head now. The run goes on after the answer; the den hears of its end.
+  async function postChecks(req, res) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    if (!checks) return reply(res, 503, { error: "this bridge has no box to run the checks in" });
+    if (!Number.isInteger(body.pr) || body.pr < 1) return reply(res, 400, { error: "pr must be a pull request number" });
+    let st;
+    try {
+      st = await git.prState({ number: body.pr });
+    } catch (err) {
+      return reply(res, 502, { error: `could not read pull request #${body.pr}: ${String(err?.message ?? err).slice(0, 200)}` });
+    }
+    if (st.state !== "OPEN" || !/^[0-9a-f]{40}$/.test(st.sha ?? "")) return reply(res, 409, { error: `pull request #${body.pr} is not open` });
+    if (checks.running().includes(st.sha)) return reply(res, 409, { error: "the checks of this commit are already running" });
+    checks.run({ sha: st.sha, why: `pull request #${body.pr}` }).catch((err) => console.error(`bridge: checks of #${body.pr} failed: ${err?.message ?? err}`));
+    reply(res, 202, { sha: st.sha });
+  }
+  // POST /tickets/approve | decline (den-mvp/13): the user's answer to a ticket waiting at ready-for-human. Approve reads `ref`;
+  // decline reads `ref` and `note` (required: it is the reason the ticket is closed, and goes under its Comments).
+  // A ticket at any other status, or none, is a 409; the board service does the write.
+  async function steerTicket(req, res, action) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    if (typeof body.ref !== "string" || !body.ref) return reply(res, 400, { error: "ref must be a string" });
+    let note = "approved from the den";
+    if (action === "decline") {
+      note = typeof body.note === "string" ? body.note.trim() : "";
+      if (!note) return reply(res, 400, { error: "note must be a non-empty string: the reason for the decline" });
+      if (note.length > 500) return reply(res, 400, { error: "note must be at most 500 characters" });
+      if (hasSecret(note)) return reply(res, 400, { error: "note looks like it holds a secret; nothing was written" });
+    }
+    const ticket = (await hub.snapshot()).tickets.find((t) => t.ref === body.ref);
+    if (ticket?.status !== "ready-for-human") return reply(res, 409, { error: "the ticket is not waiting for you" });
+    try {
+      await setOffRelay(root, [body.ref], action === "approve" ? "approve" : "close", { reason: note });
+    } catch (err) {
+      if (!(err instanceof BoardError)) throw err;
+      return reply(res, 409, { error: `not changed: ${err.message}` });
+    }
+    reply(res, 200, { ref: body.ref, status: action === "approve" ? "ready-for-agent" : "closed" });
+  }
   // POST /build/rollback (ADR 0026 decision 7): the user's roll back. Only `to` is read: the release the button showed as
   // previous. Anything else, and a den that runs from the checkout, is a 409 and nothing changes.
   async function rollBack(req, res) {
@@ -641,7 +826,14 @@ if (startedDirectly()) {
   const { createResourceLauncher } = await import("./cells/resource-group.mjs");
   const { createBuildBox } = await import("./build/box.mjs");
   const launcher = createResourceLauncher({ env: process.env });
-  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }), watchCi: true });
+  // den-mvp/34: the records go to the board's run folder, next to the conversations, where the user and Bao read them.
+  const { createChecks } = await import("./delivery/checks.mjs");
+  // A launcher of their own: the checks group, in its own slice, outside the agents' aggregate.
+  const { checksLimits, CHECKS_SLICE } = await import("./cells/resource-group.mjs");
+  const checksLauncher = createResourceLauncher({ env: process.env, limits: checksLimits(), slice: CHECKS_SLICE });
+  // The box mounts the den's packages folder for each commit's own lockfile (deps/<lock-hash>, made by den:update).
+  const checks = createChecks({ repo: root, launcher: checksLauncher, recordDir: path.join(root, ".scratch", "_run", "checks"), depsDir: path.join(denState, "deps") });
+  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }), watchCi: true, usage: createUsageReading(), checks });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
   console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);

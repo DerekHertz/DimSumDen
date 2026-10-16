@@ -14,18 +14,22 @@ export function readVerdict(report) {
 // The den's friction log (.scratch/den-mvp/friction.md, F2 and F4): what a walled run cannot do, said before it tries.
 export const WORK_TIPS =
   "Run every check in the foreground under `timeout` (a command may take up to 10 minutes), never in the background: you have no tool to wait for a background run, and `sleep` before a command is blocked. " +
+  "For a check longer than 2 minutes, also set the Bash tool's own timeout (up to 600000 ms), or it moves the command to the background. " +
+  "Run `node --test` with `--test-concurrency=2`: every thread counts toward your process limit, and a run over it is stopped. " +
   "Put a throwaway script under .den/ in this worktree (git ignores it), not in $TMPDIR: Node finds the repository's packages only from inside the worktree. " +
   "Stage files by name (`git add <paths>`), never `git add -A` or `git add .`: the sandbox leaves placeholder files such as .bash_profile that git cannot add. " +
-  "`gh` has no login behind the wall: read pull requests, checks and CI job logs with the GitHub connection's tools (mcp__github__*) when your role has them. ";
+  "`gh` has no login behind the wall: read pull requests, checks and CI job logs with the GitHub connection's tools (mcp__github__*) when your role has them. " +
+  "Before adding or bumping a package, check it with Socket (mcp__socket__depscore) when your role has it. " +
+  "For how a public library works inside, ask DeepWiki (mcp__deepwiki__ask_wiki_question, owner/repo) after context7's docs. ";
 
 const SHARED =
   "The den's bridge runs this delivery: it has claimed the ticket for you, and it will write your handoff to the board and release the ticket when you end. " +
   "Run no board command, and do not push, open a pull request or merge: the bridge does each of those from the commit it records. " +
   WORK_TIPS;
 
-/** { role, mode?, ref, ticketFile, since, fix? } -> the step's prompt. `since` is the commit the delivery started from. */
-export function deliveryPrompt({ role, mode, ref, ticketFile, since, fix = false }) {
-  const head = `You are the ${role} cell${mode ? ` in ${mode} mode` : ""} for ticket ${ref}. Read .claude/agents/${role}.md for how to work, with these changes. ${SHARED}The ticket is the file ${ticketFile}. `;
+/** { role, mode?, ref, ticketFile, since, fix?, note? } -> the step's prompt. `since` is the commit the delivery started from. */
+export function deliveryPrompt({ role, mode, ref, ticketFile, since, fix = false, note = false }) {
+  const head = `You are the ${role} cell${mode ? ` in ${mode} mode` : ""} for ticket ${ref}. Read .claude/agents/${role}.md for how to work, with these changes. ${SHARED}The ticket is the file ${ticketFile}. ${note ? "The user left you a note when they resumed this delivery: it is at the top of .den/findings.md. Read it first and follow it. " : ""}`;
   if (role === "developer") {
     return (
       head +

@@ -2,7 +2,7 @@
 // passed in. Copy comes from docs/design/2026-10-01-iso-den.md section 4. Agent text (ticket titles) is untrusted:
 // the components render it as React text nodes only.
 import { gatesModel } from "../panel/gates-model.mjs";
-import { deliveryRequests } from "./delivery-model.mjs";
+import { checksView, deliveryRequests } from "./delivery-model.mjs";
 import { meetingRequests } from "./meeting-model.mjs";
 import { queueModel } from "../panel/queue-model.mjs";
 import { cellTypeOf, sceneFromState } from "../scene/scene-from-state.mjs";
@@ -131,6 +131,28 @@ export function ciRequests(snapshot) {
         reason: jobs.map((j) => `${j.name}: ${j.reason}`).join("; ") || "A check failed.", reasonFallback: false, plain: true,
         next: typeof p.bao === "string" && p.bao ? `${CI_NEXT[p.state]} ${p.bao}.` : CI_NEXT[p.state], rowText: `${short} · red`, preview: typeof p.title === "string" && p.title ? [p.title] : [], detailLabel: "The pull request",
         age: null, pr: httpsLink(p.url), prNumber: p.number,
+        // den-mvp/34: the latest local run of this commit's checks beside GitHub's red, and whether one is running now.
+        checks: checksView({ here: (snapshot?.checks?.recent ?? []).find((r) => r?.sha === p.sha) ?? null, github: "red" }),
+        checksRunning: typeof p.sha === "string" && (snapshot?.checks?.running ?? []).includes(p.sha), canRunChecks: snapshot?.checks != null,
+      };
+    });
+}
+
+// den-mvp/13: a ticket at ready-for-human (a meeting's proposal, a filed task) waits for Approve or Decline.
+export function ticketRequests(snapshot) {
+  return (Array.isArray(snapshot?.tickets) ? snapshot.tickets : [])
+    .filter((t) => t?.status === "ready-for-human" && typeof t.ref === "string")
+    .map((t) => {
+      const short = shortRef(t.ref);
+      const role = "orchestrator";
+      const station = stationIdOf(role);
+      return {
+        key: `ticket:${t.ref}`, kind: "ticket", ref: t.ref, short, role, station,
+        eyebrow: `${STATION_NAME[station]} · ${short}`,
+        title: `${short} waits for your answer: ${t.title || "untitled"}`,
+        reason: "Approve sends it to the queue. Decline closes it with your reason.", reasonFallback: false, plain: true,
+        rowText: `${short} · approve?`, preview: typeof t.text === "string" && t.text ? [t.text] : [], detailLabel: "The ticket",
+        age: null,
       };
     });
 }
@@ -163,7 +185,7 @@ export function needsYouModel(snapshot, nowMs) {
   });
   // den-mvp outcome 3: a delivery that waits on the user sits between the two.
   // den-mvp outcome 4: so does a meeting that is paused, or whose brief waits for the user's choice.
-  const requests = [...permissionRequests(snapshot, nowMs), ...deliveryRequests(snapshot), ...ciRequests(snapshot), ...meetingRequests(snapshot), ...gates];
+  const requests = [...permissionRequests(snapshot, nowMs), ...deliveryRequests(snapshot), ...ciRequests(snapshot), ...meetingRequests(snapshot), ...ticketRequests(snapshot), ...gates];
   return { count: requests.length, requests };
 }
 

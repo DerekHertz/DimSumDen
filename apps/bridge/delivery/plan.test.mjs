@@ -21,6 +21,13 @@ const open = { ...passed, pr: { sha: SHA, state: "OPEN", mergeable: "MERGEABLE" 
 const green = { ...open, ci: { sha: SHA, state: "green" } };
 
 describe("the delivery plan", () => {
+  test("local checks that could not run wait for the user, and red twice is failed-twice", () => {
+    const err = nextStep(job({ ...passed, tests: { sha: SHA, state: "error", reason: "bwrap is not installed" } }, { localChecks: true }));
+    assert.equal(err.pause, "checks-error");
+    assert.match(err.reason, /bwrap is not installed/);
+    assert.equal(nextStep(job({ ...passed, tests: { sha: SHA, state: "red" } }, { localChecks: true, bounces: MAX_BOUNCES })).pause, "failed-twice");
+  });
+
   const rows = [
     ["no candidate: a developer at the base", { base: BASE, candidate: null, bounces: 0, evidence: {} }, { kind: "run", role: "developer", at: BASE, since: BASE }],
     ["a candidate: qa verifies it", job(), { kind: "run", role: "qa", mode: "verify", at: SHA, since: BASE }],
@@ -37,6 +44,15 @@ describe("the delivery plan", () => {
     ["green and mergeable: merge", job(green), { kind: "merge" }],
     ["merged: resolve the ticket", job({ ...passed, pr: { sha: SHA, state: "MERGED" } }), { kind: "resolve" }],
     ["a ui ticket with the user's verdict: merge", job({ ...green, verdict: { sha: SHA, ok: true } }, { visual: true }), { kind: "merge" }],
+    // den-mvp/34: the checks of ci.yml, run here, between the scripted check and security or the push.
+    ["local checks: run after the scripted check", job(passed, { localChecks: true }), { kind: "tests" }],
+    ["local checks of an older commit do not count", job({ ...passed, tests: { sha: OLD, state: "green" } }, { localChecks: true }), { kind: "tests" }],
+    ["local checks green: publish", job({ ...passed, tests: { sha: SHA, state: "green" } }, { localChecks: true }), { kind: "publish" }],
+    ["local checks only flaked: publish", job({ ...passed, tests: { sha: SHA, state: "flaky" } }, { localChecks: true }), { kind: "publish" }],
+    ["local checks skipped (the lockfile changed): GitHub decides", job({ ...passed, tests: { sha: SHA, state: "skipped" } }, { localChecks: true }), { kind: "publish" }],
+    ["local checks green and a risk hit: security next", job({ ...passed, risk: riskOf({ security: true }), tests: { sha: SHA, state: "green" } }, { localChecks: true }), { kind: "run", role: "security", at: SHA, since: BASE }],
+    ["local checks red, counted as a bounce: the developer fixes it", job({ ...passed, tests: { sha: SHA, state: "red" } }, { localChecks: true, bounces: 1 }), { kind: "run", role: "developer", at: SHA, since: BASE, fix: true }],
+    ["a job started without local checks never runs them", job(passed), { kind: "publish" }],
   ];
   for (const [name, input, want] of rows) test(name, () => assert.deepEqual(nextStep(input), want));
 
@@ -148,6 +164,9 @@ describe("a reviewer's verdict and the step prompts", () => {
     // Friction log F2 and F4: foreground checks under timeout, throwaway scripts under .den/.
     assert.match(dev, /in the foreground under `timeout`.*never in the background/);
     assert.match(dev, /throwaway script under \.den\/ in this worktree/);
+    // Friction log F17: the Bash tool's own timeout, and node --test under the process limit.
+    assert.match(dev, /set the Bash tool's own timeout/);
+    assert.match(dev, /--test-concurrency=2/);
     assert.match(dev, /\/r\/\.scratch\/fx\/issues\/08-plain\.md/);
     assert.doesNotMatch(dev, /findings\.md|VERDICT/);
     assert.match(deliveryPrompt({ role: "developer", ref: "fx/08-plain", ticketFile: "/t.md", since: BASE, fix: true }), /read \.den\/findings\.md first/);
@@ -172,6 +191,16 @@ describe("the delivery log", () => {
     assert.equal(job.evidence.pr, null, "the pull request is asked for again");
     assert.equal(job.evidence.ci, null, "the checks are asked for again");
     assert.deepEqual(job.live, { runId: RUN, role: "qa", mode: "verify" });
+  });
+
+  test("den-mvp/34: a local run of the checks and the job's localChecks read back; a bad record path or state is not kept", () => {
+    const tests = { sha: SHA, state: "red", record: `${SHA}/20261015T120000Z`, reason: "test: 1 test failed", failed: ["test: x"], flaky: [], commands: ["node scripts/test-split.mjs rest"], differences: ["cores: 1 here, 4 on GitHub"] };
+    const job = validateJob(record({ localChecks: true, evidence: { tests } }));
+    assert.equal(job.localChecks, true);
+    assert.deepEqual(job.evidence.tests, tests);
+    assert.equal(validateJob(record({ evidence: { tests: { ...tests, record: "../../etc" } } })).evidence.tests.record, null);
+    assert.equal(validateJob(record({ evidence: { tests: { ...tests, state: "maybe" } } })).evidence.tests, null);
+    assert.equal(validateJob(record()).localChecks, false, "a job from before den-mvp/34 runs no local checks");
   });
 
   test("a line with a bad id, ref, commit or branch is dropped or cut down, never copied", () => {

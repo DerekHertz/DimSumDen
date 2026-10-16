@@ -1,5 +1,6 @@
 // den-mvp outcome 4 (spec section 3, "MCP" in the testing decisions): the catalog's checks, as pure functions.
 import { test, describe } from "node:test";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { connectionsFor, decideTool, loadCatalog, parseCatalog, toolsOfRoleFile } from "./catalog.mjs";
 
@@ -101,6 +102,29 @@ describe("the role file's tools line", () => {
     assert.deepEqual([...toolsOfRoleFile(file("tools: Read, Bash\n"))], []);
     assert.equal(toolsOfRoleFile(file("")), null);
     assert.deepEqual([...toolsOfRoleFile(undefined)], []);
+  });
+});
+
+describe("socket and deepwiki (den-mvp/36)", () => {
+  // Tool names checked live against both servers on 2026-10-15 (F16: names drift from the docs; DeepWiki's docs say ask_question).
+  const catalog = loadCatalog();
+  const roleFile = (role) => readFileSync(new URL(`../../../.claude/agents/${role}.md`, import.meta.url), "utf8");
+  for (const [name, roles, tool] of [["socket", ["security", "developer"], "depscore"], ["deepwiki", ["scout", "architect", "developer"], "ask_wiki_question"]]) {
+    test(`${name}: every tool is a read, given to ${roles.join(", ")}, and each of those role files names it`, () => {
+      const c = catalog.connections.find((x) => x.name === name);
+      assert.ok(c, `${name} is in connections.json`);
+      assert.deepEqual([...c.roles].sort(), [...roles].sort());
+      assert.ok(Object.values(c.tools).every((cap) => cap === "read"));
+      assert.equal(c.credential, "none");
+      for (const role of roles) {
+        assert.equal(decideTool(catalog, role, `mcp__${name}__${tool}`).kind, "allow", role);
+        assert.ok(toolsOfRoleFile(roleFile(role))?.has(name), `.claude/agents/${role}.md names mcp__${name}`);
+      }
+      assert.equal(decideTool(catalog, "product", `mcp__${name}__${tool}`).kind, "refuse");
+    });
+  }
+  test("Socket's account tools (organizations, alerts, threat_feed) are not listed, so they are refused", () => {
+    for (const tool of ["organizations", "alerts", "threat_feed"]) assert.equal(decideTool(catalog, "security", `mcp__socket__${tool}`).kind, "refuse", tool);
   });
 });
 

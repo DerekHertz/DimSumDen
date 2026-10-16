@@ -104,7 +104,13 @@ export function App() {
   // E and Q answer the panda card in view, or else the first waiting permission request (overlay-model.mjs answerCardFor).
   const answerCard = useMemo(() => answerCardFor(nearby, requests), [nearby, requests]);
   const approval = useApprovalReview({ client: bridge, card: answerCard, exploring: engaged, cursorFree, demo: inDemo, snapshot, onOpen: onReviewOpen });
-  const answerRequest = useCallback((card) => { if (card) approval.review.open(card, { mode: "card", demo: inDemo }); }, [approval.review, inDemo]);
+  // den-mvp/37: an agent's question is answered in its thread, where its options are; a tool ask opens the review.
+  const asksQuestion = (card) => (snapshot?.approvals ?? []).some((a) => a.agentId === card.agentId && a.state === "pending" && Array.isArray(a.questions));
+  const answerRequest = useCallback((card) => {
+    if (!card) return;
+    if (asksQuestion(card)) transcript.openFor(card.agentId, { name: card.name, role: card.role, state: card.state });
+    else approval.review.open(card, { mode: "card", demo: inDemo });
+  }, [approval.review, inDemo, snapshot, transcript.openFor]);
   const answerAgent = useCallback((agentId) => answerRequest(requests.find((r) => r.card?.agentId === agentId)?.card), [answerRequest, requests]);
   // organism-infra/230: "Open thread" on a Needs you card opens that agent's conversation, in or out of walk mode.
   const openThread = useCallback((card) => { if (card?.agentId) transcript.openFor(card.agentId, { name: card.name, role: card.role, state: card.state }); }, [transcript.openFor]);

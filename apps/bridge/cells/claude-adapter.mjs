@@ -315,7 +315,7 @@ export function isConnectionTarget(target) {
   const extra = Object.keys(target).filter((k) => !["name", "url", "script"].includes(k));
   if (Object.keys(target).length - extra.length !== 2) return false;
   if (extra.some((k) => k !== "credential" && k !== "headers")) return false;
-  if (target.credential !== undefined && (target.credential !== "den" || typeof target.url !== "string")) return false;
+  if (target.credential !== undefined && !((target.credential === "den" && typeof target.url === "string") || (target.credential === "run" && typeof target.script === "string"))) return false;
   if (target.headers !== undefined && (typeof target.url !== "string" || !isPlainObject(target.headers) || !Object.entries(target.headers).every(([k, v]) => /^X-MCP-[A-Za-z-]{1,40}$/.test(k) && typeof v === "string" && /^[A-Za-z0-9_,.-]{1,200}$/.test(v)))) return false;
   if (typeof target.name !== "string" || target.name.length > CONNECTION_NAME_MAX || !CONNECTION_NAME_RE.test(target.name)) return false;
   if (typeof target.url === "string") {
@@ -324,9 +324,11 @@ export function isConnectionTarget(target) {
   }
   return typeof target.script === "string" && CONNECTION_SCRIPT_RE.test(target.script) && !target.script.split("/").some((part) => part === "." || part === "..");
 }
+// den-mvp/38: a "run" script's token is { url, token }: the bridge's own address and that run's token, given to the
+// script in its environment (from the 0600 config file, never argv).
 const serverOf = (c, token) => (c.url !== undefined
   ? { type: "http", url: c.url, ...(c.headers || token !== undefined ? { headers: { ...(c.headers ?? {}), ...(token === undefined ? {} : { Authorization: `Bearer ${token}` }) } } : {}) }
-  : { command: process.execPath, args: [c.script] });
+  : { command: process.execPath, args: [c.script], ...(token === undefined ? {} : { env: { DEN_BRIDGE_URL: token.url, DEN_RUN_TOKEN: token.token } }) });
 const mcpConfigFor = (connections) => JSON.stringify({ mcpServers: Object.fromEntries(connections.map((c) => [c.name, serverOf(c)])) });
 /**
  * den-mvp/33: the MCP config of the connections that hold a credential, with each one's token (`tokens`: name -> token).
@@ -475,7 +477,12 @@ function clip(text, max) {
 // What the UI shows for a tool call: the command or the target path, shortened. Never the full input.
 function summarise(input) {
   if (!isPlainObject(input)) return "";
-  for (const key of ["command", "file_path", "path", "pattern", "url", "description"]) {
+  // den-mvp/55: a den tool's row names what it acts on (Bao's board_file batch, a ticket ref, a title).
+  if (Array.isArray(input.tickets) && input.tickets.length > 0) {
+    const n = input.tickets.length;
+    return clip(`file ${n} ticket${n === 1 ? "" : "s"}${typeof input.feature === "string" ? ` in ${input.feature}` : ""}`, SUMMARY_MAX);
+  }
+  for (const key of ["command", "file_path", "path", "pattern", "url", "description", "ref", "title"]) {
     if (typeof input[key] === "string" && input[key].trim() !== "") return clip(input[key], SUMMARY_MAX);
   }
   return "";

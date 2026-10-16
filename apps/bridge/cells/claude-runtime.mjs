@@ -53,6 +53,13 @@ function createChannel() {
 
 // den-mvp outcome 1: `launcher` starts the child inside its resource group (resource-group.mjs). The default is the
 // enforced one and there is no switch for it; only a test passes another.
+// den-mvp/37: the CLI reads the user's answers to AskUserQuestion from `answers` in updatedInput, keyed by each
+// question's own text (checked live against claude 2.1.293). The original text is used, not the den's cleaned copy.
+function withAnswers(input, answers) {
+  if (!Array.isArray(answers) || !Array.isArray(input?.questions) || answers.length !== input.questions.length) return input;
+  return { ...input, answers: Object.fromEntries(input.questions.map((q, i) => [q.question, answers[i]])) };
+}
+
 export function createClaudeRuntime({ env = process.env, launcher = createResourceLauncher({ env }) } = {}) {
   return {
     id: "claude",
@@ -66,7 +73,8 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
     // then names the resource group, so a follow-up never reuses the unit of the run before it. `promptId` gives the
     // first message an id, and a message-applied event with that id follows once the child takes it.
     // den-mvp outcome 4: `connections` are the catalog's targets for this role; a list the adapter cannot write refuses the spawn.
-    async spawn({ role, cwd, prompt, sessionId, model, ticketFile, grants, root, mainGit, resume, runId, promptId, connections } = {}) {
+    // den-mvp/38: `runCredential` ({ url, token }) is what a "run" connection's script is given to call the bridge back.
+    async spawn({ role, cwd, prompt, sessionId, model, ticketFile, grants, root, mainGit, resume, runId, promptId, connections, runCredential } = {}) {
       if (typeof cwd !== "string" || cwd === "") throw new TypeError("claude runtime: cwd must be a path");
       if (typeof prompt !== "string") throw new TypeError("claude runtime: prompt must be a string");
       // A ticket path the adapter cannot write as a rule is left out: that agent's ticket read stays a request.
@@ -94,6 +102,10 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
         const dir = home === undefined ? undefined : `${home}/.local/state/den/credentials`;
         const tokens = {};
         for (const c of secured) {
+          if (c.credential === "run") {
+            if (/^http:\/\/127\.0\.0\.1:\d{1,5}$/.test(runCredential?.url ?? "") && /^[A-Za-z0-9_-]{20,255}$/.test(runCredential?.token ?? "")) tokens[c.name] = { url: runCredential.url, token: runCredential.token };
+            continue;
+          }
           try {
             const t = dir === undefined ? "" : readFileSync(`${dir}/${c.name}.token`, "utf8").trim();
             if (/^[A-Za-z0-9_-]{20,255}$/.test(t)) tokens[c.name] = t;
@@ -257,11 +269,11 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
             throw err;
           }
         },
-        async decide(requestId, { allow, reason } = {}) {
+        async decide(requestId, { allow, reason, answers } = {}) {
           if (!held.has(requestId)) return;
           const input = held.get(requestId);
           held.delete(requestId);
-          await write(encodeControlResponse({ requestId, allow: allow === true, reason, input }));
+          await write(encodeControlResponse({ requestId, allow: allow === true, reason, input: withAnswers(input, answers) }));
         },
       };
     },
