@@ -592,6 +592,10 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
       agent.sha = published?.sha ?? (published === null ? agent.startSha ?? null : null);
     }
     finalize(agent);
+    // den-mvp/43: a meeting take has no follow-up, so its worktree goes with it; unsaved work is kept on a wip/ branch.
+    if (agent.meeting && agent.workspace && !agent.workspace.reopened && agent.ref !== DESK_REF) {
+      await workspaces.retire({ ref: agent.ref, agentId: agent.id }).catch((err) => console.error(`bridge: could not remove the worktree of ${agent.id}: ${err?.message ?? err}`));
+    }
     // The run record (den-v1 loop S4): on the end line, then as one ledger row. Neither write can undo the end.
     const run = {
       agentId: agent.id, ref: agent.ref, role: agent.role, mode: agent.mode ?? null, state: agent.state, reason: agent.reason ?? null,
@@ -1056,6 +1060,8 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
     dispatch: (input) => admit(input, { entry: "dispatch" }),
     start: (input) => admit(input, { entry: "start" }),
     direct,
+    // den-mvp/43: a finished delivery asks for the worktrees of its runs to go (Bao's desk never does).
+    retire: ({ ref, agentId }) => (ref === DESK_REF ? Promise.resolve({ removed: false, saved: null }) : workspaces.retire({ ref, agentId })),
     stop,
     message: (id, body) => message(id, body),
     cancel,

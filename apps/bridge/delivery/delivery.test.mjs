@@ -441,6 +441,9 @@ describe("what stops a delivery, and what it leaves", () => {
     assert.equal((await t.post(`/deliveries/${started.id}/close`)).status, 200);
     assert.equal((await t.job()).state, "closed");
     assert.equal((await t.post(`/deliveries/${started.id}/resume`)).status, 409);
+    // den-mvp/43: a closed delivery's worktrees are removed.
+    const listed = async () => execFileSync("git", ["-C", t.root, "worktree", "list", "--porcelain"], { encoding: "utf8" });
+    await until(async () => !(await listed()).includes(".claude/worktrees/"), { what: "the worktrees to be removed" });
   });
 
   test("with no room the delivery waits, and starts by itself when a run ends", async () => {

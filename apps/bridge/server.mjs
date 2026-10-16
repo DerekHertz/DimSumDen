@@ -184,7 +184,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   });
   await host.ready;
   delivery = createDelivery({
-    host: { start: host.start, stop: host.stop },
+    host: { start: host.start, stop: host.stop, retire: host.retire },
     board: createDeliveryBoard(root),
     git,
     build: denBuild,
@@ -199,7 +199,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   });
   // den-mvp outcome 4: meetings. The bridge writes a meeting's files and both of its tickets; no agent does.
   meetings = createMeetings({
-    host: { start: host.start, stop: host.stop },
+    host: { start: host.start, stop: host.stop, retire: host.retire },
     store: createMeetingStore(root),
     log: createMeetingLog(stateDir ?? path.join(root, ".scratch", "_run")),
     onChange: (change) => hub.publish(change),
