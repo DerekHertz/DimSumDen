@@ -11,6 +11,8 @@ import { createServer } from "vite";
 import { chromium } from "playwright";
 import { buildLaunchOptions } from "../ci-cd/launch-options.mjs";
 import { lightenScene } from "../ci-cd/light-scene.mjs";
+import { cameraConfig } from "./src/scene/procedural/camera.mjs";
+import { DEN_TARGET } from "./src/scene/procedural/bindings.mjs";
 
 const UI = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(UI, "..", "..");
@@ -124,6 +126,7 @@ async function openGarden({ viewport = { width: 1440, height: 900 }, failModels 
   await page.route(url => url.pathname === '/metrics', route => route.fulfill({ json: { throughput: { windows: [] }, tokensByCell: {}, incidentsByTool: {} } }));
   await page.route(url => url.pathname === '/requests', route => route.fulfill({ json: [] }));
   await page.route(url => url.pathname === '/session', route => route.fulfill({ status: 404, json: {} }));
+  await page.route(url => url.pathname === '/library', route => route.fulfill({ json: { connections: [], skills: [{ kind: 'skill', name: 'garden-qa-marker', description: 'The live Library response.', roles: ['qa'] }] } }));
   if (failModels) await page.route(url => url.pathname.startsWith('/den/models/'), route => route.fulfill({ status: 503, body: 'unavailable' }));
   await page.goto(base);
   return { context, page, errors, loaded, modelResponses };
@@ -188,6 +191,56 @@ test("a failed model load explains the garden failure and leaves live desk navig
     await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Pandas', exact: true }).click();
     assert.equal(await page.getByRole('region', { name: 'Residents and visitors' }).getByRole('button').count(), 14);
     assert.equal(await page.evaluate(() => window.__eventStreams), 1);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+function screenPoint(box, x, y, z) {
+  const camera = cameraConfig({ width: box.width, height: box.height });
+  const scale = box.height / (camera.top - camera.bottom), pitch = Math.atan(1 / Math.SQRT2);
+  return { x: box.x + box.width / 2 + scale * (x - DEN_TARGET[0]), y: box.y + box.height / 2 + scale * ((z - DEN_TARGET[2]) * Math.sin(pitch) - (y - DEN_TARGET[1]) * Math.cos(pitch)) };
+}
+
+test("desk navigation exits walking and keeps the requested Work panel available", { timeout: 90000 }, async () => {
+  const { context, page, errors } = await openGarden();
+  try {
+    await ready(page);
+    const enter = page.locator('.den-entry button').first();
+    await enter.click();
+    await page.waitForFunction(() => document.querySelector('.den-entry button').getAttribute('aria-pressed') === 'true');
+    // Release pointer capture through the public keyboard control so header controls can be used.
+    await page.keyboard.press('Tab');
+    await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Work', exact: true }).click();
+    const stations = page.locator('[data-overlay="stations"]');
+    await stations.waitFor({ state: 'visible' });
+    assert.equal(await enter.getAttribute('aria-pressed'), 'false', 'desk navigation leaves walking mode');
+    assert.equal(await stations.locator('.card-toggle').getAttribute('aria-expanded'), 'true');
+    await page.waitForTimeout(350); // proximity refresh must not reopen a detail over the requested panel
+    assert.equal(await stations.isVisible(), true);
+    assert.equal(await page.locator('.forest-desk-home').isVisible(), true);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test("clicking the physical Library replaces a picked panda and open Bao thread with the real Library panel", { timeout: 90000 }, async () => {
+  const { context, page, errors } = await openGarden();
+  try {
+    await ready(page);
+    await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Pandas', exact: true }).click();
+    await page.getByRole('region', { name: 'Residents and visitors' }).getByRole('button', { name: /The Maker/ }).click();
+    await page.getByRole('region', { name: 'Selected panda' }).waitFor({ state: 'visible' });
+    await page.getByRole('button', { name: /Talk to Bao/ }).click();
+    await page.locator('.transcript-panel').waitFor({ state: 'visible' });
+    // Click the actual roof at the authored Library position, using the same camera projection as the garden.
+    const box = await page.locator('.forest-canvas').boundingBox();
+    const roof = screenPoint(box, 1.5, 3.6, -17.6);
+    await page.mouse.click(roof.x, roof.y);
+    const library = page.locator('[data-overlay="library"]');
+    await library.getByText('garden-qa-marker', { exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await library.locator('.card-toggle').getAttribute('aria-expanded'), 'true');
+    assert.equal(await page.locator('.transcript-panel').count(), 0, 'the previous thread closes');
+    assert.equal(await page.getByRole('region', { name: 'Selected panda' }).count(), 0, 'the previous panda clears');
+    assert.equal(await page.locator('.forest-desk-home').isVisible(), true);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
