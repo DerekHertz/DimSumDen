@@ -120,6 +120,7 @@ describe("Bao's den tools", () => {
       { ...BATCH, tickets: [BATCH.tickets[0], { ...BATCH.tickets[1], text: "No criteria." }] },
       { feature: FEATURE, title: "One ticket", text: `Body.${AC}` },
       { feature: FEATURE, tickets: [] },
+      { ...BATCH, tickets: [{ ...BATCH.tickets[0], text: `hi \u001b[2J \u202e${AC}` }] },
     ];
     for (const [i, call] of bad.entries()) {
       await allow(run, call, `r-${i}`);

@@ -540,6 +540,8 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
           if (typeof slug !== "string" || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(slug)) return refused(400, `${at}: slug must be lowercase words joined by -`);
           if (Buffer.byteLength(text) > TASK_MAX_BYTES) return refused(400, `${at}: text must be at most ${TASK_MAX_BYTES} bytes`);
           if (hasSecret(text) || hasSecret(title)) return refused(400, `${at}: text looks like it holds a secret; nothing was written`);
+          // The card shows a control or direction character as an escape, so the bytes written must be the bytes approved.
+          if (cleanText(text) !== text || cleanText(title) !== title) return refused(400, `${at}: text holds control or direction characters; nothing was written`);
           if (!/^## Acceptance criteria[ \t]*$/m.test(text)) return refused(400, `${at}: text needs its own ## Acceptance criteria section`);
           if (!Array.isArray(blockedBy)) return refused(400, `${at}: blockedBy must be a list`);
           for (const b of blockedBy) {

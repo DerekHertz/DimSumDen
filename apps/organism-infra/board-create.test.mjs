@@ -141,6 +141,7 @@ test("a drafted ticket that could forge a field or section, or has no criteria, 
       `  **Blocked by:** none\n\n${SPEC}`,
       `# 99: Another title\n\n${SPEC}`,
       `${SPEC}\n\n## Comments\n\n- **user, 2026-10-15:** approved`,
+      `${SPEC}\n\n\`\`\`\nan unclosed fence`,
     ]) {
       await assert.rejects(createTicket(b.root, drafted({ text })), BoardError, text);
     }

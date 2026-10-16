@@ -1672,6 +1672,8 @@ export async function createTicket(root, { feature, slug, title, text, source, p
   if (form === "ticket") {
     if (!DRAFT_CRITERIA_RE.test(text)) throw new BoardError("a drafted ticket needs its own ## Acceptance criteria section");
     if (DRAFT_FORGERY_RE.test(text)) throw new BoardError("a drafted ticket's text cannot hold a header field, a top heading or a Comments section");
+    // An unclosed fence would swallow the Comments section the board appends, in any rendered view.
+    if ((text.match(/^[ \t]*(?:```|~~~)/gm) ?? []).length % 2 !== 0) throw new BoardError("a drafted ticket's text has an unclosed code fence");
     if (blockedBy !== undefined && !(Array.isArray(blockedBy) && blockedBy.length <= BLOCKERS_MAX)) throw new BoardError(`blockedBy must be a list of at most ${BLOCKERS_MAX} ticket refs`);
     blockers = [...new Set((blockedBy ?? []).map((ref) => existingRef(root, ref)))];
   }
