@@ -20,6 +20,10 @@ _Avoid_: Client repo, workspace
 The one target project runs and deliveries happen in, chosen in the den. Every project's board and queue can be opened at any time; a switch is refused while runs are active.
 _Avoid_: Current repo, selected workspace
 
+**Project registry**:
+The den's list of onboarded projects: a slug, a plain path, a board kind and the toolchain a run may read. It lives in the den's state, not in the repo, and only the user's terminal writes it. The control project is always in it, implicitly (ADR 0021 Amendment 5).
+_Avoid_: Project config, workspace list
+
 **Station**:
 A group of cell types that owns one SDLC outcome, drawn as a place on Bao: the Pass (orchestrator, product, architect), Steamers (developer, scout), Tea & Pantry (qa, security), Front of House (designer), Service, Meter, Recipe book, Order rail. See the table in `design-brief.md` §4.2.
 _Avoid_: Organ (the old name, renamed in organism-infra/53), team, department, squad
