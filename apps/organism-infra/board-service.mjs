@@ -3,6 +3,7 @@
 // and event sequencing per docs/adr/0008-board-service.md. `board.mjs` is
 // its only adapter today (CLI, in-process); a daemon-IPC wrapper can be
 // added later without changing this module's interface.
+import { goalProblem } from "./goals.mjs";
 import {
   readFile,
   writeFile,
@@ -1628,7 +1629,7 @@ const CREATE_STATUSES = ["ready-for-agent", "ready-for-human"];
 const TYPE_RE = /^[a-z][a-z -]{0,39}$/;
 // den-mvp/55: a drafted ticket (form "ticket") is written as given, so it may not hold what only the board writes: a header
 // field, a top heading or a Comments section. It must carry its own acceptance criteria.
-const DRAFT_FORGERY_RE = /^[ \t>]*(?:\*\*\s*(?:Type|Priority|Status|Blocked by|Source|Class|Origin|Serves|P0-reason)\s*:|#\s|#{1,6}\s*Comments\b)/im;
+const DRAFT_FORGERY_RE = /^[ \t>]*(?:\*\*\s*(?:Type|Priority|Status|Blocked by|Source|Class|Origin|Serves|Goal|P0-reason)\s*:|#\s|#{1,6}\s*Comments\b)/im;
 const DRAFT_CRITERIA_RE = /^## Acceptance criteria[ \t]*$/m;
 const FULL_REF_RE = /^[a-z0-9-]+\/\d+(?:-[a-z0-9-]+)?$/;
 const BLOCKERS_MAX = 12;
@@ -1641,8 +1642,8 @@ function existingRef(root, ref) {
   return full;
 }
 
-export async function createTicket(root, { feature, slug, title, text, source, priority = "P2", class: ticketClass, origin, serves, p0Reason, type = "task", status = "ready-for-agent", form = "request", blockedBy } = {}) {
-  for (const [value, name] of [[feature, "feature"], [slug, "slug"], [title, "title"], [source, "source"], [serves, "serves"], [p0Reason, "p0 reason"]]) {
+export async function createTicket(root, { feature, slug, title, text, source, priority = "P2", class: ticketClass, origin, serves, goal, p0Reason, type = "task", status = "ready-for-agent", form = "request", blockedBy } = {}) {
+  for (const [value, name] of [[feature, "feature"], [slug, "slug"], [title, "title"], [source, "source"], [serves, "serves"], [goal, "goal"], [p0Reason, "p0 reason"]]) {
     checkArgLength(value, name);
   }
   if (typeof text === "string" && text.length > TICKET_TEXT_MAX) throw new BoardError(`text exceeds the maximum length of ${TICKET_TEXT_MAX}`);
@@ -1663,6 +1664,11 @@ export async function createTicket(root, { feature, slug, title, text, source, p
     if (typeof serves !== "string" || !serves.trim() || serves.length > SERVES_MAX || LINE_TERMINATOR_RE.test(serves) || CONTROL_RE.test(serves)) {
       throw new BoardError(`serves must be one line of at most ${SERVES_MAX} characters`);
     }
+  }
+  // den-mvp/61: a goal is checked against the user's goals file whenever one is given.
+  if (goal !== undefined) {
+    const problem = goalProblem(root, goal);
+    if (problem) throw new BoardError(problem);
   }
   if (priority === "P0") {
     if (!P0_REASONS.includes(p0Reason)) throw new BoardError(`a P0 ticket needs --p0-reason ${P0_REASONS.join("|")}`);
@@ -1699,6 +1705,7 @@ export async function createTicket(root, { feature, slug, title, text, source, p
       ...(ticketClass ? [`**Class:** ${ticketClass}`, ""] : []),
       ...(originLine ? [`**Origin:** ${originLine}`, ""] : []),
       ...(serves ? [`**Serves:** ${serves.trim()}`, ""] : []),
+      ...(goal ? [`**Goal:** ${goal}`, ""] : []),
       ...(priority === "P0" ? [`**P0-reason:** ${p0Reason}`, ""] : []),
       ...(form === "ticket" ? [
         `**Blocked by:** ${blockers.length ? blockers.join(", ") : "none"}`, "",
