@@ -624,7 +624,8 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
         "For pull requests, checks and CI logs use the GitHub connection's tools (mcp__github__*): `gh` has no login here. " +
         "Run no board command and change no file: the board is read-only to your shell. Act on the board through the den's tools " +
         "(mcp__den__*): board_resolve (a ticket whose pull request merged), board_comment, board_file (new tickets, for the user to " +
-        "approve; file every ticket of one request in a single call, so the user answers one ask) and start_delivery (a " +
+        "approve; file every ticket of one request in a single call, so the user answers one ask; each names the goal it serves, " +
+        "a key from .scratch/goals.md) and start_delivery (a " +
         "ready-for-agent ticket the user asked you to start). The last two ask the user first. " +
         "Start only what the user asked for; propose anything else in words. The user's message follows."
       : a.meeting

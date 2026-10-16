@@ -9,18 +9,20 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 export const FEATURE = "fx";
+export const GOAL_KEY = "fx-goal";
 export const BIG_HANDOFF = "BIG-LINE ".repeat(3000); // 27000 ASCII bytes, over the 8 KB cap
 export const SMALL_HANDOFF = "## State\nhello handoff\n";
 export const PENDING_ID = "6f1c1b7e-0d55-4c3a-9b52-1f5d7e0a9a10";
 export const HANDLED_ID = "0a0a0a0a-0d55-4c3a-9b52-1f5d7e0a9a11";
 export const LOCK_TS = "2026-09-29T06:00:00.000Z";
 
-function ticketMd({ title, type = "feature", priority, status, blockedBy = "None", comments = [] }) {
+function ticketMd({ title, type = "feature", priority, status, blockedBy = "None", goal, comments = [] }) {
   return [
     `# ${title}`,
     "",
     `**Type:** ${type}`,
     "",
+    ...(goal ? [`**Goal:** ${goal}`, ""] : []),
     ...(priority ? [`**Priority:** ${priority}`, ""] : []),
     "**What to build:** something.",
     "",
@@ -61,9 +63,11 @@ export async function makeStateFixture({ lock = false, empty = false, git = fals
   const scratch = path.join(root, ".scratch");
   await mkdir(scratch, { recursive: true });
   if (!empty) {
+    // den-mvp/61: the user's goals; 02 names one.
+    await writeFile(path.join(scratch, "goals.md"), `# Goals\n\n| Key | Goal | Why | Done when |\n|---|---|---|---|\n| \`${GOAL_KEY}\` | The fixture goal | To test goals. | Never. |\n`);
     const iss = (n) => path.join(scratch, FEATURE, "issues", `${n}.md`);
     await put(iss("01-done"), ticketMd({ title: "01: Done thing", status: "resolved" }), "2026-09-10T00:00:00Z");
-    await put(iss("02-ready-p0"), ticketMd({ title: "02: Ready P0", priority: "P0", status: "ready-for-agent", blockedBy: "01" }), "2026-09-15T00:00:00Z");
+    await put(iss("02-ready-p0"), ticketMd({ title: "02: Ready P0", priority: "P0", status: "ready-for-agent", blockedBy: "01", goal: GOAL_KEY }), "2026-09-15T00:00:00Z");
     await put(
       iss("03-blocked-dep"),
       ticketMd({ title: "03: Blocked dep", type: "design", priority: "P1", status: "ready-for-agent", blockedBy: "02, beta/01 (note), 99" }),
