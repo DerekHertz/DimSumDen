@@ -652,3 +652,25 @@ describe("den-mvp/34: the checks run here before anything is pushed", () => {
     assert.deepEqual(t.sideEffects(), []);
   });
 });
+
+// The user's note with a plain Resume (friction F28, 2026-10-16): a paused delivery had no way to tell its next run what to
+// do; the user had to catch the run live and message it. The note goes to the next run that starts, and only to it.
+describe("a Resume with a note", () => {
+  test("the next run reads the note first; the run after it does not get it", async () => {
+    const t = await setup();
+    await t.start();
+    t.work(await t.spawn(0), { say: "I could not find the file." });
+    const waiting = await t.paused("no-commit");
+    assert.equal((await t.post(`/deliveries/${waiting.id}/resume`, { note: "  " })).status, 400);
+    assert.equal((await t.post(`/deliveries/${waiting.id}/resume`, { note: "x".repeat(2001) })).status, 400);
+    assert.equal((await t.post(`/deliveries/${waiting.id}/resume`, { note: "The file is apps/feature.txt; run npm run test:rest only." })).status, 202);
+    const dev = await t.spawn(1);
+    assert.equal(dev.args.role, "developer");
+    assert.match(dev.args.prompt, /The user left you a note/);
+    assert.match(readFileSync(path.join(dev.args.cwd, ".den", "findings.md"), "utf8"), /# The user's note[\s\S]*apps\/feature\.txt; run npm run test:rest only\./);
+    t.work(dev, { commit: "feature.txt", say: "Done." });
+    const qa = await t.spawn(2);
+    assert.equal(qa.args.role, "qa");
+    assert.doesNotMatch(qa.args.prompt, /The user left you a note/);
+  });
+});

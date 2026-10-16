@@ -27,9 +27,9 @@ const SHARED =
   "Run no board command, and do not push, open a pull request or merge: the bridge does each of those from the commit it records. " +
   WORK_TIPS;
 
-/** { role, mode?, ref, ticketFile, since, fix? } -> the step's prompt. `since` is the commit the delivery started from. */
-export function deliveryPrompt({ role, mode, ref, ticketFile, since, fix = false }) {
-  const head = `You are the ${role} cell${mode ? ` in ${mode} mode` : ""} for ticket ${ref}. Read .claude/agents/${role}.md for how to work, with these changes. ${SHARED}The ticket is the file ${ticketFile}. `;
+/** { role, mode?, ref, ticketFile, since, fix?, note? } -> the step's prompt. `since` is the commit the delivery started from. */
+export function deliveryPrompt({ role, mode, ref, ticketFile, since, fix = false, note = false }) {
+  const head = `You are the ${role} cell${mode ? ` in ${mode} mode` : ""} for ticket ${ref}. Read .claude/agents/${role}.md for how to work, with these changes. ${SHARED}The ticket is the file ${ticketFile}. ${note ? "The user left you a note when they resumed this delivery: it is at the top of .den/findings.md. Read it first and follow it. " : ""}`;
   if (role === "developer") {
     return (
       head +

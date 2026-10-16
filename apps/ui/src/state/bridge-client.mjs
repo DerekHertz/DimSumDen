@@ -180,7 +180,7 @@ export function createBridgeClient({ fetch }) {
       return body ?? { ok: true };
     },
     // Resume, stop or close one delivery. On a resume, `verdict` is the user's visual verdict on a UI change: "approve", or
-    // "decline" with a `note` that goes to the developer.
+    // "decline" with a `note` that goes to the developer. A Resume without a verdict may carry a `note` for the next run.
     async steerDelivery(id, action, { verdict, note } = {}) {
       if (!["resume", "stop", "close"].includes(action)) throw failure(0, "Unknown action.");
       const trimmed = typeof note === "string" ? note.trim() : "";
@@ -188,7 +188,7 @@ export function createBridgeClient({ fetch }) {
       const body = await call(`/deliveries/${encodeURIComponent(id)}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(action === "resume" && verdict ? { verdict, ...(verdict === "decline" ? { note: trimmed } : {}) } : {}),
+        body: JSON.stringify(action !== "resume" ? {} : verdict ? { verdict, ...(verdict === "decline" ? { note: trimmed } : {}) } : trimmed ? { note: trimmed } : {}),
       });
       return body ?? { ok: true };
     },
