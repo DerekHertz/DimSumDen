@@ -126,7 +126,7 @@ export function createBridgeClient({ fetch }) {
       return body ?? { ok: true };
     },
     // den-v1 loop S1: start a task for one role. The bridge writes the ticket and answers { agent, ticket }.
-    async startTask(role, { text } = {}) {
+    async startTask(role, { text, grants } = {}) {
       if (typeof role !== "string" || !role) throw failure(0, "Pick a panda first.");
       const trimmed = typeof text === "string" ? text.trim() : "";
       if (!trimmed) throw failure(0, "Write a task first.");
@@ -134,7 +134,7 @@ export function createBridgeClient({ fetch }) {
       const body = await call("/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, text: trimmed }),
+        body: JSON.stringify(Array.isArray(grants) && grants.length ? { role, text: trimmed, grants } : { role, text: trimmed }),
       });
       if (body == null) throw failure(200, "The bridge sent an unreadable answer.");
       return body;

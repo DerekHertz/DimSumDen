@@ -18,10 +18,11 @@ export function useMessageComposer({ client, card, exploring, cursorFree, demo, 
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const { card: nearby, exploring: walking, cursorFree: free, demo: off, blocked: other } = latest.current;
       if (other?.current) return; // the permission review owns the keys while it is open
-      const inBox = !!e.target?.closest?.("input,select,textarea,[contenteditable]");
+      const inRow = !!e.target?.closest?.(".wall-row");
+      const inBox = !inRow && !!e.target?.closest?.("input,select,textarea,[contenteditable]");
       const mode = walking ? (free ? "free" : "walk") : "diorama";
       const { handled } = composer.key(
-        { key: e.key, shiftKey: e.shiftKey, isComposing: e.isComposing || e.keyCode === 229, repeat: e.repeat, inBox },
+        { key: e.key, shiftKey: e.shiftKey, isComposing: e.isComposing || e.keyCode === 229, repeat: e.repeat, inBox, inRow },
         { card: nearby, mode, demo: off },
       );
       if (!handled) return;
@@ -32,7 +33,7 @@ export function useMessageComposer({ client, card, exploring, cursorFree, demo, 
     return () => document.removeEventListener("keydown", onKey, true);
   }, [composer]);
 
-  useEffect(() => { composer.sync({ agents: snapshot?.agents ?? [], transcripts }); }, [composer, snapshot, transcripts]);
+  useEffect(() => { composer.sync({ agents: snapshot?.agents ?? [], transcripts, wall: snapshot?.wall }); }, [composer, snapshot, transcripts]);
   useEffect(() => {
     if (state.status?.kind !== "sent") return undefined;
     const timer = setInterval(() => composer.tick(), 1000);
@@ -50,9 +51,12 @@ export function useMessageComposer({ client, card, exploring, cursorFree, demo, 
 export function MessageComposer({ composer, state }) {
   const boxRef = useRef(null);
   const closeRef = useRef(null);
+  const kindRef = useRef(null);
+  const addRef = useRef(null);
   useEffect(() => {
     if (!state.open || !state.focus) return;
-    (state.focus === "box" ? boxRef : closeRef).current?.focus({ preventScroll: true });
+    const ref = { box: boxRef, "row-kind": kindRef, "add-grant": addRef }[state.focus] ?? closeRef;
+    ref.current?.focus({ preventScroll: true });
   }, [state.focusSeq]);
   useEffect(() => {
     if (state.open || !state.focusReturn) return;
@@ -72,6 +76,7 @@ export function MessageComposer({ composer, state }) {
         placeholder={state.placeholder} aria-labelledby="message-composer-label" aria-describedby="message-composer-count"
         aria-invalid={state.overLimit || undefined} spellCheck
         onChange={(e) => composer.setText(e.target.value)} />
+      {state.table ? <WallTable composer={composer} state={state} kindRef={kindRef} addRef={addRef} /> : null}
       {state.banner ? <p className="message-banner" role="alert">{state.banner}</p> : null}
       <p className="message-hint">
         {HINTS.map((hint) => {
@@ -89,5 +94,43 @@ export function MessageComposer({ composer, state }) {
       </div>
       {final ? <span className="visually-hidden">Press Esc to close.</span> : null}
     </div>
+  </>;
+}
+
+// agent-os/05: the Start box's wall table. The lines come from the bridge; this renders them and the grants added.
+function WallTable({ composer, state, kindRef, addRef }) {
+  const { table, row } = state;
+  const locked = state.phase === "sending";
+  return <>
+    <div className="wall-table" role="group" aria-label={table.label}>
+      <div className="wall-side">
+        <h3>{table.runsHeading}</h3>
+        <ul>
+          {table.runs.map((line) => <li key={line}>{line}</li>)}
+          {table.granted.map((g) => <li key={`${g.kind}:${g.value}`} className="wall-granted" aria-label={g.label}>
+            <span>{g.text}</span>
+            <button type="button" aria-label={g.removeLabel} disabled={locked} onClick={() => composer.removeGrant(g.value)}>×</button>
+          </li>)}
+        </ul>
+      </div>
+      <div className="wall-side wall-asks">
+        <h3>{table.asksHeading}</h3>
+        <ul>{table.asks.map((line) => <li key={line}>{line}</li>)}</ul>
+        {table.canAdd && !row.open ? <button type="button" className="wall-add" ref={addRef} disabled={locked || table.atMax} title={table.addDisabledReason ?? undefined}
+          onClick={composer.openRow}>Add a grant</button> : null}
+        {table.atMax ? <span className="visually-hidden">{table.addDisabledReason}</span> : null}
+      </div>
+    </div>
+    {row.open ? <div className="wall-row">
+      <select aria-label="Kind" ref={kindRef} value={row.kind} disabled={locked} onChange={(e) => composer.setRow({ kind: e.target.value })}>
+        <option value="host">Host</option>
+        <option value="path">Path</option>
+      </select>
+      <input aria-label="Value" className="font-mono" value={row.value} disabled={locked} aria-invalid={row.error ? true : undefined}
+        aria-describedby={row.error ? "wall-row-error" : undefined} onChange={(e) => composer.setRow({ value: e.target.value })} />
+      <button type="button" disabled={locked} onClick={composer.addGrant}>Add</button>
+      {row.error ? <p id="wall-row-error" className="wall-row-error">{row.error}</p> : null}
+      <p className="message-hint"><span><kbd>Enter</kbd> add</span> <span><kbd>Esc</kbd> close this row</span></p>
+    </div> : null}
   </>;
 }

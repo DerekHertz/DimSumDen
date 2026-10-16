@@ -115,7 +115,67 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     resume: a.resume, reason: a.reason, worktree: a.worktree ?? null, branch: a.branch ?? null,
     model: a.model ?? null, usage: a.usage ?? null, costUsd: a.costUsd ?? null, reply: a.reply ?? null, durationMs: a.durationMs ?? null,
     resumeOf: a.resumeOf ?? null, followUp: canContinue(a) && END_STATES.includes(a.state),
+    wall: wallView(a),
   });
+  // agent-os/05: refusals by the wall, counted per kind (hosts together, writes together). A kind's count restarts
+  // when the user answers its pause. Absent until there is a refusal.
+  const WALL_PAUSE_AT = 3;
+  const WALL_KINDS = ["host", "write"];
+  function wallView(a) {
+    if (!a.wall) return null;
+    const out = {};
+    for (const kind of WALL_KINDS) {
+      const k = a.wall[kind];
+      if (k && k.count > 0) out[kind === "host" ? "hosts" : "writes"] = { count: k.count, latest: k.targets.at(-1) ?? null, paused: k.paused === true };
+    }
+    return Object.keys(out).length === 0 ? null : out;
+  }
+  // The wall's marks in a tool result: a refused host carries a sandbox_violations block; a refused write is only
+  // the text "Read-only file system" on a failed result, so that match is by text and can be wrong.
+  const VIOLATIONS_RE = /<sandbox_violations>([\s\S]*?)(?:<\/sandbox_violations>|$)/;
+  const HOST_DENY_RE = /deny\s+network-outbound\s+(?:\S*?:\/\/)?([A-Za-z0-9.-]+)(?::\d+)?/;
+  function wallMark(event) {
+    const text = typeof event.text === "string" ? event.text : "";
+    const block = VIOLATIONS_RE.exec(text);
+    if (block) {
+      const m = HOST_DENY_RE.exec(block[1]);
+      return { kind: "host", target: m ? m[1].toLowerCase() : "unknown host" };
+    }
+    if (event.ok === false && /Read-only file system/.test(text)) {
+      const m = /(\/[^\s:'"]+|~\/[^\s:'"]+):\s*Read-only file system/.exec(text);
+      return { kind: "write", target: m ? m[1] : null };
+    }
+    return null;
+  }
+  function noteWall(agent, mark, toolEntry) {
+    agent.wall ??= {};
+    const k = (agent.wall[mark.kind] ??= { count: 0, targets: [], paused: false });
+    if (k.paused) return; // paused: the three are listed and the user's answer restarts the count
+    k.count += 1;
+    k.targets.push(mark.target ?? "(path not readable)");
+    const noun = mark.kind === "host" ? "host" : "write";
+    record(agent, {
+      kind: "wall", wallKind: mark.kind, target: mark.target, count: k.count, of: WALL_PAUSE_AT, after: toolEntry ?? null,
+      text: mark.kind === "host" ? `The wall refused ${mark.target}. ${k.count} of ${WALL_PAUSE_AT}` : `Looks like the wall refused a write outside the worktree. ${k.count} of ${WALL_PAUSE_AT}`,
+    });
+    if (k.count >= WALL_PAUSE_AT) {
+      k.paused = true;
+      const requestId = approvals.holdWall(agent.id, { kind: mark.kind, targets: k.targets.slice(0, WALL_PAUSE_AT) });
+      record(agent, { kind: "wall", wallKind: mark.kind, paused: true, approvalId: requestId, text: `Paused after ${WALL_PAUSE_AT} refused ${noun}s. Waiting on you.` });
+    }
+    publish(agent);
+  }
+  // The user's answer to a pause: the count of that kind restarts; a grant is added to the task's grants.
+  function wallAnswered(approval, answer, grants) {
+    const agent = agents.get(approval.agentId);
+    if (!agent?.wall?.[approval.wall.kind]) return;
+    agent.wall[approval.wall.kind] = { count: 0, targets: [], paused: false };
+    if (answer === "grant" && Array.isArray(grants)) {
+      for (const g of grants) if (!agent.grants.some((x) => x.kind === g.kind && x.value === g.value)) agent.grants.push({ kind: g.kind, value: g.value });
+    }
+    record(agent, { kind: "wall", wallKind: approval.wall.kind, answered: answer, text: answer === "grant" ? "Granted for this task" : "Kept refused" });
+    publish(agent);
+  }
   // A run whose session a follow-up could continue: the runtime can resume, and the run has a session and a worktree.
   const canContinue = (a) => runtime?.capabilities?.resume === true && typeof a.sessionId === "string" && UUID_RE.test(a.sessionId) && typeof a.worktree === "string";
   const publish = (a) => onChange({ type: "agent", agent: view(a) });
@@ -127,6 +187,7 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     answer: (id, requestId, verdict) => agents.get(id).proc.decide(requestId, verdict),
     audit: ({ approval, decision, note }) =>
       sessions.append({ event: "decision", agentId: approval.agentId, ref: agents.get(approval.agentId)?.ref, approvalId: approval.id, decision, route: "POST /approvals/:id", ...(note ? { note } : {}) }),
+    wallDecided: (approval, answer, grants) => wallAnswered(approval, answer, grants),
     onChange: (approval) => {
       onChange({ type: "approval", approval });
       notePermission(agents.get(approval.agentId), approval);
@@ -633,7 +694,12 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     } else if (event.type === "tool-result") {
       // The result closes its own tool call; the tool-end that follows it then finds nothing left to close.
       const result = cleanBody(event.text, TRANSCRIPT_RESULT_MAX, event.more);
-      if (typeof event.id === "string" && event.id !== "") closeTool(agent, event.id, { status: event.ok === false ? "failed" : "done", ...(result === null ? {} : { result }) });
+      const mark = wallMark(event);
+      const toolEntry = typeof event.id === "string" ? agent.openTools.get(event.id) : undefined;
+      // A refused host is "refused"; a refused write stays "failed" (the match is by text).
+      const status = mark?.kind === "host" ? "refused" : event.ok === false ? "failed" : "done";
+      if (typeof event.id === "string" && event.id !== "") closeTool(agent, event.id, { status, ...(result === null ? {} : { result }) });
+      if (mark) noteWall(agent, mark, toolEntry);
       agent.said = null; // a new step: words from before this result do not explain a later request
       return touch(agent);
     } else if (event.type === "text" || event.type === "reply") {
@@ -1048,6 +1114,17 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     approvals: () => approvals.list(),
     transcripts: transcriptView,
     approval: (id) => approvals.read(id),
-    decide: (id, body) => approvals.decide(id, body),
+    decide: async (id, body) => {
+      // A grant given with a wall answer is checked as a task grant is: the fixed shape, and the same refusals.
+      const grants = body?.grants;
+      if (grants !== undefined) {
+        const held = approvals.list().find((a) => a.id === id);
+        if (held?.wall) {
+          const refused = Array.isArray(grants) && grants.length <= 6 ? await grantsRefused(agents.get(held.agentId)?.role, grants) : refuse(400, "grants must be a list of at most 6");
+          if (refused) return refused;
+        }
+      }
+      return approvals.decide(id, body);
+    },
   };
 }

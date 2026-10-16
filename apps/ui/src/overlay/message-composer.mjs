@@ -21,6 +21,39 @@ const COPY = {
   },
 };
 const encoder = new TextEncoder();
+export const GRANTS_MAX = 6;
+const HOST_RE = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z0-9]$/;
+const IPV6_LIKE = /:/;
+const HOST_HINT = "Use a host name. IP addresses and localhost can't be granted.";
+const PATH_HINT = "Use a full path, or one starting with ~/.";
+
+// The box checks an entry before adding it (designer spec A). The bridge checks it again; this only saves a round trip.
+export function checkGrant({ kind, value }, existing = []) {
+  const v = typeof value === "string" ? value.trim() : "";
+  if (kind === "host") {
+    const lower = v.toLowerCase();
+    if (!HOST_RE.test(lower) || IPV6_LIKE.test(lower) || /^\d+(\.\d+)*$/.test(lower) || lower === "localhost" || lower.startsWith("localhost.")) return { ok: false, reason: HOST_HINT };
+    return existing.some((g) => g.kind === "host" && g.value === lower) ? { ok: false, reason: "Already granted." } : { ok: true, grant: { kind: "host", value: lower } };
+  }
+  if (kind === "path") {
+    if (!(v.startsWith("/") || v.startsWith("~/")) || v.split("/").includes("..")) return { ok: false, reason: PATH_HINT };
+    return existing.some((g) => g.kind === "path" && g.value === v) ? { ok: false, reason: "Already granted." } : { ok: true, grant: { kind: "path", value: v } };
+  }
+  return { ok: false, reason: HOST_HINT };
+}
+
+// The wall table for a role: the bridge's lines, with the right side worded for the grants given.
+function tableOf(spec, grants) {
+  if (!spec) return null;
+  const hosts = grants.filter((g) => g.kind === "host");
+  const paths = grants.filter((g) => g.kind === "path");
+  const asks = spec.asks.map((line) => (hosts.length && line === "Any host" ? "Any other host" : paths.length && line === "Any path outside" ? "Any other path outside" : line));
+  return {
+    label: "What this agent may do", runsHeading: "Runs without asking", asksHeading: "Asks you first",
+    runs: spec.runs, granted: grants.map((g) => ({ ...g, text: `+ ${g.value}`, label: `Granted, ${g.kind} ${g.value}`, removeLabel: `Remove ${g.value}` })),
+    asks, canAdd: spec.takesGrants === true, atMax: grants.length >= GRANTS_MAX, addDisabledReason: grants.length >= GRANTS_MAX ? "Six grants at most" : null,
+  };
+}
 
 const bytesOf = (text) => encoder.encode(text).length;
 const fmt = (n) => n.toLocaleString("en-US");
@@ -44,6 +77,8 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
   let line = null; // { agentId, name, messageId, preview, kind, sentAt }
   let leaving = { focusReturn: null, announcement: null };
   let view = null;
+  let wall = null; // the bridge's per-role table lines, from the snapshot
+  const grantDrafts = new Map();
 
   const trimmed = () => s.text.trim();
 
@@ -51,7 +86,7 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
     const status = line ? { agentId: line.agentId, kind: line.kind, label: LABELS[line.kind], preview: line.preview } : null;
     if (!s.open) {
       return {
-        open: false, phase: "closed", overline: "", ariaLabel: "", placeholder: "", text: "", counter: `0 / ${MAX_LABEL} bytes`,
+        open: false, table: null, row: null, foldCard: false, phase: "closed", overline: "", ariaLabel: "", placeholder: "", text: "", counter: `0 / ${MAX_LABEL} bytes`,
         overLimit: false, readOnly: false, sendEnabled: false, banner: null, focus: null, focusSeq,
         note: "", sendLabel: COPY.message.sendLabel, busyLabel: COPY.message.busyLabel,
         focusReturn: leaving.focusReturn, announcement: leaving.announcement, status,
@@ -64,6 +99,7 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
     const editable = s.phase === "ready" || s.phase === "refused";
     return {
       open: true, phase: s.phase,
+      table: s.card.start ? tableOf(wall?.[s.card.role], s.grants) : null, row: s.card.start ? s.row : null, foldCard: s.card.start,
       overline: copy.overline(s.card.name), ariaLabel: copy.overline(s.card.name), placeholder: copy.placeholder(s.card.name),
       note: copy.note, sendLabel: copy.sendLabel, busyLabel: copy.busyLabel,
       text: s.text, counter: `${fmt(bytesOf(s.text))} / ${MAX_LABEL} bytes`,
@@ -92,6 +128,7 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
       open: true, seq: ++seqCounter, mode, phase: "ready", focus: "box",
       card: { agentId: card.agentId, name: card.name || card.role || "agent", start, role: card.role, draftKey },
       text: drafts.get(draftKey) ?? "", refusal: null, final: null,
+      grants: start ? [...(grantDrafts.get(draftKey) ?? [])] : [], row: { open: false, kind: "host", value: "", error: null },
     };
     focusSeq += 1;
     hooks.onOpen?.();
@@ -108,6 +145,53 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
   function close() {
     if (!s.open) return;
     leave();
+    emit();
+  }
+
+  const grantsEditable = () => s.open && s.card.start && (s.phase === "ready" || s.phase === "refused");
+  function saveGrants() {
+    if (s.grants.length) grantDrafts.set(s.card.draftKey, [...s.grants]);
+    else grantDrafts.delete(s.card.draftKey);
+  }
+  const announce = (text) => { leaving = { ...leaving, announcement: text }; };
+  function openRow() {
+    if (!grantsEditable() || !tableOf(wall?.[s.card.role], s.grants)?.canAdd || s.grants.length >= GRANTS_MAX) return;
+    s.row = { ...s.row, open: true, error: null };
+    setFocus("row-kind");
+    emit();
+  }
+  function closeRow() {
+    if (!s.open || !s.row.open) return;
+    s.row = { ...s.row, open: false, value: "", error: null };
+    setFocus("add-grant");
+    emit();
+  }
+  function setRow(patch) {
+    if (!s.open || !s.row.open) return;
+    s.row = { ...s.row, ...patch, error: null };
+    emit();
+  }
+  // Enter in the row adds the grant, clears the value and keeps the row open.
+  function addGrant() {
+    if (!grantsEditable() || !s.row.open) return false;
+    if (s.grants.length >= GRANTS_MAX) { s.row = { ...s.row, error: "Six grants at most" }; emit(); return false; }
+    const checked = checkGrant({ kind: s.row.kind, value: s.row.value }, s.grants);
+    if (!checked.ok) { s.row = { ...s.row, error: checked.reason }; emit(); return false; }
+    s.grants = [...s.grants, checked.grant];
+    s.row = { ...s.row, value: "", error: null };
+    s.refusal = null;
+    saveGrants();
+    announce(`Grant added: ${checked.grant.value}.`);
+    emit();
+    return true;
+  }
+  function removeGrant(value) {
+    if (!grantsEditable()) return;
+    const before = s.grants.length;
+    s.grants = s.grants.filter((g) => g.value !== value);
+    if (s.grants.length === before) return;
+    saveGrants();
+    announce(`Grant removed: ${value}.`);
     emit();
   }
 
@@ -173,22 +257,26 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
   async function startTask(seq) {
     const { name, role, draftKey } = s.card;
     const text = trimmed();
+    const grants = s.grants.map((g) => ({ kind: g.kind, value: g.value }));
     s.phase = "sending";
     s.refusal = null;
     emit();
     let res;
     try {
-      res = await client.startTask(role, { text });
+      res = await client.startTask(role, grants.length ? { text, grants } : { text });
     } catch (err) {
       if (!(s.open && s.seq === seq)) return;
       if (statusOf(err) === 401) return setFinal("Session ended. Restart the bridge and open the launch link it prints.");
       s.phase = "refused";
-      s.refusal = `Not started. ${reasonOf(err)} Press Enter to try again.`;
+      s.refusal = grants.length && statusOf(err) === 400
+        ? `Not started. The bridge refused the grant${grants.length > 1 ? "s" : ` "${grants[0].value}"`}: ${reasonOf(err)} Remove ${grants.length > 1 ? "it" : "it"}, then press Enter to try again.`
+        : `Not started. ${reasonOf(err)} Press Enter to try again.`;
       setFocus("box");
       emit();
       return;
     }
     drafts.delete(draftKey);
+    grantDrafts.delete(draftKey);
     const agentId = res?.agent?.id ?? null;
     line = agentId ? { agentId, name, messageId: null, preview: previewOf(text), kind: "started", sentAt: now() } : null;
     const announcement = `Task started for ${name}.`;
@@ -213,7 +301,8 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
     return Array.isArray(entries) && entries.some((e) => e?.kind === "message" && e.role === "user" && e.messageId === messageId && e.status === "applied");
   };
 
-  function sync({ agents = [], transcripts } = {}) {
+  function sync({ agents = [], transcripts, wall: tables } = {}) {
+    if (tables !== undefined && tables !== wall) { wall = tables; if (s.open) emit(); }
     const stateOf = (id) => agents.find((a) => a.id === id)?.state;
     if (line && line.kind !== "received" && line.messageId !== null && applied(transcripts, line)) observe({ type: "message-ack", agentId: line.agentId, messageId: line.messageId });
     if (line && ENDED.has(stateOf(line.agentId))) {
@@ -239,9 +328,13 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
   };
 
   function key(event, { card = null, mode = "walk", demo = false } = {}) {
-    const { key: k, shiftKey = false, isComposing = false, repeat = false, inBox = false } = event ?? {};
+    const { key: k, shiftKey = false, isComposing = false, repeat = false, inBox = false, inRow = false } = event ?? {};
     if (s.open) {
-      if (k === "Escape") { close(); return { handled: true, walk: false }; }
+      if (k === "Escape") { if (s.row?.open) closeRow(); else close(); return { handled: true, walk: false }; }
+      if (inRow) {
+        if (k === "Enter" && !isComposing) { addGrant(); return { handled: true, walk: false }; }
+        return { handled: false, walk: false };
+      }
       if (k === "Enter" && inBox && !shiftKey && !isComposing) { send(); return { handled: true, walk: false }; }
       return { handled: false, walk: false };
     }
@@ -255,7 +348,7 @@ export function createMessageComposer({ client, now = Date.now, hooks = {} }) {
   return {
     getState,
     subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
-    open, key, setText, send, close, observe, sync, tick, statusFor,
+    open, key, setText, send, close, openRow, closeRow, setRow, addGrant, removeGrant, observe, sync, tick, statusFor,
   };
 }
 
