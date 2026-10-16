@@ -27,6 +27,7 @@
       },
       "roles": [
         "orchestrator",
+        "architect",
         "qa",
         "security",
         "developer",
