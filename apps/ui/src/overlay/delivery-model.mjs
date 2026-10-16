@@ -115,6 +115,8 @@ export function deliveryRequests(snapshot) {
         primary: preview ? { action: "resume", verdict: "approve", label: "Approve: merge and go live" } : visual ? { action: "resume", verdict: "approve", label: "Approve and merge" } : { action: "resume", label: "Resume" },
         // den-mvp/12: what the card of a preview adds. A decline needs a note; it goes to the developer.
         decline: visual, previewUrl: preview ? previewLink(d) : null,
+        // What the developer said to look at on the preview: plain lines, shown as text.
+        lookAt: visual && Array.isArray(d.lookAt) ? d.lookAt.filter((s) => typeof s === "string" && s.trim()).slice(0, 6) : [],
         covers: preview ? "Approve covers the push, the pull request, the merge once the checks are green, and going live." : null,
         rolledBackNote: preview ? rolledBackNote(snapshot?.build) : null,
       };

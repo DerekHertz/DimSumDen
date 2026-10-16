@@ -74,6 +74,11 @@ describe("a delivery that waits on its preview", () => {
     assert.equal(r.decline, true);
     assert.match(r.covers, /the push, the pull request, the merge once the checks are green, and going live/);
     assert.equal(r.rolledBackNote, null);
+    assert.deepEqual(r.lookAt, []);
+  });
+  test("the card lists what the developer said to look at", () => {
+    assert.deepEqual(one(d({ lookAt: ["Needs you: a note box", 7, ""] })).lookAt, ["Needs you: a note box"]);
+    assert.deepEqual(one(d({ pause: { kind: "no-commit", reason: "x", next: "" }, lookAt: ["a"] })).lookAt, []);
   });
   test("while a roll back is in effect the card says going live brings the rolled-back change with it", () => {
     const r = one(d(), { build: build({ rolledBack: { sha: A, at: null } }) });
