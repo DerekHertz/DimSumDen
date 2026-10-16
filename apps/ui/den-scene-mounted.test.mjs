@@ -127,7 +127,7 @@ async function openGarden({ viewport = { width: 1440, height: 900 }, failModels 
   await page.route(url => url.pathname === '/requests', route => route.fulfill({ json: [] }));
   await page.route(url => url.pathname === '/session', route => route.fulfill({ status: 404, json: {} }));
   await page.route(url => url.pathname === '/library', route => route.fulfill({ json: { connections: [], skills: [{ kind: 'skill', name: 'garden-qa-marker', description: 'The live Library response.', roles: ['qa'] }] } }));
-  if (failModels) await page.route(url => url.pathname.startsWith('/den/models/'), route => route.fulfill({ status: 503, body: 'unavailable' }));
+  if (failModels) await page.route(url => failModels === true ? url.pathname.startsWith('/den/models/') : url.pathname === failModels, route => route.fulfill({ status: 503, body: 'unavailable' }));
   await page.goto(base);
   return { context, page, errors, loaded, modelResponses };
 }
@@ -241,6 +241,20 @@ test("clicking the physical Library replaces a picked panda and open Bao thread 
     assert.equal(await page.locator('.transcript-panel').count(), 0, 'the previous thread closes');
     assert.equal(await page.getByRole('region', { name: 'Selected panda' }).count(), 0, 'the previous panda clears');
     assert.equal(await page.locator('.forest-desk-home').isVisible(), true);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test("a failed required role prop cannot report the garden ready with an incomplete resident workspace", { timeout: 90000 }, async () => {
+  const { context, page, errors } = await openGarden({ failModels: assets['props.developer'].url });
+  try {
+    const alert = page.getByRole('alert').filter({ hasText: 'garden models could not load' });
+    await alert.waitFor({ state: 'visible', timeout: 60000 });
+    assert.equal(await page.locator('.den-entry button').getAttribute('aria-disabled'), 'true', 'an incomplete required model set cannot enable walking');
+    assert.match(await alert.innerText(), /board controls are still available/);
+    await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Pandas', exact: true }).click();
+    assert.equal(await page.getByRole('region', { name: 'Residents and visitors' }).getByRole('button').count(), 14);
+    assert.equal(await page.evaluate(() => window.__eventStreams), 1);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
