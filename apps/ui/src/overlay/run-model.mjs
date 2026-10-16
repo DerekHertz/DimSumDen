@@ -7,12 +7,12 @@ import { SLOTS, slotClassOf } from "../../../bridge/cells/policy.mjs";
 /** The roles Run offers: every role. den-mvp outcome 1: a developer, qa or security agent may be started directly. */
 export const ROLE_OPTIONS = ["orchestrator", "architect", "product", "designer", "scout", "herald", "developer", "qa", "security"];
 
-const DEFAULT_ROLE = { feature: "orchestrator", bug: "orchestrator", "design-question": "architect", spec: "product", ui: "designer", asset: "designer" };
+const DEFAULT_ROLE = { feature: "orchestrator", bug: "orchestrator", "design-question": "architect", design: "architect", decision: "architect", spec: "product", ui: "designer", asset: "designer" };
 const ENDED = new Set(["done", "failed", "terminated"]);
 
 /** The role a ticket starts with in the select, by its type. Anything unrecognised (or no ticket) is the orchestrator. */
 export function defaultRole(ticket) {
-  // F32: Bao files "design question", and a ticket may add a note in brackets; both name the design-question type.
+  // F32: the den reads Bao's "design question" as `design` (as the scene does); a ticket may add a note in brackets.
   const type = typeof ticket?.type === "string" ? ticket.type.replace(/\(.*?\)/g, "").trim().toLowerCase().replace(/\s+/g, "-") : null;
   return type !== null && Object.hasOwn(DEFAULT_ROLE, type) ? DEFAULT_ROLE[type] : "orchestrator";
 }
