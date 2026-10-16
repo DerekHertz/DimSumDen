@@ -138,6 +138,25 @@ export function ciRequests(snapshot) {
     });
 }
 
+// den-mvp/13: a ticket at ready-for-human (a meeting's proposal, a filed task) waits for Approve or Decline.
+export function ticketRequests(snapshot) {
+  return (Array.isArray(snapshot?.tickets) ? snapshot.tickets : [])
+    .filter((t) => t?.status === "ready-for-human" && typeof t.ref === "string")
+    .map((t) => {
+      const short = shortRef(t.ref);
+      const role = "orchestrator";
+      const station = stationIdOf(role);
+      return {
+        key: `ticket:${t.ref}`, kind: "ticket", ref: t.ref, short, role, station,
+        eyebrow: `${STATION_NAME[station]} · ${short}`,
+        title: `${short} waits for your answer: ${t.title || "untitled"}`,
+        reason: "Approve sends it to the queue. Decline closes it with your reason.", reasonFallback: false, plain: true,
+        rowText: `${short} · approve?`, preview: typeof t.text === "string" && t.text ? [t.text] : [], detailLabel: "The ticket",
+        age: null,
+      };
+    });
+}
+
 export function needsYouModel(snapshot, nowMs) {
   const byRef = new Map((snapshot?.tickets ?? []).map((t) => [t.ref, t]));
   const gates = gatesModel(snapshot).cards.map((card) => {
@@ -166,7 +185,7 @@ export function needsYouModel(snapshot, nowMs) {
   });
   // den-mvp outcome 3: a delivery that waits on the user sits between the two.
   // den-mvp outcome 4: so does a meeting that is paused, or whose brief waits for the user's choice.
-  const requests = [...permissionRequests(snapshot, nowMs), ...deliveryRequests(snapshot), ...ciRequests(snapshot), ...meetingRequests(snapshot), ...gates];
+  const requests = [...permissionRequests(snapshot, nowMs), ...deliveryRequests(snapshot), ...ciRequests(snapshot), ...meetingRequests(snapshot), ...ticketRequests(snapshot), ...gates];
   return { count: requests.length, requests };
 }
 

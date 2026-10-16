@@ -21,7 +21,7 @@ import { createMeetingStore } from "./meetings/store.mjs";
 import { createMeetingLog } from "./meetings/log.mjs";
 import { TOPIC_MAX_BYTES } from "./meetings/types.mjs";
 import { DEN_FEATURE, DESK_REF, TASK_MAX_BYTES } from "./cells/policy.mjs";
-import { BoardError, comment, createTicket, resolve, resolveShortRef } from "../organism-infra/board-service.mjs";
+import { BoardError, comment, createTicket, resolve, resolveShortRef, setOffRelay } from "../organism-infra/board-service.mjs";
 import { cleanText } from "./cells/approvals.mjs";
 
 // den-mvp/55: Bao's board_file batch. The allow is matched against the whole batch as the user saw it (cleaned the way
@@ -325,6 +325,8 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     "POST /meetings/:id/decide": (req, res) => steerMeeting(req, res, "decide"),
     "POST /meetings/:id/ask": (req, res) => steerMeeting(req, res, "ask"),
     "POST /build/rollback": (req, res) => rollBack(req, res),
+    "POST /tickets/approve": (req, res) => steerTicket(req, res, "approve"),
+    "POST /tickets/decline": (req, res) => steerTicket(req, res, "decline"),
     "POST /checks": (req, res) => postChecks(req, res),
     "POST /den-tools/:tool": (req, res) => denTool(req, res),
     // The recovery page is the bridge's own code, not a file of the UI build.
@@ -664,6 +666,30 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     if (checks.running().includes(st.sha)) return reply(res, 409, { error: "the checks of this commit are already running" });
     checks.run({ sha: st.sha, why: `pull request #${body.pr}` }).catch((err) => console.error(`bridge: checks of #${body.pr} failed: ${err?.message ?? err}`));
     reply(res, 202, { sha: st.sha });
+  }
+  // POST /tickets/approve | decline (den-mvp/13): the user's answer to a ticket waiting at ready-for-human. Approve reads `ref`;
+  // decline reads `ref` and `note` (required: it is the reason the ticket is closed, and goes under its Comments).
+  // A ticket at any other status, or none, is a 409; the board service does the write.
+  async function steerTicket(req, res, action) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    if (typeof body.ref !== "string" || !body.ref) return reply(res, 400, { error: "ref must be a string" });
+    let note = "approved from the den";
+    if (action === "decline") {
+      note = typeof body.note === "string" ? body.note.trim() : "";
+      if (!note) return reply(res, 400, { error: "note must be a non-empty string: the reason for the decline" });
+      if (note.length > 500) return reply(res, 400, { error: "note must be at most 500 characters" });
+      if (hasSecret(note)) return reply(res, 400, { error: "note looks like it holds a secret; nothing was written" });
+    }
+    const ticket = (await hub.snapshot()).tickets.find((t) => t.ref === body.ref);
+    if (ticket?.status !== "ready-for-human") return reply(res, 409, { error: "the ticket is not waiting for you" });
+    try {
+      await setOffRelay(root, [body.ref], action === "approve" ? "approve" : "close", { reason: note });
+    } catch (err) {
+      if (!(err instanceof BoardError)) throw err;
+      return reply(res, 409, { error: `not changed: ${err.message}` });
+    }
+    reply(res, 200, { ref: body.ref, status: action === "approve" ? "ready-for-agent" : "closed" });
   }
   // POST /build/rollback (ADR 0026 decision 7): the user's roll back. Only `to` is read: the release the button showed as
   // previous. Anything else, and a den that runs from the checkout, is a 409 and nothing changes.

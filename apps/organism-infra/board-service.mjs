@@ -1423,6 +1423,8 @@ const OFF_RELAY = {
   close: { to: "closed", label: "Closed", from: (s) => s !== "resolved" && s !== "closed" },
   unpark: { to: "ready-for-agent", label: "Unparked", from: (s) => s === "parked" },
   reopen: { to: "ready-for-agent", label: "Reopened", from: (s) => s === "closed" },
+  // den-mvp/13: the user's approval of a ticket waiting at ready-for-human, from the den.
+  approve: { to: "ready-for-agent", label: "Approved", from: (s) => s === "ready-for-human" },
 };
 export const OFF_RELAY_STATUSES = ["parked", "closed"];
 

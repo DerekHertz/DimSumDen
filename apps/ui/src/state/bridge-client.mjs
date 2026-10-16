@@ -161,6 +161,18 @@ export function createBridgeClient({ fetch }) {
       if (body == null) throw failure(200, "The bridge sent an unreadable answer.");
       return body;
     },
+    // den-mvp/13: the user's answer to a ticket at ready-for-human. Decline needs a note: it is the reason it closes.
+    async answerTicket(ref, action, { note } = {}) {
+      if (!["approve", "decline"].includes(action)) throw failure(0, "Unknown action.");
+      const trimmed = typeof note === "string" ? note.trim() : "";
+      if (action === "decline" && !trimmed) throw failure(0, "Write why first.");
+      const body = await call(`/tickets/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action === "decline" ? { ref, note: trimmed } : { ref }),
+      });
+      return body ?? { ok: true };
+    },
     // den-mvp/34: run ci.yml's checks on this machine for an open pull request's head commit. -> { sha }
     async runChecks({ pr } = {}) {
       if (!Number.isInteger(pr) || pr < 1) throw failure(0, "No pull request to check.");

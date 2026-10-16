@@ -34,6 +34,8 @@ export const ROUTES = [
   { method: "POST", path: "/meetings/:id/decide", auth: "token", mutating: true },
   { method: "POST", path: "/meetings/:id/ask", auth: "token", mutating: true },
   { method: "POST", path: "/build/rollback", auth: "token", mutating: true },
+  { method: "POST", path: "/tickets/approve", auth: "token", mutating: true },
+  { method: "POST", path: "/tickets/decline", auth: "token", mutating: true },
   { method: "POST", path: "/checks", auth: "token", mutating: true },
   { method: "POST", path: "/den-tools/:tool", auth: "run", mutating: true },
   { method: "GET", path: "/recover", auth: "none", mutating: false },
