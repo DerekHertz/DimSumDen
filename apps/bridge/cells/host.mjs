@@ -644,7 +644,8 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
         // den-mvp/23: the board is read-only behind the wall, and the bridge already keeps one live agent per ticket, so a
         // Run does not claim or hand off through the board (as F3 settled for direct runs); its last message is its report.
         `The board is read-only to you: run no board command, and do not stop because you cannot claim; the den already ` +
-        `holds this ticket for you. Do the work in your worktree, and end with a short report of what you did and what you ` +
+        `holds this ticket for you. Do the work in your worktree and commit it there (stage files by name), so the den can ` +
+        `publish your branch; end with a short report of what you did and what you ` +
         `checked: that last message is your handoff.`;
 
   // Consume the process's events, then finalise once it has exited (and its event stream has drained).
