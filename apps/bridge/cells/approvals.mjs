@@ -137,6 +137,13 @@ function answersFor(questions, answers, note) {
 }
 
 function summarize(input) {
+  // den-mvp/55: Bao's board_file batch reads as what it files, not as the start of its JSON.
+  if (Array.isArray(input.tickets) && input.tickets.length > 0) {
+    const titles = input.tickets.map((t) => (isPlainObject(t) && typeof t.title === "string" ? t.title : "?"));
+    const n = titles.length;
+    const text = `file ${n} ticket${n === 1 ? "" : "s"} in ${typeof input.feature === "string" ? input.feature : "the den's board"}: ${titles.join("; ")}`.replace(/\s+/g, " ");
+    return { summary: text.slice(0, SUMMARY_MAX), truncated: text.length > SUMMARY_MAX };
+  }
   const key = SUMMARY_KEYS.find((k) => typeof input[k] === "string");
   const text = (key ? input[key] : JSON.stringify(input)).replace(/\s+/g, " ").trim();
   return { summary: text.slice(0, SUMMARY_MAX), truncated: text.length > SUMMARY_MAX || (key !== undefined && Object.keys(input).length > 1) };

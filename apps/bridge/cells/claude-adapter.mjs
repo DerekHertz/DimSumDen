@@ -465,7 +465,12 @@ function clip(text, max) {
 // What the UI shows for a tool call: the command or the target path, shortened. Never the full input.
 function summarise(input) {
   if (!isPlainObject(input)) return "";
-  for (const key of ["command", "file_path", "path", "pattern", "url", "description"]) {
+  // den-mvp/55: a den tool's row names what it acts on (Bao's board_file batch, a ticket ref, a title).
+  if (Array.isArray(input.tickets) && input.tickets.length > 0) {
+    const n = input.tickets.length;
+    return clip(`file ${n} ticket${n === 1 ? "" : "s"}${typeof input.feature === "string" ? ` in ${input.feature}` : ""}`, SUMMARY_MAX);
+  }
+  for (const key of ["command", "file_path", "path", "pattern", "url", "description", "ref", "title"]) {
     if (typeof input[key] === "string" && input[key].trim() !== "") return clip(input[key], SUMMARY_MAX);
   }
   return "";

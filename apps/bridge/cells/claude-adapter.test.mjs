@@ -438,6 +438,13 @@ describe("parseClaudeLine over the committed fixtures", () => {
     });
   }
 
+  test("den-mvp/55: a den tool's row names what it acts on, not nothing", () => {
+    const start = (input) => need("parseClaudeLine")(JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "t1", name: "mcp__den__board_file", input }] } }))
+      .find((e) => e.type === "tool-start");
+    assert.equal(start({ feature: "den-mvp", tickets: [{ title: "a" }, { title: "b" }] }).summary, "file 2 tickets in den-mvp");
+    assert.equal(start({ ref: "den-mvp/47", text: "x" }).summary, "den-mvp/47");
+  });
+
   test("a tool-start comes before its tool-end", () => {
     const types = eventsOf("s1.jsonl").map((e) => e.type).filter((t) => t === "tool-start" || t === "tool-end");
     assert.deepEqual(types, ["tool-start", "tool-end"]);

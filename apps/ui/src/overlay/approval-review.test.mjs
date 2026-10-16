@@ -22,7 +22,7 @@
 // Everything visual (layout, motion, contrast, focus ring, phone sheet) is human-verified.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createApprovalReview } from "./approval-review.mjs";
+import { createApprovalReview, inputViewOf } from "./approval-review.mjs";
 
 const T0 = Date.parse("2026-10-08T12:00:00Z");
 const ID = "a-0123456789abcdef";
@@ -664,5 +664,44 @@ describe("expiry", () => {
     h.review.tick();
     await h.review.press("deny");
     assert.equal(h.decides().length, 0);
+  });
+});
+
+// den-mvp/55: Bao's board_file batch reads as tickets, not escaped JSON. The count and Allow still follow the raw input.
+describe("den-mvp/55: a board_file batch on the card", () => {
+  const BATCH = { feature: "den-mvp", tickets: [
+    { title: "Outcome 6 design", text: "## What to decide\n\nWhere worktrees live.", priority: "P1", type: "design question" },
+    { title: "Slice 1", text: "Adapter.‮", blockedBy: [1, "den-mvp/13"] },
+  ] };
+
+  test("the batch becomes a list of tickets with their fields, and the text keeps its lines", () => {
+    const v = inputViewOf("mcp__den__board_file", BATCH);
+    assert.equal(v.kind, "tickets");
+    assert.equal(v.feature, "den-mvp");
+    assert.deepEqual(v.tickets.map((t) => [t.n, t.title, t.priority, t.type, t.blockedBy]), [
+      [1, "Outcome 6 design", "P1", "design question", []],
+      [2, "Slice 1", "P2", "task", ["ticket 1 above", "den-mvp/13"]],
+    ]);
+    assert.equal(v.tickets[0].text, "## What to decide\n\nWhere worktrees live.");
+    assert.equal(v.tickets[1].text, "Adapter.\\u202e", "a reordering character is shown as an escape");
+  });
+
+  test("another tool, or a batch that is not well formed, keeps the JSON view", () => {
+    assert.equal(inputViewOf("Bash", BATCH), null);
+    assert.equal(inputViewOf("mcp__den__board_file", { tickets: [] }), null);
+    assert.equal(inputViewOf("mcp__den__board_file", { tickets: [{ title: "no text" }] }), null);
+    assert.equal(inputViewOf("mcp__den__board_file", { title: "old single shape", text: "x" }), null);
+  });
+
+  test("the review carries the view once the input loads, beside the raw text the count is checked on", async () => {
+    const approval = { ...APPROVAL, tool: "mcp__den__board_file", inputLength: JSON.stringify(BATCH).length };
+    const h = harness({ getApproval: async () => ({ ...approval, input: BATCH }) });
+    h.review.open(makeCard({ approval }), { mode: "walk" });
+    await flush();
+    const s = h.state();
+    assert.equal(s.phase, "ready");
+    assert.equal(s.allowEnabled, true);
+    assert.equal(s.inputView.tickets.length, 2);
+    assert.ok(s.inputText.includes('"tickets"'), "the raw input is still there");
   });
 });
