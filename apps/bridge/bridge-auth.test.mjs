@@ -32,6 +32,9 @@ const BODIES = {
   },
   // den-mvp/34: the checks of an open pull request (the fake git host knows #7), run by the fake checks below.
   "POST /checks": { real: { pr: 7 }, bogus: { pr: 8 } },
+  // den-mvp/13: approve or decline a ticket waiting at ready-for-human (the fixture's 06-human).
+  "POST /tickets/approve": { real: { ref: `${FEATURE}/06-human` }, bogus: { ref: `${FEATURE}/99-nope` } },
+  "POST /tickets/decline": { real: { ref: `${FEATURE}/06-human`, note: "not now" }, bogus: { ref: `${FEATURE}/99-nope`, note: "no" } },
   "POST /requests": {
     real: { kind: "dispatch-approve", ref: DISPATCH_REF },
     bogus: { kind: "dispatch-approve", ref: `${FEATURE}/99-nope` },
