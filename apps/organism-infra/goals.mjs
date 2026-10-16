@@ -7,6 +7,7 @@ import path from "node:path";
 export const GOAL_KEY_RE = /^[a-z][a-z0-9-]{0,31}$/;
 const ROW_RE = /^\s*\|(.*)\|\s*$/;
 const RULE_RE = /^\s*\|[\s:|-]+\|\s*$/;
+export const GOALS_MAX_BYTES = 16 * 1024; // a short list; a larger file is refused rather than parsed
 
 export function parseGoals(md) {
   const goals = [];
@@ -63,6 +64,7 @@ export function readGoalsSync(root) {
   } catch {
     return { goals: [], errors: ["no goals file (.scratch/goals.md)"], missing: true };
   }
+  if (Buffer.byteLength(md) > GOALS_MAX_BYTES) return { goals: [], errors: [`goals.md is over ${GOALS_MAX_BYTES} bytes`], missing: false };
   return { ...parseGoals(md), missing: false };
 }
 

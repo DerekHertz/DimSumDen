@@ -76,6 +76,17 @@ test("readGoals reads .scratch/goals.md, and says so when there is none", async 
   }
 });
 
+test("a goals file over 16 KB is refused, not parsed", async () => {
+  const b = await board(GOALS_MD + "x".repeat(17 * 1024));
+  try {
+    const r = await readGoals(b.root);
+    assert.deepEqual(r.goals, []);
+    assert.match(r.errors[0], /over 16384 bytes/);
+  } finally {
+    await b.cleanup();
+  }
+});
+
 test("a ticket created with a goal carries a Goal line", async () => {
   const b = await board();
   try {
