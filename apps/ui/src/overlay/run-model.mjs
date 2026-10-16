@@ -12,7 +12,9 @@ const ENDED = new Set(["done", "failed", "terminated"]);
 
 /** The role a ticket starts with in the select, by its type. Anything unrecognised (or no ticket) is the orchestrator. */
 export function defaultRole(ticket) {
-  return Object.hasOwn(DEFAULT_ROLE, ticket?.type) ? DEFAULT_ROLE[ticket.type] : "orchestrator";
+  // F32: Bao files "design question", and a ticket may add a note in brackets; both name the design-question type.
+  const type = typeof ticket?.type === "string" ? ticket.type.replace(/\(.*?\)/g, "").trim().toLowerCase().replace(/\s+/g, "-") : null;
+  return type !== null && Object.hasOwn(DEFAULT_ROLE, type) ? DEFAULT_ROLE[type] : "orchestrator";
 }
 
 const byRef = (a, b) => (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0);
