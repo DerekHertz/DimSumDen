@@ -625,7 +625,7 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
         "Run no board command and change no file: the board is read-only to your shell. Act on the board through the den's tools " +
         "(mcp__den__*): board_resolve (a ticket whose pull request merged), board_comment, board_file (new tickets, for the user to " +
         "approve; file every ticket of one request in a single call, so the user answers one ask) and start_delivery (a " +
-        "ready-for-agent ticket the user asked you to start). The last two ask the user first. " +
+        "ready-for-agent ticket the user asked you to start). The last two ask the user first. release_propose drafts the next release for the user to approve in the den; you cannot tag or publish. " +
         "Start only what the user asked for; propose anything else in words. The user's message follows."
       : a.meeting
       ? meetingPrompt({ role: a.role, part: a.meeting.part, ref: a.ref, ticketFile: ticketFile(a.ref) })

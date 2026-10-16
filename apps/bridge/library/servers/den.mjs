@@ -28,6 +28,8 @@ const TOOLS = [
     }, required: ["tickets"] } },
   { name: "start_delivery", description: "Start the den's delivery of a ready-for-agent ticket the user asked to start. Asks the user first.",
     inputSchema: { type: "object", properties: { ref: REF }, required: ["ref"] } },
+  { name: "release_propose", description: "Draft the next release from the pull requests merged since the last tag: the version, the commit and the notes. The user approves or declines the draft in the den; only their Approve tags and publishes.",
+    inputSchema: { type: "object", properties: {} } },
 ];
 const send = (msg) => process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", ...msg })}\n`);
 const text = (t, isError = false) => ({ content: [{ type: "text", text: t }], ...(isError ? { isError: true } : {}) });

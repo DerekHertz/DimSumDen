@@ -10,9 +10,15 @@ import { parseCatalog } from "../library/catalog.mjs";
 import { createLibrary } from "../library/library.mjs";
 
 const DEN = { name: "den", title: "The den", purpose: "Bao's hands on the den.", script: "apps/bridge/library/servers/den.mjs", credential: "run", roles: ["orchestrator"],
-  tools: { board_resolve: "board", board_comment: "board", board_file: "change", start_delivery: "change" } };
+  tools: { board_resolve: "board", board_comment: "board", board_file: "change", start_delivery: "change", release_propose: "board" } };
 const MERGED = 7;
-const gitHost = { mergeCommit: async ({ number }) => { if (number !== MERGED) throw new Error("the pull request is not merged"); return "a".repeat(40); } };
+const RELEASE_SHA = "c".repeat(40);
+const published = [];
+const gitHost = {
+  mainSha: async () => RELEASE_SHA, lastTag: async () => "v1.0.0", mergedSince: async () => [{ number: 9, title: "feat: a thing", body: "" }],
+  publishRelease: async (r) => { published.push(r); },
+  mergeCommit: async ({ number }) => { if (number !== MERGED) throw new Error("the pull request is not merged"); return "a".repeat(40); },
+};
 
 let t;
 afterEach(async () => {
@@ -141,5 +147,36 @@ describe("Bao's den tools", () => {
     await t.dispatch("architect");
     const run = await until(() => t.fake.spawns[0], { what: "the run" });
     assert.equal(run.args.runCredential, undefined, "a run without the den connection gets no token");
+  });
+
+  test("release_propose drafts without publishing; only the user's Approve tags, at the drafted commit; an agent has no way to", async () => {
+    published.length = 0;
+    const { tool } = await desk();
+    const res = await tool("release_propose", {});
+    assert.equal(res.status, 200, res.text);
+    const draft = (await send(t.bridge, { method: "GET", path: "/state" })).body.release;
+    assert.equal(draft.version, "v1.1.0");
+    assert.equal(draft.sha, RELEASE_SHA);
+    assert.equal(published.length, 0);
+    // no den tool approves, and the approve route refuses the run's own token
+    assert.equal((await tool("release_approve", { id: draft.id })).status, 403);
+    const own = await send(t.bridge, { method: "POST", path: "/release/approve", body: { id: draft.id }, headers: { Origin: `http://127.0.0.1:${t.bridge.port}`, Authorization: `Bearer ${(await t.fake.spawns[0]).args.runCredential.token}` } });
+    assert.notEqual(own.status, 200);
+    assert.equal(published.length, 0);
+    assert.equal((await t.post("/release/approve", { id: "nope" })).status, 409);
+    const ok = await t.post("/release/approve", { id: draft.id });
+    assert.equal(ok.status, 200, ok.text);
+    assert.deepEqual(published, [{ version: "v1.1.0", sha: RELEASE_SHA, notes: draft.notes }]);
+    assert.equal((await send(t.bridge, { method: "GET", path: "/state" })).body.release, null);
+  });
+
+  test("Decline drops the draft and publishes nothing", async () => {
+    published.length = 0;
+    const { tool } = await desk();
+    await tool("release_propose", {});
+    const { id } = (await send(t.bridge, { method: "GET", path: "/state" })).body.release;
+    assert.equal((await t.post("/release/decline", { id })).status, 200);
+    assert.equal((await send(t.bridge, { method: "GET", path: "/state" })).body.release, null);
+    assert.equal(published.length, 0);
   });
 });

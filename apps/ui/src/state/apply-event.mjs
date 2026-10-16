@@ -51,6 +51,10 @@ export function applyEvent(state, event) {
     case "build":
       next.build = event.build ?? null;
       break;
+    // den-mvp/45: Bao's release draft (or null once approved or declined).
+    case "release":
+      next.release = event.release ?? null;
+      break;
     // den-mvp outcome 4: something the library card shows has changed. The frame carries no data; the card reads GET /library.
     case "library":
       next.libraryRev = (state.libraryRev ?? 0) + 1;

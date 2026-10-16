@@ -25,7 +25,7 @@ test("tools/call goes to POST /den-tools/<tool> with the run's token; a refusal 
   const rpc = (id, method, params) => new Promise((r) => { replies.set(id, r); child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`); });
   try {
     assert.equal((await rpc(1, "initialize", { protocolVersion: "2025-06-18" })).result.serverInfo.name, "den");
-    assert.deepEqual((await rpc(2, "tools/list")).result.tools.map((t) => t.name), ["board_resolve", "board_comment", "board_file", "start_delivery"]);
+    assert.deepEqual((await rpc(2, "tools/list")).result.tools.map((t) => t.name), ["board_resolve", "board_comment", "board_file", "start_delivery", "release_propose"]);
     const ok = await rpc(3, "tools/call", { name: "board_comment", arguments: { ref: "fx/02", text: "hi" } });
     assert.deepEqual(ok.result, { content: [{ type: "text", text: "commented on fx/02" }] });
     const no = await rpc(4, "tools/call", { name: "start_delivery", arguments: { ref: "fx/02" } });
