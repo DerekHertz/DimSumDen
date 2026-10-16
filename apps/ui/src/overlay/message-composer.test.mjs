@@ -402,7 +402,7 @@ describe("a successful send: sent, then received", () => {
   test("the live transcripts are handed to the composer", () => {
     const hook = readFileSync(new URL("./MessageComposer.jsx", import.meta.url), "utf8");
     const app = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
-    assert.match(hook, /composer\.sync\(\{ agents: snapshot\?\.agents \?\? \[\], transcripts \}\)/);
+    assert.match(hook, /composer\.sync\(\{ agents: snapshot\?\.agents \?\? \[\], transcripts, wall: snapshot\?\.wall \}\)/);
     assert.match(app, /useMessageComposer\(\{[^}]*transcripts: live\.transcripts/);
   });
 

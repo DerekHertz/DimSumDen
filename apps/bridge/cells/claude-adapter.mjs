@@ -183,6 +183,18 @@ for (const [role, ceiling] of Object.entries(CEILINGS)) {
 }
 
 /** Whether a role has a ceiling, and whether it may be given task grants (a role that cannot write takes none). */
+// agent-os/05: the Start box's two-sided table, per role. The UI renders these lines and holds no ceiling of its own.
+export function wallTables() {
+  return Object.fromEntries(Object.entries(CEILINGS).map(([role, c]) => {
+    const none = c.write === "none";
+    const security = role === "security";
+    return [role, {
+      takesGrants: !none,
+      runs: none ? ["Read the project", "Read the web"] : security ? ["Read the project", "Write its report in its worktree"] : ["Write in its worktree", "Read the project"],
+      asks: none ? ["Nothing. It cannot write, push or merge."] : security ? ["Any host", "Any other write"] : ["Any host", "Any path outside"],
+    }];
+  }));
+}
 export const ceilingOf = (role) => (Object.hasOwn(CEILINGS, role) ? { takesGrants: CEILINGS[role].write !== "none" } : null);
 
 const covers = (grant, file) => file === grant || file.startsWith(`${grant}/`);

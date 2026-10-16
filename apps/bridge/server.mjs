@@ -2,6 +2,7 @@
 // the loopback binding and Host-header hardening that apply to every route.
 // SSE, /metrics, POST /requests and static files arrive in tickets 05 and 06.
 import http from "node:http";
+import { wallTables } from "./cells/claude-adapter.mjs";
 import { fileURLToPath } from "node:url";
 import { existsSync, realpathSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -160,6 +161,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     ci: () => ciWatch.snapshot(),
     checks: () => checksView(),
     build: () => readBuild_(),
+    wall: () => wallTables(),
     readUsage: usageReading,
   });
   // den-mvp outcome 4: the production entry point passes the den's catalog; with none, no agent is given a connection.

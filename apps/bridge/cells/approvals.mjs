@@ -151,7 +151,7 @@ function summarize(input) {
 
 export function createApprovalStore({
   ttlMs = APPROVAL_TTL_MS, questionTtlMs = QUESTION_TTL_MS, capPerAgent = APPROVAL_CAP_PER_AGENT, canAnswer, isLive, answer, audit, onChange,
-  granted = () => {},
+  granted = () => {}, wallDecided = () => {},
 }) {
   const approvals = new Map(); // id -> record, insertion order is request order
   const requestIds = new Map(); // agentId -> Set of the child's request ids, held or answered
@@ -160,11 +160,13 @@ export function createApprovalStore({
     id: a.id, agentId: a.agentId, tool: a.tool, summary: a.summary, inputLength: a.inputLength, truncated: a.truncated,
     ts: a.ts, expiresAt: a.expiresAt, state: a.state, note: a.note, ...(a.reason ? { reason: a.reason } : {}),
     says: a.says, intent: a.intent, ...(a.answeredAt ? { answeredAt: a.answeredAt } : {}),
+    ...(a.wall ? { wall: { kind: a.wall.kind, targets: a.wall.targets } } : {}),
     ...(a.questions ? { questions: a.questions } : {}),
   });
 
   // The child is told only deny, and only while it can still hear.
   function sendDeny(a, code) {
+    if (a.wall) return; // a wall request holds no tool call of the child: there is nothing to answer
     if (!canAnswer(a.agentId)) return;
     Promise.resolve(answer(a.agentId, a.requestId, { allow: false, reason: `denied by the bridge: ${code}` })).catch((err) =>
       console.error(`bridge: could not answer ${a.id}: ${err?.message ?? err}`),
@@ -179,6 +181,7 @@ export function createApprovalStore({
     a.input = null;
     sendDeny(a, code);
     onChange(view(a));
+    if (a.wall) wallDecided(view(a), "expired"); // the kind's count restarts, so a later refusal is counted again
   }
 
   const pendingOf = (agentId) => [...approvals.values()].filter((a) => a.agentId === agentId && a.state === "pending");
@@ -243,6 +246,26 @@ export function createApprovalStore({
     onChange(view(a));
   }
 
+  // agent-os/05: the pause at three. Not a tool call of the child: the bridge raises it itself, listing the targets.
+  function holdWall(agentId, { kind, targets }) {
+    const clean = targets.map((t) => cleanText(String(t)).slice(0, SUMMARY_MAX));
+    const now = Date.now();
+    const noun = kind === "host" ? "hosts" : "writes";
+    const input = { kind, targets: clean };
+    const a = {
+      id: `a-${randomBytes(8).toString("hex")}`, agentId, requestId: null, tool: "wall", summary: `${clean.length} refused ${noun}: ${clean.join(", ")}`.slice(0, SUMMARY_MAX),
+      truncated: false, inputLength: JSON.stringify(input).length, ts: new Date(now).toISOString(), expiresAt: new Date(now + ttlMs).toISOString(),
+      state: "pending", note: null, reason: null, input, seen: false, claimed: false, says: null, intent: null, answeredAt: null,
+      wall: { kind, targets: clean },
+    };
+    a.timer = setTimeout(() => settle(a, "expired"), ttlMs);
+    a.timer.unref?.();
+    approvals.set(a.id, a);
+    prune();
+    onChange(view(a));
+    return a.id;
+  }
+
   const find = (id) => (typeof id === "string" && APPROVAL_ID_RE.test(id) ? approvals.get(id) : undefined);
 
   function read(id) {
@@ -289,10 +312,12 @@ export function createApprovalStore({
       return refuse(409, "the agent is no longer running");
     }
     try {
-      await answer(a.agentId, a.requestId, {
-        allow: final === "allow", ...(cleanNote ? { reason: cleanNote } : final === "deny" ? { reason: "denied by the user" } : {}),
-        ...(answers && final === "allow" ? { answers } : {}),
-      });
+      if (!a.wall) {
+        await answer(a.agentId, a.requestId, {
+          allow: final === "allow", ...(cleanNote ? { reason: cleanNote } : final === "deny" ? { reason: "denied by the user" } : {}),
+          ...(answers && final === "allow" ? { answers } : {}),
+        });
+      }
     } catch (err) {
       console.error(`bridge: could not answer ${a.id}: ${err?.message ?? err}`);
       a.claimed = false;
@@ -301,17 +326,19 @@ export function createApprovalStore({
     }
     clearTimeout(a.timer);
     // den-mvp/38: what the user allowed, for a bridge action that must see the user's own allow of that exact call.
-    if (final === "allow") granted({ agentId: a.agentId, tool: a.tool, input: a.input });
+    if (final === "allow" && !a.wall) granted({ agentId: a.agentId, tool: a.tool, input: a.input });
     a.state = final === "allow" ? "allowed" : "denied";
     a.note = cleanNote;
     a.answeredAt = new Date().toISOString();
     a.input = null;
     onChange(view(a));
+    if (a.wall) wallDecided(view(a), final === "allow" ? "grant" : "keep", body?.grants);
     return failure ?? { ok: true, status: 200, approval: view(a) };
   }
 
   return {
     hold,
+    holdWall,
     read,
     decide,
     pending: (agentId) => pendingOf(agentId).length,
