@@ -13,10 +13,11 @@ const when = (at) => `<${at}>`;
 
 describe("which build is live", () => {
   test("the line names the short commit and when it went live", () => {
-    assert.equal(buildLine(build(), { when }), "Den build b2b2b2b, live since <2026-10-13T14:05:00.000Z>");
-    assert.equal(buildLine(build({ live: { sha: B, at: null } }), { when }), "Den build b2b2b2b");
-    assert.equal(buildLine(build({ live: { sha: B, at: "not a date" } }), { when }), "Den build b2b2b2b");
-    assert.match(buildLine(build()), /^Den build b2b2b2b, live since .*2026/);
+    assert.equal(buildLine(build(), { when }), "Den main @ b2b2b2b, live since <2026-10-13T14:05:00.000Z>");
+    assert.equal(buildLine(build({ live: { sha: B, at: null } }), { when }), "Den main @ b2b2b2b");
+    assert.equal(buildLine(build({ live: { sha: B, at: "not a date" } }), { when }), "Den main @ b2b2b2b");
+    assert.match(buildLine(build()), /^Den main @ b2b2b2b, live since .*2026/);
+    assert.equal(buildLine(build({ live: { sha: B, at: null, tag: "v0.1.0" } }), { when }), "Den v0.1.0 (b2b2b2b)");
   });
   test("a den that runs from the checkout, and anything that is not a build, shows no line", () => {
     for (const none of [null, undefined, {}, { live: null }, { live: { sha: "<img src=x>" } }, "build"]) assert.equal(buildLine(none), null);

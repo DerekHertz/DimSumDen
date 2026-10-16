@@ -3,7 +3,8 @@
 // result, and both check the host before changing anything, so a refusal leaves nothing half-installed. No bridge route and
 // no agent calls them: nothing under apps/bridge imports this file, and a test says so.
 //   install()  fetch main, packages, first release, the four links, the unit, enable and start, check it answers
-//   update()   fetch main, packages if the lockfile changed, a release, the links, restart (skipped when nothing changed)
+//   update(t)  fetch main and tags, packages if the lockfile changed, a release of the newest v* tag (or --main, or tag t),
+//              the links, restart (skipped when nothing changed)
 import { execFile } from "node:child_process";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -103,13 +104,22 @@ export function createDen({ env = process.env, say = (line) => console.log(line)
   // The files this script runs from the checkout while it builds a release of main (its imports, and the build box).
   const OWN_CODE = ["apps/bridge/service", "apps/bridge/build", "apps/bridge/cells/resource-group.mjs", "apps/organism-infra/board-service.mjs"];
   // Fetch main, then the packages and the release for its tip. `state.sha` is what the later steps use.
-  const prepare = (state) => [
-    [`fetch ${remote} main`, async () => {
-      await gitOut(["fetch", remote, "main"]);
-      state.sha = await gitOut(["rev-parse", `${remote}/main`]);
+  // `target` is undefined (the newest v* tag), "--main" (the tip of main) or a tag name. Sets state.tag for a tag.
+  const TAG = /^v\d+\.\d+\.\d+$/;
+  const prepare = (state, target) => [
+    [target === "--main" ? `fetch ${remote} main` : `fetch ${remote} main and its tags`, async () => {
+      await gitOut(target === "--main" ? ["fetch", remote, "main"] : ["fetch", "--force", remote, "main", "+refs/tags/v*:refs/tags/v*"]);
+      if (target === "--main") state.sha = await gitOut(["rev-parse", `${remote}/main`]);
+      else {
+        const known = (await gitOut(["tag", "--list", "v*", "--sort=-v:refname"])).split("\n").filter((t) => TAG.test(t));
+        if (target === undefined && !known.length) throw new DenServiceError("there are no release tags yet; run npm run den:update -- --main to install the tip of main");
+        if (target !== undefined && !known.includes(target)) throw new DenServiceError(`${JSON.stringify(target)} is not a known release tag; known: ${known.join(", ") || "none"}`);
+        state.tag = target ?? known[0];
+        state.sha = await gitOut(["rev-parse", `${state.tag}^{commit}`]);
+      }
       // Friction F15: this script, and the box and wrapper it builds with, are the checkout's own files, not main's. A
       // checkout behind main whose copy of them differs builds the new release with the old code, so it stops here.
-      const changed = (await gitOut(["diff", "--name-only", "HEAD", state.sha, "--", ...OWN_CODE])).split("\n").filter(Boolean);
+      const changed = (await gitOut(["diff", "--name-only", "HEAD", `${remote}/main`, "--", ...OWN_CODE])).split("\n").filter(Boolean);
       if (changed.length) {
         throw new DenServiceError(`the checkout's own install code differs from ${remote}/main (${changed.slice(0, 3).join(", ")}${changed.length > 3 ? ", ..." : ""}), and this script builds with the checkout's copy. Bring the checkout up to main (git switch main && git pull --ff-only), then run this again.`);
       }
@@ -121,7 +131,7 @@ export function createDen({ env = process.env, say = (line) => console.log(line)
       const { lock } = await rel().makeDeps({ lockfile, packageJson });
       return lock.slice(0, 12);
     }],
-    ["build the release in the box", async () => (await rel().makeRelease(state.sha)).id],
+    ["build the release in the box", async () => (await rel().makeRelease(state.sha, state.tag ? { tag: state.tag } : {})).id],
   ];
 
   const LINKS = "switch the ui and bridge links";
@@ -137,7 +147,7 @@ export function createDen({ env = process.env, say = (line) => console.log(line)
     const state = {};
     const template = await readFile(TEMPLATE, "utf8");
     await steps([
-      ...prepare(state),
+      ...prepare(state, "--main"),
       [LINKS, async () => {
         await rel().switchUi(state.sha);
         await rel().switchBridge(state.sha);
@@ -166,12 +176,13 @@ export function createDen({ env = process.env, say = (line) => console.log(line)
   }
 
   /** A release of the current main, the links, a restart. */
-  async function update() {
+  async function update(target) {
+    if (target !== undefined && target !== "--main" && !TAG.test(target)) throw new DenServiceError(`${JSON.stringify(target)} is not a release tag (v1.2.3) or --main`);
     await check();
     if (!(await stat(unitFile).catch(() => null))) throw new DenServiceError(`${unitFile} does not exist; run npm run den:install first`);
     const state = {};
     await steps([
-      ...prepare(state),
+      ...prepare(state, target),
       [LINKS, async () => {
         const before = await currentRelease(stateDir, "bridge");
         state.same = before?.sha === state.sha && (await currentRelease(stateDir, "ui"))?.sha === state.sha;
@@ -194,11 +205,11 @@ export function createDen({ env = process.env, say = (line) => console.log(line)
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const command = process.argv[2];
   if (command !== "install" && command !== "update") {
-    console.error("usage: node apps/bridge/service/den-service.mjs install | update");
+    console.error("usage: node apps/bridge/service/den-service.mjs install | update [--main | vX.Y.Z]");
     process.exit(2);
   }
   try {
-    await createDen()[command]();
+    await createDen()[command](...(command === "update" ? process.argv.slice(3, 4) : []));
   } catch (err) {
     console.error(err instanceof DenServiceError ? `den:${command} stopped: ${err.message}` : err);
     process.exit(1);

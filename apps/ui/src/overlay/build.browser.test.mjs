@@ -59,7 +59,7 @@ test('the live build, a preview that waits for a verdict, and the way back', { t
     const { page } = t;
     // Which build is live: the short commit and when it went live. No notice: this page is that build.
     const status = page.locator('[data-overlay=build]');
-    assert.match(await status.innerText(), /^Den build b2b2b2b, live since .*2026/);
+    assert.match(await status.innerText(), /^Den main @ b2b2b2b, live since .*2026/);
     assert.equal(await status.getByText('A new version is ready').count(), 0);
     assert.equal(await status.getByText(/behind main/).count(), 0);
 
@@ -109,7 +109,7 @@ test('an open tab is told that a new version is ready, and reloads only on the b
     const { page } = t;
     const status = page.locator('[data-overlay=build]');
     await status.getByText('A new version is ready.').waitFor();
-    assert.match(await status.innerText(), /^Den build c3c3c3c, live since/);
+    assert.match(await status.innerText(), /^Den main @ c3c3c3c, live since/);
     assert.match(await status.innerText(), /The live build is behind main: build a1a1a1a was rolled back\./);
     // The next approval says what going live brings with it.
     assert.match(await page.locator('[data-overlay=needs-you]').innerText(), /Going live will also bring back build a1a1a1a, which you rolled back\./);
