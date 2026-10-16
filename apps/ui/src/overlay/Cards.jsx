@@ -287,6 +287,12 @@ function DeliveryDecision({ request, steer, deliveries }) {
       {request.covers ? <p className="small">{request.covers}</p> : null}
       {request.rolledBackNote ? <p className="small build-behind">{request.rolledBackNote}</p> : null}
       {request.previewUrl ? <p className="small"><a href={request.previewUrl} target="_blank" rel="noreferrer noopener">Open the preview of {request.short} in a new tab</a></p> : null}
+      {request.lookAt?.length ? (
+        <div className="look-at">
+          <p className="note-label">What to look at</p>
+          <ul className="small">{request.lookAt.map((item, i) => <li key={i}>{item}</li>)}</ul>
+        </div>
+      ) : null}
       {request.pr ? <p className="small"><a href={request.pr} target="_blank" rel="noreferrer noopener">Open pull request #{request.prNumber}</a></p> : null}
       <ChecksDetail view={request.checks} />
       {request.decline ? (

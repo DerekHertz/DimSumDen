@@ -209,6 +209,16 @@ describe("one approved job, from the den to a merged pull request", () => {
     assert.equal(t.status(UI), "resolved");
   });
 
+  test("the waiting delivery carries the developer's Look at list for its commit", async () => {
+    const UI = `${FEATURE}/10-panel`;
+    const t = await setup({ preWrite: (root) => writeFile(path.join(root, ".scratch", FEATURE, "issues", "10-panel.md"), "# 10: Panel\n\n**Type:** ui\n\n**Blocked by:** None\n\n**Status:** ready-for-agent\n\n## Comments\n\n") });
+    await t.start({ ref: UI });
+    t.work(await t.spawn(0), { commit: "feature.txt", say: "Added the panel.\n\nLook at:\n- Needs you card: the panel has a border\n- Esc closes it" });
+    t.work(await t.spawn(1), { say: "VERDICT: pass" });
+    const waiting = await t.paused("visual-verdict");
+    assert.deepEqual(waiting.lookAt, ["Needs you card: the panel has a border", "Esc closes it"]);
+  });
+
   test("a task typed in the den is written as a ticket and delivered", async () => {
     const t = await setup();
     const res = await t.post("/deliveries", { text: "Add a health route to the dev server.\nIt answers 200." });
