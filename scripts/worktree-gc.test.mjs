@@ -375,6 +375,20 @@ test("--apply removes a merged worktree whose only dirty files are untracked cop
   }
 });
 
+test("--apply removes a merged worktree whose only extra files are .agents/skills/ copies", () => {
+  const root = initRepo();
+  try {
+    const wtDir = addBranchWorktree(root, "merged-skills");
+    mkdirSync(path.join(wtDir, ".agents", "skills", "x"), { recursive: true });
+    writeFileSync(path.join(wtDir, ".agents", "skills", "x", "SKILL.md"), "unique copy\n");
+    const { code, stdout } = runGc(root, ["--apply"]);
+    assert.equal(code, 0, stdout);
+    assert.equal(existsSync(wtDir), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("--apply keeps a worktree with a unique change and reports a one-line diff summary for it", () => {
   const root = initRepo();
   try {

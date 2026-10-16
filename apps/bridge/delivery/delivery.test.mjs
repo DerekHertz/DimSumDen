@@ -20,6 +20,8 @@ const REF = `${FEATURE}/08-plain`;
 const git = (dir, ...args) =>
   execFileSync("git", ["-C", dir, "-c", "user.name=fx", "-c", "user.email=fx@example.invalid", "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args], { encoding: "utf8" }).trim();
 
+const worktrees = (root) => git(root, "worktree", "list", "--porcelain").split("\n").filter((l) => l.startsWith("worktree ") && l.includes(".claude/worktrees/")).map((l) => l.slice(9));
+
 // A git host that keeps one pull request in memory. `calls` is every side effect asked of it, in order.
 function fakeGitHost(root) {
   const h = { calls: [], pr: null, remote: null, checks: [{ name: "test", done: true, ok: true }], mergeable: "MERGEABLE", riskResult: { clean: true, hits: [] }, files: null, secret: false, fail: {}, gate: null };
@@ -141,6 +143,9 @@ describe("one approved job, from the den to a merged pull request", () => {
     assert.notEqual(qa.args.cwd, dev.args.cwd);
     assert.match(qa.args.prompt, new RegExp(`git diff ${base}\\.\\.HEAD`));
     assert.equal(t.status(), "in-review");
+    // den-mvp/43: while the delivery is open its worktrees stay (a fix round reopens them).
+    assert.ok(worktrees(t.root).includes(dev.args.cwd), "the developer's worktree survives while the delivery is open");
+    assert.ok(worktrees(t.root).includes(qa.args.cwd));
     const devHandoff = t.handoffs().find((n) => n.startsWith("08-developer-"));
     assert.match(readFileSync(path.join(t.root, ".scratch", FEATURE, "handoffs", devHandoff), "utf8"), /"cell": "developer"[\s\S]*Added feature\.txt\. The tests pass\./);
 
@@ -156,8 +161,17 @@ describe("one approved job, from the den to a merged pull request", () => {
     assert.equal(t.status(), "resolved");
     assert.equal(t.lock(), null);
     assert.deepEqual(done.pr, { number: 7, url: "https://github.com/o/r/pull/7" });
+    // den-mvp/43: a merged delivery's worktrees and den/ branches are gone, and no wip/ branch is made for a clean, merged commit.
+    await until(async () => worktrees(t.root).length === 0, { what: "the worktrees to be removed" });
+    assert.equal(git(t.root, "branch", "--list", "den/*", "wip/*"), "");
     assert.deepEqual(done.evidence, { qa: "pass", security: null, risk: { clean: true, hits: 0, security: false, userMerge: false }, ci: "green", tests: null });
     assert.deepEqual(done.runs.map((r) => [r.role, r.state]), [["developer", "done"], ["qa", "done"]]);
+  });
+
+  test("Bao's desk is never retired by the host", async () => {
+    const t = await setup();
+    const { DESK_REF } = await import("../cells/policy.mjs");
+    assert.deepEqual(await t.bridge.host.retire({ ref: DESK_REF, agentId: "p0-0123456789abcdef", merged: true }), { removed: false, saved: null });
   });
 
   test("a risk hit sends the commit to security before anything is pushed", async () => {
@@ -451,6 +465,9 @@ describe("what stops a delivery, and what it leaves", () => {
     assert.equal((await t.post(`/deliveries/${started.id}/close`)).status, 200);
     assert.equal((await t.job()).state, "closed");
     assert.equal((await t.post(`/deliveries/${started.id}/resume`)).status, 409);
+    // den-mvp/43: a closed delivery's worktrees are removed.
+    const listed = async () => execFileSync("git", ["-C", t.root, "worktree", "list", "--porcelain"], { encoding: "utf8" });
+    await until(async () => !(await listed()).includes(".claude/worktrees/"), { what: "the worktrees to be removed" });
   });
 
   test("with no room the delivery waits, and starts by itself when a run ends", async () => {

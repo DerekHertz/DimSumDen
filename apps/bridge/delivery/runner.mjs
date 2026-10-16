@@ -525,6 +525,15 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     job.state = "merged";
     job.step = null;
     await save(job);
+    await retireRuns(job, { merged: true });
+  }
+
+  // den-mvp/43: the delivery has ended, so no fix round or follow-up reopens its worktrees: they and their den/ branches go.
+  // Unsaved work is kept on a wip/ branch by the host. A failure is logged and leaves the leftover to scripts/worktree-gc.mjs.
+  async function retireRuns(job, { merged = false } = {}) {
+    for (const r of job.runs) {
+      await host.retire?.({ ref: job.ref, agentId: r.runId, merged }).catch((err) => console.error(`bridge: could not clean up run ${r.runId}: ${err?.message ?? err}`));
+    }
   }
 
   const find = (id) => (typeof id === "string" && JOB_ID_RE.test(id) ? jobs.get(id) : undefined);
@@ -608,6 +617,7 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     await save(job);
     enqueue(job, async () => {
       if (lost && job.claimed) await drop(job, lost.role, "den delivery: closed");
+      await retireRuns(job);
     });
     return { ok: true, status: 200, delivery: view(job) };
   }

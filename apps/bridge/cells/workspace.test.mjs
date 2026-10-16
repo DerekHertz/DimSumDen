@@ -212,4 +212,45 @@ describe("reopen with catchUp (Bao's desk)", () => {
     const own = (await git(made.dir, "rev-parse", "HEAD")).trim();
     assert.equal((await ws.reopen({ ref: REF, agentId: ID2, origin: ID, catchUp: true })).base, own, "its own commit keeps it");
   });
+
+  // den-mvp/43: a finished delivery's worktrees go; what is not on main is kept on a wip/ branch.
+  test("retire removes a clean worktree and its den branch, and keeps nothing for a worktree on main", async () => {
+    const { createWorkspaces } = await load();
+    const fx = await fixture({ git: true });
+    const ws = createWorkspaces(fx.root);
+    const made = await ws.create({ ref: REF, agentId: ID });
+    await ws.publish({ dir: made.dir, branch: made.branch });
+    await mkdir(path.join(made.dir, ".agents", "skills"), { recursive: true });
+    await writeFile(path.join(made.dir, ".agents", "skills", "a.md"), "copy\n");
+    const out = await ws.retire({ ref: REF, agentId: ID });
+    assert.equal(out.saved, null);
+    assert.equal(await exists(made.dir), false);
+    assert.equal((await git(fx.root, "branch", "--list", "den/*", "wip/*")).trim(), "");
+  });
+
+  test("retire saves an uncommitted change to a wip/ branch before it removes the worktree", async () => {
+    const { createWorkspaces } = await load();
+    const fx = await fixture({ git: true });
+    const ws = createWorkspaces(fx.root);
+    const made = await ws.create({ ref: REF, agentId: ID });
+    await writeFile(path.join(made.dir, "mine.txt"), "work\n");
+    const out = await ws.retire({ ref: REF, agentId: ID });
+    assert.equal(out.saved, "wip/fx-02-ready-p0-01234567");
+    assert.equal(await exists(made.dir), false);
+    assert.equal((await git(fx.root, "show", `${out.saved}:mine.txt`)), "work\n");
+  });
+
+  test("retire keeps a branch for a commit that is not on main, and ignores a worktree that is gone", async () => {
+    const { createWorkspaces } = await load();
+    const fx = await fixture({ git: true });
+    const ws = createWorkspaces(fx.root);
+    const made = await ws.create({ ref: REF, agentId: ID });
+    await git(made.dir, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "--allow-empty", "-m", "x");
+    const sha = (await git(made.dir, "rev-parse", "HEAD")).trim();
+    await ws.publish({ dir: made.dir, branch: made.branch });
+    const out = await ws.retire({ ref: REF, agentId: ID });
+    assert.equal((await git(fx.root, "rev-parse", out.saved)).trim(), sha);
+    assert.equal((await git(fx.root, "branch", "--list", "den/*")).trim(), "");
+    assert.deepEqual(await ws.retire({ ref: REF, agentId: ID }), { removed: false, saved: null });
+  });
 });

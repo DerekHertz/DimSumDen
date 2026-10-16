@@ -10,6 +10,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { AGENT_ID_RE, REF_RE, WORKSPACE_BRANCH_PREFIX, WORKTREES_DIR } from "./policy.mjs";
 
+const exists = (p) => access(p).then(() => true, () => false);
 const BRIEF_NAMES = ["findings.md", "meeting.md"]; // the notes the bridge leaves in a worktree's .den/
 const execFileP = promisify(execFile);
 
@@ -101,6 +102,42 @@ export function createWorkspaces(root, { exec = execFileP } = {}) {
       await git("branch", branch, sha);
       return { branch, sha };
     },
+    // den-mvp/43: removes a finished run's worktree and its published den/ branch. Nothing is lost: a change in the worktree
+    // is committed to wip/<ref>-<short> first, and a HEAD that is not on main (and not merged on the host) is kept there too. Untracked files
+    // under .agents/skills/ (the copies every worktree carries) and ignored files are not changes.
+    // -> { removed, saved }: `saved` is the wip branch or null. A worktree that is already gone removes nothing.
+    async retire({ ref, agentId, merged = false } = {}) {
+      const { worktree, branch } = workspaceNames({ ref, agentId });
+      const dir = path.join(root, ...worktree.split("/"));
+      const short = agentId.slice(2, 10);
+      const wip = `wip/${ref.replace("/", "-")}-${short}`;
+      let saved = null;
+      let removed = false;
+      if (await exists(dir)) {
+        const status = await out(dir, "status", "--porcelain", "--untracked-files=all", "--", ".", ":(exclude).agents/skills", ":(exclude).den");
+        const author = ["-c", "user.name=den", "-c", "user.email=den@localhost"];
+        if (status !== "") {
+          await exec("git", ["-C", dir, "checkout", "-q", "-b", wip]);
+          await exec("git", ["-C", dir, "add", "-A", "--", ".", ":(exclude).agents/skills", ":(exclude).den"]);
+          await exec("git", ["-C", dir, ...author, "commit", "-q", "--no-verify", "-m", `den: unsaved work of ${ref} (${short})`]);
+          saved = wip;
+        } else {
+          const here = await out(dir, "rev-parse", "HEAD");
+          // `merged`: the delivery's pull request was merged on the git host, so the commit is there even though the
+          // checkout's HEAD has not moved (and a squash merge makes a new commit): nothing is left to keep.
+          const onMain = merged || await exec("git", ["-C", root, "merge-base", "--is-ancestor", here, "HEAD"]).then(() => true, () => false);
+          if (!onMain) {
+            await git("branch", wip, here);
+            saved = wip;
+          }
+        }
+        await git("worktree", "remove", "--force", dir);
+        removed = true;
+      }
+      // The branch's commit is on main or on the wip branch, so deleting it loses nothing; a branch that was never made is fine.
+      await git("branch", "-D", branch).catch(() => {});
+      return { removed, saved };
+    },
     // Undoes a create whose agent never started. Best effort: a leftover is reported by scripts/worktree-gc.mjs.
     // A reopened worktree belongs to an earlier run and is never removed here.
     async remove({ dir, branch, reopened }) {
@@ -115,7 +152,6 @@ export function createWorkspaces(root, { exec = execFileP } = {}) {
 // missing and git then fails in the worktree. A repo that was never packed has no packed-refs: the bridge makes one (no refs lost,
 // nothing pruned). `refs` and `HEAD` exist in any repository. A missing index cannot be made safely, so the spawn is refused.
 const GIT_TARGETS = ["refs", "HEAD", "packed-refs", "index"];
-const exists = (p) => access(p).then(() => true, () => false);
 
 /** Makes every deny target of the main .git exist, or rejects. -> { mainGit }: the resolved <root>/.git the host hands to the runtime. */
 export async function prepareMainGit(root, { exec = execFileP } = {}) {
