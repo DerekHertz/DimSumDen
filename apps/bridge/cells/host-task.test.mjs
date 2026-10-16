@@ -93,6 +93,7 @@ describe("POST /tasks starts a role on a ticket the route writes", () => {
     assert.match(args.prompt, /The board is read-only to you: run no board command/);
     assert.match(args.prompt, new RegExp(`for ticket ${DISPATCH_REF}`));
     assert.match(args.prompt, /that last message is your handoff/);
+    assert.match(args.prompt, /commit it there/, "the den publishes a branch only for committed work");
   });
 
   test("every role may be started, relay-hop roles included, and each task gets the next number", async () => {
