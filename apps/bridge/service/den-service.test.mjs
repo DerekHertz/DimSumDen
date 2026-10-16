@@ -162,7 +162,7 @@ describe("den:install and den:update", () => {
   });
 
   test("update before install is refused", async () => {
-    await assert.rejects(den().update(), /npm run den:install first/);
+    await assert.rejects(den().update("--main"), /npm run den:install first/);
     assert.equal(existsSync(state), false);
   });
 
@@ -171,7 +171,7 @@ describe("den:install and den:update", () => {
     const first = git(origin, "rev-parse", "HEAD");
     const second = push(2);
     sysCalls.length = 0;
-    await den().update();
+    await den().update("--main");
     assert.equal(npmCalls.length, 1);
     assert.equal(boxCalls.length, 2);
     assert.deepEqual([link("ui", "current"), link("ui", "previous")], [`../releases/${second.slice(0, 12)}`, `../releases/${first.slice(0, 12)}`]);
@@ -187,11 +187,11 @@ describe("den:install and den:update", () => {
     git(origin, "commit", "-q", "-m", "box change");
     const boxesBefore = boxCalls.length;
     sysCalls.length = 0;
-    await assert.rejects(den().update(), /apps\/bridge\/build\/box\.mjs.*git pull --ff-only/);
+    await assert.rejects(den().update("--main"), /apps\/bridge\/build\/box\.mjs.*git pull --ff-only/);
     assert.equal(boxCalls.length, boxesBefore, "no release was built");
     assert.deepEqual(sysCalls, ["show-environment"], "nothing was restarted");
     git(checkout, "pull", "-q", "--ff-only");
-    await den().update();
+    await den().update("--main");
     assert.equal(link("bridge", "current"), `../releases/${git(origin, "rev-parse", "HEAD").slice(0, 12)}`);
   });
 
@@ -199,10 +199,62 @@ describe("den:install and den:update", () => {
     await den().install();
     sysCalls.length = 0;
     lines.length = 0;
-    await den().update();
+    await den().update("--main");
     assert.deepEqual(sysCalls, ["show-environment"]);
     assert.ok(lines.some((l) => /skipped, nothing changed/.test(l)));
     assert.equal(boxCalls.length, 1);
+  });
+
+  describe("which release update installs (den-mvp/44)", () => {
+    const tag = (name, sha) => git(origin, "tag", name, ...(sha ? [sha] : []));
+    const untag = () => [origin, checkout].forEach((repo) => git(repo, "tag", "--list").split("\n").filter(Boolean).forEach((t) => git(repo, "tag", "-d", t)));
+    const recorded = (pair) => JSON.parse(readFileSync(path.join(state, "releases", link(pair, "current").split("/").pop(), "build.json"), "utf8"));
+    after(untag);
+
+    test("with no argument it installs the newest v* tag, not the tip of main, and records the tag", async () => {
+      untag();
+      const one = git(origin, "rev-parse", "HEAD");
+      tag("v0.1.0", one);
+      const two = push(20);
+      tag("v0.2.0", two);
+      tag("v0.10.0", two); // semver order: 0.10.0 is newer than 0.2.0
+      tag("not-a-release", two);
+      const tip = push(21);
+      await den().install();
+      await den().update();
+      assert.equal(link("bridge", "current"), `../releases/${two.slice(0, 12)}`);
+      assert.notEqual(two, tip);
+      assert.equal(recorded("bridge").tag, "v0.10.0");
+    });
+
+    test("--main installs the tip of main, untagged", async () => {
+      const tip = git(origin, "rev-parse", "HEAD");
+      await den().install();
+      await den().update("--main");
+      assert.equal(link("bridge", "current"), `../releases/${tip.slice(0, 12)}`);
+      assert.equal(recorded("bridge").tag, undefined);
+    });
+
+    test("a tag name installs that tag (a rollback)", async () => {
+      const one = git(origin, "rev-parse", "v0.1.0");
+      await den().install();
+      await den().update("v0.1.0");
+      assert.equal(link("bridge", "current"), `../releases/${one.slice(0, 12)}`);
+      assert.equal(recorded("ui").tag, "v0.1.0");
+    });
+
+    test("an unknown tag is refused with the known ones, and nothing changes", async () => {
+      await den().install();
+      sysCalls.length = 0;
+      await assert.rejects(den().update("v9.9.9"), (err) => err instanceof DenServiceError && /v9\.9\.9/.test(err.message) && /v0\.1\.0/.test(err.message) && /v0\.10\.0/.test(err.message));
+      assert.deepEqual(sysCalls, ["show-environment"]);
+    });
+
+    test("with no tags at all, no argument is refused and says to use --main", async () => {
+      untag();
+      await den().install();
+      await assert.rejects(den().update(), /no release tags.*--main/);
+    });
   });
 
   test("nothing under apps/bridge except this folder imports the install or update scripts", () => {
