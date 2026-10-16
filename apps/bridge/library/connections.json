@@ -62,7 +62,8 @@
         "board_resolve": "board",
         "board_comment": "board",
         "board_file": "change",
-        "start_delivery": "change"
+        "start_delivery": "change",
+        "release_propose": "board"
       }
     },
     {
