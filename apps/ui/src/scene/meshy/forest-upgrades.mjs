@@ -167,8 +167,17 @@ function passageIntersections(group){
  return {clear:intersections===0,intersectingTriangles:intersections,width:1.4,height:2.25,maximumClearHeight:round(low),groundAllowance:.18};
 }
 
-async function replaceGate(den,loader){
+async function replaceGate(den,loader,createGate){
  const old=den.world.getObjectByName('Arrival gate');if(!old)throw Error('Existing Arrival gate is unavailable.');
+ if(createGate){
+  const group=createGate('gate');group.position.set(0,0,24);group.name='Forest gate · arrival';
+  den.world.add(group);den.world.updateMatrixWorld(true);
+  const passage=passageIntersections(group);
+  if(!passage.clear){group.removeFromParent();throw Error('The gate passage is blocked.');}
+  old.visible=false;den.zones.set('gate',group);
+  den.plan.push({id:'gate',label:'Forest gate · arrival',x:0,z:24,radius:4.8});
+  return {loaded:true,source:'Three.js',groupName:group.name,passage,dimensions:dimensions(new T.Box3().setFromObject(group))};
+ }
  const source=(await loader.loadAsync(FILES.gate)).scene;prepare(source);
  let bounds=new T.Box3().setFromObject(source),size=bounds.getSize(new T.Vector3()),rotated=false;
  if(!size.toArray().every(n=>Number.isFinite(n)&&n>.001))throw Error('Forest gate has invalid dimensions.');
@@ -189,11 +198,11 @@ async function replaceGate(den,loader){
  return {loaded:true,source:FILES.gate,groupName:group.name,position:[0,0,24],sourceDimensions:originalDimensions,dimensions:dimensions(actual),targetDimensions:[11.5,5.8,3.3],uniformScale:round(scale),orientationAdjusted:rotated,triangles,cleanup,passage,clearances:{gardenBoundary:round(GARDEN_RADIUS-edge),centerPromenadeWidth:1.4},previousGateVisible:old.visible,limitations:['The expanded gate envelope preserves source proportions with uniform scale.','Actual arch headroom is measured separately; the outer model height is not passage clearance.']};
 }
 
-export async function loadForestUpgrades(den){
- const loader=createModelLoader();FILES.grove=den.assets['vegetation.ancient-grove'].url;FILES.gate=den.assets['scenery.forest-gate'].url;
+export async function loadForestUpgrades(den,{createGate}={}){
+ const loader=createModelLoader();FILES.grove=den.assets['vegetation.ancient-grove'].url;FILES.gate=den.assets['scenery.forest-gate']?.url;
  const {prototype,measured}=grovePrototype((await loader.loadAsync(FILES.grove)).scene);
  const group=new T.Group();group.name='Ancient canopy groves · six shared Meshy clusters';group.userData={assetId:'grove',baseRadius:measured.radius};
  for(const site of APPROVED_GROVES){const tree=prototype.clone(true);tree.position.fromArray(site.position);tree.rotation.y=site.rotationY;tree.scale.setScalar(site.actualHeight);group.add(tree);}
  den.vegetation.add(group);den.world.updateMatrixWorld(true);
- const gate=await replaceGate(den,loader);den.forestUpgrade={complete:gate.loaded,grove:{loaded:true,instanceCount:6},gate};return den.forestUpgrade;
+ const gate=await replaceGate(den,loader,createGate);den.forestUpgrade={complete:gate.loaded,grove:{loaded:true,instanceCount:6},gate};return den.forestUpgrade;
 }

@@ -22,6 +22,7 @@ try{
  for(const [name,width,height]of [['desktop',1440,1000],['mobile',390,844]]){
  const context=await browser.newContext({viewport:{width,height},reducedMotion:'reduce',colorScheme:'light'});
  await context.addInitScript(()=>{
+  HTMLCanvasElement.prototype.requestPointerLock=undefined;
   window.__renderFixture=false;window.__freezeFixture=false;window.__actualDraws=0;
   for(const name of ['WebGLRenderingContext','WebGL2RenderingContext']){
    const proto=window[name]?.prototype;if(!proto)continue;
@@ -53,6 +54,15 @@ try{
   // poll from a timer so the assertion does not pause with that frame.
   await page.waitForFunction(()=>window.__freezeFixture,null,{timeout:30000,polling:100});
   await page.screenshot({path:path.join(output,`forest-${name}-fixture.png`),fullPage:true,timeout:30000});
+  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Pandas',exact:true}).click();
+  await page.locator('.forest-profile').waitFor({state:'visible'});
+  await page.screenshot({path:path.join(output,`forest-${name}-profiles.png`),fullPage:true,timeout:30000});
+  if(name==='desktop'){
+   await page.locator('.den-entry button[aria-pressed]').click();
+   await page.evaluate(()=>{window.__freezeFixture=false;});
+   await page.waitForFunction(()=>window.__freezeFixture,null,{timeout:30000,polling:100});
+   await page.screenshot({path:path.join(output,'forest-walking-entry.png'),fullPage:true,timeout:30000});
+  }
  const draws=await page.evaluate(()=>window.__actualDraws);
  const unexpected=failed.filter(row=>!['/metrics','/favicon.ico'].includes(row.url));
  if(errors.length||violations.length||unexpected.length||!draws)throw Error(JSON.stringify({errors,violations,unexpected,draws}));

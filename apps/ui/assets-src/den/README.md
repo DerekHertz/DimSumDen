@@ -1,20 +1,21 @@
 # Approved forest Den asset pack
 
-The checked-in models use lossless gzip storage (about 76.44 MiB). The complete UI fits the unchanged 100 MiB release limit. Browser-native `DecompressionStream` restores the exact audited GLB before Three loads it; no worker, downloaded decoder, dependency or CSP exception is needed.
+The 22 active models use lossless gzip storage (about 25.18 MiB). Buildings and furniture use lightweight Three.js geometry at explicit walking-world scale. The complete UI fits the unchanged 100 MiB release limit. Browser-native `DecompressionStream` restores the exact audited GLB before Three loads it; no worker, downloaded decoder, dependency or CSP exception is needed.
 
-The 36 GLBs under `apps/ui/public/den/models/` are regular self-contained `.glb.gz` files.
+The 22 GLBs under `apps/ui/public/den/models/` are regular self-contained `.glb.gz` files.
 The frontend loads them through `/den/manifest.json`; it does not depend on the
 original prototype server, mounted Windows folders, credentials, or generation
 receipts. The manifest lists public URLs, canonical role IDs, source basenames,
 triangle counts, embedded texture sizes, byte counts, and SHA-256 hashes.
 
-The pack contains the approved Balanced Bao, ten original/generated garden
-structures, three new workspace assets, bamboo, the ancient grove and forest
-gate, all 14 original role-tool sets, and five wardrobe assets. Security reuses
+The pack contains the approved Balanced Bao, bamboo, the ancient grove,
+all 14 original role-tool sets, and five wardrobe assets. Security reuses
 the fitted Developer vest with the approved jade recolor and frog closure in
 scene code. The rejected whole-panda Security generation and old hats are not
-included. The older plum grove and procedural entrance are replaced by the
-approved forest assets.
+included. The detailed generated structures are retained in the original
+artifact and the provenance catalog with `runtime: false`; the packager skips
+them. Library, gate, kiosks, raised entrances, bamboo bridge and furniture are
+now authored in `stylized-structures.mjs` with soft colors and consistent scale.
 
 `sources.json` is an offline provenance catalog relative to the original
 artifact folder. `pack-audit.json` records source hashes, image resizing and

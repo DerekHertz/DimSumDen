@@ -107,52 +107,62 @@
     {
       "key": "scenery.steamers",
       "source": "bao-customizer/assets/Meshy_AI_Steamers_Kiosk_3D_1008061211_image-to-3d-texture.glb",
-      "kind": "scenery"
+      "kind": "scenery",
+      "runtime": false
     },
     {
       "key": "scenery.front",
       "source": "bao-customizer/assets/Meshy_AI_Front_of_House_Kiosk__1008061203_image-to-3d-texture.glb",
-      "kind": "scenery"
+      "kind": "scenery",
+      "runtime": false
     },
     {
       "key": "scenery.games",
       "source": "bao-customizer/assets/Meshy_AI_Bamboo_Mahjong_Table__1008061216_image-to-3d-texture.glb",
-      "kind": "scenery"
+      "kind": "scenery",
+      "runtime": false
     },
     {
       "key": "scenery.center",
       "source": "bao-customizer/meshy_output/models/scenery-center.glb",
-      "kind": "scenery"
+      "kind": "scenery",
+      "runtime": false
     },
     {
       "key": "scenery.tea",
       "source": "bao-customizer/meshy_output/browser_models/scenery-tea.glb",
-      "kind": "scenery"
+      "kind": "scenery",
+      "runtime": false
     },
     {
       "key": "scenery.pantry",
       "source": "bao-customizer/meshy_output/models/scenery-pantry.glb",
-      "kind": "scenery"
+      "kind": "scenery",
+      "runtime": false
     },
     {
       "key": "scenery.pavilion",
       "source": "bao-customizer/meshy_output/models/scenery-pavilion.glb",
-      "kind": "scenery"
+      "kind": "scenery",
+      "runtime": false
     },
     {
       "key": "scenery.training",
       "source": "bao-customizer/meshy_output/models/scenery-training.glb",
-      "kind": "scenery"
+      "kind": "scenery",
+      "runtime": false
     },
     {
       "key": "scenery.festival",
       "source": "bao-customizer/meshy_output/models/scenery-festival.glb",
-      "kind": "scenery"
+      "kind": "scenery",
+      "runtime": false
     },
     {
       "key": "scenery.dragon",
       "source": "bao-customizer/meshy_output/models/scenery-dragon.glb",
-      "kind": "scenery"
+      "kind": "scenery",
+      "runtime": false
     },
     {
       "key": "vegetation.bamboo",
@@ -162,17 +172,20 @@
     {
       "key": "scenery.library",
       "source": "frontend-layout-mockup/meshy-workspaces/models/library-refine.glb",
-      "kind": "scenery"
+      "kind": "scenery",
+      "runtime": false
     },
     {
       "key": "scenery.gate-tea-table",
       "source": "frontend-layout-mockup/meshy-workspaces/models/gate-tea-table-refine.glb",
-      "kind": "scenery"
+      "kind": "scenery",
+      "runtime": false
     },
     {
       "key": "scenery.developer-workstation",
       "source": "frontend-layout-mockup/meshy-workspaces/models/developer-workstation-refine.glb",
-      "kind": "scenery"
+      "kind": "scenery",
+      "runtime": false
     },
     {
       "key": "vegetation.ancient-grove",
@@ -182,7 +195,8 @@
     {
       "key": "scenery.forest-gate",
       "source": "frontend-layout-mockup/meshy-forest/models/forest-gate-refine.glb",
-      "kind": "scenery"
+      "kind": "scenery",
+      "runtime": false
     },
     {
       "key": "wardrobe.developer-vest",

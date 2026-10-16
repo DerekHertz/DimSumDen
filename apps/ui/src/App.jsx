@@ -34,7 +34,7 @@ import { viewFromBridge } from "./scene/expansion/integration/bridge-adapter.mjs
 import { routeWorkClick, unavailableReason } from "./scene/expansion/work-zones.mjs";
 import { useArchiveLibrary } from "./scene/expansion/archive-library.js";
 import { liveActorsFromSnapshot } from "./review/live-actors.mjs";
-import { agentFor } from "./overlay/proximity-card.mjs";
+import { agentFor, pickedCard } from "./overlay/proximity-card.mjs";
 import { DESK_THREAD } from "./overlay/transcript-panel.mjs";
 import { Residents } from "./shell/Residents.jsx";
 import { deskActivity } from "./shell/desk-model.mjs";
@@ -185,6 +185,32 @@ export function App() {
     setSelected(null); unpick(); setTallyOpen(false); setDeskSection(section);
     setFocusRequest(previous => ({ section, sequence: (previous?.sequence ?? 0) + 1 }));
   }, [stage, transcript.close, message.composer, approval.review, unpick]);
+  const residentCard = useCallback(row => {
+    const boundRefs=new Set([...bindings.values()].map(actor=>actor.ref));
+    return pickedCard([{...row,agent:agentFor(row,snapshot?.agents,boundRefs)}],snapshot?.approvals,row.id);
+  },[bindings,snapshot?.agents,snapshot?.approvals]);
+  const residentTalkState = useCallback(row => {
+    if(inDemo)return {enabled:false,reason:'Leave the demo to talk to a panda.'};
+    if(connection.phase!=='live')return {enabled:false,reason:'Reconnect to the den to open a conversation.'};
+    const card=residentCard(row);
+    if(card?.actions.R.enabled&&card.threadId)return {enabled:true};
+    if(card?.actions.T.enabled)return steering.state==='none'
+      ? {enabled:false,reason:'This view is read-only. Sign in to start a conversation.'}
+      : {enabled:true};
+    return {enabled:false,reason:'This resident does not have an agent runtime yet.'};
+  },[inDemo,connection.phase,residentCard,steering.state]);
+  const talkToResident = useCallback(row => {
+    if(!residentTalkState(row).enabled)return;
+    const card=residentCard(row);stage.explorer?.exit();
+    approval.review.close();message.composer.close();transcript.close();
+    setSelected(null);setTallyOpen(false);unpick();
+    if(card.actions.R.enabled&&card.threadId)transcript.openFor(card.threadId,{name:row.name,role:row.role,state:card.state});
+    else {setPicked(row.id);setNearby(card);message.openFrom(card);}
+  },[residentTalkState,residentCard,stage,approval.review,message.composer,message.openFrom,transcript.close,transcript.openFor,unpick]);
+  const viewResidentWork = useCallback(row => {
+    if(!row.ref)return;
+    navigateDesk('pandas');selectTicket(row.ref);
+  },[navigateDesk,selectTicket]);
   const [zoneNotice, setZoneNotice] = useState(null);
   useEffect(() => {
     if (!zoneNotice) return undefined;
@@ -283,7 +309,7 @@ export function App() {
             <div hidden={deskSection === 'pandas'}>
               <Cards snapshot={snapshot} ownBuild={inDemo ? null : live.ownBuild} now={now} connection={connection} placeholder={placeholder} camera={camera} steering={steering} onAnswer={inDemo ? null : answerRequest} onOpenThread={inDemo ? null : openThread} demo={inDemo} libraryRequest={libraryRequest} focusRequest={focusRequest} />
             </div>
-            {deskSection === 'pandas' ? <Residents snapshot={snapshot} now={now} bindings={bindings} onPick={pickPanda} /> : null}
+            {deskSection === 'pandas' ? <Residents snapshot={snapshot} now={now} bindings={bindings} onTalk={talkToResident} onViewWork={viewResidentWork} getTalkState={residentTalkState} /> : null}
           </div>
           {tallyOpen ? <TallyCard tally={tally} metrics={metrics} failed={metricsFailed} onRetry={retryMetrics} onClose={closeTally} stage={stage} /> : null}
           {selected?<PandaCard snapshot={snapshot} selected={selected} onClose={closeTicket} />:null}

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-const STEP_UP=.30,STEP_DOWN=.42,BODY_HEIGHT=1.82;
+const STEP_UP=.30,STEP_DOWN=.42,BODY_HEIGHT=2.04;
 // Clip a triangle to an X/Z cell while retaining interpolated elevation. This is
 // built once from the actual local models; walking never raycasts millions of triangles.
 function clip(points,axis,bound,greater){

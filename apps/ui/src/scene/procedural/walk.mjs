@@ -32,7 +32,7 @@ export function isDenPositionBlocked(x,z,obstacles,radius=WALK.radius) {
 }
 
 export function startWalk(start = WALK.start) {
-  return {...start, y: WALK.eyeHeight, walkTime: 0};
+  return {...start, y: start.eyeHeight??WALK.eyeHeight, walkTime: 0};
 }
 
 export function isWalkBlocked(x,z,world) {
@@ -70,5 +70,5 @@ export function walk(state,input,dt,world) {
     walkTime+=dt;
   }
   const bob=length&&!input.reducedMotion?WALK.bob*Math.sin(walkTime*WALK.bobRate):0;
-  return {...(world.navigation?{groundY}:{}),x,z,y:groundY+WALK.eyeHeight+bob,yaw,pitch,walkTime};
+  return {...(world.navigation?{groundY}:{}),x,z,y:groundY+(world.eyeHeight??WALK.eyeHeight)+bob,yaw,pitch,walkTime};
 }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canonicalRole, actorBindings, meshMotion, WALK_START, NAVIGATION_TARGETS } from './layout.mjs';
-import { isWalkBlocked, startWalk } from '../procedural/walk.mjs';
+import { canonicalRole, actorBindings, meshMotion, WALK_START, NAVIGATION_TARGETS, PLAYER_EYE_HEIGHT, RESIDENT_HEIGHT } from './layout.mjs';
+import { isWalkBlocked, startWalk,walk } from '../procedural/walk.mjs';
 
 test('all external wardrobe role IDs map to the permanent canonical residents', () => {
   assert.equal(canonicalRole('release'), 'release-manager');
@@ -33,4 +33,12 @@ test('new walking world may set its own floor, spawn and collision boundaries wi
   assert.equal(isWalkBlocked(2,24,world),true,'gate post stops the walker');
   assert.equal(isWalkBlocked(0,27.9,world),true,'body stays inside the shifted island');
   assert.deepEqual(NAVIGATION_TARGETS.library,[0,1,-17.6]);
+});
+test('first-person eye height follows a regular adult resident while walking and climbing', () => {
+  const start=startWalk(WALK_START);
+  assert.equal(RESIDENT_HEIGHT,2.04);assert.equal(start.y,1.82);
+  const world={eyeHeight:PLAYER_EYE_HEIGHT,floorRadius:29,floorCenter:{x:0,z:-1},obstacles:[],avoid:[]};
+  assert.equal(walk(start,{forward:1,reducedMotion:true},.1,world).y,1.82);
+  const raised={...world,navigation:{groundAt:()=>.36}};
+  assert.ok(Math.abs(walk({...start,groundY:.36},{forward:1,reducedMotion:true},.1,raised).y-2.18)<1e-8);
 });

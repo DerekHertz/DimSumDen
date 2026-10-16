@@ -257,6 +257,8 @@ def main():
     manifest = {"version": 1, "assets": {}}
     receipt = {"version": 1, "tool": "pack-assets.py", "assets": {}}
     for asset in catalog["assets"]:
+        if asset.get("runtime") is False:
+            continue
         record, private = pack_asset(asset, args.source_root, args.output)
         manifest["assets"][asset["key"]] = record
         receipt["assets"][asset["key"]] = private

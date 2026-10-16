@@ -17,7 +17,7 @@ export function deskResidents(snapshot, options = {}) {
   return RESIDENTS.flatMap(resident => {
     const primary = bindings.get(resident.role);
     const visitors = [...bindings].filter(([id, actor]) => actor.role === resident.role && id !== resident.role);
-    return [{ ...resident, id: resident.role, state: primary?.state ?? 'resident', ref: primary?.ref ?? null, visitor: false },
+    return [{ ...resident, ...primary, id: resident.role, state: primary?.state ?? 'resident', ref: primary?.ref ?? null, visitor: false },
       ...visitors.map(([id, actor]) => ({ ...resident, ...actor, id, visitor: true }))];
   });
 }

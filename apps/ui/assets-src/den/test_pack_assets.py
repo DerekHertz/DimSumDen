@@ -84,6 +84,9 @@ class PackAssetsTests(unittest.TestCase):
         catalog = json.loads(Path(__file__).with_name("sources.json").read_text())["assets"]
         self.assertEqual(len(catalog), 36)
         self.assertEqual(len({a["key"] for a in catalog}), 36)
+        active = [a for a in catalog if a.get("runtime") is not False]
+        self.assertEqual(len(active), 22)
+        self.assertFalse(any(a["key"].startswith("scenery.") for a in active))
         roles = {a["roleId"] for a in catalog if a["kind"] == "prop"}
         self.assertEqual(roles, {"orchestrator", "product", "architect", "developer", "scout", "debugger", "qa", "security", "designer", "herald", "release-manager", "knowledge-keeper", "docs-writer", "stem-cub"})
         self.assertFalse(any("security-vest-preview" in a["source"] or "/hat-" in a["source"] for a in catalog))

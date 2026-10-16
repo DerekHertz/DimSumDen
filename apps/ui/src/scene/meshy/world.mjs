@@ -3,13 +3,12 @@ import { materials,landscape,cyl,box,orb } from './garden.mjs';
 import { applyGardenLayout } from './scene-layout.mjs';
 import { addPerimeterBamboo } from './perimeter-bamboo.mjs';
 import { loadForestUpgrades } from './forest-upgrades.mjs';
-import { loadDeveloperWorkstation } from './meshy-upgrades.mjs';
 import { buildRoleWorkspaces } from './role-workspaces.mjs';
 import { loadRoleWardrobe } from './role-wardrobe.mjs';
 import { loadManifest,loadModel,fit,disposeWorld } from './assets.mjs';
 import { buildWalkWorld } from './collisions.mjs';
 import { NAVIGATION_TARGETS,WALK_START } from './layout.mjs';
-import { openSideDoor,addPavilionBridge } from './entrances.mjs';
+import { createStylizedStructure } from './stylized-structures.mjs';
 import propDefinitions from './role-props.mjs';
 
 const PLACES=[['center','Shared dim sum table',0,0,5,5.5],['steamers','Steamers',-9.5,-8.7,6,5.6],['front','Front of House',9.5,-8.7,6,5.6],['tea','Tea',-12.4,.3,5,6],['pantry','Pantry',12.4,.3,5,6],['pavilion','Lotus pavilion',-20,10.2,6,7.7],['games','Mahjong',-20,-10.7,5,3.6],['training','Practice courtyard',21,10,5,6.3],['festival','Festival stage',20,-12.2,6,6.7],['dining','Gate tea table',-8.5,17,4.5,4.7],['dragon','Silk dragon courtyard',9,17,6,8]];
@@ -45,26 +44,23 @@ export async function createMeshyWorld(renderer,{signal,onProgress=()=>{}}={}){
   body.traverse(o=>{if(o.isMesh){o.receiveShadow=false;for(const material of Array.isArray(o.material)?o.material:[o.material]){material.roughness=.95;material.metalness=0;material.roughnessMap=null;}}});
   for(const prop of den.propManifest){const person=new THREE.Group();person.name=prop.label;person.userData.roleId=prop.id;person.scale.setScalar(SCALES[prop.id]||.68);person.add(body.clone(true));residents.add(person);}
   for(const [id,label,x,z,radius,width]of PLACES){
-   onProgress('Opening '+label+'…');const key=id==='dining'?'gate-tea-table':id;
-   const model=fit(await loadModel(den.assets['scenery.'+key].url),{width,height:id==='dining'?2.8:Infinity,depth:id==='dining'?4.7:Infinity});assertActive(signal);
-   const zone=new THREE.Group();zone.name=label;zone.userData={id};zone.position.set(x,.06,z);zone.add(model);world.add(zone);den.zones.set(id,zone);den.plan.push({id,label,x,z,radius});
+   onProgress('Opening '+label+'…');
+   const model=createStylizedStructure(id);
+   const zone=new THREE.Group();zone.name=label;zone.userData={id,floorY:model.userData.structure.floorY};zone.position.set(x,0,z);zone.add(model);world.add(zone);den.zones.set(id,zone);den.plan.push({id,label,x,z,radius});
    if(id==='center')model.position.z=3.15;
    if(['steamers','front','tea','pantry'].includes(id))zone.rotation.y={steamers:.28,front:-.28,tea:.18,pantry:-.18}[id];
   }
   applyGardenLayout(den);
-  openSideDoor(den.zones.get('steamers'));
-  addPavilionBridge(den.zones.get('pavilion'));
-  const library=new THREE.Group();library.name='Library · shared knowledge';library.userData={id:'library'};library.position.set(0,.06,-17.6);
-  library.add(fit(await loadModel(den.assets['scenery.library'].url),{width:8.5,height:5.8,depth:6}));world.add(library);den.zones.set('library',library);den.plan.push({id:'library',label:'Library',x:0,z:-17.6,radius:6});
+  const library=new THREE.Group();library.name='Library · shared knowledge';library.userData={id:'library'};library.position.set(0,0,-17.6);
+  library.add(createStylizedStructure('library'));world.add(library);den.zones.set('library',library);den.plan.push({id:'library',label:'Library',x:0,z:-17.6,radius:6});
   const approach=box(world,[1.16,.035,4.7],m.stone,[0,.024,-11.33]);approach.name='Library approach';assertActive(signal);
-  onProgress('Planting the ancient grove…');await loadForestUpgrades(den);assertActive(signal);
+  onProgress('Planting the ancient grove…');await loadForestUpgrades(den,{createGate:createStylizedStructure});assertActive(signal);
   const bambooPrototype=fit(await loadModel(den.assets['vegetation.bamboo'].url),{height:1}),bamboo=new THREE.Group();bamboo.userData={assetId:'bamboo',baseRadius:.174};bamboo.name='Original eleven bamboo clusters';
   BAMBOO.forEach(([x,z],i)=>{const height=4.3+i%3*.35,radius=.174*height,limit=28.65-radius,r=Math.min(Math.hypot(x,z+1),limit),angle=Math.atan2(x,z+1),plant=bambooPrototype.clone(true);plant.position.set(Math.sin(angle)*r,-.035,Math.cos(angle)*r-1);plant.scale.setScalar(height);plant.rotation.y=i*.73;bamboo.add(plant);den.plantingLayout.bamboo.push({x:plant.position.x,z:plant.position.z,height,turn:plant.rotation.y});});vegetation.add(bamboo);
   addPerimeterBamboo(den);onProgress('Setting out every role’s tools…');
   const workspaces=await buildRoleWorkspaces(den);assertActive(signal);
   if(workspaces.errors.length||workspaces.propsLoadedCount!==den.propManifest.length)throw Error('The required role tools did not all load.');
-  const workstation=await loadDeveloperWorkstation(den);assertActive(signal);
-  if(!workstation.loaded)throw Error('The Developer workstation did not load.');
+  den.developerWorkstation={loaded:true,source:'Three.js',style:'Modern desk, monitor and keyboard'};
   onProgress('Fitting the wardrobe…');
   const urls=Object.fromEntries(['developer-vest','developer-headphones','developer-boba','developer-tablet','qa-scarf'].map(id=>[id,den.assets['wardrobe.'+id].url]));urls['security-vest']=urls['developer-vest'];
   const wardrobe=await loadRoleWardrobe(den,{urls});assertActive(signal);

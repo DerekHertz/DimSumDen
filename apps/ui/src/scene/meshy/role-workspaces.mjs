@@ -8,7 +8,7 @@ const PLACES = [
   {id:'orchestrator',station:'center',at:[0,0,-3.65],person:[0,.07,-1.45],kind:'planning',width:2.1,depth:.95,height:1.48,accent:'jade'},
   {id:'product',station:'center',at:[-3.6,0,-4.45],person:[-3.6,.07,-6.1],kind:'menu',width:1.45,depth:.82,height:1.12,turn:Math.PI,accent:'red'},
   {id:'architect',station:'center',at:[3.6,0,-4.45],person:[3.6,.07,-6.1],kind:'drafting',width:1.55,depth:.84,height:1.12,turn:Math.PI,accent:'blue'},
-  {id:'developer',station:'steamers',at:[-1.05,.15,-.05],person:[.38,.11,-.05],kind:'computer',width:1.7,depth:.88,height:1.12,turn:Math.PI/2,accent:'blue'},
+  {id:'developer',station:'steamers',at:[-.75,0,-.20],person:[.85,.015,-.20],kind:'computer',width:1.7,depth:.88,height:1.12,turn:Math.PI/2,accent:'blue'},
   {id:'scout',station:'steamers',at:[2.62,0,.20],person:[3.75,.07,.20],kind:'survey',width:1.18,depth:.78,height:1.08,turn:Math.PI/2,accent:'bamboo'},
   {id:'debugger',station:'steamers',at:[-2.62,0,.20],person:[-3.75,.07,.20],kind:'repair',width:1.18,depth:.78,height:1.08,turn:-Math.PI/2,accent:'red'},
   {id:'designer',station:'front',at:[-2.55,0,.30],person:[-3.70,.07,.30],kind:'art',width:1.22,depth:.82,height:1.08,turn:-Math.PI/2,accent:'pink'},
@@ -114,12 +114,17 @@ export async function buildRoleWorkspaces(den){
   if(den.roleWorkspaces)return den.roleWorkspaces;
   const manifest={props:den.propManifest};
   const m=materials(),loader=createModelLoader(),group=new T.Group(),workspaces=new Map(),records=[],anchors={};
+  m.wood.color.set('#bc9262');m.darkwood.color.set('#806144');m.bamboo.color.set('#d5b779');
   group.name='Personal workspaces · fourteen residents';den.world.add(group);
   const result={group,workspaces,records,anchors,propsLoadedCount:0,propsLoaded:0,errors:[]};den.roleWorkspaces=result;
   for(const source of manifest.props){
     const setup=PLACES.find(p=>p.id===source.externalId);if(!setup)continue;
     const place={...setup,id:source.id,label:source.label},station=den.zones.get(place.station);
     if(!station)throw Error('Workspace station unavailable: '+place.station);
+    if(source.id==='developer'){
+      const floor=station.userData.floorY??0;
+      place.at=[place.at[0],floor,place.at[2]];place.person=[place.person[0],floor+place.person[1],place.person[2]];
+    }
     station.updateMatrixWorld(true);
     const position=station.localToWorld(new T.Vector3(...place.at));
     const pod=furniture(place,m);pod.position.copy(position);pod.rotation.y=station.rotation.y+(place.turn||0);pod.userData={roleId:source.id,stationId:place.station,label:source.label};group.add(pod);

@@ -97,14 +97,15 @@ after(async () => {
 const snapshot = { schema: 1, seq: 1, tickets: [], agents: [], frontier: [], usage: null, requests: [] };
 const assets = JSON.parse(readFileSync(join(UI, 'public/den/manifest.json'), 'utf8')).assets;
 
-async function openGarden({ viewport = { width: 1440, height: 900 }, failModels = false } = {}) {
+async function openGarden({ viewport = { width: 1440, height: 900 }, failModels = false, snapshot: initialSnapshot = snapshot, signedIn = false } = {}) {
   const context = await browser.newContext({ viewport, reducedMotion: "reduce" });
   await lightenScene(context);
+  if (signedIn) await context.addInitScript(() => sessionStorage.setItem('den.session-token', 'tok-garden-profile-qa'));
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
-  const errors = [], loaded = [], modelResponses = [];
+  const errors = [], loaded = [], modelResponses = [], mutations = [];
   page.on("pageerror", error => errors.push(error.message));
-  page.on("request", request => loaded.push(new URL(request.url()).pathname));
+  page.on("request", request => { loaded.push(new URL(request.url()).pathname); if (!["GET", "HEAD"].includes(request.method())) mutations.push({ path: new URL(request.url()).pathname, method: request.method() }); });
   page.on("response", response => { if (new URL(response.url()).pathname.startsWith('/den/models/')) modelResponses.push(response); });
   await page.addInitScript(snap => {
     window.__eventStreams = 0;
@@ -112,6 +113,7 @@ async function openGarden({ viewport = { width: 1440, height: 900 }, failModels 
       constructor() {
         window.__eventStreams++;
         this.l = {};
+        window.__pushGardenSnapshot = next => { for (const listener of this.l.snapshot ?? []) listener({ data: JSON.stringify(next) }); };
         setTimeout(() => {
           this.onopen?.();
           for (const f of this.l.snapshot ?? []) f({ data: JSON.stringify(snap) });
@@ -121,28 +123,33 @@ async function openGarden({ viewport = { width: 1440, height: 900 }, failModels 
       close() {}
     }
     window.EventSource = FakeEventSource;
-  }, snapshot);
-  await page.route(url => url.pathname === '/state', route => route.fulfill({ json: snapshot }));
+  }, initialSnapshot);
+  await page.route(url => url.pathname === '/state', route => route.fulfill({ json: initialSnapshot }));
   await page.route(url => url.pathname === '/metrics', route => route.fulfill({ json: { throughput: { windows: [] }, tokensByCell: {}, incidentsByTool: {} } }));
   await page.route(url => url.pathname === '/requests', route => route.fulfill({ json: [] }));
   await page.route(url => url.pathname === '/session', route => route.fulfill({ status: 404, json: {} }));
+  await page.route(url => url.pathname.startsWith('/conversations/'), route => route.fulfill({ json: { entries: [], more: false } }));
+  await page.route(url => url.pathname === '/tasks' || /^\/agents\//.test(url.pathname), route => route.fulfill({ status: 503, json: { error: 'No task may start in this test.' } }));
   await page.route(url => url.pathname === '/library', route => route.fulfill({ json: { connections: [], skills: [{ kind: 'skill', name: 'garden-qa-marker', description: 'The live Library response.', roles: ['qa'] }] } }));
   if (failModels) await page.route(url => failModels === true ? url.pathname.startsWith('/den/models/') : url.pathname === failModels, route => route.fulfill({ status: 503, body: 'unavailable' }));
   await page.goto(base);
-  return { context, page, errors, loaded, modelResponses };
+  return { context, page, errors, loaded, modelResponses, mutations };
 }
 
 const ready = page => page.waitForFunction(() => document.querySelector('.den-entry button') && document.querySelector('.den-entry button').getAttribute('aria-disabled') !== 'true', null, { timeout: 60000 });
 
-test("the native garden loads approved local Bao, scenery, wardrobe and all fourteen role props without an iframe or page error", { timeout: 90000 }, async () => {
+test("the native garden builds procedural structures and loads local Bao, wardrobe, vegetation and all fourteen role props without an iframe or page error", { timeout: 90000 }, async () => {
   const { context, page, errors, loaded, modelResponses } = await openGarden();
   try {
     await ready(page);
-    const native = ['/src/scene/meshy/MeshyDen.jsx', '/src/scene/meshy/world.mjs', '/src/scene/meshy/actors.mjs'];
+    const native = ['/src/scene/meshy/MeshyDen.jsx', '/src/scene/meshy/world.mjs', '/src/scene/meshy/actors.mjs', '/src/scene/meshy/stylized-structures.mjs'];
     assert.deepEqual(native.filter(path => !loaded.includes(path)), [], 'the native Meshy world is loaded');
     assert.ok(!loaded.includes('/src/scene/procedural/RestaurantDen.jsx'), 'old procedural scene is not mounted');
     assert.equal(await page.locator('iframe').count(), 0, 'no embedded preview server');
     assert.equal(await page.locator('.forest-canvas canvas').count(), 1);
+    assert.equal(Object.keys(assets).length, 22, 'only retained character, prop, wardrobe and vegetation models are shipped');
+    assert.deepEqual(Object.keys(assets).filter(key => key.startsWith('scenery.')), [], 'buildings and furniture use procedural geometry');
+    assert.equal(loaded.some(path => path.startsWith('/den/models/scenery/')), false, 'no removed scenery download');
     const missing = Object.values(assets).filter(asset => !loaded.includes(asset.url));
     assert.deepEqual(missing.map(asset => asset.url), [], 'all models come from the checked-in manifest');
     const props = Object.values(assets).filter(asset => asset.kind === 'prop');
@@ -165,7 +172,7 @@ test("phone garden and desk remain separate and all fourteen permanent residents
   try {
     await ready(page);
     await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Pandas', exact: true }).click();
-    const residents = page.getByRole('region', { name: 'Residents and visitors' });
+    const residents = page.getByRole('list', { name: 'Residents and visitors' });
     await residents.waitFor({ state: 'visible' });
     assert.equal(await residents.getByRole('button').count(), 14, 'quiet snapshots keep every role at home');
     const layout = await page.evaluate(() => {
@@ -189,7 +196,7 @@ test("a failed model load explains the garden failure and leaves live desk navig
     assert.match(await alert.innerText(), /Your board controls are still available at the desk/);
     assert.equal(await page.locator('.den-entry button').getAttribute('aria-disabled'), 'true');
     await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Pandas', exact: true }).click();
-    assert.equal(await page.getByRole('region', { name: 'Residents and visitors' }).getByRole('button').count(), 14);
+    assert.equal(await page.getByRole('list', { name: 'Residents and visitors' }).getByRole('button').count(), 14);
     assert.equal(await page.evaluate(() => window.__eventStreams), 1);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
@@ -222,13 +229,14 @@ test("desk navigation exits walking and keeps the requested Work panel available
   } finally { await context.close(); }
 });
 
-test("clicking the physical Library replaces a picked panda and open Bao thread with the real Library panel", { timeout: 90000 }, async () => {
+test("clicking the physical Library replaces portrait profiles and an open Bao thread with the real Library panel", { timeout: 90000 }, async () => {
   const { context, page, errors } = await openGarden();
   try {
     await ready(page);
     await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Pandas', exact: true }).click();
-    await page.getByRole('region', { name: 'Residents and visitors' }).getByRole('button', { name: /The Maker/ }).click();
-    await page.getByRole('region', { name: 'Selected panda' }).waitFor({ state: 'visible' });
+    await page.getByRole('list', { name: 'Residents and visitors' }).getByRole('button', { name: /The Maker/ }).click();
+    await page.getByRole('region', { name: 'Panda profiles' }).getByRole('heading', { name: 'The Maker', exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await page.getByRole('region', { name: 'Selected panda' }).count(), 0, 'portrait selection stays in its profile');
     await page.getByRole('button', { name: /Talk to Bao/ }).click();
     await page.locator('.transcript-panel').waitFor({ state: 'visible' });
     // Click the actual roof at the authored Library position, using the same camera projection as the garden.
@@ -239,7 +247,7 @@ test("clicking the physical Library replaces a picked panda and open Bao thread 
     await library.getByText('garden-qa-marker', { exact: true }).waitFor({ state: 'visible' });
     assert.equal(await library.locator('.card-toggle').getAttribute('aria-expanded'), 'true');
     assert.equal(await page.locator('.transcript-panel').count(), 0, 'the previous thread closes');
-    assert.equal(await page.getByRole('region', { name: 'Selected panda' }).count(), 0, 'the previous panda clears');
+    assert.equal(await page.getByRole('region', { name: 'Panda profiles' }).count(), 0, 'Library replaces the portrait profiles');
     assert.equal(await page.locator('.forest-desk-home').isVisible(), true);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
@@ -253,8 +261,106 @@ test("a failed required role prop cannot report the garden ready with an incompl
     assert.equal(await page.locator('.den-entry button').getAttribute('aria-disabled'), 'true', 'an incomplete required model set cannot enable walking');
     assert.match(await alert.innerText(), /board controls are still available/);
     await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Pandas', exact: true }).click();
-    assert.equal(await page.getByRole('region', { name: 'Residents and visitors' }).getByRole('button').count(), 14);
+    assert.equal(await page.getByRole('list', { name: 'Residents and visitors' }).getByRole('button').count(), 14);
     assert.equal(await page.evaluate(() => window.__eventStreams), 1);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+const PROFILE_WALL = { developer: { runs: ['Read project files'], asks: ['Any host', 'Any path outside'], takesGrants: true } };
+const quietProfiles = () => ({ ...snapshot, wall: PROFILE_WALL, seq: 1, approvals: [], transcripts: {} });
+const profileLive = (seq = 2, ended = false) => {
+  const at = new Date().toISOString();
+  const rows = ended ? [['work/02-maker', 'c-maker-past', 'done']] : [['work/02-maker', 'c-maker-current', 'working'], ['work/03-visitor', 'c-maker-visitor', 'working']];
+  return {
+    ...quietProfiles(), seq,
+    tickets: rows.map(([ref]) => ({ ref, feature: 'work', title: ref === 'work/03-visitor' ? 'Visitor-specific task' : 'Maker-specific task', type: 'task', status: 'claimed', ready: false, holder: ended ? null : { cell: 'developer', since: at }, gate: null, blockedBy: [] })),
+    agents: rows.map(([ref, id, state]) => ({ id, ref, role: 'developer', state, runtime: 'claude', mode: 'direct', startedAt: at, lastEventAt: at, tool: { name: 'Read', summary: ref + ' tool details' }, capabilities: { send: true, stop: true, approve: true }, followUp: ended })),
+    transcripts: Object.fromEntries(rows.map(([, id]) => [id, { dropped: 0, entries: [{ id: 1, kind: 'message', role: 'agent', at, text: 'Conversation for ' + id }] }])),
+  };
+};
+const openProfiles = async page => {
+  await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Pandas', exact: true }).click();
+  const profiles = page.getByRole('region', { name: 'Panda profiles' });
+  await profiles.waitFor({ state: 'visible' });
+  return profiles;
+};
+
+test("portrait profiles keep real work and visitor identities, and route explicit Talk actions to idle, current and past conversations", { timeout: 90000 }, async () => {
+  const { context, page, errors, mutations } = await openGarden({ snapshot: quietProfiles(), signedIn: true });
+  try {
+    let profiles = await openProfiles(page);
+    const portraits = profiles.getByRole('list', { name: 'Residents and visitors' });
+    assert.equal(await portraits.getByRole('button').count(), 14);
+    assert.equal(await portraits.locator('img').count(), 14, 'each resident has a portrait image');
+    await page.waitForFunction(() => [...document.querySelectorAll('.forest-portrait-choice img')].every(image => image.complete && image.naturalWidth > 0));
+    await portraits.getByRole('button', { name: /^The Maker,/ }).click();
+    assert.equal(await profiles.getByRole('heading', { name: 'The Maker', exact: true }).isVisible(), true);
+    assert.equal(await page.getByRole('region', { name: 'Selected panda' }).count(), 0, 'portrait selection does not open the scene card');
+    assert.equal(await profiles.getByRole('button', { name: /View work/ }).isDisabled(), true);
+    await profiles.getByRole('button', { name: 'Talk to Maker', exact: true }).click();
+    const composer = page.getByRole('group', { name: 'New task for The Maker', exact: true });
+    await composer.waitFor({ state: 'visible' });
+    const wall = composer.getByRole('group', { name: 'What this agent may do' });
+    assert.match(await wall.innerText(), /Read project files[\s\S]*Any host[\s\S]*Any path outside/);
+    assert.equal(await wall.getByRole('button', { name: 'Add a grant', exact: true }).count(), 1);
+    const draft = composer.getByRole('textbox', { name: 'New task for The Maker', exact: true });
+    assert.equal(await draft.isEditable(), true);
+    assert.equal(await draft.inputValue(), '', 'opening an idle task leaves an empty draft');
+    await page.keyboard.press('Escape');
+    await composer.waitFor({ state: 'hidden' });
+    profiles = await openProfiles(page);
+    await profiles.getByRole('list', { name: 'Residents and visitors' }).getByRole('button', { name: /^Bao,/ }).click();
+    await profiles.getByRole('button', { name: 'Talk to Bao', exact: true }).click();
+    await page.locator('.transcript-meta code').filter({ hasText: /^desk$/ }).waitFor({ state: 'visible' });
+    await page.getByRole('button', { name: 'Close conversation' }).click();
+
+    profiles = await openProfiles(page);
+    await page.evaluate(next => window.__pushGardenSnapshot(next), profileLive());
+    await profiles.getByRole('list', { name: 'Residents and visitors' }).getByRole('button', { name: /^The Maker, Working$/ }).click();
+    await profiles.getByText(/Read: work\/02-maker tool details/).waitFor({ state: 'visible' });
+    assert.match(await profiles.locator('.forest-profile-task').innerText(), /work\/02-maker[\s\S]*Maker-specific task/);
+    assert.equal(await profiles.getByRole('list', { name: 'Residents and visitors' }).getByRole('button').count(), 15, 'a second live role gets a distinct visitor portrait');
+    await profiles.getByRole('button', { name: 'Talk to Maker', exact: true }).click();
+    await page.locator('.transcript-meta code').filter({ hasText: /^c-maker-current$/ }).waitFor({ state: 'visible' });
+    assert.match(await page.locator('.transcript-log').innerText(), /Conversation for c-maker-current/);
+    await page.getByRole('button', { name: 'Close conversation' }).click();
+    profiles = await openProfiles(page);
+    await profiles.getByRole('list', { name: 'Residents and visitors' }).getByRole('button', { name: /visitor on work\/03-visitor/ }).click();
+    await profiles.getByRole('button', { name: /View work/ }).click();
+    const ticket = page.getByRole('dialog', { name: 'Ticket details' });
+    await ticket.waitFor({ state: 'visible' });
+    assert.match(await ticket.innerText(), /work\/03-visitor/);
+    assert.match(await ticket.innerText(), /Visitor-specific task/);
+    assert.equal(await ticket.getByText('work/02-maker', { exact: true }).count(), 0, 'visitor work never reuses the permanent resident ticket');
+    await ticket.getByRole('button', { name: 'Close ticket details' }).click();
+    profiles = await openProfiles(page);
+    await page.evaluate(next => window.__pushGardenSnapshot(next), profileLive(3, true));
+    await profiles.getByRole('list', { name: 'Residents and visitors' }).getByRole('button', { name: /^The Maker,/ }).click();
+    await profiles.getByRole('button', { name: 'Talk to Maker', exact: true }).click();
+    await page.locator('.transcript-meta code').filter({ hasText: /^c-maker-past$/ }).waitFor({ state: 'visible' });
+    assert.match(await page.locator('.transcript-log').innerText(), /Conversation for c-maker-past/);
+    assert.deepEqual(mutations, [], 'profile visits and explicit view/talk actions never dispatch or approve work');
+    assert.equal(await page.evaluate(() => window.__eventStreams), 1);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test("read-only and scenery-role profiles explain disabled Talk and work actions honestly", { timeout: 60000 }, async () => {
+  const { context, page, errors, mutations } = await openGarden({ snapshot: quietProfiles() });
+  try {
+    const profiles = await openProfiles(page);
+    const portraits = profiles.getByRole('list', { name: 'Residents and visitors' });
+    await portraits.getByRole('button', { name: /^The Maker,/ }).click();
+    const talk = profiles.getByRole('button', { name: 'Talk to Maker', exact: true });
+    assert.equal(await talk.isDisabled(), true);
+    assert.match(await profiles.innerText(), /read-only[\s\S]*Sign in to start/);
+    assert.ok(await talk.getAttribute('aria-describedby'), 'disabled action has an accessible reason');
+    assert.equal(await profiles.getByRole('button', { name: /View work/ }).isDisabled(), true);
+    await portraits.getByRole('button', { name: /^The Debugger,/ }).click();
+    assert.equal(await profiles.getByRole('button', { name: 'Talk to Debugger', exact: true }).isDisabled(), true);
+    assert.match(await profiles.innerText(), /does not have an agent runtime yet/);
+    assert.deepEqual(mutations, []);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });

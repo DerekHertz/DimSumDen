@@ -82,13 +82,40 @@
 .forest-desk:has(> .transcript-panel) > .panda-detail,
 .forest-desk:has(> .approval-panel) > .panda-detail,
 .forest-desk:has(> .proximity-dock .message-composer) > .panda-detail { display: none; }
-.forest-residents ul { list-style: none; padding: 0; margin: 0; }
-.forest-residents li { border-bottom: 1px solid var(--line); }
-.forest-residents button { padding: 15px 0; display: flex; align-items: center; gap: 10px; min-height: 64px; width: 100%; text-align: left; background: none; border: 0; color: var(--ink); cursor: pointer; font: inherit; }
-.forest-residents button > span:nth-child(2) { flex: 1; min-width: 0; }
-.forest-residents strong { display: block; font-weight: 600; font-size: 13px; }
-.forest-residents small { display: block; font-size: 11px; color: var(--ink-muted); overflow-wrap: anywhere; margin-top: 4px; }
-.forest-resident-state { font-size: 10px; color: var(--ink-muted); }
+.forest-residents-intro { margin: 0 0 14px; }
+.forest-profile { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--surface-100); margin-bottom: 20px; }
+.forest-profile-heading { display: flex; align-items: center; gap: 13px; }
+.forest-profile-heading > div { min-width: 0; }
+.forest-profile-heading .forest-eyebrow { font-size: 9px; margin-bottom: 3px; }
+.forest-profile h3 { font: 400 23px/1.2 var(--font-display); margin: 0; }
+.forest-profile-role { margin: 5px 0 0; color: var(--ink-muted); font-size: 11px; overflow-wrap: anywhere; }
+.forest-profile-activity { margin: 17px 0 14px; }
+.forest-profile-state { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 11px; }
+.forest-profile-task { margin: 7px 0 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.forest-profile-tool { margin: 6px 0 0; color: var(--ink-muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.forest-profile-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.forest-profile-actions .btn { flex: 1; min-height: 44px; padding: 9px 10px; font: 500 11px/1.4 var(--font-sans); box-shadow: none; white-space: normal; }
+.forest-profile-actions button:disabled { cursor: default; opacity: .55; }
+.forest-profile-reason { font-size: 10px; line-height: 1.5; color: var(--ink-muted); margin: 8px 0 0; }
+.forest-portrait-list { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; list-style: none; padding: 0; margin: 0; }
+.forest-portrait-choice { width: 100%; min-height: 98px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 3px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--ink); cursor: pointer; font: inherit; }
+.forest-portrait-choice:hover { background: var(--surface-100); border-color: var(--line); }
+.forest-portrait-choice[aria-pressed="true"] { border-color: var(--qi); background: var(--surface-000); }
+.forest-residents button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+.forest-portrait { --portrait-accent: #597047; position: relative; display: inline-block; width: 44px; height: 44px; flex: none; overflow: hidden; border-radius: 50%; background: #e0eadb; border: 2px solid var(--portrait-accent); }
+.forest-portrait img { width: 100%; height: 100%; object-fit: cover; }
+.forest-portrait-badge { position: absolute; bottom: -1px; right: -1px; background: var(--portrait-accent); color: #fffef9; border-radius: 50% 0 0 0; padding: 2px 4px 1px; font: 600 9px/1.2 var(--font-sans); }
+.forest-portrait[data-role="orchestrator"], .forest-portrait[data-role="architect"] { --portrait-accent: #74628c; }
+.forest-portrait[data-role="product"], .forest-portrait[data-role="herald"] { --portrait-accent: #9a6248; }
+.forest-portrait[data-role="developer"], .forest-portrait[data-role="docs-writer"] { --portrait-accent: #496d8b; }
+.forest-portrait[data-role="qa"], .forest-portrait[data-role="stem-cub"] { --portrait-accent: #8a6b34; }
+.forest-portrait[data-role="security"], .forest-portrait[data-role="debugger"] { --portrait-accent: #7d5551; }
+.forest-portrait[data-role="designer"], .forest-portrait[data-role="release-manager"] { --portrait-accent: #9a5d7c; }
+.forest-portrait-large { width: 66px; height: 66px; }
+.forest-portrait-large .forest-portrait-badge { padding: 3px 6px; font-size: 11px; }
+.forest-portrait-name { font-size: 10px; line-height: 1.3; overflow-wrap: anywhere; text-align: center; }
+.forest-portrait-caption { display: flex; gap: 4px; align-items: center; color: var(--ink-muted); font-size: 9px; line-height: 1.3; }
+.forest-portrait-caption .forest-dot { width: 4px; height: 4px; }
 .forest-muted { color: var(--ink-muted); font-size: 12px; line-height: 1.7; }
 .forest-page-footer { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 20px; font-size: 10px; color: var(--ink-muted); }
 .forest-shell .demo-strip { position: static; transform: none; align-self: center; flex-shrink: 0; margin-bottom: 10px; }
