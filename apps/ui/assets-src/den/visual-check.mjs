@@ -49,7 +49,9 @@ try{
  await page.goto(preview.url);
  await page.waitForFunction(()=>document.querySelector('.den-entry button')&&!document.querySelector('.den-entry button').hasAttribute('aria-disabled'),null,{timeout:30000}).catch(async error=>{console.log(JSON.stringify({errors,violations,failed,page:await page.locator('body').innerText()}));throw error;});
   await page.evaluate(()=>{window.__renderFixture=true;window.__freezeFixture=false;});
-  await page.waitForFunction(()=>window.__freezeFixture,null,{timeout:20000});
+  // The fixture deliberately pauses RAF after its first complete GL frame;
+  // poll from a timer so the assertion does not pause with that frame.
+  await page.waitForFunction(()=>window.__freezeFixture,null,{timeout:30000,polling:100});
   await page.screenshot({path:path.join(output,`forest-${name}-fixture.png`),fullPage:true,timeout:30000});
  const draws=await page.evaluate(()=>window.__actualDraws);
  const unexpected=failed.filter(row=>!['/metrics','/favicon.ico'].includes(row.url));

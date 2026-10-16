@@ -61,10 +61,14 @@ export async function createMeshyWorld(renderer,{signal,onProgress=()=>{}}={}){
   const bambooPrototype=fit(await loadModel(den.assets['vegetation.bamboo'].url),{height:1}),bamboo=new THREE.Group();bamboo.userData={assetId:'bamboo',baseRadius:.174};bamboo.name='Original eleven bamboo clusters';
   BAMBOO.forEach(([x,z],i)=>{const height=4.3+i%3*.35,radius=.174*height,limit=28.65-radius,r=Math.min(Math.hypot(x,z+1),limit),angle=Math.atan2(x,z+1),plant=bambooPrototype.clone(true);plant.position.set(Math.sin(angle)*r,-.035,Math.cos(angle)*r-1);plant.scale.setScalar(height);plant.rotation.y=i*.73;bamboo.add(plant);den.plantingLayout.bamboo.push({x:plant.position.x,z:plant.position.z,height,turn:plant.rotation.y});});vegetation.add(bamboo);
   addPerimeterBamboo(den);onProgress('Setting out every role’s tools…');
-  await buildRoleWorkspaces(den);assertActive(signal);await loadDeveloperWorkstation(den);assertActive(signal);
+  const workspaces=await buildRoleWorkspaces(den);assertActive(signal);
+  if(workspaces.errors.length||workspaces.propsLoadedCount!==den.propManifest.length)throw Error('The required role tools did not all load.');
+  const workstation=await loadDeveloperWorkstation(den);assertActive(signal);
+  if(!workstation.loaded)throw Error('The Developer workstation did not load.');
   onProgress('Fitting the wardrobe…');
   const urls=Object.fromEntries(['developer-vest','developer-headphones','developer-boba','developer-tablet','qa-scarf'].map(id=>[id,den.assets['wardrobe.'+id].url]));urls['security-vest']=urls['developer-vest'];
-  await loadRoleWardrobe(den,{urls});assertActive(signal);
+  const wardrobe=await loadRoleWardrobe(den,{urls});assertActive(signal);
+  if(wardrobe.failed.length||wardrobe.missing.length||wardrobe.loaded.length!==Object.keys(urls).length)throw Error('The required role wardrobe did not all load.');
   for(const [id,space]of den.roleWorkspaces.workspaces){space.group.userData.workspaceRole=id;if(space.person)space.person.userData.actorKey=id;if(space.prop)space.prop.userData.workspaceRole=id;}
   den.zones.get('library').userData.denInteraction={zone:'archive',intent:'open-library',id:'archive.library'};
   den.zones.get('library').name='Library · shared knowledge';
