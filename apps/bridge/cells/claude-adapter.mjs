@@ -8,6 +8,7 @@
 //   decodeControlRequest / encodeControlResponse   the can_use_tool permission channel, bare decisions only
 //   encodeUserMessage a user message as one stdin line: the prompt, or (den-v1 loop S5) a message to a running child,
 //                     whose id comes back on the child's replay of it and reads as message-applied
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { StringDecoder } from "node:string_decoder";
 import { COST_MAX_USD, MODEL_RE, REQUEST_ID_MAX, REQUEST_IDS_PER_AGENT, ROLES, UUID_RE, WORKTREES_DIR } from "./policy.mjs";
@@ -345,9 +346,12 @@ const MCP_CONFIG_FILE_RE = /^\/[A-Za-z0-9._@+-]+(?:\/[A-Za-z0-9._@+-]+)*\.json$/
 export function buildClaudeArgs(options) {
   if (!isPlainObject(options)) throw new TypeError("buildClaudeArgs needs { sessionId, agent, model?, ticketFile?, wall?, worktree? }");
   for (const key of Object.keys(options)) {
-    if (!["sessionId", "resume", "agent", "model", "ticketFile", "wall", "worktree", "forbid", "writePaths", "readLimit", "denyAbs", "credentials", "connections", "mcpConfigFile"].includes(key)) throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
+    if (!["sessionId", "resume", "agent", "model", "ticketFile", "wall", "worktree", "forbid", "writePaths", "readLimit", "denyAbs", "credentials", "connections", "mcpConfigFile", "project"].includes(key)) throw new TypeError(`buildClaudeArgs: unknown option ${JSON.stringify(key)}`);
   }
-  const { sessionId, resume, agent, model, ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs, credentials, connections, mcpConfigFile } = options;
+  const { sessionId, resume, agent, model, ticketFile, wall, worktree, forbid, writePaths, readLimit, denyAbs, credentials, connections, mcpConfigFile, project } = options;
+  const target = project !== undefined && project.control === false;
+  if (project !== undefined && (!isPlainObject(project) || typeof project.control !== "boolean")) throw new TypeError("buildClaudeArgs: project must be { control: boolean, root, pluginDir? }");
+  if (target && !isWorktreePath(project.pluginDir)) throw new TypeError("buildClaudeArgs: a target project needs pluginDir, a plain absolute path");
   if (mcpConfigFile !== undefined && (typeof mcpConfigFile !== "string" || !MCP_CONFIG_FILE_RE.test(mcpConfigFile) || mcpConfigFile.split("/").some((p) => p === "." || p === ".."))) throw new TypeError("buildClaudeArgs: mcpConfigFile must be a plain absolute .json path");
   const inline = connections?.filter((c) => c.credential === undefined);
   if (connections !== undefined && !(isDense(connections) && connections.length > 0 && connections.length <= CONNECTIONS_MAX && connections.every(isConnectionTarget) && new Set(connections.map((c) => c.name)).size === connections.length)) throw new TypeError("buildClaudeArgs: connections must be catalog targets, each name once");
@@ -374,9 +378,11 @@ export function buildClaudeArgs(options) {
     "--permission-prompt-tool", "stdio",
     // den-mvp outcome 2: a follow-up continues the earlier session under the same id; everything else is built afresh.
     ...(resume === true ? ["--resume", sessionId] : ["--session-id", sessionId]),
-    "--agent", agent,
+    "--agent", target ? `den:${agent}` : agent,
     ...(model === undefined ? [] : ["--model", model]),
-    "--setting-sources", "project,local",
+    // den-mvp/48: a target project loads nothing from its own .claude/: no settings, and the den's genomes come in as a plugin.
+    "--setting-sources", target ? "" : "project,local",
+    ...(target ? ["--plugin-dir", project.pluginDir] : []),
     // den-mvp outcome 4: only what --mcp-config names is loaded, and it names only the catalog's connections for this role.
     "--strict-mcp-config",
     ...(inline === undefined || inline.length === 0 ? [] : ["--mcp-config", mcpConfigFor(inline)]),
@@ -647,4 +653,22 @@ export function encodeUserMessage({ text, id } = {}) {
   if (typeof text !== "string") throw new TypeError("encodeUserMessage: text must be a string");
   if (id !== undefined && (typeof id !== "string" || !UUID_RE.test(id))) throw new TypeError("encodeUserMessage: id must be a UUID");
   return oneLine({ type: "user", message: { role: "user", content: text }, ...(id === undefined ? {} : { uuid: id }) });
+}
+
+// ---- the project's guide (den-mvp/48) ---------------------------------------------------------
+/**
+ * The text of the project's CLAUDE.md, else AGENTS.md, as committed at the main checkout's HEAD. The worktree and any
+ * uncommitted edit are never read. `exec` is a test seam: (file, args) -> string, throwing when the path is not in HEAD.
+ * -> { file, text } or null.
+ */
+export function readProjectGuide(root, { exec = (file, args) => execFileSync(file, args, { encoding: "utf8", maxBuffer: 1 << 20, stdio: ["ignore", "pipe", "ignore"] }) } = {}) {
+  if (!isWorktreePath(root)) throw new TypeError("readProjectGuide: root must be a plain absolute path");
+  for (const file of ["CLAUDE.md", "AGENTS.md"]) {
+    try {
+      return { file, text: String(exec("git", ["-C", root, "show", `HEAD:${file}`])) };
+    } catch {
+      // not committed at HEAD
+    }
+  }
+  return null;
 }
