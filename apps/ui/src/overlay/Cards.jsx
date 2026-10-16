@@ -180,8 +180,9 @@ export function useDeliveries(client) {
   const deliver = useCallback((ref) => call(ref, () => client.deliver({ ref })), [call, client]);
   const deliverText = useCallback((text) => call("new", () => client.deliver({ text })), [call, client]);
   const steer = useCallback((id, action, options) => call(id, () => client.steerDelivery(id, action, options)), [call, client]);
+  const answerTicket = useCallback((ref, action, options) => call(`ticket:${ref}`, () => client.answerTicket(ref, action, options)), [call, client]);
   const runChecks = useCallback((pr) => call(`checks:${pr}`, () => client.runChecks({ pr })), [call, client]);
-  return useMemo(() => ({ inflight, results, deliver, deliverText, steer, runChecks }), [inflight, results, deliver, deliverText, steer, runChecks]);
+  return useMemo(() => ({ inflight, results, deliver, deliverText, steer, runChecks, answerTicket }), [inflight, results, deliver, deliverText, steer, runChecks, answerTicket]);
 }
 
 const idPart = (s) => String(s).replace(/[^A-Za-z0-9_-]/g, "-");
@@ -245,6 +246,28 @@ function CiNote({ request, steer, deliveries }) {
           </button>
         </div>
       ) : null}
+      {error ? <p className="small gate-error" role="alert">{error}</p> : null}
+    </div>
+  );
+}
+
+// den-mvp/13: a ticket waiting at ready-for-human. The text is in the card above; Decline needs the reason.
+function TicketDecision({ request, steer, deliveries }) {
+  const off = steer.demo ? "Demo mode: actions are off" : steer.state === "none" ? "Not signed in to steer" : null;
+  const key = `ticket:${request.ref}`;
+  const busy = deliveries.inflight.has(key);
+  const error = deliveries.results[key]?.error;
+  const [note, setNote] = useState("");
+  const noteId = `ticket-note-${idPart(request.ref)}`;
+  return (
+    <div aria-live="polite">
+      <label className="note-label" htmlFor={noteId}>To decline, say why</label>
+      <textarea id={noteId} className="note-field" rows={2} maxLength={500} value={note} disabled={!!off || busy} onChange={(e) => setNote(e.target.value)} />
+      <div className="decision-buttons">
+        <button type="button" className="btn btn-outline" aria-label={`Decline ${request.short}`} title={off ?? (note.trim() ? undefined : "Write why first")} disabled={!!off || busy || !note.trim()} onClick={() => deliveries.answerTicket(request.ref, "decline", { note })}>Decline</button>
+        <button type="button" className="btn btn-solid" aria-label={`Approve ${request.short}`} title={off ?? undefined} disabled={!!off || busy} aria-busy={busy || undefined} onClick={() => deliveries.answerTicket(request.ref, "approve")}>Approve</button>
+      </div>
+      {off ? <p className="small muted">{off}</p> : null}
       {error ? <p className="small gate-error" role="alert">{error}</p> : null}
     </div>
   );
@@ -523,6 +546,8 @@ export function NeedsYouCard({ snapshot, now, open, onToggle, busy, placeholder,
                 ? (deliveries ? <DeliveryDecision key={current.key} request={current} steer={steer} deliveries={deliveries} /> : null)
               : current.kind === "ci"
                 ? <CiNote key={current.key} request={current} steer={steer} deliveries={deliveries} />
+              : current.kind === "ticket"
+                ? (deliveries ? <TicketDecision key={current.key} request={current} steer={steer} deliveries={deliveries} /> : null)
               : current.kind === "meeting"
                 ? (meetings ? <MeetingDecision key={current.key} request={current} steer={steer} meetings={meetings} onOpenMeeting={onOpenMeeting} /> : null)
               : prompt.show

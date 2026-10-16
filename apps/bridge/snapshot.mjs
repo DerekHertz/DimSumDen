@@ -69,6 +69,8 @@ function parseTicket(md) {
   return { title, type, status, blockers, blockedReason, md };
 }
 
+const TICKET_TEXT_CAP = 6000;
+
 function capText(buf) {
   if (buf.length <= HANDOFF_CAP) return { text: buf.toString("utf8"), truncated: false };
   let end = HANDOFF_CAP;
@@ -207,6 +209,8 @@ export async function buildSnapshot(root, seq = 0, { readUsage = () => null } = 
       request: req ? { id: req.id, kind: req.kind, ts: req.ts } : null,
       handoff: await newestHandoff(scratch, t.feature, t.nn),
     };
+    // den-mvp/13: the ticket's own text, only while it waits on the user, so Needs you can show it before Approve.
+    if (t.status === "ready-for-human") row.text = t.md.slice(0, TICKET_TEXT_CAP);
     tickets.push(row);
     if (ready && !holder) candidates.push({ ref: t.ref, priority, readySince });
   }

@@ -58,3 +58,11 @@ describe("POST /tickets/decline", () => {
     assert.equal((await post("/tickets/decline", { ref: `${FEATURE}/08-plain`, note: "no" })).status, 409);
   });
 });
+
+describe("the ticket text for Needs you", () => {
+  test("a ready-for-human ticket carries its text in /state; one at another status does not", async () => {
+    const byRef = new Map((await send(bridge, { path: "/state" })).body.tickets.map((t) => [t.ref, t]));
+    assert.match(byRef.get(HUMAN).text, /06: Human/);
+    assert.equal(byRef.get(`${FEATURE}/08-plain`).text, undefined);
+  });
+});
