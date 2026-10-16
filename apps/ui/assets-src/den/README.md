@@ -15,7 +15,17 @@ scene code. The rejected whole-panda Security generation and old hats are not
 included. The detailed generated structures are retained in the original
 artifact and the provenance catalog with `runtime: false`; the packager skips
 them. Library, gate, kiosks, raised entrances, bamboo bridge and furniture are
-now authored in `stylized-structures.mjs` with soft colors and consistent scale.
+now authored in `stylized-structures.mjs` and `crafted-architecture.mjs` with the
+approved handcrafted-miniature detail: curved tiles, rounded timber, lattice
+openings, lanterns and furnished interiors at consistent walking scale.
+
+`role-outfits.mjs` applies the approved fourteen role assignments using shared
+fitted vest/scarf geometry, per-role tint materials, and seven selected local
+headwear pieces. Developer retains headphones. The Release Manager wears a
+narrow forehead wrap with a compact knot. Visitors clone their resident's outfit.
+`render-role-portraits.mjs` uses that same outfit factory for fourteen cached
+512px WebP portraits (about 315 KiB total), including the original role tools.
+The profile panel uses ordinary images and creates no additional WebGL canvases.
 
 `sources.json` is an offline provenance catalog relative to the original
 artifact folder. `pack-audit.json` records source hashes, image resizing and

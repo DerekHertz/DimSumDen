@@ -5,6 +5,7 @@ import { addPerimeterBamboo } from './perimeter-bamboo.mjs';
 import { loadForestUpgrades } from './forest-upgrades.mjs';
 import { buildRoleWorkspaces } from './role-workspaces.mjs';
 import { loadRoleWardrobe } from './role-wardrobe.mjs';
+import { completeRoleOutfits } from './role-outfits.mjs';
 import { loadManifest,loadModel,fit,disposeWorld } from './assets.mjs';
 import { buildWalkWorld } from './collisions.mjs';
 import { NAVIGATION_TARGETS,WALK_START } from './layout.mjs';
@@ -65,6 +66,7 @@ export async function createMeshyWorld(renderer,{signal,onProgress=()=>{}}={}){
   const urls=Object.fromEntries(['developer-vest','developer-headphones','developer-boba','developer-tablet','qa-scarf'].map(id=>[id,den.assets['wardrobe.'+id].url]));urls['security-vest']=urls['developer-vest'];
   const wardrobe=await loadRoleWardrobe(den,{urls});assertActive(signal);
   if(wardrobe.failed.length||wardrobe.missing.length||wardrobe.loaded.length!==Object.keys(urls).length)throw Error('The required role wardrobe did not all load.');
+  completeRoleOutfits(den);assertActive(signal);
   for(const [id,space]of den.roleWorkspaces.workspaces){space.group.userData.workspaceRole=id;if(space.person)space.person.userData.actorKey=id;if(space.prop)space.prop.userData.workspaceRole=id;}
   den.zones.get('library').userData.denInteraction={zone:'archive',intent:'open-library',id:'archive.library'};
   den.zones.get('library').name='Library · shared knowledge';

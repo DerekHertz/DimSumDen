@@ -142,7 +142,7 @@ test("the native garden builds procedural structures and loads local Bao, wardro
   const { context, page, errors, loaded, modelResponses } = await openGarden();
   try {
     await ready(page);
-    const native = ['/src/scene/meshy/MeshyDen.jsx', '/src/scene/meshy/world.mjs', '/src/scene/meshy/actors.mjs', '/src/scene/meshy/stylized-structures.mjs'];
+    const native = ['/src/scene/meshy/MeshyDen.jsx', '/src/scene/meshy/world.mjs', '/src/scene/meshy/actors.mjs', '/src/scene/meshy/stylized-structures.mjs', '/src/scene/meshy/role-outfits.mjs', '/src/scene/meshy/role-headwear.mjs'];
     assert.deepEqual(native.filter(path => !loaded.includes(path)), [], 'the native Meshy world is loaded');
     assert.ok(!loaded.includes('/src/scene/procedural/RestaurantDen.jsx'), 'old procedural scene is not mounted');
     assert.equal(await page.locator('iframe').count(), 0, 'no embedded preview server');
@@ -294,6 +294,11 @@ test("portrait profiles keep real work and visitor identities, and route explici
     assert.equal(await portraits.getByRole('button').count(), 14);
     assert.equal(await portraits.locator('img').count(), 14, 'each resident has a portrait image');
     await page.waitForFunction(() => [...document.querySelectorAll('.forest-portrait-choice img')].every(image => image.complete && image.naturalWidth > 0));
+    const roleIds = ['orchestrator', 'product', 'architect', 'developer', 'scout', 'debugger', 'qa', 'security', 'designer', 'herald', 'release-manager', 'knowledge-keeper', 'docs-writer', 'stem-cub'];
+    const portraitPaths = await portraits.locator('img').evaluateAll(images => images.map(image => new URL(image.currentSrc).pathname));
+    assert.equal(new Set(portraitPaths).size, 14, 'each role uses its own cached dressed-Bao portrait');
+    assert.deepEqual(portraitPaths.toSorted(), roleIds.map(role => `/den/portraits/${role}.webp`).toSorted());
+    assert.ok(portraitPaths.includes('/den/portraits/release-manager.webp'), 'the corrected Release Manager wrap has its own portrait');
     await portraits.getByRole('button', { name: /^The Maker,/ }).click();
     assert.equal(await profiles.getByRole('heading', { name: 'The Maker', exact: true }).isVisible(), true);
     assert.equal(await page.getByRole('region', { name: 'Selected panda' }).count(), 0, 'portrait selection does not open the scene card');

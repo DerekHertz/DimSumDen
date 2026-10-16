@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {createModelLoader} from './assets.mjs';
-import {materials, box, cyl, bake} from './garden.mjs';
+import {craftedPalette as materials,box,cyl,bakeCrafted as bake} from './crafted-architecture.mjs';
 import {previewTextures} from './assets.mjs';
 
 // Personal furniture stays in the existing station grounds; these are not new buildings.
@@ -114,7 +114,6 @@ export async function buildRoleWorkspaces(den){
   if(den.roleWorkspaces)return den.roleWorkspaces;
   const manifest={props:den.propManifest};
   const m=materials(),loader=createModelLoader(),group=new T.Group(),workspaces=new Map(),records=[],anchors={};
-  m.wood.color.set('#bc9262');m.darkwood.color.set('#806144');m.bamboo.color.set('#d5b779');
   group.name='Personal workspaces · fourteen residents';den.world.add(group);
   const result={group,workspaces,records,anchors,propsLoadedCount:0,propsLoaded:0,errors:[]};den.roleWorkspaces=result;
   for(const source of manifest.props){

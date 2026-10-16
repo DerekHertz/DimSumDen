@@ -10,7 +10,7 @@ const BADGES = {
 
 function Portrait({ row, large = false }) {
   return <span className={`forest-portrait${large ? ' forest-portrait-large' : ''}`} data-role={row.role} aria-hidden="true">
-    <img src="/den/portraits/bao.png" alt="" width="600" height="600" />
+    <img src={`/den/portraits/${Object.hasOwn(BADGES,row.role)?row.role:'orchestrator'}.webp`} alt="" width="512" height="512" />
     <span className="forest-portrait-badge">{BADGES[row.role]}</span>
   </span>;
 }
