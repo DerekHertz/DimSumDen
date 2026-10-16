@@ -170,8 +170,12 @@ async function main() {
         for (const el of document.querySelectorAll(".chip-layer .station-label")) {
           if (getComputedStyle(el).visibility === "visible") signs[el.textContent.trim()] = rel(el);
         }
+        const chips = {};
+        for (const el of document.querySelectorAll(".chip-layer .chip[data-ref]")) {
+          if (getComputedStyle(el).visibility === "visible") chips[el.dataset.ref] = rel(el);
+        }
         const tally = document.querySelector(".chip-layer .chip-tally");
-        return { width: scene.width, height: scene.height, signs, tally: tally ? rel(tally) : null };
+        return { width: scene.width, height: scene.height, signs, chips, tally: tally ? rel(tally) : null };
       });
     const settle = async (predicate, what) => {
       const deadline = Date.now() + 6000;
@@ -258,7 +262,8 @@ async function main() {
       await page.waitForTimeout(800); // the diorama's easing has finished
       const enter = page.getByRole("button", { name: "Enter the den" });
       await page.waitForFunction(() => !document.querySelector(".den-entry button")?.hasAttribute("aria-disabled"), null, { timeout: 15000 });
-      const round = (p) => Object.fromEntries(Object.entries(p.signs).map(([n, r]) => [n, [Math.round(r.x), Math.round(r.y)]]));
+      // Signs and chips both: at real frame rates (PW_GPU=1) the station signs leave the walker's view within a second.
+      const round = (p) => Object.fromEntries(Object.entries({ ...p.signs, ...p.chips }).map(([n, r]) => [n, [Math.round(r.x), Math.round(r.y)]]));
       const before = await sceneProbe();
       await enter.click();
       await page.waitForSelector(".den-crosshair:not([hidden])", { timeout: 5000 });
