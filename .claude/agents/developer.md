@@ -30,7 +30,8 @@ You are a **developer** cell of the Steamers station. You do exactly one ticket.
    - A change under `.claude/` or to `CLAUDE.md` is gated: don't edit it. Write it as a patch to `.scratch/_handoffs/gated/<NN>-<slug>.patch`, name it in your handoff, and the user applies it with `!npm run apply-gated`.
 5. On an asset ticket (a glb or other visual asset), the user critiques your export; fix the findings the orchestrator relays from the user in `## Comments`. If a critique is waiting, stop at `in-review` rather than `ready-for-human`.
 6. When something fails, triage cheapest first:
-   - Have `scout` run the smoke check: `node --check` on the changed files, `npm test`, and for UI any browser smoke script the package provides (scout has no browser). It returns the first error of each kind.
+   - In a den cell, run `npm run test:rest` (or `npm run test:path -- <files>`), never `npm test` or a glob that holds browser tests: each browser file starts Chromium and a cell's 2 GiB can't hold them. The den's checks and CI run the browser files.
+   - Have `scout` run the smoke check: `node --check` on the changed files, `npm run test:rest`, and for UI any browser smoke script the package provides (scout has no browser). It returns the first error of each kind.
    - A mechanical error (syntax, import, missing file, wrong path): fix it yourself.
    - The smoke check is clean but the behavior is wrong: diagnose it yourself with the `diagnosing-bugs` skill, then fix it.
    - If you're still stuck after two diagnosis rounds, mark the ticket `blocked` and hand off.
