@@ -4,6 +4,29 @@
 // run's last message, releases, pushes and opens the pull request. A reviewer's verdict is one line of that message.
 export const VERDICT_RE = /^[ \t>*_`-]*VERDICT:[ \t]*(pass|bounce)\b[ \t*_`.]*$/gim;
 
+// den-mvp: what the user should look at on a preview. A developer report ends with a `Look at:` line and a list under it.
+const LOOK_AT_RE = /^[ \t>*_`#-]*look at[ \t*_`]*:[ \t*_`]*(.*)$/im;
+const LOOK_AT_MAX = 6; // items
+const LOOK_AT_ITEM_MAX = 200; // characters of one item
+
+/** The items of a report's last `Look at:` list, each one line of plain text; [] when there is none. */
+export function readLookAt(report) {
+  if (typeof report !== "string") return [];
+  const lines = report.split(/\r?\n/);
+  let at = -1;
+  lines.forEach((l, i) => { if (LOOK_AT_RE.test(l)) at = i; });
+  if (at < 0) return [];
+  const items = [];
+  const first = LOOK_AT_RE.exec(lines[at])[1].trim();
+  if (first) items.push(first);
+  for (const l of lines.slice(at + 1)) {
+    const m = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]+(.+)$/.exec(l);
+    if (m) items.push(m[1].trim());
+    else if (l.trim() !== "" || items.length > (first ? 1 : 0)) break; // a blank line between the label and the list is fine
+  }
+  return items.slice(0, LOOK_AT_MAX).map((s) => s.replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩]/g, " ").slice(0, LOOK_AT_ITEM_MAX)).filter((s) => s.trim());
+}
+
 /** The last verdict line of a report, or null. */
 export function readVerdict(report) {
   if (typeof report !== "string") return null;
@@ -35,7 +58,8 @@ export function deliveryPrompt({ role, mode, ref, ticketFile, since, fix = false
       head +
       (fix ? "A review of the last commit asked for changes: read .den/findings.md first, and fix what it names. " : "") +
       "Work test-first in this worktree, run the checks that cover your change (the full suite runs on the pull request), and commit your work here: the bridge publishes the branch from your last commit, and a run that commits nothing delivers nothing. " +
-      "End with a short report of what you changed and which checks you ran and what they showed: that last message is your handoff."
+      "End with a short report of what you changed and which checks you ran and what they showed: that last message is your handoff. " +
+      "If the change alters what the den looks like, end the report with a `Look at:` line and a list under it: for each visible change, one line saying where in the den to find it and what should look different. The user reads that list beside the preview."
     );
   }
   const scope = role === "security" ? "for security: what it lets an agent, a request or untrusted text do that it could not do before" : "against the ticket's acceptance criteria, independently of the developer's own report";

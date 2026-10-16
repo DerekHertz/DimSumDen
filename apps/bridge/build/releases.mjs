@@ -114,7 +114,7 @@ export async function readBuild(stateDir) {
   const record = await readLive(stateDir);
   const mine = record?.sha === current.build.sha ? record : null;
   return {
-    live: { sha: current.build.sha, at: mine?.at ?? stamp(current.build.builtAt) },
+    live: { sha: current.build.sha, at: mine?.at ?? stamp(current.build.builtAt), ...(current.build.tag ? { tag: current.build.tag } : {}) },
     previous: previous ? { sha: previous.build.sha } : null,
     rolledBack: mine?.rolledBack ?? null,
   };
@@ -212,12 +212,16 @@ export function createReleases({ stateDir, repo, box, npm = npmCi, main = "main"
     return { lock, packages };
   }
 
-  async function build(sha, signal) {
+  async function build(sha, signal, tag) {
     const id = sha.slice(0, 12);
     const dir = path.join(releasesDir, id);
     const have = await completeRelease(stateDir, id);
     if (have) {
       if (have.build.sha !== sha) throw new ReleaseError("conflict", `release ${id} is already made from a different commit`);
+      if (tag && have.build.tag !== tag) { // the same commit, now released under a tag: record it
+        have.build.tag = tag;
+        await writeFile(path.join(dir, BUILD), `${JSON.stringify(have.build)}\n`);
+      }
       return { id, dir, ...have.build };
     }
     await onMain(sha);
@@ -231,7 +235,7 @@ export function createReleases({ stateDir, repo, box, npm = npmCi, main = "main"
       await archive(repo, sha, dir);
       const out = await box.build({ folder: dir, packages, signal });
       if (!out.ok) throw new ReleaseError("build", out.reason ?? "the build failed");
-      const record = { sha, builtAt: new Date().toISOString(), lock };
+      const record = { sha, builtAt: new Date().toISOString(), lock, ...(tag ? { tag } : {}) };
       await writeFile(path.join(dir, BUILD), `${JSON.stringify(record)}\n`);
       await unlink(path.join(dir, MAKING));
       return { id, dir, ...record };
@@ -242,10 +246,10 @@ export function createReleases({ stateDir, repo, box, npm = npmCi, main = "main"
   }
 
   /** Makes the release of one commit of `main`, built in the box. Idempotent. Throws a ReleaseError. -> { id, dir, sha, builtAt, lock } */
-  function makeRelease(sha, { signal } = {}) {
+  function makeRelease(sha, { signal, tag } = {}) {
     checkSha(sha);
     const id = sha.slice(0, 12);
-    if (!inflight.has(id)) inflight.set(id, build(sha, signal).finally(() => inflight.delete(id)));
+    if (!inflight.has(id)) inflight.set(id, build(sha, signal, tag).finally(() => inflight.delete(id)));
     return inflight.get(id);
   }
 

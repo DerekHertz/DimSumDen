@@ -21,7 +21,7 @@ import { hasSecret } from "../../../scripts/exposure.mjs";
 import { REF_RE } from "../cells/policy.mjs";
 import { JOB_ID_RE } from "./jobs.mjs";
 import { DELIVERABLE_TYPES, VISUAL_TYPES, isCiPath, isUiPath, isUserMergePath, nextStep } from "./plan.mjs";
-import { readVerdict } from "./prompts.mjs";
+import { readLookAt, readVerdict } from "./prompts.mjs";
 import { classify } from "./ci-watch.mjs";
 
 const CI_RERUN_LOOKS = 20; // with ciWaitMs at 15 s, five minutes for the re-run's jobs to show
@@ -97,6 +97,7 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
       // den-mvp/10: does the candidate change the den's UI, its open preview, the user's
       // verdict on this commit, how often they declined, and the release that went live for it.
       ui: risk?.ui === true, preview: previewOf(j), verdict: now(j.evidence.verdict) ? (now(j.evidence.verdict).ok ? "approved" : "declined") : null,
+      lookAt: j.candidate && j.lookAt?.sha === j.candidate.sha ? [...j.lookAt.items] : [],
       declines: j.declines ?? 0, release: now(j.evidence.live)?.state === "live" ? now(j.evidence.live).release : null,
     };
   };
@@ -289,6 +290,8 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     if (role === "developer") {
       if (run.sha === run.startSha) return giveUp("no-commit", "the developer committed nothing", "Read its report in the thread, then Resume to run it again or close the delivery.");
       job.candidate = { sha: run.sha, runId };
+      // What the user should look at on this commit's preview, from the developer's report; a line that looks secret is masked.
+      job.lookAt = { sha: run.sha, items: readLookAt(run.report).map((s) => (hasSecret(s) ? "[masked: possible secret]" : s)) };
       await build?.close(job.id, { remove: true }).catch(() => {}); // a new commit: a preview of the last one is gone
       job.branch ??= run.branch; // the first developer run names the branch; a fix round moves it forward
       job.findings = null;

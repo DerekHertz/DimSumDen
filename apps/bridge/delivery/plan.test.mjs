@@ -8,7 +8,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { nextStep, isCiPath, isUserMergePath, MAX_BOUNCES } from "./plan.mjs";
-import { deliveryPrompt, readVerdict } from "./prompts.mjs";
+import { deliveryPrompt, readLookAt, readVerdict } from "./prompts.mjs";
 import { createJobLog, validateJob } from "./jobs.mjs";
 import { createGitHost } from "./git-host.mjs";
 
@@ -155,6 +155,17 @@ describe("a reviewer's verdict and the step prompts", () => {
     assert.equal(readVerdict("I would say the verdict: pass is likely"), null);
     assert.equal(readVerdict("VERDICT: maybe"), null);
     assert.equal(readVerdict(null), null);
+  });
+
+  test("readLookAt reads the last Look at list of a report, as plain one-line items", () => {
+    assert.deepEqual(readLookAt("Done.\n\n**Look at:**\n\n- the Needs you card: a note box\n2. Esc closes it\n\nChecks: pass"), ["the Needs you card: a note box", "Esc closes it"]);
+    assert.deepEqual(readLookAt("Look at: the logo pill only"), ["the logo pill only"]);
+    assert.deepEqual(readLookAt("Look at:\n- old\n\nLook at:\n- new"), ["new"]);
+    assert.deepEqual(readLookAt("No list here."), []);
+    assert.deepEqual(readLookAt(null), []);
+    assert.equal(readLookAt("Look at:\n" + "- x\n".repeat(9)).length, 6);
+    assert.deepEqual(readLookAt("Look at:\n- a\u202eb\u0007c"), ["a b c"]);
+    assert.match(deliveryPrompt({ role: "developer", ref: "fx/08-plain", ticketFile: "/t.md", since: BASE }), /end the report with a `Look at:` line/);
   });
 
   test("a prompt names the ticket file and the commit, tells the agent the bridge does the board and the push, and asks a reviewer for a verdict line", () => {
