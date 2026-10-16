@@ -554,6 +554,9 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     job.uncertain = null;
     job.evidence.pr = job.evidence.ci = null;
     if (job.evidence.tests?.state === "error") job.evidence.tests = null; // a run the box could not make is tried again
+    // A red the developer found nothing to fix in (it committed nothing) may have been the environment's: Resume runs the
+    // checks again on the same commit instead of sending the developer back to the same red.
+    if (job.pause.kind === "no-commit" && job.evidence.tests?.state === "red" && job.evidence.tests.sha === job.candidate?.sha) job.evidence.tests = null;
     if (job.evidence.live?.state !== "live") job.evidence.live = null; // a go-live that did not finish is tried again
     job.state = "running";
     job.pause = null;

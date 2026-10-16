@@ -620,6 +620,24 @@ describe("den-mvp/34: the checks run here before anything is pushed", () => {
     assert.equal(checks.calls.length, 2);
   });
 
+  // A red that was the environment's (den-mvp/13, 2026-10-16: stale packages in the box) leaves the developer nothing to
+  // fix, so it commits nothing and the delivery waits. Resume runs the checks again on the same commit, not the developer.
+  test("after a red the developer found nothing to fix in, Resume runs the checks again on the same commit", async () => {
+    const { t, checks } = await withChecks();
+    checks.next = ({ sha }) => checks.record(sha, "red", { reason: "test-browser: timed out after 15 minutes" });
+    await t.start();
+    await t.toQaPass();
+    await t.work(await t.spawn(2), { say: "The failures are not in this change; nothing to fix." });
+    const waiting = await t.paused("no-commit");
+    const spawns = t.fake.spawns.length;
+    checks.next = null;
+    assert.equal((await t.post(`/deliveries/${waiting.id}/resume`)).status, 202);
+    await t.when((j) => j.state === "merged", "the delivery to merge");
+    assert.equal(checks.calls.length, 2, "the checks ran again");
+    assert.equal(checks.calls[1].sha, checks.calls[0].sha, "on the same commit");
+    assert.equal(t.fake.spawns.length, spawns, "no developer round");
+  });
+
   test("Stop ends a local run that is under way", async () => {
     const { t, checks } = await withChecks();
     let release;
