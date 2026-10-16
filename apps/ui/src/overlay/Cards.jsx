@@ -1,6 +1,7 @@
 // The floating cards over the scene (den-scene-v1/07, digest 2026-10-01-iso-den.md section 4): the logo pill top-left,
 // and on the right a Needs you card and a Stations & queue card, each collapsible from its header.
 // Agent text (ticket titles) is untrusted: everything renders as React text nodes, never as HTML.
+import { QueueButton, QueueDrawer } from "./QueueDrawer.jsx";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { noteCounter, submitGate } from "../panel/gates-model.mjs";
 import { DemoBadge } from "../demo/DemoControls.jsx";
@@ -648,7 +649,7 @@ export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZo
  * The right-hand column. Needs you opens by itself while something waits, until the user toggles it; Stations & queue,
  * Meetings and Library start closed. Under 600 px all start closed and opening one closes the others.
  */
-export function Cards({ snapshot, ownBuild = null, now, connection, placeholder, camera, steering, onAnswer, onOpenThread = null, demo = false, libraryRequest = 0 }) {
+export function Cards({ snapshot, ownBuild = null, now, connection, placeholder, camera, steering, onAnswer, onOpenThread = null, onOpenTicket = null, demo = false, libraryRequest = 0 }) {
   const [needsOpen, setNeedsOpen] = useState(null); // null: follow the data
   const [stationsOpen, setStationsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -667,6 +668,17 @@ export function Cards({ snapshot, ownBuild = null, now, connection, placeholder,
   const capacity = capacityFromSnapshot(snapshot);
   const steer = { state: steering.state, demo };
 
+  // den-mvp/62: the Queue drawer, over the scene and this column. A ticket row uses the same Run and Deliver controls as
+  // Stations & queue; a Needs-you row opens the Needs you card, where acting stays.
+  const [queueOpen, setQueueOpen] = useState(false);
+  const queueButton = useRef(null);
+  const closeQueue = () => { setQueueOpen(false); queueButton.current?.focus({ preventScroll: true }); };
+  const queueControls = (ticket) => (
+    <>
+      {run ? <RunControl scope="queue" ticket={ticket} capacity={capacity} steer={steer} run={run} /> : null}
+      {deliveries ? <DeliverControl scope="queue" ticket={ticket} snapshot={snapshot} steer={steer} deliveries={deliveries} /> : null}
+    </>
+  );
   const toggleNeeds = () => {
     setNeedsOpen(!needs);
     if (!needs && isPhone()) { setStationsOpen(false); setLibraryOpen(false); setMeetingsOpen(false); }
@@ -696,6 +708,8 @@ export function Cards({ snapshot, ownBuild = null, now, connection, placeholder,
     if (isPhone()) { setNeedsOpen(false); setStationsOpen(false); setLibraryOpen(false); }
   };
   return (
+    <>
+    <QueueButton count={waiting} open={queueOpen} onToggle={() => (queueOpen ? closeQueue() : setQueueOpen(true))} buttonRef={queueButton} />
     <div className="cards">
       {steering.message ? <p className="small muted session-none" data-session="none" role="status">{steering.message}</p> : null}
       <BuildStatus snapshot={snapshot} ownBuild={ownBuild} steer={steer} client={client} />
@@ -704,5 +718,9 @@ export function Cards({ snapshot, ownBuild = null, now, connection, placeholder,
       <MeetingsCard client={client} snapshot={snapshot} open={meetingsOpen} onToggle={toggleMeetings} busy={busy} steer={steer} meetings={meetings} shown={shownMeeting} onShow={setShownMeeting} />
       <LibraryCard client={reader} rev={snapshot?.libraryRev ?? 0} now={now} open={libraryOpen} onToggle={toggleLibrary} busy={busy} demo={demo} />
     </div>
+    <QueueDrawer snapshot={snapshot} now={now} open={queueOpen} onClose={closeQueue}
+      onOpenNeeds={() => { setQueueOpen(false); setNeedsOpen(true); }}
+      onOpenTicket={onOpenTicket ? (ref) => { setQueueOpen(false); onOpenTicket(ref); } : null} controls={queueControls} />
+    </>
   );
 }

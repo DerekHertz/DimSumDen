@@ -219,7 +219,7 @@ export function App() {
       <DemoButton ref={demoButton} state={denDemo} onToggle={denDemoMode.toggle} />
       {denDemo.active ? <DemoStrip loops={denDemo.loops} /> : null}
       <DemoAnnouncer text={denDemo.announcement} />
-      <Cards snapshot={snapshot} ownBuild={inDemo ? null : live.ownBuild} now={now} connection={connection} placeholder={placeholder} camera={camera} steering={steering} onAnswer={inDemo ? null : answerRequest} onOpenThread={inDemo ? null : openThread} demo={inDemo} libraryRequest={libraryRequest} />
+      <Cards snapshot={snapshot} ownBuild={inDemo ? null : live.ownBuild} now={now} connection={connection} placeholder={placeholder} camera={camera} steering={steering} onAnswer={inDemo ? null : answerRequest} onOpenThread={inDemo ? null : openThread} onOpenTicket={selectTicket} demo={inDemo} libraryRequest={libraryRequest} />
       <div className="den-entry">
         <button type="button" className="btn btn-solid" aria-pressed={exploring} aria-disabled={!den || undefined}
           onClick={()=>{if(stage.explorer?.active)stage.explorer.exit();else stage.explorer?.enter();}}>
