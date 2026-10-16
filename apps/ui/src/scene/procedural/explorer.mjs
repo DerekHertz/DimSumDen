@@ -5,7 +5,7 @@ export { isDenPositionBlocked };
 export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=()=>{},onHint=()=>{},onCursorChange=()=>{}}) {
   const camera=new THREE.PerspectiveCamera(66,1,0.045,160);
   const keys=new Set(),listeners=[];
-  let active=false,state=startWalk(),look={dx:0,dy:0},drag=null,wasLocked=false,freeCursorRequested=false;
+  let active=false,state=startWalk(den.walkStart),look={dx:0,dy:0},drag=null,wasLocked=false,freeCursorRequested=false;
   function listen(target,event,callback,options){
     target.addEventListener(event,callback,options);
     listeners.push(()=>target.removeEventListener(event,callback,options));
@@ -27,7 +27,7 @@ export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=(
   }
   function enter(){
     if(active)return;
-    active=true;freeCursorRequested=false;keys.clear();look={dx:0,dy:0};state=startWalk();
+    active=true;freeCursorRequested=false;keys.clear();look={dx:0,dy:0};state=startWalk(den.walkStart);
     place();orbitControls.enabled=false;
     onModeChange(true);fallback();capture();
   }
@@ -76,7 +76,7 @@ export function createDenExplorer(THREE,{canvas,orbitControls,den,onModeChange=(
   listen(canvas,'pointerup',endDrag);listen(canvas,'pointercancel',endDrag);listen(canvas,'lostpointercapture',endDrag);
   listen(canvas,'dblclick',()=>{if(active)capture();});
   // den.obstacles holds the mounted zones (pond, repair bench, archive); the site plan adds the village's buildings and props.
-  function world(){return {obstacles:[...den.obstacles,...REVIEW_OBSTACLES],avoid:[]};}
+  function world(){return den.walkWorld ? {...den.walkWorld,avoid:den.walkAvoid?.()||[]} : {obstacles:[...den.obstacles,...REVIEW_OBSTACLES],avoid:[]};}
   const blocked=(x,z)=>isWalkBlocked(x,z,world());
   function update(delta){
     if(!active||freeCursorRequested)return;
