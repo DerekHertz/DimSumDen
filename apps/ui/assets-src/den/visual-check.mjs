@@ -54,6 +54,10 @@ try{
   // poll from a timer so the assertion does not pause with that frame.
   await page.waitForFunction(()=>window.__freezeFixture,null,{timeout:30000,polling:100});
   await page.screenshot({path:path.join(output,`forest-${name}-fixture.png`),fullPage:true,timeout:30000});
+  await page.getByRole('button',{name:/^Queue/}).click();
+  await page.locator('.queue-drawer[data-open="true"]').waitFor({state:'visible'});
+  await page.screenshot({path:path.join(output,`forest-${name}-queue.png`),fullPage:true,timeout:30000});
+  await page.getByRole('button',{name:'Close the queue',exact:true}).click();
   await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Pandas',exact:true}).click();
   await page.locator('.forest-profile').waitFor({state:'visible'});
   await page.screenshot({path:path.join(output,`forest-${name}-profiles.png`),fullPage:true,timeout:30000});

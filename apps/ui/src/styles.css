@@ -426,3 +426,53 @@ button.pill-station:hover { background: var(--surface-300); }
 .meeting-option .btn { flex: none; white-space: nowrap; }
 .meeting-take summary { cursor: pointer; padding: 4px 0; }
 .meeting-ask { display: flex; flex-direction: column; gap: var(--space-1); }
+
+/* den-mvp/62: the Queue button and drawer (spec .scratch/den-mvp/handoffs/62-designer-spec.md). */
+.queue-button { position: absolute; z-index: 3; top: 16px; right: calc(16px + min(320px, calc(100vw - 32px)) + 10px); display: inline-flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 var(--space-3); border: 2px solid var(--line-strong); border-radius: var(--radius-full); background: var(--surface-200); color: var(--ink); font: 700 13px/18px var(--font-sans); box-shadow: var(--shadow-panel); cursor: pointer; }
+.queue-button:focus-visible, .queue-goal-head:focus-visible, .queue-ticket-row:focus-visible, .queue-need:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.queue-badge { min-width: 22px; padding: 0 6px; border-radius: var(--radius-full); background: var(--surface-300); color: var(--ink-muted); font: 700 12px/20px var(--font-sans); text-align: center; }
+.queue-badge-on { background: var(--lantern-fill); color: var(--on-lantern); }
+.queue-drawer { position: absolute; z-index: 5; top: 0; right: 0; height: 100%; width: min(520px, 100vw); display: flex; flex-direction: column; background: var(--surface-100); color: var(--ink); border-left: 1px solid var(--line); box-shadow: var(--shadow-panel); transform: translateX(0); transition: transform var(--dur-base) var(--ease-soft); }
+.queue-drawer[data-open="false"] { transform: translateX(105%); box-shadow: none; }
+@media (prefers-reduced-motion: reduce) { .queue-drawer { transition: none; } }
+.queue-head { flex: none; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--line); }
+.queue-head h2 { flex: 1; margin: 0; font: 30px/1 var(--font-display); outline: none; }
+.queue-meta { font: 12px/16px var(--font-mono); color: var(--ink-faint); }
+.queue-close { flex: none; }
+.queue-body { flex: 1; min-height: 0; overflow: auto; padding: var(--space-3) var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); }
+.queue-needs, .queue-tickets ul { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.queue-need { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--lantern-fill); border-radius: var(--radius-m); background: var(--surface-200); }
+.queue-need-kind { flex: none; padding: 2px 6px; border-radius: var(--radius-s); background: var(--lantern-fill); color: var(--on-lantern); font: 700 11px/14px var(--font-mono); }
+.queue-need-text { min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-alarm { margin: var(--space-2) 0 0; color: var(--alarm); }
+.queue-goals { margin-top: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2); }
+.queue-goal { border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--surface-200); }
+.queue-goal-head { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 6px var(--space-3); padding: var(--space-3); }
+.queue-goal-name { font-weight: 800; }
+.queue-goal-count { font: 12px/18px var(--font-mono); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.queue-goal-why { grid-column: 1 / 3; font-size: 12px; color: var(--ink-muted); }
+.queue-bar { grid-column: 1 / 3; display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--surface-300); }
+.queue-bar > span { display: block; }
+.queue-bar-review { background: var(--station-pantry); }
+.queue-bar-ready { background: var(--qi); }
+.queue-bar-you { background: var(--lantern-fill); }
+.queue-bar-waiting { background: var(--ink-faint); }
+.queue-tickets { padding: 0 var(--space-2) var(--space-3); }
+.queue-next { margin: 0 var(--space-1); padding: 6px var(--space-2); border-radius: var(--radius-s); background: var(--surface-100); }
+.queue-next b { color: var(--qi); }
+.queue-ticket { margin-left: calc(var(--depth, 0) * 16px); border-left: 3px solid var(--line); border-radius: var(--radius-s); }
+.queue-ticket-row { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px var(--space-2); align-items: center; padding: 6px var(--space-2); }
+.queue-ticket-row:hover { background: var(--surface-100); }
+.queue-ticket-ref { font: 12px/16px var(--font-mono); color: var(--ink-faint); }
+.queue-ticket-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-state { padding: 2px 6px; border-radius: var(--radius-full); font: 600 11px/14px var(--font-mono); white-space: nowrap; background: var(--surface-300); color: var(--ink-muted); }
+.queue-waits { grid-column: 2 / 4; font: 11px/14px var(--font-mono); color: var(--ink-faint); }
+.queue-ticket-actions { display: flex; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
+.queue-ready { border-left-color: var(--qi); }
+.queue-ready .queue-state { color: var(--qi); background: var(--surface-100); border: 1px solid var(--qi); }
+.queue-review { border-left-color: var(--station-pantry); }
+.queue-review .queue-state { color: var(--station-pantry); background: var(--station-pantry-zone); }
+.queue-you { border-left-color: var(--lantern-fill); }
+.queue-you .queue-state { background: var(--lantern-fill); color: var(--on-lantern); }
+.queue-waiting { border-left-color: var(--ink-faint); }
+@media (max-width: 600px) { .queue-button { right: 16px; top: auto; bottom: 104px; } .queue-drawer { width: 100vw; } .queue-ticket { margin-left: calc(min(var(--depth, 0), 1) * 12px); } }

@@ -307,7 +307,7 @@ export function App() {
           <div className="forest-desk-home" hidden={detailOpen}>
             <header className="forest-desk-heading"><p className="forest-eyebrow">A LITTLE SPACE TO FOCUS</p><h2>{deskTitles[deskSection] ?? 'Your desk.'}</h2></header>
             <div hidden={deskSection === 'pandas'}>
-              <Cards snapshot={snapshot} ownBuild={inDemo ? null : live.ownBuild} now={now} connection={connection} placeholder={placeholder} camera={camera} steering={steering} onAnswer={inDemo ? null : answerRequest} onOpenThread={inDemo ? null : openThread} demo={inDemo} libraryRequest={libraryRequest} focusRequest={focusRequest} />
+              <Cards snapshot={snapshot} ownBuild={inDemo ? null : live.ownBuild} now={now} connection={connection} placeholder={placeholder} camera={camera} steering={steering} onAnswer={inDemo ? null : answerRequest} onOpenThread={inDemo ? null : openThread} onOpenTicket={selectTicket} demo={inDemo} libraryRequest={libraryRequest} focusRequest={focusRequest} />
             </div>
             {deskSection === 'pandas' ? <Residents snapshot={snapshot} now={now} bindings={bindings} onTalk={talkToResident} onViewWork={viewResidentWork} getTalkState={residentTalkState} /> : null}
           </div>
