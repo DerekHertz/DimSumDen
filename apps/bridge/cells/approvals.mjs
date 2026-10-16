@@ -129,6 +129,7 @@ export function createApprovalStore({
     a.input = null;
     sendDeny(a, code);
     onChange(view(a));
+    if (a.wall) wallDecided(view(a), "expired"); // the kind's count restarts, so a later refusal is counted again
   }
 
   const pendingOf = (agentId) => [...approvals.values()].filter((a) => a.agentId === agentId && a.state === "pending");

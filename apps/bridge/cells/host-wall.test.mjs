@@ -88,3 +88,23 @@ test("Grant for this task adds the grant and restarts the count", async () => {
   assert.equal(ok.status, 200);
   await until(async () => (await wall()) === null, { what: "the count to restart" });
 });
+
+test("an expired pause request restarts the count, so later refusals count again", async () => {
+  t = await makeBridge({ policy: { approvalTtlMs: 150 } });
+  const { agent } = (await t.dispatch("architect")).body;
+  const rec = t.fake.spawns[0];
+  let n = 0;
+  const run = (h) => {
+    const id = `tx${(n += 1)}`;
+    rec.emit({ type: "tool-start", id, name: "Bash", summary: "x" });
+    rec.emit({ type: "tool-result", id, text: VIOLATION(h), ok: true });
+  };
+  const wall = async () => (await t.state()).agents.find((a) => a.id === agent.id).wall;
+  for (const h of ["a.example.org", "b.example.org", "c.example.org"]) run(h);
+  await until(async () => (await wall())?.hosts?.paused === true, { what: "the pause" });
+  await until(async () => (await wall()) === null, { what: "the count to restart on expiry" });
+  run("d.example.org");
+  const w = await until(async () => (await wall())?.hosts && (await wall()), { what: "a fresh count" });
+  assert.equal(w.hosts.count, 1);
+  assert.equal(w.hosts.paused, false);
+});

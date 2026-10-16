@@ -170,10 +170,15 @@ export function createHost({ root, runtime, policy = {}, readUsage = async () =>
     const agent = agents.get(approval.agentId);
     if (!agent?.wall?.[approval.wall.kind]) return;
     agent.wall[approval.wall.kind] = { count: 0, targets: [], paused: false };
+    if (answer === "expired") {
+      record(agent, { kind: "wall", wallKind: approval.wall.kind, answered: answer, text: "The pause request ended unanswered; counting again" });
+      publish(agent);
+      return;
+    }
     if (answer === "grant" && Array.isArray(grants)) {
       for (const g of grants) if (!agent.grants.some((x) => x.kind === g.kind && x.value === g.value)) agent.grants.push({ kind: g.kind, value: g.value });
     }
-    record(agent, { kind: "wall", wallKind: approval.wall.kind, answered: answer, text: answer === "grant" ? "Granted for this task" : "Kept refused" });
+    record(agent, { kind: "wall", wallKind: approval.wall.kind, answered: answer, text: answer === "grant" ? "Granted for this task. It applies when the task resumes; the running process keeps its wall" : "Kept refused" });
     publish(agent);
   }
   // A run whose session a follow-up could continue: the runtime can resume, and the run has a session and a worktree.
