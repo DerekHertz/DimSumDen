@@ -20,6 +20,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { findBwrap } from "../build/box.mjs";
+import { lockHash } from "../build/releases.mjs";
 import { EnforcementError, LIMITS } from "../cells/resource-group.mjs";
 import { WORKTREES_DIR } from "../cells/policy.mjs";
 
@@ -77,8 +78,8 @@ const kind = (file) => {
  * The bubblewrap argv (no binary name) of one command in the box. Every path is absolute and already resolved.
  * `worktree` is writable; `gitDir` (the worktree's own folder under .git/worktrees) is writable so git can keep its index.
  */
-export function checkBoxArgv({ repo, worktree, gitDir, nodeDir, browsers, command, home = "/tmp/home" }) {
-  for (const [name, value] of Object.entries({ repo, worktree, gitDir, nodeDir })) {
+export function checkBoxArgv({ repo, worktree, gitDir, nodeDir, browsers, command, home = "/tmp/home", packages = path.join(repo, "node_modules") }) {
+  for (const [name, value] of Object.entries({ repo, worktree, gitDir, nodeDir, packages })) {
     if (typeof value !== "string" || !path.isAbsolute(value) || value.includes("\0")) throw new TypeError(`checkBoxArgv: ${name} must be an absolute path`);
   }
   if (!Array.isArray(command) || command.length === 0 || !command.every((a) => typeof a === "string")) throw new TypeError("checkBoxArgv: bad command");
@@ -95,7 +96,7 @@ export function checkBoxArgv({ repo, worktree, gitDir, nodeDir, browsers, comman
     "--ro-bind", path.join(repo, ".git"), path.join(repo, ".git"),
     "--bind", gitDir, gitDir,
     "--bind", worktree, worktree,
-    "--ro-bind", path.join(repo, "node_modules"), modules,
+    "--ro-bind", packages, modules,
     // Vite keeps its dependency cache under node_modules/.vite: a private one per run, never the shared folder.
     "--tmpfs", path.join(modules, ".vite"),
     "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--dir", home,
@@ -176,9 +177,10 @@ export const summarize = (rec) => rec && ({
 const stamp = (d = new Date()) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
 const tail = (text, n) => (text.length > n ? text.slice(-n) : text);
 
-export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), node = process.execPath, browsers = path.join(os.homedir(), ".cache", "ms-playwright"), exec = execFileP, jobs = JOBS, now = () => new Date(), deadlineMs = RUN_DEADLINE_MS } = {}) {
+export function createChecks({ repo, launcher, recordDir, depsDir, bwrap = findBwrap(), node = process.execPath, browsers = path.join(os.homedir(), ".cache", "ms-playwright"), exec = execFileP, jobs = JOBS, now = () => new Date(), deadlineMs = RUN_DEADLINE_MS } = {}) {
   if (typeof repo !== "string" || !path.isAbsolute(repo)) throw new TypeError("createChecks: repo must be an absolute path");
   if (typeof recordDir !== "string" || !path.isAbsolute(recordDir)) throw new TypeError("createChecks: recordDir must be an absolute path");
+  if (depsDir !== undefined && (typeof depsDir !== "string" || !path.isAbsolute(depsDir))) throw new TypeError("createChecks: depsDir must be an absolute path");
   const git = (...args) => exec("git", ["-C", repo, ...args]);
   const active = new Map(); // sha -> promise of its record: one run per commit at a time
   let runs = 0;
@@ -200,7 +202,7 @@ export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), n
   // One command in the box, with its output kept in `logFile`. -> { exit, timedOut, stopped, text }
   async function boxed({ command, audit = null, timeoutMs, wt, logFile, signal }) {
     const id = `check-${process.pid}-${(runs += 1)}`;
-    const args = audit ? auditBoxArgv({ dir: audit, nodeDir: nodeDir(), command }) : checkBoxArgv({ repo, worktree: wt.dir, gitDir: wt.gitDir, nodeDir: nodeDir(), browsers: kind(browsers)?.isDirectory() ? browsers : null, command });
+    const args = audit ? auditBoxArgv({ dir: audit, nodeDir: nodeDir(), command }) : checkBoxArgv({ repo, worktree: wt.dir, gitDir: wt.gitDir, nodeDir: nodeDir(), browsers: kind(browsers)?.isDirectory() ? browsers : null, command, packages: wt.packages });
     const { child, group } = await launcher.launch({ slotClass: SLOT_CLASS, id, bin: bwrap, args, cwd: "/", env: {} });
     if (!group) {
       child.kill("SIGKILL");
@@ -344,20 +346,30 @@ export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), n
     };
     if (launcher?.enforced !== true || typeof launcher.launch !== "function") return finish("error", "the checks have no resource group to run in");
     if (!bwrap || !kind(bwrap)?.isFile()) return finish("error", "bubblewrap (bwrap) is not installed; the checks cannot be boxed without it");
-    if (!kind(path.join(repo, "node_modules"))?.isDirectory()) return finish("error", "the repository has no node_modules to run the checks with (npm ci)");
     try {
       await git("cat-file", "-e", `${sha}^{commit}`);
     } catch {
       return finish("error", `the commit ${sha.slice(0, 12)} is not in this repository`);
     }
-    // The packages installed here are the checkout's. A commit that changes the lockfile would run against the wrong ones.
+    // The packages the box mounts. With the den's packages folders (deps/<lock-hash>/node_modules, made by den:update) it
+    // is the folder for the commit's own lockfile. Without them it is the checkout's node_modules, which must match the
+    // commit's lockfile: a merged dependency not yet installed here once failed a whole run (den-mvp/13, 2026-10-16).
+    let packages;
     try {
-      const [theirs, ours] = await Promise.all([git("rev-parse", `${sha}:package-lock.json`), git("hash-object", "package-lock.json")]);
-      if (String(theirs.stdout).trim() !== String(ours.stdout).trim()) return finish("skipped", "the commit changes package-lock.json, so the packages installed here do not match it; GitHub CI decides");
+      if (depsDir !== undefined) {
+        const lockText = (await exec("git", ["-C", repo, "show", `${sha}:package-lock.json`], { maxBuffer: 64 * 1024 * 1024 })).stdout;
+        packages = path.join(depsDir, lockHash(lockText), "node_modules");
+        if (!kind(packages)?.isDirectory()) return finish("skipped", "the packages for this commit's package-lock.json are not installed for the den (npm run den:update installs them); GitHub CI decides");
+      } else {
+        if (!kind(path.join(repo, "node_modules"))?.isDirectory()) return finish("error", "the repository has no node_modules to run the checks with (npm ci)");
+        const [theirs, ours] = await Promise.all([git("rev-parse", `${sha}:package-lock.json`), git("hash-object", "package-lock.json")]);
+        if (String(theirs.stdout).trim() !== String(ours.stdout).trim()) return finish("skipped", "the commit changes package-lock.json, so the packages installed here do not match it; GitHub CI decides");
+        packages = path.join(repo, "node_modules");
+      }
     } catch (err) {
       return finish("error", `could not compare the lockfile: ${String(err?.stderr || err?.message || err).trim().slice(0, 200)}`);
     }
-    await mkdir(path.join(repo, "node_modules", ".vite"), { recursive: true }).catch(() => {}); // the box mounts its own over it
+    await mkdir(path.join(packages, ".vite"), { recursive: true }).catch(() => {}); // the box mounts its own over it
     // One deadline for the whole record: the user's Stop (signal) and the deadline both end the running job.
     const late = new AbortController();
     const both = new AbortController();
@@ -374,7 +386,7 @@ export function createChecks({ repo, launcher, recordDir, bwrap = findBwrap(), n
     if (signal?.aborted) both.abort();
     const pastDeadline = () => finish("red", `the checks ran past their ${Math.round(deadlineMs / 60000)}-minute limit`);
     try {
-      const wt = { dir: realpathSync(wtDir), gitDir: String((await exec("git", ["-C", wtDir, "rev-parse", "--absolute-git-dir"])).stdout).trim() };
+      const wt = { packages, dir: realpathSync(wtDir), gitDir: String((await exec("git", ["-C", wtDir, "rev-parse", "--absolute-git-dir"])).stdout).trim() };
       for (const job of jobs) {
         if (late.signal.aborted) return await pastDeadline();
         if (signal?.aborted) return await finish("error", "stopped");

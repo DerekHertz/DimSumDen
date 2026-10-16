@@ -7,6 +7,7 @@
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, mkdirSync, rmSync, realpathSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -196,6 +197,37 @@ describe("createChecks().run", () => {
     assert.match(rec.reason, /package-lock\.json/);
   });
 
+  // A run of den-mvp/13 (2026-10-16) went red because the checkout's node_modules predated a merged dependency: the box
+  // mounted packages that did not match the commit. With the den's packages folders (deps/<lock-hash>, made by
+  // den:update), the box mounts the folder for the commit's own lockfile, or the run is skipped.
+  test("with the den's packages folders, the box mounts the folder for the commit's own lockfile", async () => {
+    const { dir, repo, sha, recordDir } = repoFixture();
+    const depsDir = path.join(dir, "deps");
+    const lock = createHash("sha256").update(readFileSync(path.join(repo, "package-lock.json"))).digest("hex");
+    mkdirSync(path.join(depsDir, lock, "node_modules"), { recursive: true });
+    rmSync(path.join(repo, "node_modules"), { recursive: true }); // the checkout's own folder is not needed
+    const launcher = fakeLauncherWithCwd({ allPass: () => true });
+    const rec = await createChecks({ repo, launcher, recordDir, bwrap: process.execPath, depsDir }).run({ sha });
+    assert.equal(rec.state, "green", rec.reason);
+    const boxed = launcher.argvs.filter((a) => !a.includes("--share-net"));
+    assert.ok(boxed.length > 0);
+    for (const argv of boxed) {
+      const at = argv.findIndex((x, i) => x === "--ro-bind" && argv[i + 2]?.endsWith("/node_modules"));
+      assert.equal(argv[at + 1], path.join(depsDir, lock, "node_modules"), "the commit's own packages are mounted");
+    }
+  });
+
+  test("with the den's packages folders, a commit whose lockfile has none installed is skipped and says how to fix it", async () => {
+    const { dir, repo, sha, recordDir } = repoFixture();
+    const depsDir = path.join(dir, "deps");
+    mkdirSync(path.join(depsDir, "0".repeat(64), "node_modules"), { recursive: true });
+    const launcher = fakeLauncherWithCwd();
+    const rec = await createChecks({ repo, launcher, recordDir, bwrap: process.execPath, depsDir }).run({ sha });
+    assert.equal(rec.state, "skipped");
+    assert.match(rec.reason, /den:update/);
+    assert.equal(launcher.argvs.length, 0, "nothing ran");
+  });
+
   test("with no resource group, nothing runs and the record says why", async () => {
     const { repo, sha, recordDir } = repoFixture();
     const rec = await createChecks({ repo, launcher: null, recordDir, bwrap: process.execPath }).run({ sha });
@@ -251,8 +283,9 @@ describe("createChecks().run", () => {
 // The fake box: the rest job prints TAP (two failures, located under the worktree it was started in) and exits 1; the
 // re-run of the failing files passes only "keeps its order"; every other command passes. With allPass() true, all pass.
 function fakeLauncherWithCwd({ allPass = () => false } = {}) {
-  const l = { enforced: true, commands: [] };
+  const l = { enforced: true, commands: [], argvs: [] };
   l.launch = async ({ args }) => {
+    l.argvs.push(args);
     const command = args.slice(args.indexOf("--") + 1);
     const wt = args[args.indexOf("--chdir") + 1];
     l.commands.push(command);
