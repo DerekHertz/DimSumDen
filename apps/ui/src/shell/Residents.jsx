@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { deskResidents } from './desk-model.mjs';
+import { ROLE_PORTRAITS } from './role-portraits.mjs';
 
 const STATES = { resident: 'At home', working: 'Working', 'needs-you': 'Needs you', blocked: 'Blocked' };
 const BADGES = {
@@ -10,7 +11,7 @@ const BADGES = {
 
 function Portrait({ row, large = false }) {
   return <span className={`forest-portrait${large ? ' forest-portrait-large' : ''}`} data-role={row.role} aria-hidden="true">
-    <img src={`/den/portraits/${Object.hasOwn(BADGES,row.role)?row.role:'orchestrator'}.webp`} alt="" width="512" height="512" />
+    <img src={ROLE_PORTRAITS[Object.hasOwn(ROLE_PORTRAITS,row.role)?row.role:'orchestrator']} alt="" width="512" height="512" />
     <span className="forest-portrait-badge">{BADGES[row.role]}</span>
   </span>;
 }
