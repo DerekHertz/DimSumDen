@@ -638,8 +638,14 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
         // Friction log F3: the board is read-only behind the wall, so a direct run does not claim or hand off; its last message is its report.
         `The board is read-only to you: run no board command. Do the work, and end with a short report of what you did and what you checked: that last message is your handoff. ` +
         WORK_TIPS
-      : `You are the ${a.role} cell${a.mode ? ` in ${a.mode} mode` : ""} for ticket ${a.ref}. ` +
-        `Read .claude/agents/${a.role}.md and follow it, then follow the organism-protocol skill: claim the ticket, do the work, hand off.`;
+      : `You are the ${a.role} cell${a.mode ? ` in ${a.mode} mode` : ""} for ticket ${a.ref}. The user started this run from the den. ` +
+        `Read .claude/agents/${a.role}.md and follow it. The ticket is the file ${ticketFile(a.ref)}. ` +
+        // den-mvp/23: the board is read-only behind the wall, and the bridge already keeps one live agent per ticket, so a
+        // Run does not claim or hand off through the board (as F3 settled for direct runs); its last message is its report.
+        `The board is read-only to you: run no board command, and do not stop because you cannot claim; the den already ` +
+        `holds this ticket for you. Do the work in your worktree, and end with a short report of what you did and what you ` +
+        `checked: that last message is your handoff. ` +
+        WORK_TIPS;
 
   // Consume the process's events, then finalise once it has exited (and its event stream has drained).
   async function watch(agent) {
