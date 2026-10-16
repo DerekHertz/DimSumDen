@@ -279,6 +279,8 @@ function DeliveryDecision({ request, steer, deliveries }) {
   const error = deliveries.results[request.id]?.error;
   const [note, setNote] = useState("");
   const noteId = `decline-note-${idPart(request.id)}`;
+  // A plain Resume can carry a note: the next run that starts reads it first.
+  const resumeNote = !request.decline && request.primary.action === "resume" && !request.primary.verdict;
   return (
     <div aria-live="polite">
       {request.next ? <p className="small needs-expires">{request.next}</p> : null}
@@ -292,13 +294,18 @@ function DeliveryDecision({ request, steer, deliveries }) {
           <label className="note-label" htmlFor={noteId}>To decline, say what should change</label>
           <textarea id={noteId} className="note-field" rows={2} maxLength={1000} value={note} disabled={!!off || busy} onChange={(e) => setNote(e.target.value)} />
         </>
+      ) : resumeNote ? (
+        <>
+          <label className="note-label" htmlFor={noteId}>Note for the next run (optional)</label>
+          <textarea id={noteId} className="note-field" rows={2} maxLength={1000} value={note} disabled={!!off || busy} onChange={(e) => setNote(e.target.value)} />
+        </>
       ) : null}
       <div className={request.decline ? "decision-buttons decision-three" : "decision-buttons"}>
         <button type="button" className="btn btn-outline" title={off ?? undefined} disabled={!!off || busy} onClick={() => deliveries.steer(request.id, "close")}>Close delivery</button>
         {request.decline ? (
           <button type="button" className="btn btn-outline" aria-label={`Decline ${request.short} and send it back to the developer`} title={off ?? (note.trim() ? undefined : "Write what should change first")} disabled={!!off || busy || !note.trim()} onClick={() => deliveries.steer(request.id, "resume", { verdict: "decline", note })}>Decline</button>
         ) : null}
-        <button type="button" className="btn btn-solid" title={off ?? undefined} disabled={!!off || busy} aria-busy={busy || undefined} onClick={() => deliveries.steer(request.id, request.primary.action, request.primary.verdict ? { verdict: request.primary.verdict } : undefined)}>
+        <button type="button" className="btn btn-solid" title={off ?? undefined} disabled={!!off || busy} aria-busy={busy || undefined} onClick={() => deliveries.steer(request.id, request.primary.action, request.primary.verdict ? { verdict: request.primary.verdict } : resumeNote && note.trim() ? { note } : undefined)}>
           {request.primary.label}
         </button>
       </div>

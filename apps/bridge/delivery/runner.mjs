@@ -7,7 +7,7 @@
 // returns, or on the user's click.
 //
 //   createDelivery({ host, board, git, log, readTicket, onChange, build?, checks? }) -> {
-//     ready, start({ ref }), resume(id, { verdict?, note? }), stop(id), close(id), onEnd(run), snapshot()
+//     ready, start({ ref }), resume(id, { verdict?, note? }) (a note without a verdict goes to the next run that starts), stop(id), close(id), onEnd(run), snapshot()
 //   }
 //   build: build/den-build.mjs (den-mvp/10, ADR 0026): the preview of a candidate that changes apps/ui/, and the go-live
 //   after its merge. A bridge that runs from the checkout has none, and such a delivery waits as `environment`.
@@ -34,7 +34,7 @@ const PUSH_LOOKS = 6; // looks at a pull request's head after a push, PUSH_WAIT_
 const PUSH_WAIT_MS = 2000;
 const KEPT = 30; // ended deliveries kept in the snapshot
 const PLAN_STEPS_MAX = 12; // bridge operations in a row before the runner stops and says the plan did not move
-const NOTE_MAX_BYTES = 2000; // the user's note with a decline
+const NOTE_MAX_BYTES = 2000; // the user's note with a decline, or with a Resume
 const FINDINGS_MAX = 16000;
 const refuse = (status, error) => ({ ok: false, status, error });
 // An error's text as the den may show it: one line, no credential a remote URL carried, nothing that looks like a secret.
@@ -234,12 +234,13 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
 
   async function startRun(job, next) {
     const { role, mode } = next;
-    const started = await host.start({ ref: job.ref, role, ...(mode ? { mode } : {}), delivery: { at: next.at, since: next.since, ...(next.fix ? { findings: job.findings ?? "(the review left no findings text)" } : {}) } });
+    const started = await host.start({ ref: job.ref, role, ...(mode ? { mode } : {}), delivery: { at: next.at, since: next.since, ...(next.fix ? { findings: job.findings ?? "(the review left no findings text)" } : {}), ...(job.note ? { note: job.note } : {}) } });
     if (!started.ok) {
       const kind = started.status === 429 ? (/usage/.test(started.error) ? "usage" : "no-room") : started.status === 409 ? "busy" : "environment";
       return pause(job, kind, started.error, kind === "no-room" ? "It starts by itself when a run ends, or on Resume." : "Resume once that has changed.");
     }
     job.live = { runId: started.agent.id, role, mode: mode ?? null };
+    job.note = null; // the run has it
     job.step = role;
     job.claimed = false;
     await save(job);
@@ -547,6 +548,13 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
         job.findings = `The user looked at the preview of ${sha.slice(0, 12)} and declined it. Their note:\n\n${note}`;
       }
       await build?.close(job.id, { remove: true }).catch(() => {}); // the verdict is given: the preview closes
+    } else if (body?.note !== undefined) {
+      // The user's note with a plain Resume: what the next run should know. It is kept until a run starts, then handed to it.
+      const note = typeof body.note === "string" ? body.note.trim() : "";
+      if (!note) return refuse(400, "the note must be non-empty text");
+      if (Buffer.byteLength(note) > NOTE_MAX_BYTES) return refuse(400, `the note must be at most ${NOTE_MAX_BYTES} bytes`);
+      if (hasSecret(note)) return refuse(400, "the note looks like it holds a secret; nothing was written");
+      job.note = note;
     }
     if (job.pause.kind === "failed-twice") job.bounces = 0; // the user's click is one more round
     const lost = job.lost;

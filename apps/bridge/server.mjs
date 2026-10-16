@@ -608,12 +608,12 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     reply(res, result.status, { delivery: result.delivery, ...ticket });
   }
   // POST /deliveries/:id/resume | stop | close. Resume reads `verdict` ("approve" or "decline": the user's visual verdict) and,
-  // with a decline, `note`; nothing else.
+  // with a decline, `note`; without a verdict, an optional `note` for the next run; nothing else.
   async function steerDelivery(req, res, action) {
     const body = await readJsonObject(req, res);
     if (!body) return;
     const id = new URL(req.url, "http://x").pathname.split("/")[2];
-    const result = action === "resume" ? await delivery.resume(id, body.verdict === undefined ? {} : { verdict: body.verdict, note: body.note }) : await delivery[action](id);
+    const result = action === "resume" ? await delivery.resume(id, body.verdict === undefined ? (body.note === undefined ? {} : { note: body.note }) : { verdict: body.verdict, note: body.note }) : await delivery[action](id);
     if (!result.ok) return reply(res, result.status, { error: result.error });
     reply(res, result.status, { delivery: result.delivery });
   }
