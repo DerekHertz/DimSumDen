@@ -13,12 +13,12 @@ const TOOLS = [
     inputSchema: { type: "object", properties: { ref: REF, pr: { type: "integer", description: "The merged pull request's number." } }, required: ["ref", "pr"] } },
   { name: "board_comment", description: "Add a comment to a ticket, as Bao.",
     inputSchema: { type: "object", properties: { ref: REF, text: { type: "string" } }, required: ["ref", "text"] } },
-  { name: "board_file", description: "File new tickets at ready-for-human, for the user to approve. Send every ticket of one request in a single call: the user answers one ask for the whole batch. Each text is the ticket body in markdown (## What to build, ## Acceptance criteria with - [ ] items); the board writes the title, Type, Priority, Status and Blocked by lines itself.",
+  { name: "board_file", description: "File new tickets at ready-for-human, for the user to approve. Send every ticket of one request in a single call: the user answers one ask for the whole batch. Each text is the ticket body in markdown (## What to build, ## Acceptance criteria with - [ ] items); the board writes the title, Type, Priority, Status and Blocked by lines itself. A batch that breaks a rule is refused with the reason before the user is asked.",
     inputSchema: { type: "object", properties: {
-      feature: { type: "string", description: "The board feature, such as den-mvp. Default: den." },
+      feature: { type: "string", description: "The board feature, such as den-mvp. Default: den. It must already have a .scratch/<feature>/issues/ folder." },
       tickets: { type: "array", minItems: 1, maxItems: 12, items: { type: "object", properties: {
         title: { type: "string", description: "One short line." },
-        text: { type: "string", description: "The body in markdown. Must have a ## Acceptance criteria section; no **Status:**-style header lines." },
+        text: { type: "string", description: "The body in markdown, at most 8192 bytes. Must have a ## Acceptance criteria section; no **Status:**-style header lines." },
         priority: { type: "string", enum: ["P0", "P1", "P2", "P3"] },
         type: { type: "string", description: "A few lowercase words: feature, bug, task, design question. Default: task." },
         blockedBy: { type: "array", items: { anyOf: [{ type: "string" }, { type: "integer", minimum: 1 }] },

@@ -28,6 +28,7 @@ import { cleanText } from "./cells/approvals.mjs";
 // den-mvp/55: Bao's board_file batch. The allow is matched against the whole batch as the user saw it (cleaned the way
 // the approval store cleans an input), so a changed list is a new request.
 const FILE_BATCH_MAX = 12;
+const FILE_TEXT_MAX_BYTES = 8192; // F34: a ticket body; a design ticket runs past the 2 KB message cap
 const FULL_REF_RE = /^[a-z0-9-]+\/\d+(?:-[a-z0-9-]+)?$/;
 const isPlainObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const slugOf = (title) => title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+/, "").slice(0, 40).replace(/-+$/, "") || "ticket";
@@ -54,6 +55,7 @@ const DEFAULT_UI_DIR = fileURLToPath(new URL("../ui/dist", import.meta.url));
 
 const HOST = "127.0.0.1";
 const MAX_BODY = 4096;
+const DEN_TOOL_MAX_BODY = 256 * 1024; // F34: a full board_file batch, 12 bodies of up to 8 KB each, escaped as JSON
 // 07 security forward: the panel renders agent text; forbid inline and foreign script.
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'";
 
@@ -183,6 +185,8 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     },
     lockedRefs: async () => (await hub.snapshot()).tickets.filter((t) => t.holder).map((t) => t.ref),
     openDesk: () => ensureDesk(root),
+    // F34: a batch the bridge would refuse is denied when it asks, with the reason, so the user is not asked for it.
+    checkCall: (tool, input) => (tool === "mcp__den__board_file" ? checkFileBatch(input).error ?? null : null),
   });
   await host.ready;
   delivery = createDelivery({
@@ -356,22 +360,22 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store", ...extra });
     res.end(JSON.stringify(obj));
   };
-  // Read a body of at most MAX_BODY bytes. Replies 413 itself and returns undefined when it is too large.
-  async function readBody(req, res) {
+  // Read a body of at most `max` bytes. Replies 413 itself and returns undefined when it is too large.
+  async function readBody(req, res, max = MAX_BODY) {
     const declared = Number(req.headers["content-length"] ?? 0);
-    if (declared > MAX_BODY) return void reply(res, 413, { error: "body too large" }, { Connection: "close" });
+    if (declared > max) return void reply(res, 413, { error: "body too large" }, { Connection: "close" });
     const chunks = [];
     let size = 0;
     for await (const chunk of req) {
       size += chunk.length;
-      if (size > MAX_BODY) return void reply(res, 413, { error: "body too large" }, { Connection: "close" });
+      if (size > max) return void reply(res, 413, { error: "body too large" }, { Connection: "close" });
       chunks.push(chunk);
     }
     return Buffer.concat(chunks);
   }
-  // Read a JSON object body of at most MAX_BODY bytes. Replies 413 or 400 itself and returns undefined on failure.
-  async function readJsonObject(req, res) {
-    const raw = await readBody(req, res);
+  // Read a JSON object body of at most `max` bytes. Replies 413 or 400 itself and returns undefined on failure.
+  async function readJsonObject(req, res, max) {
+    const raw = await readBody(req, res, max);
     if (!raw) return;
     let body;
     try {
@@ -483,6 +487,48 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     if (!result.ok) return reply(res, result.status, { error: result.error });
     reply(res, result.status, { ok: true, runId: result.runId, messageId: result.messageId, resumed: result.resumed, ...(result.agent ? { agent: result.agent } : {}), ...(result.usageUnknown ? { usageUnknown: true } : {}) });
   }
+  // den-mvp/55: every ticket of a board_file batch is checked, its blockers included, before any is written. F34: the
+  // host runs the same check when the call asks, so a batch the bridge would refuse never reaches the user.
+  const boardRefExists = (ref) => {
+    if (typeof ref !== "string" || !FULL_REF_RE.test(ref)) return false;
+    try {
+      const [feature, ticket] = resolveShortRef(root, ref).split("/");
+      return existsSync(path.join(root, ".scratch", feature, "issues", `${ticket}.md`));
+    } catch {
+      return false;
+    }
+  };
+  function checkFileBatch(body) {
+    const fail = (error) => ({ error });
+    if (!isPlainObj(body)) return fail("the call must be an object { feature?, tickets }");
+    const { feature = DEN_FEATURE, tickets } = body;
+    if (typeof feature !== "string" || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(feature) || !existsSync(path.join(root, ".scratch", feature, "issues"))) return fail("feature must be a board feature that has an issues folder");
+    if (!Array.isArray(tickets) || tickets.length < 1 || tickets.length > FILE_BATCH_MAX) return fail(`tickets must be a list of 1 to ${FILE_BATCH_MAX} tickets, each { title, text, priority?, type?, blockedBy?, slug? }`);
+    const drafts = [];
+    for (const [i, t] of tickets.entries()) {
+      const at = `ticket ${i + 1}`;
+      if (!isPlainObj(t) || typeof t.title !== "string" || !t.title.trim() || typeof t.text !== "string" || !t.text.trim()) return fail(`${at}: title and text must be given`);
+      const { title, text, priority = "P2", type = "task", blockedBy = [], slug = slugOf(title) } = t;
+      if (!["P0", "P1", "P2", "P3"].includes(priority)) return fail(`${at}: priority must be P0 to P3`);
+      if (typeof type !== "string" || !/^[a-z][a-z -]{0,39}$/.test(type)) return fail(`${at}: type must be a few lowercase words`);
+      if (typeof slug !== "string" || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(slug)) return fail(`${at}: slug must be lowercase words joined by -`);
+      if (Buffer.byteLength(text) > FILE_TEXT_MAX_BYTES) return fail(`${at}: text must be at most ${FILE_TEXT_MAX_BYTES} bytes`);
+      if (hasSecret(text) || hasSecret(title)) return fail(`${at}: text looks like it holds a secret; nothing was written`);
+      // The card shows a control or direction character as an escape, so the bytes written must be the bytes approved.
+      if (cleanText(text) !== text || cleanText(title) !== title) return fail(`${at}: text holds control or direction characters; nothing was written`);
+      if (!/^## Acceptance criteria[ \t]*$/m.test(text)) return fail(`${at}: text needs its own ## Acceptance criteria section`);
+      if (!Array.isArray(blockedBy)) return fail(`${at}: blockedBy must be a list`);
+      for (const b of blockedBy) {
+        if (Number.isInteger(b)) {
+          if (b < 1 || b > i) return fail(`${at}: a blocker in the batch must name an earlier ticket by its position (1 to ${i})`);
+        } else if (!boardRefExists(b)) {
+          return fail(`${at}: blocker ${cleanText(String(b).slice(0, 80))} is not a ticket on the board`);
+        }
+      }
+      drafts.push({ title: title.trim(), text, priority, type: type.replace(/\s+/g, " ").trim(), blockedBy, slug });
+    }
+    return { feature, drafts };
+  }
   // POST /den-tools/:tool (den-mvp/38): the den script, for the run whose token it holds. The bridge does the work with its
   // own board and git-host rights; the run's role must be one the catalog gives the den connection. board_resolve checks
   // the pull request merged; board_file and start_delivery go ahead only on the user's own allow of that exact call.
@@ -492,7 +538,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     const tool = new URL(req.url, "http://x").pathname.split("/")[2];
     const verdict = library.decide(agent.role, `mcp__den__${tool}`, {});
     if (!verdict || verdict.kind === "refuse") return reply(res, 403, { error: "the den's catalog does not give this run that tool" });
-    const body = await readJsonObject(req, res);
+    const body = await readJsonObject(req, res, DEN_TOOL_MAX_BODY);
     if (!body) return;
     const done = (text) => reply(res, 200, { text });
     const refused = (status, error) => reply(res, status, { error });
@@ -501,15 +547,6 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
       return resolveShortRef(root, ref);
     };
     const allowed = (match) => host.takeAllowed(agent.id, `mcp__den__${tool}`, match);
-    const refExists = (ref) => {
-      if (typeof ref !== "string" || !FULL_REF_RE.test(ref)) return false;
-      try {
-        const [feature, ticket] = fullRef(ref).split("/");
-        return existsSync(path.join(root, ".scratch", feature, "issues", `${ticket}.md`));
-      } catch {
-        return false;
-      }
-    };
     try {
       if (tool === "board_resolve") {
         const ref = fullRef(body.ref);
@@ -530,33 +567,9 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
         return done(`commented on ${ref}`);
       }
       if (tool === "board_file") {
-        // den-mvp/55: one ask files a batch. Every ticket is checked, its blockers included, before any is written.
-        const { feature = DEN_FEATURE, tickets } = body;
-        if (typeof feature !== "string" || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(feature) || !existsSync(path.join(root, ".scratch", feature, "issues"))) return refused(400, "feature must be a board feature that has an issues folder");
-        if (!Array.isArray(tickets) || tickets.length < 1 || tickets.length > FILE_BATCH_MAX) return refused(400, `tickets must be a list of 1 to ${FILE_BATCH_MAX} tickets, each { title, text, priority?, type?, blockedBy?, slug? }`);
-        const drafts = [];
-        for (const [i, t] of tickets.entries()) {
-          const at = `ticket ${i + 1}`;
-          if (!isPlainObj(t) || typeof t.title !== "string" || !t.title.trim() || typeof t.text !== "string" || !t.text.trim()) return refused(400, `${at}: title and text must be given`);
-          const { title, text, priority = "P2", type = "task", blockedBy = [], slug = slugOf(title) } = t;
-          if (!["P0", "P1", "P2", "P3"].includes(priority)) return refused(400, `${at}: priority must be P0 to P3`);
-          if (typeof type !== "string" || !/^[a-z][a-z -]{0,39}$/.test(type)) return refused(400, `${at}: type must be a few lowercase words`);
-          if (typeof slug !== "string" || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(slug)) return refused(400, `${at}: slug must be lowercase words joined by -`);
-          if (Buffer.byteLength(text) > TASK_MAX_BYTES) return refused(400, `${at}: text must be at most ${TASK_MAX_BYTES} bytes`);
-          if (hasSecret(text) || hasSecret(title)) return refused(400, `${at}: text looks like it holds a secret; nothing was written`);
-          // The card shows a control or direction character as an escape, so the bytes written must be the bytes approved.
-          if (cleanText(text) !== text || cleanText(title) !== title) return refused(400, `${at}: text holds control or direction characters; nothing was written`);
-          if (!/^## Acceptance criteria[ \t]*$/m.test(text)) return refused(400, `${at}: text needs its own ## Acceptance criteria section`);
-          if (!Array.isArray(blockedBy)) return refused(400, `${at}: blockedBy must be a list`);
-          for (const b of blockedBy) {
-            if (Number.isInteger(b)) {
-              if (b < 1 || b > i) return refused(400, `${at}: a blocker in the batch must name an earlier ticket by its position (1 to ${i})`);
-            } else if (!refExists(b)) {
-              return refused(400, `${at}: blocker ${String(b).slice(0, 80)} is not a ticket on the board`);
-            }
-          }
-          drafts.push({ title: title.trim(), text, priority, type: type.replace(/\s+/g, " ").trim(), blockedBy, slug });
-        }
+        // den-mvp/55: one ask files a batch.
+        const { error, feature, drafts } = checkFileBatch(body);
+        if (error) return refused(400, error);
         if (!allowed((input) => sameJson(input, cleanDeep(body)))) return refused(403, "the user has not allowed filing this batch");
         const refs = [];
         for (const d of drafts) {
