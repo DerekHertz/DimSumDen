@@ -9,6 +9,7 @@ import { loadRoleWardrobe } from './role-wardrobe.mjs';
 import { loadManifest,loadModel,fit,disposeWorld } from './assets.mjs';
 import { buildWalkWorld } from './collisions.mjs';
 import { NAVIGATION_TARGETS,WALK_START } from './layout.mjs';
+import { openSideDoor,addPavilionBridge } from './entrances.mjs';
 import propDefinitions from './role-props.mjs';
 
 const PLACES=[['center','Shared dim sum table',0,0,5,5.5],['steamers','Steamers',-9.5,-8.7,6,5.6],['front','Front of House',9.5,-8.7,6,5.6],['tea','Tea',-12.4,.3,5,6],['pantry','Pantry',12.4,.3,5,6],['pavilion','Lotus pavilion',-20,10.2,6,7.7],['games','Mahjong',-20,-10.7,5,3.6],['training','Practice courtyard',21,10,5,6.3],['festival','Festival stage',20,-12.2,6,6.7],['dining','Gate tea table',-8.5,17,4.5,4.7],['dragon','Silk dragon courtyard',9,17,6,8]];
@@ -51,6 +52,8 @@ export async function createMeshyWorld(renderer,{signal,onProgress=()=>{}}={}){
    if(['steamers','front','tea','pantry'].includes(id))zone.rotation.y={steamers:.28,front:-.28,tea:.18,pantry:-.18}[id];
   }
   applyGardenLayout(den);
+  openSideDoor(den.zones.get('steamers'));
+  addPavilionBridge(den.zones.get('pavilion'));
   const library=new THREE.Group();library.name='Library · shared knowledge';library.userData={id:'library'};library.position.set(0,.06,-17.6);
   library.add(fit(await loadModel(den.assets['scenery.library'].url),{width:8.5,height:5.8,depth:6}));world.add(library);den.zones.set('library',library);den.plan.push({id:'library',label:'Library',x:0,z:-17.6,radius:6});
   const approach=box(world,[1.16,.035,4.7],m.stone,[0,.024,-11.33]);approach.name='Library approach';assertActive(signal);
@@ -62,7 +65,7 @@ export async function createMeshyWorld(renderer,{signal,onProgress=()=>{}}={}){
   onProgress('Fitting the wardrobe…');
   const urls=Object.fromEntries(['developer-vest','developer-headphones','developer-boba','developer-tablet','qa-scarf'].map(id=>[id,den.assets['wardrobe.'+id].url]));urls['security-vest']=urls['developer-vest'];
   await loadRoleWardrobe(den,{urls});assertActive(signal);
-  for(const [id,space]of den.roleWorkspaces.workspaces){space.group.userData.actorKey=id;if(space.person)space.person.userData.actorKey=id;if(space.prop)space.prop.userData.actorKey=id;}
+  for(const [id,space]of den.roleWorkspaces.workspaces){space.group.userData.workspaceRole=id;if(space.person)space.person.userData.actorKey=id;if(space.prop)space.prop.userData.workspaceRole=id;}
   den.zones.get('library').userData.denInteraction={zone:'archive',intent:'open-library',id:'archive.library'};
   den.zones.get('library').name='Library · shared knowledge';
   addLiveFixtures(den,m);world.updateMatrixWorld(true);den.walkWorld=buildWalkWorld(den);renderer.shadowMap.needsUpdate=true;

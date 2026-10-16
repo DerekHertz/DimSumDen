@@ -52,8 +52,10 @@ export function createSurfaceNavigation(objects,{cell=.18}={}){
    let blocked=false;
    for(const [dx,dz]of [[0,0],[-radius,0],[radius,0],[0,-radius],[0,radius],[-radius*.7,-radius*.7],[radius*.7,-radius*.7],[-radius*.7,radius*.7],[radius*.7,radius*.7]]){
     const c=columnAt(x+dx,z+dz);
-    const neighborGround=dx||dz ? Math.max(ground,...(c?.surfaces||[]).filter(y=>y<=ground+STEP_UP+.015)) : ground;
-    if(c?.spans.some(([lo,hi])=>hi>neighborGround+.055&&lo<ground+BODY_HEIGHT)){blocked=true;break;}
+    // A body's leading edge can cover the next stair before its centre reaches
+    // that tread. Include that short look-ahead; the centre still obeys STEP_UP.
+    const neighborGround=dx||dz ? Math.max(ground,...(c?.surfaces||[]).filter(y=>y<=ground+STEP_UP+radius+.015)) : ground;
+    if(c?.spans.some(([lo,hi])=>hi>neighborGround+.12&&lo<ground+BODY_HEIGHT)){blocked=true;break;}
    }
    if(!blocked)return ground;
   }

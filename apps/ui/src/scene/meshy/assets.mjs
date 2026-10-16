@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {DRACOLoader} from 'three/addons/loaders/DRACOLoader.js';
-const draco=new DRACOLoader().setDecoderPath('/den/draco/').setWorkerLimit(2);
-export const createModelLoader=()=>new GLTFLoader().setDRACOLoader(draco);
+import { readModelBytes } from './model-bytes.mjs';
+export function createModelLoader(){
+ const loader=new GLTFLoader();
+ return {async loadAsync(url){return loader.parseAsync(await readModelBytes(url),'');}};
+}
 // Textures are resized offline in the checked-in asset package, never through a remote endpoint.
 export function previewTextures(object){return object;}
 export async function loadManifest(signal){

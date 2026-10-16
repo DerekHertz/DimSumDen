@@ -178,14 +178,14 @@ test("the service bell stands on Bao's crown", async () => {
   assert.equal(TABLE.x, 0);
 });
 
-test("wiring: App renders the procedural den with the frontier, and hearts still reach the chips", async () => {
+test("wiring: App renders the Meshy den with the frontier, and hearts still reach the chips", async () => {
   // den-v1 (#151): the procedural den replaced the market scene; the handoff delivery
   // choreography was not ported, but handoffs still drive the heart bubbles.
   const { readFileSync } = await import("node:fs");
   const app = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
-  assert.match(app, /import \{ RestaurantDen \} from "\.\/scene\/procedural\/RestaurantDen\.jsx"/);
+  assert.match(app, /import \{ MeshyDen \} from "\.\/scene\/meshy\/MeshyDen\.jsx"/);
   assert.match(app, /useHandoffs\(snapshot\)/);
-  assert.match(app, /<RestaurantDen [^>]*frontier=\{frontier\}/);
+  assert.match(app, /<MeshyDen [^>]*frontier=\{frontier\}/);
   assert.match(app, /<ChipLayer [^>]*hearts=\{hearts\}/);
   assert.match(readFileSync(new URL("./ChipLayer.jsx", import.meta.url), "utf8"), /chip-heart/);
 });

@@ -51,7 +51,7 @@ export function MeshyDen({snapshot,cells,frontier,tally,selected,onSelect,onOpen
  });
  const hit=e=>{
   for(let object=e.object;object;object=object.parent){
-   const actor=object.userData.actorKey;
+   const actor=object.userData.actorKey||object.userData.workspaceRole;
    if(actor&&!stage.explorer?.active&&inputs.current.onPick){e.stopPropagation();inputs.current.onPick(actor);return;}
    const local=object.userData.denInteraction;
    if(local){e.stopPropagation();inputs.current.onZoneClick?.(local.id);return;}

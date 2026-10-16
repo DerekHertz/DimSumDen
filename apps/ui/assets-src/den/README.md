@@ -1,11 +1,8 @@
 # Approved forest Den asset pack
 
-Current checkpoint: **packaging is not release-ready**. The coherent uncompressed
-geometry package is about 99.75 MiB before frontend JavaScript/CSS, so the complete
-UI will exceed the unchanged 100 MiB release limit. Source geometry checks pass;
-full browser loading and final release size verification remain pending.
+The checked-in models use lossless gzip storage (about 76.44 MiB). The complete UI fits the unchanged 100 MiB release limit. Browser-native `DecompressionStream` restores the exact audited GLB before Three loads it; no worker, downloaded decoder, dependency or CSP exception is needed.
 
-The 36 GLBs under `apps/ui/public/den/models/` are regular self-contained files.
+The 36 GLBs under `apps/ui/public/den/models/` are regular self-contained `.glb.gz` files.
 The frontend loads them through `/den/manifest.json`; it does not depend on the
 original prototype server, mounted Windows folders, credentials, or generation
 receipts. The manifest lists public URLs, canonical role IDs, source basenames,
@@ -47,12 +44,4 @@ compared against its source geometry before the manifest is written.
 Generated through the user's existing Meshy workflow and supplied source
 assets; packaging itself makes no network or paid API calls.
 
-`compress-geometry.mjs` is a saved, experimental lossless Draco authoring step;
-it is **not active in the checked-in GLBs**. Sequential encoding preserved exact
-sample bytes and triangle indices for initial assets, but some source meshes
-contain duplicate vertices that Draco merges even with quantization disabled.
-The helper now skips an asset when any count/sample/index comparison fails.
-No final full-pack compressed size has been verified. The normal DRACOLoader
-creates blob workers that the current bridge CSP refuses; resolve that without
-changing bridge security policy before enabling compressed geometry. Broader
-metalness/roughness-map removal was explicitly declined; preserve active maps.
+Gzip compression is deterministic (zero timestamp). The audit records exact byte-for-byte decompression, alongside source geometry and image validation. All active material maps remain intact.

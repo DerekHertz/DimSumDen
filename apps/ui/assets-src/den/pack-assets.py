@@ -8,6 +8,7 @@ uses the checked-in outputs and does not run this script while building.
 import argparse
 import copy
 import hashlib
+import gzip
 import io
 import json
 import struct
@@ -25,6 +26,8 @@ TYPE_COMPONENTS = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4, "MAT2": 4, "MAT
 
 def read_glb(path):
     raw = path.read_bytes()
+    if raw[:2] == b"\x1f\x8b":
+        raw = gzip.decompress(raw)
     if len(raw) < 28 or struct.unpack_from("<III", raw) != (0x46546C67, 2, len(raw)):
         raise ValueError(f"Invalid GLB header: {path.name}")
     chunks = {}
@@ -222,14 +225,19 @@ def pack_asset(asset, source_root, output_root):
     replacements, image_info = transform_images(document, source_binary, asset.get("maxTextureSize", 1024))
     narrowed = narrow_indices(document, source_binary, replacements)
     views = [replacements.get(i, view_bytes(source_doc, source_binary, i)) for i in range(len(document["bufferViews"]))]
-    relative = Path("models") / (asset["key"].replace(".", "/") + ".glb")
+    relative = Path("models") / (asset["key"].replace(".", "/") + ".glb.gz")
     output = output_root / relative
     write_glb(output, document, views)
     output_doc, output_binary, output_raw = read_glb(output)
     audit_pair(source_doc, source_binary, output_doc, output_binary)
+    stored = gzip.compress(output_raw, compresslevel=9, mtime=0)
+    if gzip.decompress(stored) != output_raw:
+        raise ValueError("Model storage did not round-trip exactly")
+    output.write_bytes(stored)
     record = {"url": "/den/" + relative.as_posix(), "kind": asset["kind"],
               "sourceFilename": source.name, "triangles": triangles(output_doc),
-              "bytes": len(output_raw), "sha256": hashlib.sha256(output_raw).hexdigest(),
+              "bytes": len(stored), "sha256": hashlib.sha256(stored).hexdigest(),
+              "compression": "gzip", "decodedBytes": len(output_raw),
               "textures": [{k: image[k] for k in ("width", "height", "mimeType")} for image in image_info]}
     if "roleId" in asset:
         record["roleId"] = asset["roleId"]

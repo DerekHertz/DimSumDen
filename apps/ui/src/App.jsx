@@ -177,6 +177,14 @@ export function App() {
     snapshot, actors: liveActorsFromSnapshot(snapshot, { now }), library: archiveLibrary, connection: { phase: zonePhase }, selectedRef: selected, now,
   }), [snapshot, archiveLibrary, zonePhase, selected, now]);
   const [libraryRequest, setLibraryRequest] = useState(0);
+  const [deskSection, setDeskSection] = useState('home');
+  const [focusRequest, setFocusRequest] = useState(null);
+  const navigateDesk = useCallback((section) => {
+    stage.explorer?.exit();
+    transcript.close(); message.composer.close(); approval.review.close();
+    setSelected(null); unpick(); setTallyOpen(false); setDeskSection(section);
+    setFocusRequest(previous => ({ section, sequence: (previous?.sequence ?? 0) + 1 }));
+  }, [stage, transcript.close, message.composer, approval.review, unpick]);
   const [zoneNotice, setZoneNotice] = useState(null);
   useEffect(() => {
     if (!zoneNotice) return undefined;
@@ -192,20 +200,11 @@ export function App() {
         if (agent) transcript.openFor(agent.id, { name: intent.role, role: intent.role, state: agent.state });
         else setZoneNotice(`No ${intent.role} conversation yet: nothing has run for that role.`);
       },
-      onOpenLibrary: () => { stage.explorer?.exit(); setDeskSection("library"); setLibraryRequest((n) => n + 1); },
+      onOpenLibrary: () => { navigateDesk('library'); setLibraryRequest((n) => n + 1); },
       onUnavailable: (intent) => setZoneNotice(`${intent.label}: ${unavailableReason(zonePhase)}`),
     });
-  }, [zoneView, zonePhase, snapshot?.agents, selectTicket, transcript.openFor, stage]);
-  const [deskSection, setDeskSection] = useState('home');
-  const [focusRequest, setFocusRequest] = useState(null);
+  }, [zoneView, zonePhase, snapshot?.agents, selectTicket, transcript.openFor, navigateDesk]);
   const activity = useMemo(() => deskActivity(snapshot, { now }), [snapshot, now]);
-  const navigateDesk = (section) => {
-    transcript.close(); message.composer.close(); approval.review.close();
-    setSelected(null); unpick();
-    setTallyOpen(false);
-    setDeskSection(section);
-    setFocusRequest(previous => ({ section, sequence: (previous?.sequence ?? 0) + 1 }));
-  };
   const detailOpen = !!(selected || tallyOpen || approval.state.open || transcript.panel.agentId || message.state.open || (engaged && shownCard));
   const deskPanel = useRef(null);
   useEffect(() => {

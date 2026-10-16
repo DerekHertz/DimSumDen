@@ -24,7 +24,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 941948,
+        "decodedBytes": 1066656,
+        "exactByteRoundTrip": true
+      }
     },
     "props.orchestrator": {
       "source": "bao-customizer/assets/Meshy_AI_Orchestrator_Token_Ra_1008061335_image-to-3d-texture.glb",
@@ -57,7 +63,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1514811,
+        "decodedBytes": 1872208,
+        "exactByteRoundTrip": true
+      }
     },
     "props.architect": {
       "source": "bao-customizer/assets/Meshy_AI_Architect_Scroll_and__1008061309_image-to-3d-texture.glb",
@@ -90,7 +102,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1470703,
+        "decodedBytes": 1789260,
+        "exactByteRoundTrip": true
+      }
     },
     "props.developer": {
       "source": "bao-customizer/assets/Meshy_AI_Developer_Jig_and_Mal_1008061300_image-to-3d-texture.glb",
@@ -123,7 +141,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1586065,
+        "decodedBytes": 2044416,
+        "exactByteRoundTrip": true
+      }
     },
     "props.designer": {
       "source": "bao-customizer/assets/Meshy_AI_Designer_Palette_Brus_1008061329_image-to-3d-texture.glb",
@@ -156,7 +180,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1425660,
+        "decodedBytes": 1727068,
+        "exactByteRoundTrip": true
+      }
     },
     "props.product": {
       "source": "bao-customizer/assets/Meshy_AI_Product_Dim_Sum_Menu__1008061246_image-to-3d-texture.glb",
@@ -189,7 +219,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1616271,
+        "decodedBytes": 2040780,
+        "exactByteRoundTrip": true
+      }
     },
     "props.qa": {
       "source": "bao-customizer/assets/Meshy_AI_QA_Tasting_Spoon_Dish_1008061332_image-to-3d-texture.glb",
@@ -222,7 +258,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1345508,
+        "decodedBytes": 1641764,
+        "exactByteRoundTrip": true
+      }
     },
     "props.security": {
       "source": "bao-customizer/assets/Meshy_AI_Security_Seal_Stamp_3_1008061235_image-to-3d-texture.glb",
@@ -255,7 +297,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1465166,
+        "decodedBytes": 1780164,
+        "exactByteRoundTrip": true
+      }
     },
     "props.scout": {
       "source": "bao-customizer/assets/Meshy_AI_Scout_Brass_Compass_3_1008061239_image-to-3d-texture.glb",
@@ -288,7 +336,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1495988,
+        "decodedBytes": 1821560,
+        "exactByteRoundTrip": true
+      }
     },
     "props.debugger": {
       "source": "bao-customizer/assets/Meshy_AI_Debugger_Lantern_3D_1008061338_image-to-3d-texture.glb",
@@ -321,7 +375,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1597159,
+        "decodedBytes": 1948288,
+        "exactByteRoundTrip": true
+      }
     },
     "props.docs-writer": {
       "source": "bao-customizer/assets/Meshy_AI_Docs_Writer_Brush_Boo_1008061252_image-to-3d-texture.glb",
@@ -354,7 +414,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1488550,
+        "decodedBytes": 1877044,
+        "exactByteRoundTrip": true
+      }
     },
     "props.knowledge-keeper": {
       "source": "bao-customizer/assets/Meshy_AI_Knowledge_Keeper_Slip_1008061251_image-to-3d-texture.glb",
@@ -387,7 +453,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1661779,
+        "decodedBytes": 2084572,
+        "exactByteRoundTrip": true
+      }
     },
     "props.herald": {
       "source": "bao-customizer/assets/Meshy_AI_Herald_Wooden_Clapper_1008061230_image-to-3d-texture.glb",
@@ -420,7 +492,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1388372,
+        "decodedBytes": 1693424,
+        "exactByteRoundTrip": true
+      }
     },
     "props.release-manager": {
       "source": "bao-customizer/assets/Meshy_AI_Release_Manager_Hand__1008061325_image-to-3d-texture.glb",
@@ -453,7 +531,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1452047,
+        "decodedBytes": 1766100,
+        "exactByteRoundTrip": true
+      }
     },
     "props.stem-cub": {
       "source": "bao-customizer/assets/Meshy_AI_STEM_Cub_Cushion_3D_1008061242_image-to-3d-texture.glb",
@@ -486,7 +570,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1362350,
+        "decodedBytes": 1658264,
+        "exactByteRoundTrip": true
+      }
     },
     "scenery.steamers": {
       "source": "bao-customizer/assets/Meshy_AI_Steamers_Kiosk_3D_1008061211_image-to-3d-texture.glb",
@@ -517,7 +607,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 3372733,
+        "decodedBytes": 4839448,
+        "exactByteRoundTrip": true
+      }
     },
     "scenery.front": {
       "source": "bao-customizer/assets/Meshy_AI_Front_of_House_Kiosk__1008061203_image-to-3d-texture.glb",
@@ -548,7 +644,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 3512647,
+        "decodedBytes": 5113776,
+        "exactByteRoundTrip": true
+      }
     },
     "scenery.games": {
       "source": "bao-customizer/assets/Meshy_AI_Bamboo_Mahjong_Table__1008061216_image-to-3d-texture.glb",
@@ -581,7 +683,13 @@
           "sourceHeight": 1024
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 2188688,
+        "decodedBytes": 2631904,
+        "exactByteRoundTrip": true
+      }
     },
     "scenery.center": {
       "source": "bao-customizer/meshy_output/models/scenery-center.glb",
@@ -612,7 +720,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 5007799,
+        "decodedBytes": 6369904,
+        "exactByteRoundTrip": true
+      }
     },
     "scenery.tea": {
       "source": "bao-customizer/meshy_output/browser_models/scenery-tea.glb",
@@ -643,7 +757,13 @@
           "sourceHeight": 4096
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 6916040,
+        "decodedBytes": 9112504,
+        "exactByteRoundTrip": true
+      }
     },
     "scenery.pantry": {
       "source": "bao-customizer/meshy_output/models/scenery-pantry.glb",
@@ -674,7 +794,13 @@
           "sourceHeight": 4096
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 4672808,
+        "decodedBytes": 6748884,
+        "exactByteRoundTrip": true
+      }
     },
     "scenery.pavilion": {
       "source": "bao-customizer/meshy_output/models/scenery-pavilion.glb",
@@ -705,7 +831,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 6576038,
+        "decodedBytes": 8927784,
+        "exactByteRoundTrip": true
+      }
     },
     "scenery.training": {
       "source": "bao-customizer/meshy_output/models/scenery-training.glb",
@@ -736,7 +868,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 5529863,
+        "decodedBytes": 7113448,
+        "exactByteRoundTrip": true
+      }
     },
     "scenery.festival": {
       "source": "bao-customizer/meshy_output/models/scenery-festival.glb",
@@ -767,7 +905,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 6420354,
+        "decodedBytes": 8447864,
+        "exactByteRoundTrip": true
+      }
     },
     "scenery.dragon": {
       "source": "bao-customizer/meshy_output/models/scenery-dragon.glb",
@@ -798,7 +942,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 6296986,
+        "decodedBytes": 7898500,
+        "exactByteRoundTrip": true
+      }
     },
     "vegetation.bamboo": {
       "source": "bao-customizer/meshy_output/models/vegetation-bamboo.glb",
@@ -831,7 +981,13 @@
           "sourceHeight": 4096
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 2122981,
+        "decodedBytes": 2790216,
+        "exactByteRoundTrip": true
+      }
     },
     "scenery.library": {
       "source": "frontend-layout-mockup/meshy-workspaces/models/library-refine.glb",
@@ -850,7 +1006,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1083395,
+        "decodedBytes": 1527196,
+        "exactByteRoundTrip": true
+      }
     },
     "scenery.gate-tea-table": {
       "source": "frontend-layout-mockup/meshy-workspaces/models/gate-tea-table-refine.glb",
@@ -869,7 +1031,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 646788,
+        "decodedBytes": 789748,
+        "exactByteRoundTrip": true
+      }
     },
     "scenery.developer-workstation": {
       "source": "frontend-layout-mockup/meshy-workspaces/models/developer-workstation-refine.glb",
@@ -888,7 +1056,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 451811,
+        "decodedBytes": 578296,
+        "exactByteRoundTrip": true
+      }
     },
     "vegetation.ancient-grove": {
       "source": "frontend-layout-mockup/meshy-forest/models/ancient-grove-refine.glb",
@@ -907,7 +1081,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1637013,
+        "decodedBytes": 2223444,
+        "exactByteRoundTrip": true
+      }
     },
     "scenery.forest-gate": {
       "source": "frontend-layout-mockup/meshy-forest/models/forest-gate-refine.glb",
@@ -926,7 +1106,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1072875,
+        "decodedBytes": 1514240,
+        "exactByteRoundTrip": true
+      }
     },
     "wardrobe.developer-vest": {
       "source": "bao-customizer/wardrobe_output/models/developer-vest-refine.glb",
@@ -945,7 +1131,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 265083,
+        "decodedBytes": 384640,
+        "exactByteRoundTrip": true
+      }
     },
     "wardrobe.developer-headphones": {
       "source": "bao-customizer/wardrobe_output/models/developer-headphones-refine.glb",
@@ -964,7 +1156,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 157683,
+        "decodedBytes": 234616,
+        "exactByteRoundTrip": true
+      }
     },
     "wardrobe.developer-boba": {
       "source": "bao-customizer/wardrobe_output/models/developer-boba-refine.glb",
@@ -983,7 +1181,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 182546,
+        "decodedBytes": 230272,
+        "exactByteRoundTrip": true
+      }
     },
     "wardrobe.developer-tablet": {
       "source": "bao-customizer/wardrobe_output/models/developer-tablet-refine.glb",
@@ -1002,7 +1206,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 73584,
+        "decodedBytes": 108424,
+        "exactByteRoundTrip": true
+      }
     },
     "wardrobe.qa-scarf": {
       "source": "bao-customizer/wardrobe_output/models/qa-scarf-refine.glb",
@@ -1021,7 +1231,13 @@
           "sourceHeight": 2048
         }
       ],
-      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained"
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 152331,
+        "decodedBytes": 197812,
+        "exactByteRoundTrip": true
+      }
     }
   }
 }
