@@ -56,6 +56,7 @@ describe("defaultRole", () => {
 
   test("a type written with spaces, capitals or a note in brackets is read as its plain name (F32)", () => {
     assert.equal(need("defaultRole")({ type: "design question" }), "architect");
+    assert.equal(need("defaultRole")({ type: "design" }), "architect", "the den's /state sends a design question as design");
     assert.equal(need("defaultRole")({ type: "Design question (architect)" }), "architect");
     assert.equal(need("defaultRole")({ type: " UI " }), "designer");
   });
