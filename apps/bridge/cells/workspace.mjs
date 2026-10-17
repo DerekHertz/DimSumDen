@@ -11,7 +11,7 @@ import { promisify } from "node:util";
 import { AGENT_ID_RE, REF_RE, WORKSPACE_BRANCH_PREFIX, WORKTREES_DIR } from "./policy.mjs";
 
 const exists = (p) => access(p).then(() => true, () => false);
-const BRIEF_NAMES = ["findings.md", "meeting.md"]; // the notes the bridge leaves in a worktree's .den/
+const BRIEF_NAMES = ["findings.md", "meeting.md", "ticket.md"]; // the notes the bridge leaves in a worktree's .den/
 const execFileP = promisify(execFile);
 
 // The one shape a published branch may have: what workspaceNames derives (a ref's slashes kept, then "-" and 8 hex of the agent id).
