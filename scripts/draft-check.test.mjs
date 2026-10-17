@@ -14,7 +14,7 @@ import { checkDraft } from "./draft-check.mjs";
 
 const HEADER = [
   "---",
-  "title: Why Dim Sum Den exists",
+  "title: Why Dim Sum Dev exists",
   "series: First series, 1 of 4",
   "channel: LinkedIn",
   "image: none",

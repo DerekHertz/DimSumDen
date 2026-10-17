@@ -1,5 +1,5 @@
 /**
- * Bao, a procedural, skinned panda for Dim Sum Den.
+ * Bao, a procedural, skinned panda for Dim Sum Dev.
  * No model files or Blender required. Pass your app's Three.js instance.
  * +Y is up; +Z is forward. Default seated height is about 4.1 scene units.
  */

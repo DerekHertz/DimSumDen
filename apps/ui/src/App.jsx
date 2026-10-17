@@ -347,7 +347,7 @@ export function App() {
             client={bridge} signedIn={steering.state !== "none"} demo={inDemo} />
         </aside>
       </div>
-      <footer className="forest-page-footer"><span>DIM SUM DEN <span aria-hidden="true">·</span> A place for good work.</span><span>14 residents{activity.visitors > 0 ? ` · ${activity.visitors} visiting agents` : ''}</span></footer>
+      <footer className="forest-page-footer"><span>DIM SUM DEV <span aria-hidden="true">·</span> A place for good work.</span><span>14 residents{activity.visitors > 0 ? ` · ${activity.visitors} visiting agents` : ''}</span></footer>
       {denDemo.active ? <DemoStrip loops={denDemo.loops} /> : null}
       <DemoAnnouncer text={denDemo.announcement} />
     </div>

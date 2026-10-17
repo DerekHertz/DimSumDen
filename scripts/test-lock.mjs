@@ -8,7 +8,7 @@
 // Targeted runs (`node --test <file>`, `npm run test:path`) never come here.
 //
 // Env:
-//   TEST_LOCK_PATH        lock file (default: <os.tmpdir()>/dim-sum-den-test.lock,
+//   TEST_LOCK_PATH        lock file (default: <os.tmpdir()>/dim-sum-dev-test.lock,
 //                         outside the repo's tracked files)
 //   TEST_LOCK_TIMEOUT_MS  bound on waiting (default 15 minutes)
 //   TEST_LOCK_POLL_MS     poll interval while waiting (default 500)
@@ -103,7 +103,7 @@ async function main() {
     console.error("usage: node scripts/test-lock.mjs <cmd> [args...]");
     return 2;
   }
-  const lockPath = process.env.TEST_LOCK_PATH || path.join(tmpdir(), "dim-sum-den-test.lock");
+  const lockPath = process.env.TEST_LOCK_PATH || path.join(tmpdir(), "dim-sum-dev-test.lock");
   const timeoutMs = numberFromEnv("TEST_LOCK_TIMEOUT_MS", DEFAULT_TIMEOUT_MS);
   const pollMs = Math.max(1, numberFromEnv("TEST_LOCK_POLL_MS", DEFAULT_POLL_MS));
   const owner = { pid: process.pid, cwd: process.cwd(), token: randomBytes(8).toString("hex") };

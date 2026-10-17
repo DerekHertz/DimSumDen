@@ -1,18 +1,18 @@
 > [!WARNING]
-> **Work in progress.** Dim Sum Den is built for one person's workflow (mine), and the agents in it rebuild it every day.
+> **Work in progress.** Dim Sum Dev is built for one person's workflow (mine), and the agents in it rebuild it every day.
 > Expect breaking changes: keys that move, panels that get redrawn, features that come and go without notice.
 > If it's close to what you want, fork it and bend it into what you need.
 
 <div align="center">
 
-# 🥟 Dim Sum Den
+# 🥟 Dim Sum Dev
 
 **A local control room where a small team of AI agents builds software, and you sit at the Pass.**
 
 Agents work tickets through a strict relay on a plain-file board, stop at gates only you can open,
 and show up as plush pandas in a 3D bamboo garden, around Bao, so you can see who is doing what at a glance.
 
-[![CI](https://img.shields.io/github/actions/workflow/status/DerekHertz/DimSumDen/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/DerekHertz/DimSumDen/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/DerekHertz/DimSumDev/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/DerekHertz/DimSumDev/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20WSL-lightgrey?style=flat-square)](#requirements)
 [![Built with React Three Fiber](https://img.shields.io/badge/built%20with-React%20Three%20Fiber-000000?style=flat-square)](https://r3f.docs.pmnd.rs)
@@ -55,8 +55,8 @@ Linux, macOS and WSL. It's a local tool, and the bridge binds to `127.0.0.1` onl
 ## Run locally
 
 ```sh
-git clone https://github.com/DerekHertz/DimSumDen.git
-cd DimSumDen
+git clone https://github.com/DerekHertz/DimSumDev.git
+cd DimSumDev
 npm ci
 npm run ui              # builds the UI, then starts the bridge on port 4317
 ```

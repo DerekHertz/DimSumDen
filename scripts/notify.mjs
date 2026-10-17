@@ -13,7 +13,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { readStdinJson, boardRoot } from "./hook-io.mjs";
 
-const TITLE = "DimSumDen";
+const TITLE = "DimSumDev";
 const TOAST_TIMEOUT_MS = 10_000;
 const READY_FOR_HUMAN = /^\*\*Status:\*\*\s*ready-for-human\s*$/m;
 

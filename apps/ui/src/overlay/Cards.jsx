@@ -35,7 +35,7 @@ export function LogoPill({ connection, demo = false }) {
   return (
     <header className="logo-pill" data-overlay="logo">
       <span className="logo-face" aria-hidden="true"><PandaFace /></span>
-      <h1>Dim Sum Den</h1>
+      <h1>Dim Sum Dev</h1>
       {demo ? <DemoBadge /> : <span className={`live-badge live-${badge.tone}`} aria-live={badge.ariaLive ?? undefined}>
         <span className="live-dot" aria-hidden="true" />
         <span>{badge.label}</span>

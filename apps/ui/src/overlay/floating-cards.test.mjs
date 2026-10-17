@@ -175,7 +175,7 @@ test("the masthead precedes garden controls and the desk keeps Needs you before 
       deskContainsCards: ['needs-you', 'stations', 'library', 'meetings'].every(n => !!el(n)?.closest('aside[aria-label="Your desk"]')),
     };
   });
-  assert.equal(order.title, 'Dim Sum Den');
+  assert.equal(order.title, 'Dim Sum Dev');
   assert.equal(order.logoBeforeZoom, true);
   assert.equal(order.needsBeforeStations, true);
   assert.equal(order.deskContainsCards, true);
@@ -198,10 +198,10 @@ test("desktop garden, toolbar, footer controls and desk occupy separate bounded 
   }
 }));
 
-test("logo pill shows 'Dim Sum Den' and a Live badge in qi", { timeout: 90000 }, withApp({}, async ({ page, logo }) => {
+test("logo pill shows 'Dim Sum Dev' and a Live badge in qi", { timeout: 90000 }, withApp({}, async ({ page, logo }) => {
   await logo.getByText("Live", { exact: true }).waitFor({ state: "visible" });
   assert.equal(await colourOf(logo.getByText("Live", { exact: true })), await token(page, "qi"));
-  assert.equal((await logo.locator("h1").textContent()).trim(), "Dim Sum Den");
+  assert.equal((await logo.locator("h1").textContent()).trim(), "Dim Sum Dev");
 }));
 
 // ---- Needs you ---------------------------------------------------------------------------------------------

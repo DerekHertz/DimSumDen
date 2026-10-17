@@ -103,7 +103,7 @@ test("AC2: Stop with no gate waiting stays quiet: no toast, no bell, no stdout, 
   assert.equal(r.stdout, "");
 });
 
-test("AC2: Stop with a ready-for-human ticket raises one toast naming DimSumDen and the ticket", () => {
+test("AC2: Stop with a ready-for-human ticket raises one toast naming DimSumDev and the ticket", () => {
   const f = fixture();
   ticket(f, "150-demo", "ready-for-human");
   ticket(f, "151-other", "claimed");
@@ -111,7 +111,7 @@ test("AC2: Stop with a ready-for-human ticket raises one toast naming DimSumDen 
   assert.equal(r.status, 0, r.stderr);
   const t = toasts(f);
   assert.equal(t.length, 1);
-  assert.ok(toastHas(t[0], "DimSumDen"), JSON.stringify(t[0].argv));
+  assert.ok(toastHas(t[0], "DimSumDev"), JSON.stringify(t[0].argv));
   assert.ok(toastHas(t[0], "150"), JSON.stringify(t[0].argv));
   assert.ok(!toastHas(t[0], "151-other"), "only the waiting gate is named");
 });
