@@ -493,7 +493,7 @@ test("scroll wheel over the scene zooms freely and clamps at both ends (scope 20
   const closer = await zoomValue(zoom);
   assert.ok(closer < 1 && closer >= ZOOM_NEAREST, `wheel up zooms in: ${closer}`);
   await page.mouse.wheel(0, -100000);
-  await page.waitForFunction(() => Number(document.querySelector('[data-overlay=zoom]').dataset.zoom) === .55);
+  await page.waitForFunction(nearest => Number(document.querySelector('[data-overlay=zoom]').dataset.zoom) === nearest, ZOOM_NEAREST);
   assert.ok(near(await zoomValue(zoom), ZOOM_NEAREST, 1e-6), "a huge scroll in stops at the nearest limit");
   await page.mouse.wheel(0, 100000);
   await page.waitForFunction(() => Number(document.querySelector('[data-overlay=zoom]').dataset.zoom) === 1.2);
