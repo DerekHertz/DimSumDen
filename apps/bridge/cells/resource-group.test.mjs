@@ -167,7 +167,7 @@ describe("a host that cannot enforce the limits starts nothing", () => {
   test("the default runtime is the enforced one: its spawn rejects and the binary it names is never run", async () => {
     const env = await emptyHost();
     const marker = path.join(env.HOME, "ran");
-    const runtime = createClaudeRuntime({ env: { ...env, DEN_CLAUDE_BIN: "touch" } });
+    const runtime = createClaudeRuntime({ controlRoot: "/", env: { ...env, DEN_CLAUDE_BIN: "touch" } });
     assert.equal(runtime.enforced, true);
     assert.equal((await runtime.preflight()).ok, false);
     await assert.rejects(runtime.spawn({ role: "scout", cwd: env.HOME, prompt: marker, sessionId: "0f8fad5b-d9cb-469f-a165-70867728950e" }), { name: "EnforcementError" });

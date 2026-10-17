@@ -522,6 +522,11 @@ export function createHost({ root, projects: projectsOption, runtime, policy = {
       liveByRef.delete(agent.ref);
       return agent.resumeOf ? refuse(409, "the earlier run's project is no longer onboarded; start a new task instead") : refuse(409, "the active project is not ready; check it with den:project");
     }
+    // den-mvp/49: a delivery run (a resume included) is the control checkout's work until delivery carries a project.
+    if (agent.delivery && project.slug !== "den") {
+      liveByRef.delete(agent.ref);
+      return refuse(409, "Deliver runs on the den project only, for now; switch the active project to the den first");
+    }
     agent.project = project.slug;
     const workspaces = project.workspaces; // this run's root, whatever the active project becomes later
     try {
@@ -578,6 +583,8 @@ export function createHost({ root, projects: projectsOption, runtime, policy = {
     const args = {
       role: agent.role, ...(agent.mode ? { mode: agent.mode } : {}), ref: agent.ref, cwd: workspace.dir, sessionId: agent.sessionId,
       prompt: agent.followUp ? agent.followUp.text : promptFor(agent), ticketFile: ticketFile(agent.ref, project.root), mainGit,
+      // den-mvp/49: derived here, from the bridge's own root and the run's project; never from a request. The runtime refuses a spawn without it outside the control checkout.
+      project: { control: project.slug === "den", root: project.root, pluginDir: path.join(root, ".claude") },
       ...(agent.resumeOf ? { resume: true, runId: agent.id, promptId: agent.followUp.messageId } : {}),
       // agent-os/02: data for the adapter, never in the prompt. The main checkout's path rides along so the adapter can deny
       // the governed paths a path grant reaches there.

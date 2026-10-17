@@ -45,7 +45,7 @@ const hasDenies = (settings, mainGit) => {
 };
 const stubRuntime = async (stubOpts = { mode: "hang" }) => {
   const stub = await makeStub(stubOpts);
-  const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+  const runtime = createClaudeRuntime({ controlRoot: "/", launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
   cleanups.push(async () => {
     const start = await stub.start();
     if (start?.pid && alive(start.pid)) process.kill(start.pid, "SIGKILL");

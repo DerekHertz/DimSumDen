@@ -15,6 +15,7 @@
 //   it skips them, and GitHub CI alone decides.
 //   host: { start(input), stop(agentId) }    board: delivery/board.mjs    git: delivery/git-host.mjs    log: delivery/jobs.mjs
 //   readTicket(ref) -> { title, type, frontier } | null, from the board as the bridge reads it
+//   activeProject() -> slug (den-mvp/49): delivery is the control checkout's, so a start is refused while another project is active
 // The route answers are { ok: true, status, delivery } or { ok: false, status, error }.
 import { randomBytes } from "node:crypto";
 import { hasSecret } from "../../../scripts/exposure.mjs";
@@ -79,7 +80,10 @@ const testFindings = (rec) => {
 };
 
 // ciWaitMs: how long the runner waits between looks for a re-run's jobs to replace the timed-out ones (a test seam).
-export function createDelivery({ host, board, git, log, readTicket, onChange = () => {}, build = null, checks = null, ciWaitMs = 15000 }) {
+// den-mvp/49: until delivery carries a project, its claim, handoffs, push, PR and merge are the control checkout's.
+export const DEN_ONLY = "Deliver runs on the den project only, for now; switch the active project to the den first";
+
+export function createDelivery({ host, board, git, log, readTicket, activeProject = async () => "den", onChange = () => {}, build = null, checks = null, ciWaitMs = 15000 }) {
   const jobs = new Map(); // id -> job; insertion order is snapshot order
   let mergeChain = Promise.resolve(); // merges go one at a time
   // The preview that is open for the job's candidate: { url, sha } | null.
@@ -186,6 +190,7 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     if (typeof ref !== "string" || !REF_RE.test(ref)) return refuse(400, "ref must look like <feature>/<NN>-<slug>");
     await ready;
     if (closing) return refuse(503, "the bridge is shutting down");
+    if ((await activeProject()) !== "den") return refuse(409, DEN_ONLY);
     const ticket = await readTicket(ref);
     if (!ticket) return refuse(404, "no such ticket");
     if (!DELIVERABLE_TYPES.includes(ticket.type)) return refuse(409, `a ${ticket.type || "ticket of this type"} is not delivered as software; start its role directly`);

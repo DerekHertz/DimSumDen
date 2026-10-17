@@ -199,6 +199,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   delivery = createDelivery({
     host: { start: host.start, stop: host.stop, retire: host.retire },
     board: createDeliveryBoard(root),
+    activeProject: () => projects.active(),
     git,
     build: denBuild,
     checks,
@@ -899,7 +900,7 @@ if (startedDirectly()) {
   const checksLauncher = createResourceLauncher({ env: process.env, limits: checksLimits(), slice: CHECKS_SLICE });
   // The box mounts the den's packages folder for each commit's own lockfile (deps/<lock-hash>, made by den:update).
   const checks = createChecks({ repo: root, launcher: checksLauncher, recordDir: path.join(root, ".scratch", "_run", "checks"), depsDir: path.join(denState, "deps") });
-  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }), watchCi: true, usage: createUsageReading(), checks });
+  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher, controlRoot: root }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }), watchCi: true, usage: createUsageReading(), checks });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
   console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);
