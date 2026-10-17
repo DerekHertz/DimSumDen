@@ -36,6 +36,8 @@ export const ROUTES = [
   { method: "POST", path: "/build/rollback", auth: "token", mutating: true },
   { method: "POST", path: "/tickets/approve", auth: "token", mutating: true },
   { method: "POST", path: "/tickets/decline", auth: "token", mutating: true },
+  { method: "POST", path: "/release/approve", auth: "token", mutating: true },
+  { method: "POST", path: "/release/decline", auth: "token", mutating: true },
   { method: "POST", path: "/checks", auth: "token", mutating: true },
   { method: "GET", path: "/projects", auth: "token", mutating: false },
   { method: "POST", path: "/projects/active", auth: "token", mutating: true },

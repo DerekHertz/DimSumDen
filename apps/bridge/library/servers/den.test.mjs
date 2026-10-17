@@ -26,7 +26,7 @@ test("tools/call goes to POST /den-tools/<tool> with the run's token; a refusal 
   try {
     assert.equal((await rpc(1, "initialize", { protocolVersion: "2025-06-18" })).result.serverInfo.name, "den");
     const tools = (await rpc(2, "tools/list")).result.tools;
-    assert.deepEqual(tools.map((t) => t.name), ["board_resolve", "board_comment", "board_file", "start_delivery"]);
+    assert.deepEqual(tools.map((t) => t.name), ["board_resolve", "board_comment", "board_file", "start_delivery", "release_propose"]);
     // Board cleanup 2026-10-16: a review's findings are one checklist, never a ticket each.
     assert.match(tools.find((t) => t.name === "board_file").description, /One ticket is one outcome[\s\S]*checklist[\s\S]*never one ticket per finding/);
     const ok = await rpc(3, "tools/call", { name: "board_comment", arguments: { ref: "fx/02", text: "hi" } });
