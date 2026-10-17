@@ -4,7 +4,6 @@
 // Zoom is the dolly factor of iso-projection.mjs (smaller is closer), always held inside [ZOOM_MIN, ZOOM_MAX].
 import { STALL_CENTERS } from "./banquet-layout.mjs";
 import { TARGET } from "./iso-projection.mjs";
-import { clampZoom, keyZoom } from "./camera-rig.mjs";
 
 /** Dolly factor of each zoom level. Level 4 (Workspace) has no destination yet. */
 export const LEVEL_ZOOM = { 1: 1, 2: 0.75, 3: 0.55 };
@@ -21,7 +20,8 @@ export function levelOfZoom(zoom) {
   return best;
 }
 
-export function createCameraStore() {
+export function createCameraStore({minZoom=.55}={}) {
+  const clamp=z=>Math.max(minZoom,Math.min(1.2,z));
   let zoom = 1;
   let target = [...TARGET];
   const subs = new Set();
@@ -34,7 +34,7 @@ export function createCameraStore() {
       return () => subs.delete(fn);
     },
     setZoom(z) {
-      const next = round(clampZoom(z));
+      const next = round(clamp(z));
       if (next === zoom) return;
       zoom = next;
       emit();
@@ -46,7 +46,7 @@ export function createCameraStore() {
     },
     /** One + or - step, the same one the keyboard takes. */
     stepZoom(key) {
-      store.setZoom(keyZoom(zoom, key));
+      store.setZoom(['+','='].includes(key)?zoom-.1:['-','_'].includes(key)?zoom+.1:zoom);
     },
     /** Level 1 is the default framing (target reset too); levels 2 and 3 dolly in where the camera already looks. */
     goToLevel(level) {

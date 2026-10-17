@@ -168,8 +168,8 @@ test("a click on the abacus in the scene opens the card, and clicking it again l
   try {
     await page.waitForFunction(() => document.querySelector('.den-entry button') && document.querySelector('.den-entry button').getAttribute('aria-disabled') !== 'true', null, { timeout: 60000 });
     const box = await page.locator('.forest-canvas').boundingBox();
-    // The new abacus is at [16, 0, 18]. Hit its solid right frame rather than a gap between beads.
-    const mid = screenOf(box, 17.05, 1.15, 18);
+    // Hit the solid right frame of the garden court abacus.
+    const mid = screenOf(box, 5.05, 1.41, 13);
     await page.mouse.click(mid.x, mid.y);
     const dialog = dialogOf(page);
     await dialog.waitFor({ state: "visible" });

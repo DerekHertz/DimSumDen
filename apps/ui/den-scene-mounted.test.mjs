@@ -138,11 +138,11 @@ async function openGarden({ viewport = { width: 1440, height: 900 }, failModels 
 
 const ready = page => page.waitForFunction(() => document.querySelector('.den-entry button') && document.querySelector('.den-entry button').getAttribute('aria-disabled') !== 'true', null, { timeout: 60000 });
 
-test("the native garden builds procedural structures and loads local Bao, wardrobe, vegetation and all fourteen role props without an iframe or page error", { timeout: 90000 }, async () => {
+test("the native plush garden loads Balanced Bao and the shared role wardrobe without an iframe or page error", { timeout: 90000 }, async () => {
   const { context, page, errors, loaded, modelResponses } = await openGarden();
   try {
     await ready(page);
-    const native = ['/src/scene/meshy/MeshyDen.jsx', '/src/scene/meshy/world.mjs', '/src/scene/meshy/actors.mjs', '/src/scene/meshy/stylized-structures.mjs', '/src/scene/meshy/role-outfits.mjs', '/src/scene/meshy/role-headwear.mjs'];
+    const native = ['/src/scene/meshy/MeshyDen.jsx', '/src/scene/meshy/world.mjs', '/src/scene/meshy/actors.mjs', '/src/scene/meshy/plush/assembly.mjs', '/src/scene/meshy/role-outfits.mjs', '/src/scene/meshy/role-headwear.mjs'];
     assert.deepEqual(native.filter(path => !loaded.includes(path)), [], 'the native Meshy world is loaded');
     assert.ok(!loaded.includes('/src/scene/procedural/RestaurantDen.jsx'), 'old procedural scene is not mounted');
     assert.equal(await page.locator('iframe').count(), 0, 'no embedded preview server');
@@ -150,12 +150,34 @@ test("the native garden builds procedural structures and loads local Bao, wardro
     assert.equal(Object.keys(assets).length, 22, 'only retained character, prop, wardrobe and vegetation models are shipped');
     assert.deepEqual(Object.keys(assets).filter(key => key.startsWith('scenery.')), [], 'buildings and furniture use procedural geometry');
     assert.equal(loaded.some(path => path.startsWith('/den/models/scenery/')), false, 'no removed scenery download');
-    const missing = Object.values(assets).filter(asset => !loaded.includes(asset.url));
-    assert.deepEqual(missing.map(asset => asset.url), [], 'all models come from the checked-in manifest');
-    const props = Object.values(assets).filter(asset => asset.kind === 'prop');
-    assert.equal(props.length, 14);
-    assert.equal(new Set(props.map(asset => asset.roleId)).size, 14);
-    assert.ok(modelResponses.length >= Object.keys(assets).length);
+    const required = ['bao','wardrobe.developer-vest','wardrobe.qa-scarf','wardrobe.developer-headphones'];
+    assert.deepEqual(required.filter(id=>!loaded.includes(assets[id].url)), [], 'the approved body and shared wardrobe load locally');
+    assert.equal(modelResponses.length, 4, 'authored scenery and tools need only four model downloads');
+    const scene = await page.evaluate(async()=>{
+      const url=performance.getEntriesByType('resource').find(e=>e.name.includes('react-three_fiber.js')).name;
+      const {_roots}=await import(url);
+      const {createGardenNavigation}=await import('/src/scene/meshy/garden-navigation.mjs');
+      const {gardenRoute}=await import('/src/scene/meshy/garden-route.mjs');
+      const world=_roots.get(document.querySelector('canvas')).store.getState().scene.getObjectByName('Dim Sum Den · plush bamboo garden');
+      const roles=[],skeletons=new Set(),tools=[],assets={};let landscape;
+      world.traverse(n=>{
+        if(n.userData.actorKey)roles.push(n);
+        if(n.isSkinnedMesh)skeletons.add(n.skeleton);
+        if(n.userData.tool)tools.push(n.userData.tool);
+        if(n.userData.placeId==='grove')landscape={root:n};else if(n.userData.placeId)assets[n.userData.placeId]={root:n};
+      });
+      const nav=createGardenNavigation({root:world,assets,landscape});
+      const routes=roles.map(n=>({role:n.userData.roleId,out:gardenRoute(nav,n.position,{x:-3.5,z:3.15}).length,home:gardenRoute(nav,{x:-3.5,y:.26,z:3.15},n.position).length}));
+      const table=world.getObjectByName('Round table and legs');let bounds;table.traverse(n=>{if(!n.isMesh)return;n.geometry.computeBoundingBox();const b=n.geometry.boundingBox.clone().applyMatrix4(n.matrixWorld);if(bounds)bounds.union(b);else bounds=b;});const tableSize=bounds.getSize(table.position.clone()).toArray();
+      return {roles:roles.map(n=>n.userData.roleId),tools,skeletons:skeletons.size,routes,tableSize,susan:!!world.getObjectByName('Lazy susan'),places:world.userData.presentationLayout.structurePositions};
+    });
+    assert.equal(new Set(scene.roles).size,14);
+    assert.equal(new Set(scene.tools).size,14,'each permanent role has a distinct paw tool');
+    assert.equal(scene.skeletons,29,'14 residents and 15 scenery pandas have independent skeletons');
+    assert.equal(scene.places.length,10);
+    assert.deepEqual(scene.routes.filter(r=>!r.out||!r.home),[],'every workstation connects to the meeting and back over actual walking surfaces');
+    assert.ok(scene.tableSize[0]>=4&&scene.tableSize[1]>=1&&scene.tableSize[2]>=2.3,'the batched meeting table and legs remain visible');
+    assert.equal(scene.susan,true,'the tea tray still turns toward the meeting speaker');
     for (const response of modelResponses) assert.equal(response.status(), 200, response.url());
     const bytes = await modelResponses.find(response => new URL(response.url()).pathname === assets.bao.url).body();
     assert.equal(bytes.subarray(0, 4).toString('ascii'), 'glTF', 'Chromium exposes the real decoded GLB model bytes');
@@ -241,7 +263,7 @@ test("clicking the physical Library replaces portrait profiles and an open Bao t
     await page.locator('.transcript-panel').waitFor({ state: 'visible' });
     // Click the actual roof at the authored Library position, using the same camera projection as the garden.
     const box = await page.locator('.forest-canvas').boundingBox();
-    const roof = screenPoint(box, 1.5, 3.6, -17.6);
+    const roof = screenPoint(box, -21, 5.5, 6);
     await page.mouse.click(roof.x, roof.y);
     const library = page.locator('[data-overlay="library"]');
     await library.getByText('garden-qa-marker', { exact: true }).waitFor({ state: 'visible' });
@@ -253,8 +275,8 @@ test("clicking the physical Library replaces portrait profiles and an open Bao t
   } finally { await context.close(); }
 });
 
-test("a failed required role prop cannot report the garden ready with an incomplete resident workspace", { timeout: 90000 }, async () => {
-  const { context, page, errors } = await openGarden({ failModels: assets['props.developer'].url });
+test("a failed required wardrobe cannot report the garden ready with incomplete role attire", { timeout: 90000 }, async () => {
+  const { context, page, errors } = await openGarden({ failModels: assets['wardrobe.developer-vest'].url });
   try {
     const alert = page.getByRole('alert').filter({ hasText: 'garden models could not load' });
     await alert.waitFor({ state: 'visible', timeout: 60000 });

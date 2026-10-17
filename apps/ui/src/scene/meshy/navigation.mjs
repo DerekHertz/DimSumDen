@@ -11,7 +11,7 @@ function clip(points,axis,bound,greater){
  }
  return out;
 }
-export function createSurfaceNavigation(objects,{cell=.18}={}){
+export function createSurfaceNavigation(objects,{cell=.18,floorRadius=29,floorCenter={x:0,z:-1},baseY=0}={}){
  const columns=new Map(),point=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3(),normal=new THREE.Vector3();let triangles=0;
  const key=(x,z)=>`${x},${z}`;
  for(const root of objects){
@@ -27,7 +27,7 @@ export function createSurfaceNavigation(objects,{cell=.18}={}){
     const minX=Math.floor(Math.min(...triangle.map(v=>v.x))/cell),maxX=Math.floor(Math.max(...triangle.map(v=>v.x))/cell),minZ=Math.floor(Math.min(...triangle.map(v=>v.z))/cell),maxZ=Math.floor(Math.max(...triangle.map(v=>v.z))/cell);
     ab.subVectors(triangle[1],triangle[0]);ac.subVectors(triangle[2],triangle[0]);normal.crossVectors(ab,ac).normalize();const supports=Math.abs(normal.y)>.70;
     for(let x=minX;x<=maxX;x++)for(let z=minZ;z<=maxZ;z++){
-     if(Math.hypot((x+.5)*cell,(z+.5)*cell+1)>29)continue;
+     if(Math.hypot((x+.5)*cell-floorCenter.x,(z+.5)*cell-floorCenter.z)>floorRadius)continue;
      let polygon=triangle;
      for(const [axis,bound,greater]of [['x',x*cell,true],['x',(x+1)*cell,false],['z',z*cell,true],['z',(z+1)*cell,false]]){polygon=clip(polygon,axis,bound,greater);if(!polygon.length)break;}
      if(!polygon.length)continue;
@@ -46,7 +46,7 @@ export function createSurfaceNavigation(objects,{cell=.18}={}){
  }
  const columnAt=(x,z)=>columns.get(key(Math.floor(x/cell),Math.floor(z/cell)));
  function groundAt(x,z,previous=0,radius=.26){
-  const center=columnAt(x,z),surfaces=[0,...(center?.surfaces||[])];
+  const center=columnAt(x,z),surfaces=[baseY,...(center?.surfaces||[])];
   const candidates=surfaces.filter(y=>y<=previous+STEP_UP+.015&&y>=previous-STEP_DOWN-.015).sort((a,b)=>b-a);
   for(const ground of candidates){
    let blocked=false;

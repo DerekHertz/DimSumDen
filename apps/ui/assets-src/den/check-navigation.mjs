@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { createSurfaceNavigation } from '../../src/scene/meshy/navigation.mjs';
 import { createStylizedStructure } from '../../src/scene/meshy/stylized-structures.mjs';
-import { protectPond } from '../../src/scene/meshy/collisions.mjs';
+import { protectPond } from './legacy-collisions.mjs';
 
 export function geometry(id) {
  return createStylizedStructure(id);

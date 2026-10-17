@@ -84,7 +84,7 @@ export function App() {
   const placeholder = inDemo || approvalDemo ? null : panelPlaceholder(connection);
   const [selected, setSelected] = useState(null);
   const stage = useMemo(() => ({ anchors: new Map(), camera: null, size: null, explorer: null, tallyAnchor: TALLY_ANCHOR }), []);
-  const camera = useMemo(() => createDenCameraStore(createCameraStore(),()=>stage.explorer?.exit(), NAVIGATION_TARGETS), [stage]);
+  const camera = useMemo(() => createDenCameraStore(createCameraStore({minZoom:.25}),()=>stage.explorer?.exit(), NAVIGATION_TARGETS), [stage]);
   const [den,setDen]=useState(null);
   const [gardenLoad, setGardenLoad] = useState({ status: 'loading', message: 'Opening the garden…' });
   const [exploring,setExploring]=useState(false);
@@ -285,7 +285,7 @@ export function App() {
             <SceneBoundary>
               <Canvas aria-hidden="true" orthographic shadows dpr={[1,1.5]}
                 camera={{ manual: true, zoom: 1, near: 0.1, far: 160 }}
-                gl={{antialias:true}} events={sceneEvents} onPointerMissed={() => { setSelected(null); unpick(); }}>
+                gl={{antialias:true,powerPreference:'high-performance'}} events={sceneEvents} onPointerMissed={() => { setSelected(null); unpick(); }}>
                 <CameraRig store={camera} stage={stage} den={den} onModeChange={onExploreChange} onHint={setExploreHint} onCursorChange={setCursorFree} />
                 <Suspense fallback={null}>
                   <MeshyDen snapshot={snapshot} bindings={bindings} onLoadState={setGardenLoad} cells={sceneCells} frontier={frontier} tally={tally} onOpenTally={openTally}

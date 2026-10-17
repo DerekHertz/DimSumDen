@@ -4,7 +4,7 @@ import {Vector3} from 'three';
 import { SITES,siteGeometry,routeToInterior } from './check-navigation.mjs';
 import { createSurfaceNavigation } from '../../src/scene/meshy/navigation.mjs';
 import { walk,WALK } from '../../src/scene/procedural/walk.mjs';
-import { protectPond } from '../../src/scene/meshy/collisions.mjs';
+import { protectPond } from './legacy-collisions.mjs';
 
 for(const site of SITES)test(`walk into and back out of the shipped ${site.id} interior`,async()=>{
  const root=await siteGeometry(site),rawNavigation=createSurfaceNavigation([root]);

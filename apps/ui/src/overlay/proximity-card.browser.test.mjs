@@ -48,16 +48,9 @@ test('walking up to a resident shows its nearby card; moving away and leaving hi
     await leave.waitFor();
     const card = page.getByRole('region', { name: 'Nearby panda' });
     assert.equal(await card.count(), 0, 'the current gate spawn starts away from every resident');
-    // Gate entry (0, 26.4) now faces an open path; the Cub lives at the
-    // gate-side tea table (-5.55, 18), not at the legacy entry location.
-    // Turn toward it and approach using the same mouse and keys as a visitor.
+    // The entry path faces the Cub at (0,25.6). Approach with normal walking.
     const canvas = await page.locator('.forest-canvas canvas').boundingBox();
     const x = canvas.x + canvas.width / 2, y = canvas.y + canvas.height / 2;
-    const turnPixels = Math.atan2(5.55, 8.4) / .0025;
-    await page.mouse.move(x, y);
-    await page.mouse.down();
-    await page.mouse.move(x - turnPixels, y, { steps: 8 });
-    await page.mouse.up();
     await page.keyboard.down('KeyW');
     try { await card.waitFor({ timeout: 15000 }); }
     finally { await page.keyboard.up('KeyW'); }
