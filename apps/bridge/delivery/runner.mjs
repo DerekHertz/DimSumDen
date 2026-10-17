@@ -41,7 +41,7 @@ const GUARD_HITS_IN_BODY = 10;
 const refuse = (status, error) => ({ ok: false, status, error });
 // An error's text as the den may show it: one line, no credential a remote URL carried, nothing that looks like a secret.
 const errorText = (err) => {
-  const text = String(err?.stderr || err?.message || err).replace(/[\u0000-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]+/g, " ").replace(/\/\/[^@\s/]+@/g, "//").trim().slice(0, 300);
+  const text = String(err?.stderr || err?.message || err).replace(/[\u0000-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩\u2028\u2029]+/g, " ").replace(/\/\/[^@\s/]+@/g, "//").trim().slice(0, 300);
   return hasSecret(text) ? "[masked: possible secret]" : text;
 };
 
@@ -451,9 +451,14 @@ export function createDelivery({ host, board, git, log, readTicket, activeProjec
   }
 
   // The guard's hits, the first ten of them: they are text from the candidate's own tests, so each goes through errorText.
+  // Each is a code span, so markdown, an HTML comment, a link or a mention in it does nothing: the fence is longer than any backtick run inside.
+  const inert = (text) => {
+    const fence = "`".repeat(Math.max(0, ...(text.match(/`+/g) ?? []).map((r) => r.length)) + 1);
+    return fence.length === 1 ? `${fence}${text}${fence}` : `${fence} ${text} ${fence}`;
+  };
   const guardLines = (hits) =>
     hits.length
-      ? [`- Test guard: ${hits.length} hit(s) listed for the verifier`, ...hits.slice(0, GUARD_HITS_IN_BODY).map((h) => `  - ${errorText(h)}`), ...(hits.length > GUARD_HITS_IN_BODY ? [`  - and ${hits.length - GUARD_HITS_IN_BODY} more`] : [])]
+      ? [`- Test guard: ${hits.length} hit(s) listed for the verifier`, ...hits.slice(0, GUARD_HITS_IN_BODY).map((h) => `  - ${inert(errorText(h))}`), ...(hits.length > GUARD_HITS_IN_BODY ? [`  - and ${hits.length - GUARD_HITS_IN_BODY} more`] : [])]
       : ["- Test guard: clean"];
 
   const prBody = (job) =>

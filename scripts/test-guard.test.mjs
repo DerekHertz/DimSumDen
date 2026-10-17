@@ -2,12 +2,13 @@
 // over base...head. A weakening diff is flagged; the clean twin of it is not.
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { testGuard } from "./test-guard.mjs";
+import { EnforcementError, LIMITS, checksLimits } from "../apps/bridge/cells/resource-group.mjs";
+import { guardLauncher, staticGuard, stripComments, testGuard } from "./test-guard.mjs";
 
 const SCRIPT = fileURLToPath(new URL("./test-guard.mjs", import.meta.url));
 const roots = [];
@@ -36,7 +37,9 @@ function fixture(before, after, parent = os.tmpdir()) {
   write(after);
   return root;
 }
-const reasons = (root, opts = {}) => testGuard({ range: "base...HEAD", cwd: root, rerun: false, ...opts }).hits.map((h) => `${h.file}: ${h.reason}`);
+const line = (h) => `${h.file}: ${h.reason}`;
+// The static pass, synchronously; with rerun: true the whole guard, as a promise.
+const reasons = (root, opts = {}) => (opts.rerun ? testGuard({ range: "base...HEAD", cwd: root, ...opts }).then((r) => r.hits.map(line)) : staticGuard({ range: "base...HEAD", cwd: root }).hits.map(line));
 const flagged = (hits, re) => assert.ok(hits.some((h) => re.test(h)), `expected a hit matching ${re}, got ${JSON.stringify(hits)}`);
 
 const T = (body) => `import { test } from "node:test";\nimport assert from "node:assert/strict";\n${body}`;
@@ -269,52 +272,143 @@ describe("a new test that passes on the merge base", () => {
   const before = { "add.mjs": "export const add = (a, b) => a + b;\n", "add.test.mjs": T('import { add } from "./add.mjs";\ntest("adds", () => { assert.strictEqual(add(1, 2), 3); });\n') };
   const withNew = (extra) => ({ ...before, "add.test.mjs": before["add.test.mjs"] + extra });
 
-  test("is flagged as can't fail", () => {
+  test("is flagged as can't fail", async () => {
     // `add` already works at the base, so a new test of it asserts nothing the change made true.
     const root = fixture(before, withNew('test("adds zero", () => { assert.strictEqual(add(0, 0), 0); });\n'));
-    const hits = reasons(root, { rerun: true, box: "never" });
+    const hits = await reasons(root, { rerun: true, box: "never" });
     flagged(hits, /add\.test\.mjs: can't fail: "adds zero" passes on the merge base/);
     assert.equal(hits.some((h) => /"adds"/.test(h)), false, "the test that was already there is not new");
   });
 
-  test("is not flagged when it fails there", () => {
+  test("is not flagged when it fails there", async () => {
     const root = fixture(before, { ...withNew('import { sub } from "./add.mjs";\ntest("subtracts", () => { assert.strictEqual(sub(3, 1), 2); });\n'), "add.mjs": "export const add = (a, b) => a + b;\nexport const sub = (a, b) => a - b;\n" });
-    assert.deepEqual(reasons(root, { rerun: true, box: "never" }), []);
+    assert.deepEqual(await reasons(root, { rerun: true, box: "never" }), []);
   });
 
-  test("a new test file that cannot load on the merge base is not flagged", () => {
+  test("a new test file that cannot load on the merge base is not flagged", async () => {
     const root = fixture(before, { "new.test.mjs": T('import { nope } from "./nope.mjs";\ntest("n", () => { assert.ok(nope); });\n'), "nope.mjs": "export const nope = 1;\n" });
-    assert.deepEqual(reasons(root, { rerun: true, box: "never" }), []);
+    assert.deepEqual(await reasons(root, { rerun: true, box: "never" }), []);
   });
 
-  test("leaves no worktree behind, and the checkout is untouched", () => {
+  test("leaves no worktree behind, and the checkout is untouched", async () => {
     const root = fixture(before, withNew('test("adds zero", () => { assert.strictEqual(add(0, 0), 0); });\n'));
-    reasons(root, { rerun: true, box: "never" });
+    await reasons(root, { rerun: true, box: "never" });
     assert.equal(git(root, "worktree", "list", "--porcelain").split("\n").filter((l) => l.startsWith("worktree ")).length, 1);
     assert.deepEqual(readdirSync(root).filter((f) => !f.startsWith(".")).sort(), ["add.mjs", "add.test.mjs"]);
   });
 
-  test("a rerun that runs past its limit is a hit, not a hang", () => {
+  test("a rerun that runs past its limit is a hit, not a hang", async () => {
     const hang = ('test("hangs", async () => { await new Promise(() => setInterval(() => {}, 1000)); });\n');
     const root = fixture(before, { ...before, "add.test.mjs": before["add.test.mjs"] + hang });
     const started = Date.now();
-    flagged(reasons(root, { rerun: true, box: "never", timeoutSec: 2 }), /can't-fail check did not finish/);
+    flagged(await reasons(root, { rerun: true, box: "never", timeoutSec: 2 }), /can't-fail check did not finish/);
     assert.ok(Date.now() - started < 20000);
   });
 
-  test("with box required and no bubblewrap, the check says it did not run", () => {
+  test("with box required and no bubblewrap, the check says it did not run", async () => {
     const root = fixture(before, withNew('test("adds zero", () => { assert.strictEqual(add(0, 0), 0); });\n'));
-    flagged(reasons(root, { rerun: true, box: "require", bwrap: null }), /can't-fail check not run: no bubblewrap/);
+    flagged(await reasons(root, { rerun: true, box: "require", bwrap: null }), /can't-fail check not run: no bubblewrap/);
   });
 
   const boxWorks = (() => {
     const r = spawnSync("bwrap", ["--unshare-all", "--ro-bind", "/", "/", "true"], { stdio: "ignore" });
     return r.status === 0;
   })();
-  test("runs boxed when bubblewrap works", { skip: !boxWorks && "no working bubblewrap here" }, () => {
+  test("runs boxed when bubblewrap works", { skip: !boxWorks && "no working bubblewrap here" }, async (t) => {
+    const launcher = guardLauncher(process.env);
+    if (!(await launcher.preflight()).ok) return t.skip("no resource group here");
     const root = fixture(before, withNew('test("adds zero", () => { assert.strictEqual(add(0, 0), 0); });\n'), path.join(os.homedir(), ".cache", "test-guard-fixtures"));  // the box has its own /tmp, so a fixture under /tmp would be hidden
-    flagged(reasons(root, { rerun: true, box: "require" }), /can't fail: "adds zero"/);
+    flagged(await reasons(root, { rerun: true, launcher }), /can't fail: "adds zero"/);
     assert.equal(existsSync(path.join(root, ".claude", "worktrees")) ? readdirSync(path.join(root, ".claude", "worktrees")).length : 0, 0);
+  });
+
+  // H1: the rerun of untrusted tests goes through the launcher, in a resource group with the checks limits.
+  const addZero = () => fixture(before, withNew('test("adds zero", () => { assert.strictEqual(add(0, 0), 0); });\n'));
+  const BWRAP = "/usr/bin/bwrap"; // never run: the fake launcher stands in for it
+  function fakeLauncher({ out = "", hang = false, fail = null } = {}) {
+    const l = { enforced: true, launches: [], killed: 0 };
+    l.launch = async (req) => {
+      l.launches.push(req);
+      if (fail) throw fail;
+      const script = hang ? "setInterval(() => {}, 1000)" : `process.stdout.write(${JSON.stringify(out)})`;
+      const child = spawn(process.execPath, ["-e", script], { stdio: ["pipe", "pipe", "pipe"] });
+      return { child, group: { kill: () => ((l.killed += 1), child.kill("SIGKILL")), settled: async () => true, unit: "fake.scope" } };
+    };
+    return l;
+  }
+  const worktrees = (root) => (existsSync(path.join(root, ".claude", "worktrees")) ? readdirSync(path.join(root, ".claude", "worktrees")) : []);
+
+  test("runs the changed tests through the launcher, as a worker, in the box", async () => {
+    const root = addZero();
+    const launcher = fakeLauncher({ out: "ok 1 - adds zero\n" });
+    flagged(await reasons(root, { rerun: true, launcher, bwrap: BWRAP }), /can't fail: "adds zero"/);
+    assert.equal(launcher.launches.length, 1);
+    const [req] = launcher.launches;
+    assert.equal(req.slotClass, "worker");
+    assert.equal(req.bin, BWRAP);
+    assert.match(req.id, /^[a-z0-9][a-z0-9-]{0,63}$/);
+    const command = req.args.slice(req.args.indexOf("--") + 1);
+    assert.deepEqual(command.slice(1), ["--test", "--test-concurrency=2", "--test-reporter=tap", "add.test.mjs"]);
+    assert.ok(req.args.includes("--unshare-all"));
+    assert.equal(launcher.killed >= 1, true, "the group is ended when the run is over");
+    assert.deepEqual(worktrees(root), []);
+  });
+
+  test("the guard's launcher has the checks limits", () => {
+    const l = guardLauncher({});
+    assert.deepEqual(l.limits.classes.worker, LIMITS.checks);
+    assert.deepEqual(l.limits, checksLimits());
+  });
+
+  test("with box required and no launcher, the rerun is a hit and runs nothing", async () => {
+    const root = addZero();
+    flagged(await reasons(root, { rerun: true, bwrap: BWRAP }), /can't-fail check not run: no resource group/);
+    assert.deepEqual(worktrees(root), []);
+  });
+
+  test("a launcher that cannot enforce the limits makes the rerun a hit, not an unboxed run", async () => {
+    const root = addZero();
+    const launcher = fakeLauncher({ fail: new EnforcementError("no user bus") });
+    flagged(await reasons(root, { rerun: true, launcher, bwrap: BWRAP }), /can't-fail check not run: .*no user bus/);
+    assert.deepEqual(worktrees(root), []);
+  });
+
+  test("a rerun that outlives its limit has its group killed and is a hit", async () => {
+    const root = addZero();
+    const launcher = fakeLauncher({ hang: true });
+    flagged(await reasons(root, { rerun: true, launcher, bwrap: BWRAP, timeoutSec: 1 }), /can't-fail check did not finish/);
+    assert.ok(launcher.killed >= 1);
+  });
+
+  test("the default is to require the box", async () => {
+    const root = addZero();
+    flagged(await reasons(root, { rerun: true, bwrap: null }), /can't-fail check not run: no bubblewrap/);
+  });
+
+  // L7: a guard that was killed leaves a worktree; the next run sweeps the stale ones, and only those.
+  test("a stale guard worktree is swept at the start of a run, a fresh one is not", async () => {
+    const root = addZero();
+    const dir = path.join(root, ".claude", "worktrees");
+    const [old, fresh] = [`test-guard-1-${Date.now() - 3600_000}`, `test-guard-1-${Date.now()}`];
+    for (const name of [`${old}-nm`, fresh]) mkdirSync(path.join(dir, name), { recursive: true });
+    git(root, "worktree", "add", "--detach", path.join(dir, old), "base");
+    await reasons(root, { rerun: true, box: "never" });
+    assert.deepEqual(worktrees(root), [fresh], "only the fresh one is left");
+    assert.equal(git(root, "worktree", "list", "--porcelain").split("\n").filter((l) => l.startsWith("worktree ")).length, 1, "and it is no longer registered");
+  });
+});
+
+describe("the static pass is bounded", () => {
+  test("an unclosed block comment is stripped in linear time", () => {
+    const started = Date.now();
+    stripComments("/*a".repeat(80000));
+    assert.ok(Date.now() - started < 500, `took ${Date.now() - started} ms`);
+  });
+
+  test("a test file over the size cap is a hit and is not analysed", () => {
+    const big = `// ${"x".repeat(300 * 1024)}\n`;
+    const root = fixture({ "a.test.mjs": T('test("adds", () => { assert.strictEqual(1, 1); });\n') }, { "a.test.mjs": T(`${big}test("adds", () => { assert.strictEqual(1, 1); });\n`) });
+    flagged(reasons(root), /a\.test\.mjs: test file over \d+ KB: not analysed, the verifier reads it by hand/);
   });
 });
 
@@ -341,5 +435,40 @@ describe("the script", () => {
     const r = run(root, "--output=/tmp/x");
     assert.equal(r.status, 2);
     assert.match(r.stderr, /option-shaped/);
+  });
+
+  // M3 + L5: --json is the machine channel: one object on stdout, so no file name can pass for a note or hide a hit.
+  test("--json prints one object, and a file named like a note is still a hit", () => {
+    const name = "test-guard: x.test.mjs";
+    const root = fixture({ "a.mjs": SRC }, { "a.mjs": SRC, [name]: T('test.skip("x", () => { assert.strictEqual(1, 1); });\n') });
+    const r = run(root, "base...HEAD", "--no-rerun", "--json");
+    assert.equal(r.status, 1);
+    const out = JSON.parse(r.stdout);
+    assert.ok(out.hits.some((h) => h.file === name && /skip, todo or only added/.test(h.reason)), r.stdout);
+    assert.deepEqual(out.notes, []);
+  });
+
+  test("--json on a clean diff is an empty hit list and exit 0", () => {
+    const root = fixture({ "a.mjs": SRC }, { "a.mjs": `${SRC}// x\n` });
+    const r = run(root, "base...HEAD", "--json");
+    assert.equal(r.status, 0);
+    assert.deepEqual(JSON.parse(r.stdout).hits, []);
+  });
+
+  // L6: with no explicit --no-box, the changed tests never run unboxed.
+  test("without --no-box a missing box is a hit, never an unboxed run", () => {
+    const bin = mkdtempSync(path.join(os.tmpdir(), "test-guard-bin-"));
+    roots.push(bin);
+    symlinkSync(execFileSync("which", ["git"], { encoding: "utf8" }).trim(), path.join(bin, "git"));
+    const add = "export const add = (a, b) => a + b;\n";
+    const root = fixture({ "add.mjs": add, "add.test.mjs": T('test("adds", () => { assert.ok(1); });\n') },
+      { "add.mjs": add, "add.test.mjs": T('test("adds", () => { assert.ok(1); });\ntest("adds zero", () => { assert.ok(1); });\n') });
+    const env = { PATH: bin, HOME: root };
+    const guarded = spawnSync(process.execPath, [SCRIPT, "base...HEAD"], { cwd: root, encoding: "utf8", env });
+    assert.equal(guarded.status, 1);
+    assert.match(guarded.stdout, /can't-fail check not run/);
+    assert.doesNotMatch(guarded.stdout, /can't fail: /);
+    const unboxed = spawnSync(process.execPath, [SCRIPT, "base...HEAD", "--no-box"], { cwd: root, encoding: "utf8", env });
+    assert.match(unboxed.stdout, /can't fail: "adds zero"/);
   });
 });
