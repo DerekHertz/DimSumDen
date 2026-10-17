@@ -13,7 +13,7 @@
 
 **Decision.**
 
-1. **Two goals, one product.** Dim Sum Den is an efficient SDLC multi-agent workflow and a polished interface for working with it. Together they exist to make building *other* products fun, efficient and accurate. Interaction comes first; the diorama is the map you navigate by.
+1. **Two goals, one product.** Dim Sum Dev is an efficient SDLC multi-agent workflow and a polished interface for working with it. Together they exist to make building *other* products fun, efficient and accurate. Interaction comes first; the diorama is the map you navigate by.
 
 2. **The bridge owns every agent.** Every agent, relay hops included, is a headless `claude -p` stream-json child of the bridge (ADR 0016 decision 2; ADR 0001 holds: unmodified CLI, owner's login). Once ticket 106 lands, relay work stops using the desktop app's Agent tool. **Amends 0016 decision 3:** its slice 1 refusal of `developer`, `qa` and `security` on `POST /cells` (renamed `POST /agents` under decision 10, before it is built) stands, because those hops are started by the relay runner (decision 3 below) and never directly by a route.
 

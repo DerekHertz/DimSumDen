@@ -1,0 +1,54 @@
+import * as T from 'three';
+import { createDenScene, GROUND } from './plush/assembly.mjs';
+import { gardenKit } from './plush/garden-kit.mjs';
+import { createBalancedPandaRig } from './panda-rig.mjs';
+import { createRoleOutfit, ROLE_OUTFITS } from './role-outfits.mjs';
+import { createRoleTool } from './role-tools.mjs';
+import { fitRoleAsset } from './role-wardrobe.mjs';
+import { loadManifest, loadModel, disposeWorld } from './assets.mjs';
+import { populateAmbientGarden } from './ambient-garden.mjs';
+import { createGardenNavigation } from './garden-navigation.mjs';
+import { addLiveFixtures } from './live-fixtures.mjs';
+import { materials } from './garden.mjs';
+import { NAVIGATION_TARGETS, WALK_START } from './layout.mjs';
+import propDefinitions from './role-props.mjs';
+
+const active=signal=>{if(signal?.aborted)throw new DOMException('Scene load cancelled','AbortError');};
+
+export async function createMeshyWorld(renderer,{signal,onProgress=()=>{}}={}){
+ const resources=new T.Group(),residents=new T.Group(),rigs=new Map();let garden,ambient,meeting,disposed=false;
+ const den={world:new T.Group(),residents,roleTools:new T.Group(),vegetation:new T.Group(),zones:new Map(),plan:[],hats:[],renderer,frontier:new Map(),pandaRigs:rigs,navigationTargets:NAVIGATION_TARGETS,walkStart:WALK_START};
+ den.dispose=()=>{if(disposed)return;disposed=true;ambient?.dispose();if(ambient){disposeWorld(ambient.props);for(const outfit of ambient.outfits)disposeWorld(outfit);}for(const model of [...rigs.keys()])den.destroyPanda(model);garden?.dispose();meeting?.dispose();disposeWorld(den.world);disposeWorld(resources);};
+ try{
+  den.assets=await loadManifest(signal);active(signal);
+  onProgress('Opening the bright bamboo garden…');garden=createDenScene();den.garden=garden;den.world.add(garden.root,residents,den.roleTools,den.vegetation);den.world.name='Dim Sum Dev · plush bamboo garden';
+  onProgress('Fitting the pandas’ role attire…');
+  const ids=['bao','wardrobe.developer-vest','wardrobe.qa-scarf','wardrobe.developer-headphones'];
+  const sources=[];for(const id of ids){const source=await loadModel(den.assets[id].url);resources.add(source);sources.push(source);active(signal);}
+  const [body,vestSource,scarfSource,headphonesSource]=sources,vest=fitRoleAsset(vestSource,'developer-vest'),scarf=fitRoleAsset(scarfSource,'qa-scarf'),headphones=fitRoleAsset(headphonesSource,'developer-headphones'),securityVest=fitRoleAsset(vestSource,'security-vest');resources.add(vest,scarf,headphones,securityVest);
+  const outfits=new Map(ROLE_OUTFITS.map(spec=>{const outfit=createRoleOutfit(spec.id,{vest,scarf,headphones,securityVest});resources.add(outfit);return[spec.id,outfit];}));
+  den.createPanda=role=>{
+   if(!outfits.has(role))throw Error('Unknown resident role: '+role);
+   const rig=createBalancedPandaRig(body);rig.addOutfit(outfits.get(role));const tool=createRoleTool(role);rig.bones.paw_R.add(tool);rig.model.userData={roleId:role,actorKey:role};rig.model.scale.setScalar(role==='orchestrator'?1.35:role==='stem-cub'?.52:.68);rigs.set(rig.model,{rig,tool});return{model:rig.model,rig};
+  };
+  den.destroyPanda=model=>{const entry=rigs.get(model);if(!entry)return;entry.rig.dispose();disposeWorld(entry.tool);rigs.delete(model);};
+  const workspaces=new Map(),records=[];
+  const place=(role,assetId,position,yaw=0)=>{const panda=den.createPanda(role),asset=garden.assets[assetId],point=asset?garden.worldPoint(assetId,position):new T.Vector3(...position);panda.model.position.copy(point);panda.model.rotation.y=yaw+(asset?.root.rotation.y||0);panda.model.name=propDefinitions.find(p=>p.id===role).label;residents.add(panda.model);panda.rig.poseIdle(0);const record={id:role,station:assetId||'center',person:panda.model,group:asset?.root||garden.welcome,loaded:true};workspaces.set(role,record);records.push({id:role,station:record.station,person:point.toArray(),loaded:true});};
+  place('orchestrator',null,[0,GROUND+.03,-.6]);
+  for(const id of['pass','pantry','front'])for(const spec of garden.assets[id].residents)place(spec.id,id,spec.position,spec.yaw);
+  for(const[role,spec]of Object.entries(garden.assets.steamers.residents))place(role,'steamers',spec.position,spec.yaw);
+  place('debugger','steamers',[0,.41,1.9],-.10);place('knowledge-keeper','library',[-1.1,.43,2.6],.18);place('docs-writer','library',[2.0,.43,2.45],-.25);place('release-manager','festival',[5.2,.635,1.8],-.4);place('stem-cub',null,[0,GROUND,25.6],0);
+  den.propManifest=propDefinitions;den.roleWorkspaces={workspaces,records,group:residents,anchors:{},errors:[],toolsCreated:14};
+  den.wardrobe={loaded:ROLE_OUTFITS.map(s=>({id:s.id,role:s.id})),failed:[],missing:[]};den.roleOutfits={loaded:ROLE_OUTFITS.map(s=>s.id),headwear:ROLE_OUTFITS.filter(s=>s.headwear).map(s=>s.id)};den.developerWorkstation={loaded:true,source:'Three.js',style:'Coding desk, terminal, keyboard and tools'};
+  for(const p of garden.places){const asset=garden.assets[p.id];if(asset)den.zones.set(p.id,asset.root);den.plan.push({id:p.id,label:p.name,x:p.x,z:p.z,radius:Math.max(p.w,p.d)/2});}
+  den.zones.set('center',garden.welcome);den.zones.set('pavilion',garden.assets.tea.root);den.zones.set('games',garden.assets.mahjong.root);
+  garden.assets.library.root.userData.denInteraction={zone:'archive',intent:'open-library',id:'archive.library'};
+  onProgress('Welcoming the festival crew and the garden pandas…');ambient=populateAmbientGarden(garden,{body,vest,headphones});den.ambient=ambient;
+  // Keep the live meeting at Bao's table, in the same coordinates as its seat labels.
+  meeting=gardenKit('Bao’s round table');meeting.root.userData.denInteraction={id:'center'};const fixedTable=meeting.group('Round table and legs');const table=meeting.cyl(fixedTable,1,.13,[0,GROUND+1.04,3.15],'paleWood');table.scale.set(2,1,1.18);for(const x of[-1.3,1.3])meeting.cyl(fixedTable,.09,.98,[x,GROUND+.49,3.15],'timber');const susan=meeting.group('Lazy susan',meeting.root,[0,GROUND+1.12,3.15]);meeting.teaSet(susan,[0,0,0],1.1);meeting.finish();den.world.add(meeting.root);
+  addLiveFixtures(den,materials());active(signal);den.world.updateMatrixWorld(true);
+  onProgress('Connecting the paths and walk-in entrances…');den.walkWorld=createGardenNavigation(garden);renderer.shadowMap.needsUpdate=true;
+  den.world.userData.presentationLayout={kind:'approved-plush-garden',structurePositions:garden.places.map(p=>({id:p.id,x:p.x,z:p.z,rotation:p.rotation})),roleWorkspaces:records};
+  return den;
+ }catch(error){den.dispose();throw error;}
+}

@@ -140,3 +140,9 @@ describe("the github entry (den-mvp/33)", () => {
     assert.equal(decideTool(github, "product", "mcp__github__get_pull_request").kind, "refuse");
   });
 });
+
+// den-mvp/45: Bao's release_propose is a board-class den tool, so the real catalog does not refuse it.
+test("the real catalog lets Bao call mcp__den__release_propose", () => {
+  const d = decideTool(loadCatalog(), "orchestrator", "mcp__den__release_propose");
+  assert.ok(d && d.kind !== "refuse", JSON.stringify(d));
+});

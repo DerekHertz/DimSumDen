@@ -72,7 +72,8 @@ function Setup({ snapshot, steer, meetings }) {
 }
 
 /** The saved texts of one meeting: loaded when its row is opened, and again whenever the bridge records a change to it. */
-function Detail({ row, client, steer, meetings }) {
+function Detail({ row, client, steer, meetings, openRole = null }) {
+  const box = useRef(null);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [text, setText] = useState("");
@@ -90,8 +91,13 @@ function Detail({ row, client, steer, meetings }) {
   const ask = async () => {
     if (await meetings.steer(row.id, "ask", { text, reask })) { setText(""); setReask(""); }
   };
+  // den-mvp/64: opened from a seat at the table, the take is scrolled into view once it has loaded.
+  useEffect(() => {
+    if (!openRole || !data) return;
+    box.current?.querySelector(`[data-take="${CSS.escape(openRole)}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [openRole, data]);
   return (
-    <div className="meeting-detail">
+    <div className="meeting-detail" ref={box}>
       {error ? <p className="small gate-error" role="alert">{error}</p> : null}
       {!data && !error ? <p className="small muted">Loading…</p> : null}
       {data?.topic ? (<><p className="ov">The question</p><p className="small meeting-quote">{data.topic}</p></>) : null}
@@ -123,7 +129,7 @@ function Detail({ row, client, steer, meetings }) {
         <>
           <p className="ov">Takes</p>
           {data.takes.map((t) => (
-            <details key={t.role} className="meeting-take">
+            <details key={`${t.role}-${t.n ?? 1}`} className="meeting-take" data-take={t.role} open={t.role === openRole || undefined}>
               <summary className="small"><span className="library-name">{t.role}</span>{t.n > 1 ? ` (take ${t.n})` : ""}</summary>
               <pre className="code-well meeting-text">{t.text}</pre>
             </details>
@@ -157,7 +163,7 @@ function Detail({ row, client, steer, meetings }) {
   );
 }
 
-export function MeetingsCard({ client, snapshot, open, onToggle, busy, steer, meetings, shown, onShow }) {
+export function MeetingsCard({ client, snapshot, open, onToggle, busy, steer, meetings, shown, onShow, shownRole = null }) {
   const rows = meetingRows(snapshot);
   const waiting = rows.filter((r) => r.state === "briefed" || r.state === "paused").length;
   const running = rows.filter((r) => r.state === "running").length;
@@ -186,7 +192,7 @@ export function MeetingsCard({ client, snapshot, open, onToggle, busy, steer, me
                   {r.canClose ? <button type="button" className="btn btn-outline run-btn" title={off ?? undefined} disabled={!!off || acting} aria-label={`Close the meeting ${r.title}`} onClick={() => meetings.steer(r.id, "close")}>Close</button> : null}
                 </div>
                 {meetings.results[r.id]?.error ? <p className="small gate-error" role="alert">{meetings.results[r.id].error}</p> : null}
-                {isOpen ? <Detail row={r} client={client} steer={steer} meetings={meetings} /> : null}
+                {isOpen ? <Detail row={r} client={client} steer={steer} meetings={meetings} openRole={shownRole} /> : null}
               </li>
             );
           })}

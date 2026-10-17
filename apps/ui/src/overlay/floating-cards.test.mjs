@@ -1,44 +1,7 @@
-// den-scene-v1/07 (scope as changed 2026-10-01): the 400px sidebar becomes floating 320px cards over the
-// scene, and the three bottom overlays are rebuilt. Real browser test of the mounted App (Vite dev server,
-// headless Chromium) with /state, /metrics, /requests and the event stream stubbed, the same way
-// scene/tally-expand.test.mjs does it. Numbers and copy come from docs/design/2026-10-01-iso-den.md
-// (sections 3 to 5, 7) and the ticket's Comments; nothing here reads camera internals.
-//
-// Markup contract the developer must meet (everything else is free):
-//   overlay roots   data-overlay="logo" | "needs-you" | "stations" | "zoom" | "intent" | "timeline" on the
-//                   element that is the visible pill or card (its box is what the geometry tests measure)
-//   logo pill       contains an h1 "Dim Sum Den" and the text "Live" (the Live text colour is `qi`)
-//   Needs you       a region (section) named /^Needs you/ (digest: "Needs you, 3 waiting"); its header is the first
-//                   button[aria-expanded] in the card (name contains "Needs you"; the count shows beside it);
-//                   open when at least 1 request waits. First request: eyebrow "<Station> · <role> · <ticket>",
-//                   title "<ticket> wants <gate> approval", a code/pre preview well, Approve and Deny buttons
-//                   (names start "Approve" / "Deny") each holding a key-hint element whose whole text is "a" / "d",
-//                   a "Note" textarea, then one row per other waiting request with a relative time ("2 min").
-//                   A waiting request is a ticket whose `gate` is "merge" or "dispatch" (as gates-model.mjs does today).
-//   keys            `a` approve, `d` deny (POST /requests {kind: "<gate>-approve" | "<gate>-reject", ref}), `m` focuses the
-//                   Note field, `j` / `k` show the next / previous waiting request. They fire only when focus is inside the
-//                   Needs you card and not in a text field, and never inside the Tally dialog.
-//                   (`m`, `j`, `k` meanings are QA's reading of the ticket: the ApprovalCard spec lives in a design-system
-//                   artifact this cell may not open. Flagged in the handoff for designer confirmation.)
-//   Stations card   a region named /^Stations/, closed by default (header = first button[aria-expanded], aria-expanded
-//                   "false", body not visible). Open stations are buttons data-station-pill="pass|steamers|tea|pantry|
-//                   front-of-house" in that order (text: name, count, and "waiting" when one waits); then dormant,
-//                   non-interactive dashed pills data-station-pill="cubs|library|drum". Header summary "5 open · N ready".
-//                   Overline "Next on the susan" then up to 3 rows (chip "P1" + title), or "The susan is empty."
-//   zoom switcher   <nav aria-label="Zoom level"> holding the four level buttons (text exactly "1 · Den", "2 · Station",
-//                   "3 · Panda", "4 · Workspace"; current one has aria-current="true" and `qi` text) plus two buttons
-//                   aria-label "Zoom in" and "Zoom out". The nav carries data-zoom="<number>", the live dolly factor
-//                   (digest section 1: [0.55, 1.2], default 1, smaller is closer). Wheel, pinch, + and - keys, and the
-//                   Zoom in/out buttons all move that one value.
-//   intent bar      input placeholder "Give the den an intent…", a "Ctrl K" hint, a Send button, an autonomy chip button
-//                   (name contains "utonomy"), and the text "Current intent" above. The chip shows the current mode ("Gated")
-//                   but is disabled for now (aria-disabled, still a tab stop so its reason is reachable) with a "coming
-//                   soon" tooltip; the real control is den-scene-v1/13. Rulings 2026-10-02 (user + designer review F1-F3, F7):
-//                   Note label carries an `m` chip and Ctrl/Cmd+Enter in the Note denies with that note; the card title is in
-//                   a persistent aria-live region; the zoom levels stack vertically; the timeline hides under 900px; the
-//                   `Ctrl K` hint hides under 600px; the intent input is 44px tall at a coarse pointer.
-//   timeline        "Live", a time (h:mm), and the caption "Drag back to replay the den's history".
-//   no sidebar      no aside, no .panel, no "Plan usage" text, no role=meter inside the cards.
+// Connected Garden & Desk regression coverage. The original steering/session, Needs you,
+// station, zoom, keyboard and accessibility behaviors remain real mounted-App checks.
+// Layout assertions follow the approved focused desk and garden card; the removed disabled
+// intent/replay placeholders are replaced by Bao conversation and responsive control checks.
 import { test, before, after, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "vite";
@@ -48,12 +11,12 @@ import { lightenScene } from "../../../ci-cd/light-scene.mjs";
 
 const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
-const ZOOM_NEAREST = 0.55; // digest section 1: dolly factor range, smaller is closer
+const ZOOM_NEAREST = 0.25; // the larger garden permits close inspection of personal workstations
 const ZOOM_FARTHEST = 1.2;
 const near = (a, b, tol = 1.5) => Math.abs(a - b) <= tol;
 
-// ci-cd/07: one browser and dev server, scenarios in parallel (each opens its own context).
-describe("floating cards", { concurrency: 3 }, () => {
+// One browser and dev server; the model-loading scenarios use one context at a time.
+describe("garden desk cards", { concurrency: 1 }, () => {
 let server;
 let browser;
 let base;
@@ -163,8 +126,6 @@ async function openApp({ snapshot = fixture(), viewport = DESKTOP, hasTouch = fa
     needs: page.locator('[data-overlay="needs-you"]'),
     stations: page.locator('[data-overlay="stations"]'),
     zoom: page.locator('[data-overlay="zoom"]'),
-    intent: page.locator('[data-overlay="intent"]'),
-    timeline: page.locator('[data-overlay="timeline"]'),
   };
 }
 
@@ -174,7 +135,7 @@ const token = (page, name) =>
   page.evaluate((n) => {
     const probe = document.createElement("span");
     probe.style.color = `var(--${n})`;
-    document.body.appendChild(probe);
+    document.querySelector(".forest-shell").appendChild(probe);
     const c = getComputedStyle(probe).color;
     probe.remove();
     return c;
@@ -190,51 +151,57 @@ const withApp = (opts, fn) => async () => {
   }
 };
 
-// ---- Layout: floating cards, no sidebar, positions from digest section 4 ---------------------------------
+// ---- Layout: distinct garden and focused desk -----------------------------------------------------------
 
-test("no sidebar: no aside or .panel, the scene fills the viewport, and there is no plan usage meter in the cards (criteria: sidebar gone, no usage meter)", { timeout: 90000 }, withApp({}, async ({ page, logo, needs, stations }) => {
-  assert.equal(await page.locator("aside").count(), 0);
-  assert.equal(await page.locator(".panel").count(), 0);
-  const scene = await page.locator('main[aria-label="Den scene"]').boundingBox();
-  assert.ok(near(scene.x, 0) && near(scene.width, DESKTOP.width), `scene spans the full width, got x ${scene.x} w ${scene.width}`);
-  assert.equal(await page.getByText(/Plan usage/i).count(), 0, "no 'Plan usage' text anywhere");
-  for (const card of [logo, needs, stations]) assert.equal(await card.locator('[role="meter"]').count(), 0, "no meter in a card");
+test("the focused desk sits beside a separate garden card with no usage meters in board cards", { timeout: 90000 }, withApp({}, async ({ page, logo, needs, stations }) => {
+  assert.equal(await page.getByRole('complementary', { name: 'Your desk' }).count(), 1);
+  assert.equal(await page.locator('.panel').count(), 0);
+  const garden = await page.locator('main[aria-label="Den scene"]').boundingBox();
+  const desk = await page.getByRole('complementary', { name: 'Your desk' }).boundingBox();
+  assert.ok(garden.x >= 16 && desk.x >= garden.x + garden.width + 15, 'garden and desk retain a visible gutter');
+  assert.ok(desk.x + desk.width <= DESKTOP.width - 16);
+  assert.equal(await page.getByText(/Plan usage/i).count(), 0);
+  for (const card of [logo, needs, stations]) assert.equal(await card.locator('[role="meter"]').count(), 0, 'usage stays on Tally');
 }));
 
-test("DOM order is logo pill, Needs you, Stations & queue (criterion: order, as changed 2026-10-01)", { timeout: 90000 }, withApp({}, async ({ page }) => {
+test("the masthead precedes garden controls and the desk keeps Needs you before Stations", { timeout: 90000 }, withApp({}, async ({ page }) => {
   const order = await page.evaluate(() => {
-    const idx = (n) => [...document.querySelectorAll("[data-overlay]")].findIndex((e) => e.dataset.overlay === n);
-    const h1 = document.querySelector("h1");
-    const el = (n) => document.querySelector(`[data-overlay="${n}"]`);
+    const el = n => document.querySelector(`[data-overlay="${n}"]`);
     const before = (a, b) => !!a && !!b && !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     return {
-      h1InLogo: !!h1 && !!el("logo") && el("logo").contains(h1) && h1.textContent.trim() === "Dim Sum Den",
-      logoBeforeNeeds: before(el("logo"), el("needs-you")),
-      needsBeforeStations: before(el("needs-you"), el("stations")),
-      all: ["logo", "needs-you", "stations", "zoom", "intent", "timeline"].map(idx),
+      title: document.querySelector('.forest-masthead h1')?.textContent.trim(),
+      logoBeforeZoom: before(el('logo'), el('zoom')),
+      needsBeforeStations: before(el('needs-you'), el('stations')),
+      deskContainsCards: ['needs-you', 'stations', 'library', 'meetings'].every(n => !!el(n)?.closest('aside[aria-label="Your desk"]')),
     };
   });
-  assert.equal(order.h1InLogo, true, "the logo pill holds the h1 'Dim Sum Den'");
-  assert.equal(order.logoBeforeNeeds, true);
+  assert.equal(order.title, 'Dim Sum Dev');
+  assert.equal(order.logoBeforeZoom, true);
   assert.equal(order.needsBeforeStations, true);
-  assert.ok(order.all.every((i) => i >= 0), "all six overlays exist");
+  assert.equal(order.deskContainsCards, true);
 }));
 
-test("desktop geometry at 1440 x 900 follows digest section 4: 16px gutters, 320px cards, 10px gap, 580px intent bar, 220px timeline", { timeout: 90000 }, withApp({}, async ({ logo, needs, stations, zoom, intent, timeline }) => {
-  const [l, n, s, z, i, t] = await Promise.all([logo, needs, stations, zoom, intent, timeline].map((x) => x.boundingBox()));
-  assert.ok(near(l.x, 16) && near(l.y, 16) && near(l.height, 48), `logo ${JSON.stringify(l)}`);
-  assert.ok(near(n.x + n.width, DESKTOP.width - 16) && near(n.width, 320) && near(n.y, 16), `needs ${JSON.stringify(n)}`);
-  assert.ok(near(s.x, n.x) && near(s.width, 320), `stations column ${JSON.stringify(s)}`);
-  assert.ok(near(s.y, n.y + n.height + 10), `stations sits 10px under Needs you: ${s.y} vs ${n.y + n.height + 10}`);
-  assert.ok(near(z.x, 16) && near(z.y + z.height, DESKTOP.height - 16), `zoom ${JSON.stringify(z)}`);
-  assert.ok(near(i.width, 580) && near(i.x + i.width / 2, DESKTOP.width / 2) && near(i.y + i.height, DESKTOP.height - 16), `intent ${JSON.stringify(i)}`);
-  assert.ok(near(t.width, 220) && near(t.x + t.width, DESKTOP.width - 16) && near(t.y + t.height, DESKTOP.height - 16), `timeline ${JSON.stringify(t)}`);
+test("desktop garden, toolbar, footer controls and desk occupy separate bounded areas", { timeout: 90000 }, withApp({}, async ({ page, zoom, needs, stations }) => {
+  const garden = await page.locator('main.scene').boundingBox();
+  const canvas = await page.locator('.forest-canvas').boundingBox();
+  const desk = await page.getByRole('complementary', { name: 'Your desk' }).boundingBox();
+  const toolbar = await page.locator('.forest-garden-toolbar').boundingBox();
+  const footer = await page.locator('.forest-garden-footer').boundingBox();
+  assert.ok(toolbar.y + toolbar.height <= canvas.y + 1);
+  assert.ok(canvas.y + canvas.height <= footer.y + 1);
+  assert.ok(desk.x >= garden.x + garden.width + 15);
+  const z = await zoom.boundingBox();
+  assert.ok(z.x >= footer.x && z.x + z.width <= footer.x + footer.width);
+  for (const card of [needs, stations]) {
+    const box = await card.boundingBox();
+    assert.ok(box.x >= desk.x && box.x + box.width <= desk.x + desk.width);
+  }
 }));
 
-test("logo pill shows 'Dim Sum Den' and a Live badge in qi", { timeout: 90000 }, withApp({}, async ({ page, logo }) => {
+test("logo pill shows 'Dim Sum Dev' and a Live badge in qi", { timeout: 90000 }, withApp({}, async ({ page, logo }) => {
   await logo.getByText("Live", { exact: true }).waitFor({ state: "visible" });
   assert.equal(await colourOf(logo.getByText("Live", { exact: true })), await token(page, "qi"));
-  assert.equal((await logo.locator("h1").textContent()).trim(), "Dim Sum Den");
+  assert.equal((await logo.locator("h1").textContent()).trim(), "Dim Sum Dev");
 }));
 
 // ---- Needs you ---------------------------------------------------------------------------------------------
@@ -501,7 +468,7 @@ test("clicking a level makes it current and dollies in (Level 3 is closer than L
   assert.ok(three >= ZOOM_NEAREST, "within the clamp");
 }));
 
-test("+ and - buttons step the same zoom the wheel and keys use, and clamp at [0.55, 1.2] (scope 2026-10-01: clamp test)", { timeout: 90000 }, withApp({}, async ({ page, zoom }) => {
+test("+ and - buttons step the same zoom the wheel and keys use, and clamp at [0.25, 1.2]", { timeout: 90000 }, withApp({}, async ({ page, zoom }) => {
   const zin = zoom.getByRole("button", { name: "Zoom in" });
   const zout = zoom.getByRole("button", { name: "Zoom out" });
   await zin.click();
@@ -519,15 +486,17 @@ test("+ and - buttons step the same zoom the wheel and keys use, and clamp at [0
 }));
 
 test("scroll wheel over the scene zooms freely and clamps at both ends (scope 2026-10-01: wheel, clamp)", { timeout: 90000 }, withApp({}, async ({ page, zoom }) => {
-  await page.mouse.move(DESKTOP.width / 2, DESKTOP.height / 2);
+  const canvas = await page.locator('.forest-canvas').boundingBox();
+  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
   await page.mouse.wheel(0, -200);
+  await page.waitForFunction(() => Number(document.querySelector('[data-overlay=zoom]').dataset.zoom) < 1);
   const closer = await zoomValue(zoom);
   assert.ok(closer < 1 && closer >= ZOOM_NEAREST, `wheel up zooms in: ${closer}`);
   await page.mouse.wheel(0, -100000);
-  await page.waitForTimeout(100);
+  await page.waitForFunction(nearest => Number(document.querySelector('[data-overlay=zoom]').dataset.zoom) === nearest, ZOOM_NEAREST);
   assert.ok(near(await zoomValue(zoom), ZOOM_NEAREST, 1e-6), "a huge scroll in stops at the nearest limit");
   await page.mouse.wheel(0, 100000);
-  await page.waitForTimeout(100);
+  await page.waitForFunction(() => Number(document.querySelector('[data-overlay=zoom]').dataset.zoom) === 1.2);
   assert.ok(near(await zoomValue(zoom), ZOOM_FARTHEST, 1e-6), "a huge scroll out stops at the farthest limit");
 }));
 
@@ -537,8 +506,10 @@ test("two-finger pinch zooms: spreading the fingers moves closer, pinching in mo
     const { page, context, zoom } = app;
     const cdp = await context.newCDPSession(page);
     const touch = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map((p, id) => ({ x: p[0], y: p[1], id })) });
-    const cx = DESKTOP.width / 2;
-    const cy = DESKTOP.height / 2 - 100;
+    const canvas = await page.locator('.forest-canvas').boundingBox();
+    const cx = canvas.x + canvas.width / 2;
+    const cy = canvas.y + canvas.height / 2;
+    const wide = Math.min(200, canvas.width * .35);
     const gesture = async (from, to) => {
       await touch("touchStart", [[cx - from, cy], [cx + from, cy]]);
       for (let i = 1; i <= 10; i++) {
@@ -548,173 +519,122 @@ test("two-finger pinch zooms: spreading the fingers moves closer, pinching in mo
       await touch("touchEnd", []);
     };
     const start = await zoomValue(zoom);
-    await gesture(40, 200);
+    await gesture(40, wide);
     const spread = await zoomValue(zoom);
     assert.ok(spread < start && spread >= ZOOM_NEAREST, `spread zooms in: ${start} to ${spread}`);
-    await gesture(300, 20);
+    await gesture(wide, 20);
     const pinched = await zoomValue(zoom);
     assert.ok(pinched > spread && pinched <= ZOOM_FARTHEST, `pinch zooms out: ${spread} to ${pinched}`);
-    assert.equal(await page.locator('main[aria-label="Den scene"]').evaluate((el) => getComputedStyle(el).touchAction), "none", "the browser leaves the gesture to the scene");
+    assert.equal(await page.locator('.forest-canvas').evaluate((el) => getComputedStyle(el).touchAction), "none", "the browser leaves the gesture to the scene");
   } finally {
     await app.context.close();
   }
 });
 
-// ---- Intent bar and timeline ---------------------------------------------------------------------------------
+// ---- The connected Bao entry and uncluttered responsive layout -------------------------------------------
 
-test("intent bar: autonomy toggle, input with the exact placeholder, Ctrl K hint, Send, and a 'Current intent' pill above (criterion: placeholder)", { timeout: 90000 }, withApp({}, async ({ page, intent }) => {
-  const input = intent.getByPlaceholder("Give the den an intent…");
-  assert.equal(await input.count(), 1);
-  assert.equal(await input.getAttribute("placeholder"), "Give the den an intent…");
-  assert.ok((await intent.getByRole("button", { name: /utonomy/ }).count()) >= 1, "autonomy toggle");
-  assert.equal(await intent.getByRole("button", { name: /^Send/ }).count(), 1);
-  assert.ok((await intent.getByText("Ctrl K").count()) >= 1, "Ctrl K hint");
-  const label = intent.getByText(/Current intent/i).first();
-  await label.waitFor({ state: "visible" });
-  const [l, i] = await Promise.all([label.boundingBox(), input.boundingBox()]);
-  assert.ok(l.y + l.height <= i.y + 1, "the Current intent pill sits above the input");
+test("Talk to Bao opens the real conversation composer in the focused desk", { timeout: 90000 }, withApp({}, async ({ page, posts }) => {
+  const talk = page.getByRole('button', { name: /Talk to Bao/ });
+  await talk.click();
+  const conversation = page.getByRole('complementary', { name: 'Conversation with Bao' });
+  await conversation.waitFor({ state: 'visible' });
+  assert.equal(await conversation.locator('.thread-box').count(), 1);
+  assert.equal(await conversation.getByRole('button', { name: 'Send', exact: true }).count(), 1);
+  assert.equal(await page.locator('.forest-desk-home').isVisible(), false, 'home cards give the thread their space');
+  assert.deepEqual(posts, [], 'opening a conversation does not dispatch work');
 }));
 
-test("timeline: Live, a time, and the replay caption", { timeout: 90000 }, withApp({}, async ({ timeline }) => {
-  const text = await timeline.innerText();
-  assert.match(text, /Live/);
-  assert.match(text, /\b\d{1,2}:\d{2}\b/);
-  assert.match(text, /Drag back to replay the den's history/);
+test("closing Bao restores the existing desk without a second board or hidden detail", { timeout: 90000 }, withApp({}, async ({ page, needs }) => {
+  const before = await header(needs).getAttribute('aria-expanded');
+  await page.getByRole('button', { name: /Talk to Bao/ }).click();
+  await page.getByRole('button', { name: 'Close conversation' }).click();
+  assert.equal(await page.locator('.transcript-panel').count(), 0);
+  assert.equal(await page.locator('.forest-desk-home').isVisible(), true);
+  assert.equal(await header(needs).getAttribute('aria-expanded'), before);
+  assert.equal(await page.locator('[data-overlay="needs-you"]').count(), 1);
 }));
 
-// Designer F3 + user ruling 2026-10-02: the chip shows the mode but is disabled until den-scene-v1/13 builds the real control.
-test("autonomy chip shows the mode and is disabled with a 'coming soon' tooltip; clicking changes nothing (designer F3, den-scene-v1/13)", { timeout: 90000 }, withApp({}, async ({ intent }) => {
-  const chip = intent.getByRole("button", { name: /utonomy/ });
-  assert.equal(await chip.count(), 1);
-  const info = await chip.evaluate((el) => ({
-    name: el.getAttribute("aria-label") ?? el.textContent,
-    text: el.textContent,
-    disabled: el.disabled === true || el.getAttribute("aria-disabled") === "true",
-    reason: [el.getAttribute("title"), ...(el.getAttribute("aria-describedby") ?? "").split(/\s+/).map((id) => document.getElementById(id)?.textContent)].filter(Boolean).join(" "),
-  }));
-  assert.match(info.text, /gated/i, "shows the mode");
-  assert.equal(info.disabled, true, "disabled (aria-disabled keeps it a tab stop so its reason is reachable)");
-  assert.match(info.reason, /coming soon/i, "tooltip or description says 'coming soon'");
-  assert.doesNotMatch(info.name, /change/i, "the name must not offer a change it cannot make");
-  await chip.click({ force: true });
-  await chip.click({ force: true });
-  assert.match(await chip.textContent(), /gated/i, "clicking does not cycle the mode");
+test("the connected shell offers Bao instead of disabled intent, autonomy and replay placeholders", { timeout: 90000 }, withApp({}, async ({ page, posts }) => {
+  assert.equal(await page.locator('[data-overlay="intent"], [data-overlay="timeline"]').count(), 0);
+  assert.equal(await page.getByRole('button', { name: /utonomy/ }).count(), 0);
+  assert.equal(await page.getByRole('button', { name: /Talk to Bao/ }).isEnabled(), true);
+  assert.deepEqual(posts, []);
 }));
 
-// Designer F1: at 1440 the zoom switcher overlapped the intent bar, and the intent bar overlapped the timeline below 1052.
-test("bottom overlays never overlap: zoom levels stack vertically, the timeline hides under 900px, nothing overflows sideways (designer F1)", { timeout: 120000 }, withApp({}, async ({ page, zoom, intent, timeline }) => {
-  const overlap = (a, b) => a.x < b.x + b.width - 0.5 && b.x < a.x + a.width - 0.5 && a.y < b.y + b.height - 0.5 && b.y < a.y + a.height - 0.5;
-  for (const width of [1440, 1280, 1024, 900]) {
+test("garden controls stay separate from the desk and all page content stays within responsive gutters", { timeout: 120000 }, withApp({}, async ({ page, zoom }) => {
+  const overlap = (a, b) => a.x < b.x + b.width - .5 && b.x < a.x + a.width - .5 && a.y < b.y + b.height - .5 && b.y < a.y + a.height - .5;
+  for (const width of [1440, 1280, 1024, 900, 899, 768, 600, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    const [z, i, t] = await Promise.all([zoom, intent, timeline].map((x) => x.boundingBox()));
-    assert.ok(z && i && t, `${width}: zoom, intent and timeline are all visible`);
-    assert.equal(overlap(z, i), false, `${width}: zoom ${JSON.stringify(z)} overlaps intent ${JSON.stringify(i)}`);
-    assert.equal(overlap(i, t), false, `${width}: intent ${JSON.stringify(i)} overlaps timeline ${JSON.stringify(t)}`);
-    assert.ok(i.width >= 360, `${width}: intent stays usable, got ${i.width}`);
-    assert.ok(near(i.x + i.width / 2, width / 2), `${width}: intent stays centred`);
-  }
-  await page.setViewportSize(DESKTOP);
-  const levels = await Promise.all(["1 · Den", "2 · Station", "3 · Panda", "4 · Workspace"].map((n) => zoom.getByRole("button", { name: n }).boundingBox()));
-  const z = await zoom.boundingBox();
-  for (let k = 1; k < levels.length; k++) {
-    assert.ok(near(levels[k].x, levels[0].x, 1), `level ${k + 1} is in the same column as level 1`);
-    assert.ok(levels[k].y >= levels[k - 1].y + levels[k - 1].height - 1, `level ${k + 1} sits below level ${k}`);
-  }
-  assert.ok(z.width <= 150, `the stacked switcher is narrow (frame: about 112px), got ${z.width}`);
-  for (const width of [899, 768, 600]) {
-    await page.setViewportSize({ width, height: 900 });
-    assert.equal(await timeline.isVisible(), false, `${width}: the timeline is hidden under 900px`);
-    const i = await intent.boundingBox();
-    const zb = await zoom.boundingBox();
-    assert.equal(overlap(zb, i), false, `${width}: zoom does not overlap intent`);
-    assert.ok(i.x + i.width <= width - 16 + 0.5 && i.x >= 16 - 0.5, `${width}: intent stays inside the gutters`);
-  }
-  for (const width of [1440, 1024, 768, 600, 390]) {
-    await page.setViewportSize({ width, height: 900 });
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${width}: no horizontal overflow`);
+    const garden = await page.locator('main.scene').boundingBox();
+    const desk = await page.getByRole('complementary', { name: 'Your desk' }).boundingBox();
+    assert.equal(overlap(garden, desk), false, `${width}: garden and desk do not overlap`);
+    assert.ok(garden.x >= 15 && garden.x + garden.width <= width - 15);
+    assert.ok(desk.x >= 15 && desk.x + desk.width <= width - 15);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width}: no horizontal overflow`);
+    assert.equal(await zoom.getByRole('button', { name: 'Zoom in' }).isVisible(), true);
+    assert.equal(await zoom.getByRole('button', { name: 'Zoom out' }).isVisible(), true);
   }
 }));
 
-// Designer F2: at 375 the placeholder read "Give the den". The Ctrl K hint has no use without a Ctrl key.
-test("Ctrl K hint hides under 600px and shows from 600px (designer F2)", { timeout: 90000 }, withApp({}, async ({ page, intent }) => {
-  const hint = intent.getByText("Ctrl K").first();
-  await page.setViewportSize({ width: 600, height: 900 });
-  assert.equal(await hint.isVisible(), true, "visible at 600");
-  await page.setViewportSize({ width: 599, height: 900 });
-  assert.equal(await hint.isVisible(), false, "hidden at 599");
-  await page.setViewportSize({ width: 375, height: 667 });
-  assert.equal(await hint.isVisible(), false, "hidden at 375");
+test("Talk to Bao remains keyboard-operable without the old Ctrl K placeholder control", { timeout: 90000 }, withApp({}, async ({ page }) => {
+  const talk = page.getByRole('button', { name: /Talk to Bao/ });
+  await talk.focus();
+  await page.keyboard.press('Enter');
+  await page.getByRole('complementary', { name: 'Conversation with Bao' }).waitFor({ state: 'visible' });
+  assert.equal(await page.getByPlaceholder('Give the den an intent…').count(), 0);
+  await page.keyboard.press('Escape');
+  await page.locator('.transcript-panel').waitFor({ state: 'hidden' });
+  assert.equal(await page.locator('.transcript-panel').count(), 0);
 }));
 
-// Designer N1: the F1 fix left the placeholder truncated at 600 to 709 px ("Giv") and at 900 to 925 px.
-test("the full intent placeholder fits the input at every width from 600 to 1440, and stays clear of the zoom switcher and timeline (designer N1)", { timeout: 120000 }, withApp({}, async ({ page, zoom, intent, timeline }) => {
-  const input = intent.getByPlaceholder("Give the den an intent…");
-  const overlap = (a, b) => a.x < b.x + b.width - 0.5 && b.x < a.x + a.width - 0.5 && a.y < b.y + b.height - 0.5 && b.y < a.y + a.height - 0.5;
-  for (const width of [600, 650, 709, 710, 768, 899, 900, 925, 960, 1024, 1440]) {
+test("the full Talk to Bao label fits and stays clear of the welcome text across desktop and phone widths", { timeout: 120000 }, withApp({}, async ({ page }) => {
+  for (const width of [1440, 1024, 768, 600, 390, 375]) {
     await page.setViewportSize({ width, height: 900 });
-    const fit = await input.evaluate((el) => {
-      const cs = getComputedStyle(el);
-      const ctx = document.createElement("canvas").getContext("2d");
-      ctx.font = cs.font;
-      return { text: ctx.measureText(el.placeholder).width, room: el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) };
-    });
-    assert.ok(fit.text <= fit.room, `${width}: the placeholder needs ${fit.text.toFixed(0)}px but the input has ${fit.room.toFixed(0)}px`);
-    const [z, i] = await Promise.all([zoom, intent].map((x) => x.boundingBox()));
-    assert.equal(overlap(z, i), false, `${width}: zoom does not overlap intent`);
-    assert.ok(i.x + i.width <= width - 16 + 0.5, `${width}: intent stays inside the right gutter`);
-    if (await timeline.isVisible()) assert.equal(overlap(i, await timeline.boundingBox()), false, `${width}: intent does not overlap the timeline`);
+    const button = await page.getByRole('button', { name: /Talk to Bao/ }).boundingBox();
+    const welcome = await page.getByRole('region', { name: 'Welcome' }).locator('div').first().boundingBox();
+    assert.ok(button.x + button.width <= width - 15 && button.x >= 15, `${width}: label stays within gutters`);
+    assert.ok(button.x >= welcome.x + welcome.width || button.y >= welcome.y + welcome.height, `${width}: entry does not cover welcome text`);
   }
 }));
 
-test("phone 375 with a coarse pointer: the full placeholder fits the input and the input is at least 44px tall (designer F2)", { timeout: 90000 }, async () => {
+test("phone coarse-pointer controls keep a 44px target for Bao, navigation and garden zoom", { timeout: 90000 }, async () => {
   const app = await openApp({ viewport: { width: 375, height: 667 }, isMobile: true });
   try {
-    const { page, intent } = app;
-    assert.equal(await page.evaluate(() => matchMedia("(pointer: coarse)").matches), true, "precondition: the context has a coarse pointer");
-    const input = intent.getByPlaceholder("Give the den an intent…");
-    const fit = await input.evaluate((el) => {
-      const cs = getComputedStyle(el);
-      const ctx = document.createElement("canvas").getContext("2d");
-      ctx.font = cs.font;
-      const text = ctx.measureText(el.placeholder).width;
-      const room = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-      return { text, room, height: el.getBoundingClientRect().height };
-    });
-    assert.ok(fit.text <= fit.room, `the placeholder needs ${fit.text.toFixed(0)}px but the input has ${fit.room.toFixed(0)}px`);
-    assert.ok(fit.height >= 44, `touch target is ${fit.height}px, want 44 or more`);
-  } finally {
-    await app.context.close();
-  }
+    const { page, zoom } = app;
+    assert.equal(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), true);
+    const controls = [page.getByRole('button', { name: /Talk to Bao/ }), page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Work', exact: true }), zoom.getByRole('button', { name: 'Zoom in' })];
+    for (const control of controls) assert.ok((await control.boundingBox()).height >= 44, 'touch target remains at least 44px tall');
+  } finally { await app.context.close(); }
 });
 
 // ---- Phone width -----------------------------------------------------------------------------------------------
 
-test("phone (390 px): cards stack under the logo pill at full width less the gutters, start collapsed, opening one closes the other; zoom switcher and timeline hide; intent bar spans 100vw - 32px", { timeout: 90000 }, async () => {
+test("phone cards stay inside the desk below the garden and opening one closes the other", { timeout: 90000 }, async () => {
   const app = await openApp({ viewport: PHONE });
   try {
-    const { needs, stations, logo, zoom, timeline, intent } = app;
-    assert.equal(await header(needs).getAttribute("aria-expanded"), "false", "collapsed with no selected panda");
-    assert.equal(await header(stations).getAttribute("aria-expanded"), "false");
-    const [l, n, s, i] = await Promise.all([logo, needs, stations, intent].map((x) => x.boundingBox()));
-    assert.ok(near(n.x, 16) && near(n.width, PHONE.width - 32), `needs ${JSON.stringify(n)}`);
-    assert.ok(n.y >= l.y + l.height - 1, "Needs you sits under the logo pill");
-    assert.ok(s.y >= n.y + n.height - 1 && near(s.x, 16) && near(s.width, PHONE.width - 32), `stations ${JSON.stringify(s)}`);
-    assert.ok(near(i.x, 16) && near(i.width, PHONE.width - 32), `intent ${JSON.stringify(i)}`);
-    assert.equal(await zoom.isVisible(), false, "zoom switcher hides on phone");
-    assert.equal(await timeline.isVisible(), false, "timeline hides on phone");
+    const { page, needs, stations, zoom } = app;
+    assert.equal(await header(needs).getAttribute('aria-expanded'), 'false');
+    assert.equal(await header(stations).getAttribute('aria-expanded'), 'false');
+    const garden = await page.locator('main.scene').boundingBox();
+    const desk = await page.getByRole('complementary', { name: 'Your desk' }).boundingBox();
+    assert.ok(desk.y >= garden.y + garden.height + 15);
+    for (const card of [needs, stations]) {
+      const box = await card.boundingBox();
+      assert.ok(box.x >= desk.x && box.x + box.width <= desk.x + desk.width);
+    }
+    assert.equal(await zoom.getByRole('button', { name: 'Zoom in' }).isVisible(), true);
+    assert.equal(await page.locator('[data-overlay="intent"], [data-overlay="timeline"]').count(), 0);
     await header(needs).click();
-    assert.equal(await header(needs).getAttribute("aria-expanded"), "true");
+    assert.equal(await header(needs).getAttribute('aria-expanded'), 'true');
     await header(stations).click();
-    assert.equal(await header(stations).getAttribute("aria-expanded"), "true");
-    assert.equal(await header(needs).getAttribute("aria-expanded"), "false", "opening one closes the other");
-  } finally {
-    await app.context.close();
-  }
+    assert.equal(await header(stations).getAttribute('aria-expanded'), 'true');
+    assert.equal(await header(needs).getAttribute('aria-expanded'), 'false');
+  } finally { await app.context.close(); }
 });
 
 // ---- Keyboard, focus ring, accessible names, den words ---------------------------------------------------------
 
-test("every control is keyboard-reachable in the digest tab order with a 2px focus-ring outline at 2px offset (criterion: keyboard, focus ring)", { timeout: 120000 }, async () => {
+test("every control is keyboard-reachable in the garden-then-desk tab order with a 2px focus-ring outline at 2px offset (criterion: keyboard, focus ring)", { timeout: 120000 }, async () => {
   const app = await openApp({});
   try {
     const { page, needs, stations } = app;
@@ -748,8 +668,8 @@ test("every control is keyboard-reachable in the digest tab order with a 2px foc
     const overlaySeq = [];
     for (const s of seen) if (s.overlay && overlaySeq.at(-1) !== s.overlay) overlaySeq.push(s.overlay);
     const first = (name) => overlaySeq.indexOf(name);
-    for (const name of ["needs-you", "stations", "zoom", "intent"]) assert.ok(first(name) >= 0, `${name} is reachable by Tab; saw ${overlaySeq}`);
-    assert.ok(first("needs-you") < first("stations") && first("stations") < first("zoom") && first("zoom") < first("intent"), `tab order Needs you, Stations, zoom, intent; saw ${overlaySeq}`);
+    for (const name of ["needs-you", "stations", "zoom"]) assert.ok(first(name) >= 0, `${name} is reachable by Tab; saw ${overlaySeq}`);
+    assert.ok(first("zoom") < first("needs-you") && first("needs-you") < first("stations"), `tab order follows garden controls then Needs you and Stations; saw ${overlaySeq}`);
     const labels = seen.filter((s) => s.overlay === "zoom").map((s) => s.text);
     for (const want of ["1 · Den", "2 · Station", "3 · Panda", "4 · Workspace", "Zoom in", "Zoom out"]) assert.ok(labels.includes(want), `Tab reaches ${want}`);
     const inCards = seen.filter((s) => s.overlay);

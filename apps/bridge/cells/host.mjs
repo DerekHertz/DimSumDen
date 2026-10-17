@@ -97,7 +97,7 @@ const NO_CONNECTIONS = parseCatalog({ connections: [] });
 
 // den-mvp outcome 4: `library` is the catalog of connections and its record (library/library.mjs). Without one, an agent is
 // started with no connection and every connection tool is refused.
-export function createHost({ root, projects: projectsOption, runtime, policy = {}, bridgeUrl = () => null, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], openDesk = async () => {}, onChange = () => {}, recordRun = async () => {}, onEnd = async () => {}, library = createLibrary({ catalog: NO_CONNECTIONS }) }) {
+export function createHost({ root, projects: projectsOption, runtime, policy = {}, bridgeUrl = () => null, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], openDesk = async () => {}, checkCall = () => null, onChange = () => {}, recordRun = async () => {}, onEnd = async () => {}, library = createLibrary({ catalog: NO_CONNECTIONS }) }) {
   const maxConcurrent = Math.min(policy.maxConcurrent ?? MAX_CONCURRENT_AGENTS, SESSION_CAP);
   const sessionCap = Math.min(policy.sessionCap ?? SESSION_CAP, SESSION_CAP);
   const graceMs = policy.killGraceMs ?? KILL_GRACE_MS;
@@ -536,6 +536,8 @@ export function createHost({ root, projects: projectsOption, runtime, policy = {
     agent.worktree = workspace.worktree;
     agent.branch = workspace.branch;
     agent.workspace = workspace;
+    // den-mvp/23: every run records the commit it started at, so its end can say whether it committed anything.
+    if (!agent.delivery) agent.startSha = await workspaces.head(workspace).catch(() => null);
     // A delivery step's worktree is at the commit the bridge named, and a fix round finds the review's findings in it.
     if (agent.delivery) {
       try {
@@ -642,7 +644,9 @@ export function createHost({ root, projects: projectsOption, runtime, policy = {
         "For pull requests, checks and CI logs use the GitHub connection's tools (mcp__github__*): `gh` has no login here. " +
         "Run no board command and change no file: the board is read-only to your shell. Act on the board through the den's tools " +
         "(mcp__den__*): board_resolve (a ticket whose pull request merged), board_comment, board_file (new tickets, for the user to " +
-        "approve; file every ticket of one request in a single call, so the user answers one ask) and start_delivery (a " +
+        "approve; one ticket per outcome, with a review's findings or small fixes in one area as one checklist or a comment on that area's " +
+        "open follow-up ticket; file every ticket of one request in a single call, so the user answers one ask; each names the goal it serves, " +
+        "a key from .scratch/goals.md) and start_delivery (a " +
         "ready-for-agent ticket the user asked you to start). The last two ask the user first. " +
         "Start only what the user asked for; propose anything else in words. The user's message follows."
       : a.meeting
@@ -656,8 +660,14 @@ export function createHost({ root, projects: projectsOption, runtime, policy = {
         // Friction log F3: the board is read-only behind the wall, so a direct run does not claim or hand off; its last message is its report.
         `The board is read-only to you: run no board command. Do the work, and end with a short report of what you did and what you checked: that last message is your handoff. ` +
         WORK_TIPS
-      : `You are the ${a.role} cell${a.mode ? ` in ${a.mode} mode` : ""} for ticket ${a.ref}. ` +
-        `Read .claude/agents/${a.role}.md and follow it, then follow the organism-protocol skill: claim the ticket, do the work, hand off.`;
+      : `You are the ${a.role} cell${a.mode ? ` in ${a.mode} mode` : ""} for ticket ${a.ref}. The user started this run from the den. ` +
+        `Read .claude/agents/${a.role}.md and follow it. The ticket is the file ${ticketFile(a.ref)}. ` +
+        // den-mvp/23: the board is read-only behind the wall, and the bridge already keeps one live agent per ticket, so a
+        // Run does not claim or hand off through the board (as F3 settled for direct runs); its last message is its report.
+        `The board is read-only to you: run no board command, and do not stop because you cannot claim; the den already ` +
+        `holds this ticket for you. Do the work in your worktree and commit it there (stage files by name), so the den can ` +
+        `publish your branch; end with a short report of what you did and what you ` +
+        `checked: that last message is your handoff.`;
 
   // Consume the process's events, then finalise once it has exited (and its event stream has drained).
   async function watch(agent) {
@@ -811,6 +821,12 @@ export function createHost({ root, projects: projectsOption, runtime, policy = {
           Promise.resolve(agent.proc.decide(event.requestId, verdict.kind === "allow" ? { allow: true } : { allow: false, reason: verdict.reason })).catch(() => {});
           return touch(agent);
         }
+      }
+      // F34: a den call the bridge would refuse anyway is denied now with its reason, and never asks the user.
+      const unfit = typeof event.tool === "string" && event.tool.startsWith("mcp__den__") ? checkCall(event.tool, event.input) : null;
+      if (unfit) {
+        Promise.resolve(agent.proc.decide(event.requestId, { allow: false, reason: `Refused before asking the user: ${unfit}` })).catch(() => {});
+        return touch(agent);
       }
       approvals.hold(agent.id, event, { accepting: !agent.stopRequested && !shuttingDown, says: agent.said ?? null });
       return;

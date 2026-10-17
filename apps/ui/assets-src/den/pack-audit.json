@@ -1,0 +1,771 @@
+{
+  "version": 1,
+  "tool": "pack-assets.py",
+  "assets": {
+    "bao": {
+      "source": "bao-customizer/browser_assets/bao-web.glb",
+      "sourceBytes": 3263736,
+      "sourceSha256": "ec93fb152ede778bc6062fe27b5127534ff5b9c700c4d1cf3700f277e024af35",
+      "packedBytes": 1066656,
+      "narrowedIndexAccessors": [],
+      "images": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 941948,
+        "decodedBytes": 1066656,
+        "exactByteRoundTrip": true
+      }
+    },
+    "props.orchestrator": {
+      "source": "bao-customizer/assets/Meshy_AI_Orchestrator_Token_Ra_1008061335_image-to-3d-texture.glb",
+      "sourceBytes": 2693524,
+      "sourceSha256": "c7a1b4643bf07eaa367ece1339452097f9e4d52c92b7a58012ed6a6a1917f4d0",
+      "packedBytes": 1872208,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1514811,
+        "decodedBytes": 1872208,
+        "exactByteRoundTrip": true
+      }
+    },
+    "props.architect": {
+      "source": "bao-customizer/assets/Meshy_AI_Architect_Scroll_and__1008061309_image-to-3d-texture.glb",
+      "sourceBytes": 2606740,
+      "sourceSha256": "889353402b3f1b148aedb18b462703ca219b73f366cbe42e6c72d608df449e1e",
+      "packedBytes": 1789260,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1470703,
+        "decodedBytes": 1789260,
+        "exactByteRoundTrip": true
+      }
+    },
+    "props.developer": {
+      "source": "bao-customizer/assets/Meshy_AI_Developer_Jig_and_Mal_1008061300_image-to-3d-texture.glb",
+      "sourceBytes": 2830696,
+      "sourceSha256": "f5a4e8d8ed09a01e8963704cd00ab91d3f0bf40141ba63688d46e6c54c55886e",
+      "packedBytes": 2044416,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1586065,
+        "decodedBytes": 2044416,
+        "exactByteRoundTrip": true
+      }
+    },
+    "props.designer": {
+      "source": "bao-customizer/assets/Meshy_AI_Designer_Palette_Brus_1008061329_image-to-3d-texture.glb",
+      "sourceBytes": 2508956,
+      "sourceSha256": "1a7063de8ff69c36dc4026611308ac0ecb33fcd653421187d4dea283ad23dbfc",
+      "packedBytes": 1727068,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1425660,
+        "decodedBytes": 1727068,
+        "exactByteRoundTrip": true
+      }
+    },
+    "props.product": {
+      "source": "bao-customizer/assets/Meshy_AI_Product_Dim_Sum_Menu__1008061246_image-to-3d-texture.glb",
+      "sourceBytes": 3056424,
+      "sourceSha256": "ace5ad5f467e198f5c24b8ed07a87c3b93ccd9ef860f723da34f631d3fc5162a",
+      "packedBytes": 2040780,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1616271,
+        "decodedBytes": 2040780,
+        "exactByteRoundTrip": true
+      }
+    },
+    "props.qa": {
+      "source": "bao-customizer/assets/Meshy_AI_QA_Tasting_Spoon_Dish_1008061332_image-to-3d-texture.glb",
+      "sourceBytes": 2260712,
+      "sourceSha256": "080125a401146379c98ca8788be46b80a0e60435194f67c0ea9205441d5d0c04",
+      "packedBytes": 1641764,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1345508,
+        "decodedBytes": 1641764,
+        "exactByteRoundTrip": true
+      }
+    },
+    "props.security": {
+      "source": "bao-customizer/assets/Meshy_AI_Security_Seal_Stamp_3_1008061235_image-to-3d-texture.glb",
+      "sourceBytes": 2610068,
+      "sourceSha256": "d570cf963413ae2b21f0b16512db679c53786ca9db333cf686153045e120bd98",
+      "packedBytes": 1780164,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1465166,
+        "decodedBytes": 1780164,
+        "exactByteRoundTrip": true
+      }
+    },
+    "props.scout": {
+      "source": "bao-customizer/assets/Meshy_AI_Scout_Brass_Compass_3_1008061239_image-to-3d-texture.glb",
+      "sourceBytes": 2656280,
+      "sourceSha256": "4accdbf4616cbf9405f3382a9236280832818c6d636a1fcfd60b74c0d3685092",
+      "packedBytes": 1821560,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1495988,
+        "decodedBytes": 1821560,
+        "exactByteRoundTrip": true
+      }
+    },
+    "props.debugger": {
+      "source": "bao-customizer/assets/Meshy_AI_Debugger_Lantern_3D_1008061338_image-to-3d-texture.glb",
+      "sourceBytes": 2816392,
+      "sourceSha256": "ee7997efdf5286dfd4c65da37e6160370b1bf3ba4eb6e9d922f494b3c1b03529",
+      "packedBytes": 1948288,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1597159,
+        "decodedBytes": 1948288,
+        "exactByteRoundTrip": true
+      }
+    },
+    "props.docs-writer": {
+      "source": "bao-customizer/assets/Meshy_AI_Docs_Writer_Brush_Boo_1008061252_image-to-3d-texture.glb",
+      "sourceBytes": 2682104,
+      "sourceSha256": "9c4275b803994ec4872bf7cab8d766194d3fe7e7c97c344a38ae760140c0ddf6",
+      "packedBytes": 1877044,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1488550,
+        "decodedBytes": 1877044,
+        "exactByteRoundTrip": true
+      }
+    },
+    "props.knowledge-keeper": {
+      "source": "bao-customizer/assets/Meshy_AI_Knowledge_Keeper_Slip_1008061251_image-to-3d-texture.glb",
+      "sourceBytes": 2969344,
+      "sourceSha256": "2a5af39a4b3ae99b92365840d56593ebba6f68dfcab6a9d22aed51d5e8caee33",
+      "packedBytes": 2084572,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1661779,
+        "decodedBytes": 2084572,
+        "exactByteRoundTrip": true
+      }
+    },
+    "props.herald": {
+      "source": "bao-customizer/assets/Meshy_AI_Herald_Wooden_Clapper_1008061230_image-to-3d-texture.glb",
+      "sourceBytes": 2420076,
+      "sourceSha256": "17e0dc485c4641b6351422dca1fa9ab9bc0484c29bd3e941a3d9a0ac7804cac2",
+      "packedBytes": 1693424,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1388372,
+        "decodedBytes": 1693424,
+        "exactByteRoundTrip": true
+      }
+    },
+    "props.release-manager": {
+      "source": "bao-customizer/assets/Meshy_AI_Release_Manager_Hand__1008061325_image-to-3d-texture.glb",
+      "sourceBytes": 2585400,
+      "sourceSha256": "0f10d7e9f0699177e6d1dc05e11281291c2c863d24cf7a737aba3c4926424353",
+      "packedBytes": 1766100,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1452047,
+        "decodedBytes": 1766100,
+        "exactByteRoundTrip": true
+      }
+    },
+    "props.stem-cub": {
+      "source": "bao-customizer/assets/Meshy_AI_STEM_Cub_Cushion_3D_1008061242_image-to-3d-texture.glb",
+      "sourceBytes": 2405488,
+      "sourceSha256": "8f36be16e6ac7012a10ddcafaaef7486805a36506541cd0b1bdc368a56a8c1f6",
+      "packedBytes": 1658264,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/webp",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        },
+        {
+          "width": 512,
+          "height": 512,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 1024,
+          "sourceHeight": 1024
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1362350,
+        "decodedBytes": 1658264,
+        "exactByteRoundTrip": true
+      }
+    },
+    "vegetation.bamboo": {
+      "source": "bao-customizer/meshy_output/models/vegetation-bamboo.glb",
+      "sourceBytes": 25450468,
+      "sourceSha256": "bd4d0d402804c22945b31979af76f40bbb506ab86703e9929a3813638551c0bc",
+      "packedBytes": 2790216,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp",
+          "sourceWidth": 4096,
+          "sourceHeight": 4096
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 2048,
+          "sourceHeight": 2048
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/jpeg",
+          "sourceWidth": 4096,
+          "sourceHeight": 4096
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 2122981,
+        "decodedBytes": 2790216,
+        "exactByteRoundTrip": true
+      }
+    },
+    "vegetation.ancient-grove": {
+      "source": "frontend-layout-mockup/meshy-forest/models/ancient-grove-refine.glb",
+      "sourceBytes": 6986232,
+      "sourceSha256": "53792e5ebc1a82baf385995709ec181760a3c46a063d8e61e6a94c7a1bf41699",
+      "packedBytes": 2223444,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp",
+          "sourceWidth": 2048,
+          "sourceHeight": 2048
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 1637013,
+        "decodedBytes": 2223444,
+        "exactByteRoundTrip": true
+      }
+    },
+    "wardrobe.developer-vest": {
+      "source": "bao-customizer/wardrobe_output/models/developer-vest-refine.glb",
+      "sourceBytes": 2153016,
+      "sourceSha256": "a3b27bbf469eb3835c63410c518d6fabefd81e1a13b140b123e023d2ceab7770",
+      "packedBytes": 384640,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp",
+          "sourceWidth": 2048,
+          "sourceHeight": 2048
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 265083,
+        "decodedBytes": 384640,
+        "exactByteRoundTrip": true
+      }
+    },
+    "wardrobe.developer-headphones": {
+      "source": "bao-customizer/wardrobe_output/models/developer-headphones-refine.glb",
+      "sourceBytes": 1746932,
+      "sourceSha256": "279e68b064bd067ce2ba5e359b4e95907f73d3287ee298e22adfe59af2d1ad35",
+      "packedBytes": 234616,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp",
+          "sourceWidth": 2048,
+          "sourceHeight": 2048
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 157683,
+        "decodedBytes": 234616,
+        "exactByteRoundTrip": true
+      }
+    },
+    "wardrobe.developer-boba": {
+      "source": "bao-customizer/wardrobe_output/models/developer-boba-refine.glb",
+      "sourceBytes": 1759172,
+      "sourceSha256": "8f1acd1d4fd1d8ad05ec01af8106e3c4d3ade91478df91267dd112e0c9a0b228",
+      "packedBytes": 230272,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp",
+          "sourceWidth": 2048,
+          "sourceHeight": 2048
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 182546,
+        "decodedBytes": 230272,
+        "exactByteRoundTrip": true
+      }
+    },
+    "wardrobe.developer-tablet": {
+      "source": "bao-customizer/wardrobe_output/models/developer-tablet-refine.glb",
+      "sourceBytes": 1023244,
+      "sourceSha256": "ddb584a8fe1d06f8309baaa80c267b6200089d32a5b1bd88a5fec2b72a8238fb",
+      "packedBytes": 108424,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp",
+          "sourceWidth": 2048,
+          "sourceHeight": 2048
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 73584,
+        "decodedBytes": 108424,
+        "exactByteRoundTrip": true
+      }
+    },
+    "wardrobe.qa-scarf": {
+      "source": "bao-customizer/wardrobe_output/models/qa-scarf-refine.glb",
+      "sourceBytes": 1787472,
+      "sourceSha256": "ef3f3488bc997290a5287e6b1d707e148137022edad0e120b9faaca39617a24f",
+      "packedBytes": 197812,
+      "narrowedIndexAccessors": [
+        3
+      ],
+      "images": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/webp",
+          "sourceWidth": 2048,
+          "sourceHeight": 2048
+        }
+      ],
+      "audit": "exact vertex/normal/UV samples, transforms and triangle index values retained",
+      "storage": {
+        "codec": "gzip",
+        "bytes": 152331,
+        "decodedBytes": 197812,
+        "exactByteRoundTrip": true
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-// showcase-v1/05: the app is Dim Sum Den; Long Cang is display-only (scene labels, header title, tally
+// showcase-v1/05: the app is Dim Sum Dev; Long Cang is display-only (scene labels, header title, tally
 // heading); UI copy and numbers stay Nunito. Source-shape checks over index.html and styles.css.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -8,9 +8,9 @@ const read = (f) => readFileSync(new URL(f, import.meta.url), "utf8");
 const html = read("../index.html");
 const css = read("./styles.css");
 
-test("page title and header read Dim Sum Den", () => {
-  assert.match(html, /<title>Dim Sum Den<\/title>/);
-  assert.match(read("./overlay/Cards.jsx"), /<h1[^>]*>Dim Sum Den<\/h1>/);
+test("page title and header read Dim Sum Dev", () => {
+  assert.match(html, /<title>Dim Sum Dev<\/title>/);
+  assert.match(read("./overlay/Cards.jsx"), /<h1[^>]*>Dim Sum Dev<\/h1>/);
 });
 
 test("Long Cang is self-hosted (showcase-v1/08): local woff2 @font-face, OFL beside it, no Google Fonts host anywhere", () => {

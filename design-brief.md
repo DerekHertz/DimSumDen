@@ -1,4 +1,4 @@
-# DimSumDen — Design Brief
+# DimSumDev — Design Brief
 
 > Handoff document for a design agent. Source of truth for product decisions is the "Agent Office — Organism Design Grill" doc; this brief turns those decisions into design requirements. Status: **draft v0.2, 2026-09-29** (stations renamed to stations; see `.scratch/character-animation/design/dim-sum-direction.md`). Anything marked **[OPEN]** is not decided yet — propose options, don't assume.
 
@@ -6,7 +6,7 @@
 
 ## 1. Product in one paragraph
 
-DimSumDen (formerly Agent Office) is a **local web app** for one developer to watch and steer a full software-development team of AI agents. The team is modeled as a **living organism**: each agent is a **cell**, cells of the same role are a **cell type**, and cell types that share an SDLC outcome work at a **station** of the dim sum house (e.g., Tea & Pantry tastes and guards the work). The organism's body is **Bao**, a giant plush panda the teahouse is built on. The user is the **head chef** at the Pass: they set intent, approve risky actions at gates, and resolve conflicts. The UI's core idea is a **spatial, zoomable world**: an **isometric overview** of the whole organism that zooms smoothly down to a **third-person** view of one cell and finally a **first-person** view inside that cell's workspace (terminal, diff, files).
+DimSumDev (formerly Agent Office) is a **local web app** for one developer to watch and steer a full software-development team of AI agents. The team is modeled as a **living organism**: each agent is a **cell**, cells of the same role are a **cell type**, and cell types that share an SDLC outcome work at a **station** of the dim sum house (e.g., Tea & Pantry tastes and guards the work). The organism's body is **Bao**, a giant plush panda the teahouse is built on. The user is the **head chef** at the Pass: they set intent, approve risky actions at gates, and resolve conflicts. The UI's core idea is a **spatial, zoomable world**: an **isometric overview** of the whole organism that zooms smoothly down to a **third-person** view of one cell and finally a **first-person** view inside that cell's workspace (terminal, diff, files).
 
 ## 2. User
 
@@ -168,7 +168,7 @@ Each cell emits events to the local daemon. Design against this shape:
 ```json
 {
   "ts": "2026-09-25T14:03:11Z",
-  "organism": "dimsumden",
+  "organism": "dimsumdev",
   "station": "tea-pantry",
   "cell_id": "sec-02",
   "cell_type": "security-reviewer",

@@ -1,0 +1,81 @@
+import {useEffect,useRef,useState} from 'react';
+import {useFrame,useThree} from '@react-three/fiber';
+import * as THREE from 'three';
+import {createMeshyWorld} from './world.mjs';
+import {createMeshyActors} from './actors.mjs';
+import {liveActorsFromSnapshot} from '../../review/live-actors.mjs';
+import {agentFor,cardFor,pickedCard} from '../../overlay/proximity-card.mjs';
+import {TABLE,seatSpots,seated,tableMeeting} from './meeting-table.mjs';
+
+// Native R3F scene. App remains the sole owner of live state, actions and panels.
+export function MeshyDen({snapshot,cells,frontier,tally,selected,onSelect,onOpenTally,stage,onReady,onNearby,picked=null,onPick,zoneView=null,onZoneClick=null,onLoadState,bindings=null,onOpenMeeting=null}){
+ const [den,setDen]=useState(null);
+ const live=useRef(null),inputs=useRef({});inputs.current={snapshot,cells,frontier,tally,selected,onSelect,onOpenTally,onNearby,picked,onPick,zoneView,onZoneClick,onLoadState,bindings,onOpenMeeting};
+ const {scene,gl}=useThree();
+ useEffect(()=>{
+  const abort=new AbortController();let mounted=true,world=null;
+  inputs.current.onLoadState?.({status:'loading',message:'Opening the forest garden…'});
+  createMeshyWorld(gl,{signal:abort.signal,onProgress:message=>inputs.current.onLoadState?.({status:'loading',message})}).then(d=>{
+   world=d;if(!mounted){d.dispose();return;}
+   const agents=createMeshyActors(d),media=matchMedia('(prefers-reduced-motion: reduce)');
+   // den-mvp/64: a gold ring round the table while a meeting's brief waits on the user.
+   const glow=new THREE.Mesh(new THREE.TorusGeometry(2.8,.06,8,72),new THREE.MeshBasicMaterial({color:'#f8bd40',transparent:true,opacity:.9}));
+   glow.name='Brief waiting';glow.rotation.x=Math.PI/2;glow.scale.set(1,.68,1);glow.position.set(TABLE.x,.35,TABLE.z);glow.visible=false;d.world.add(glow);
+   live.current={den:d,agents,media,anchored:new Set(),proximity:0,meeting:null,susan:d.world.getObjectByName('Lazy susan'),glow};setDen(d);stage.tallyAnchor=d.tallyAnchor;onReady(d);
+   inputs.current.onLoadState?.({status:'ready',message:'The forest garden is ready.'});
+  }).catch(error=>{if(mounted&&error.name!=='AbortError'){console.error('Den scene',error);inputs.current.onLoadState?.({status:'error',message:'The garden models could not load. Reload to retry.'});}});
+  return()=>{mounted=false;abort.abort();onReady(null);stage.meetingAnchors?.clear();live.current?.agents.dispose();live.current=null;world?.dispose();stage.anchors.clear();};
+ },[gl,stage,onReady]);
+ useEffect(()=>{const previous={background:scene.background,fog:scene.fog};const color='#e9f0d9';scene.background=new THREE.Color(color);scene.fog=new THREE.Fog(color,150,260);return()=>{scene.background=previous.background;scene.fog=previous.fog;};},[scene]);
+ useEffect(()=>{if(!den)return;den.setFrontier(frontier||[]);den.setTally(tally?.rods);},[den,frontier,tally]);
+ useEffect(()=>{
+  const agents=live.current?.agents;if(!agents)return;
+  // den-mvp/64: the table's meeting is re-read every second too, so a farewell clears on time.
+  const bind=()=>{agents.applyLive(liveActorsFromSnapshot(snapshot,{now:Date.now()}),inputs.current.bindings);const m=tableMeeting(snapshot?.meetings,Date.now());agents.applyMeeting(m);if(live.current)live.current.meeting=m;};bind();const timer=setInterval(bind,1000);return()=>clearInterval(timer);
+ },[den,snapshot,bindings]);
+ useEffect(()=>{live.current?.agents.setSelected(selected??null);},[den,selected]);
+ useFrame((_,delta)=>{
+  const l=live.current;if(!l)return;const dt=Math.min(delta,.1);l.agents.update(dt,l.media.matches);l.elapsed=(l.elapsed||0)+(l.media.matches?0:dt);l.den.ambient.pose(l.elapsed);l.den.world.updateMatrixWorld(true);
+  const figures=l.agents.liveFigures();for(const ref of l.anchored)if(!figures.has(ref)){stage.anchors.delete(ref);l.anchored.delete(ref);}
+  for(const [ref,{model}]of figures){stage.anchors.set(ref,model.localToWorld(new THREE.Vector3(0,3.4,0)));l.anchored.add(ref);}
+  for(const [ref,basket]of l.den.frontier)stage.anchors.set(ref,basket.localToWorld(new THREE.Vector3(0,.6,0)));
+  const anchors=stage.meetingAnchors??(stage.meetingAnchors=new Map());anchors.clear();
+  if(l.meeting)for(const [role,model]of l.agents.seatModels())anchors.set(role,model.localToWorld(new THREE.Vector3(0,3.4,0)));
+  // The lazy susan turns toward whoever is speaking; with reduced motion it stays put.
+  const speaker=seated(l.meeting)?l.meeting.seats.findIndex(s=>s.role===l.meeting.live?.role):-1;
+  if(l.susan&&!l.media.matches&&speaker>=0){const spot=seatSpots(l.meeting.seats.length)[speaker],target=Math.atan2(spot.x-TABLE.x,spot.z-TABLE.z);let d=target-l.susan.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));l.susan.rotation.y+=d*Math.min(1,dt*1.5);}
+  l.glow.visible=l.meeting?.state==='briefed'||l.meeting?.state==='paused';
+  l.proximity+=dt;if(l.proximity<.1)return;l.proximity=0;
+  let card=null;const walking=!!stage.explorer?.active,pick=walking?null:inputs.current.picked;
+  if(walking||pick!=null){
+   const snap=inputs.current.snapshot,boundRefs=new Set([...l.agents.actors.values()].map(a=>a.live?.ref).filter(Boolean));
+   const pandas=[...l.agents.actors].map(([id,a])=>{
+    const position=a.panda.model.getWorldPosition(new THREE.Vector3()),agent=agentFor({role:a.role,ref:a.live?.ref},snap?.agents,boundRefs);
+    const cell=a.live?(snap?.cells||[]).filter(row=>row.ref===a.live.ref&&(!row.cellType||row.cellType===a.role)).reduce((last,row)=>!last||Date.parse(row.lastEventAt)>Date.parse(last.lastEventAt)?row:last,null):null;
+    return {id,name:a.name,role:a.role,station:a.station,position:{x:position.x,z:position.z},ref:a.live?.ref,state:a.live?.state,tool:cell?.tool??null,agent};
+   });
+   const camera=walking?stage.explorer.camera:null;
+   card=camera?cardFor(pandas,snap?.approvals||[],{x:camera.position.x,z:camera.position.z,yaw:camera.rotation.y}):pickedCard(pandas,snap?.approvals||[],pick);
+  }
+  l.agents.hold(card?.id??null);if(card)delete card.distance;inputs.current.onNearby?.(card);
+ });
+ const hit=e=>{
+  for(let object=e.object;object;object=object.parent){
+   const actor=object.userData.actorKey||object.userData.workspaceRole,open=inputs.current.onOpenMeeting,m=live.current?.meeting;
+   // den-mvp/64: during a meeting a seated panda opens its take, and Bao or the table opens the meeting.
+   const seat=actor&&live.current?.agents.seatOf(actor);
+   if(open&&m&&!stage.explorer?.active&&(seat||actor==='orchestrator'||object.userData.denInteraction?.id==='center')){e.stopPropagation();open(m.id,seat?.role??null);return;}
+   if(actor&&!stage.explorer?.active&&inputs.current.onPick){e.stopPropagation();inputs.current.onPick(actor);return;}
+   const local=object.userData.denInteraction;
+   if(local){e.stopPropagation();inputs.current.onZoneClick?.(local.id);return;}
+   const ref=object.userData.ticketRef;if(ref){e.stopPropagation();inputs.current.onSelect?.(ref);return;}
+   if(object.userData.tallyAbacus){e.stopPropagation();stage.tallyHit=true;inputs.current.onOpenTally?.();return;}
+  }
+ };
+ return <>
+  <hemisphereLight args={['#fff1d8','#8fa47b',1.65]}/>
+  <directionalLight position={[-35,60,30]} intensity={2.5} color='#ffebc3' castShadow shadow-mapSize={[2048,2048]} shadow-camera-left={-62} shadow-camera-right={62} shadow-camera-top={62} shadow-camera-bottom={-62} shadow-camera-far={160} shadow-normalBias={.06}/>
+  <directionalLight position={[12,10,-8]} intensity={.65} color="#d6e9ff"/>
+  {den?<primitive object={den.world} dispose={null} onClick={hit}/>:null}
+ </>;
+}

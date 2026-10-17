@@ -1,7 +1,7 @@
 # The den's bridge as a systemd user service (ADR 0026 decision 4). `npm run den:install` fills the @...@ marks from this
 # machine and writes the result to ~/.config/systemd/user/den.service; nothing else writes it, and no agent or bridge route may.
 [Unit]
-Description=Dim Sum Den bridge
+Description=Dim Sum Dev bridge
 
 [Service]
 Type=simple
