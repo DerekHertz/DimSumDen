@@ -84,7 +84,7 @@ export function App() {
   const placeholder = inDemo || approvalDemo ? null : panelPlaceholder(connection);
   const [selected, setSelected] = useState(null);
   const stage = useMemo(() => ({ anchors: new Map(), camera: null, size: null, explorer: null, tallyAnchor: TALLY_ANCHOR }), []);
-  const camera = useMemo(() => createDenCameraStore(createCameraStore({minZoom:.25}),()=>stage.explorer?.exit(), NAVIGATION_TARGETS), [stage]);
+  const camera = useMemo(() => createDenCameraStore(createCameraStore({minZoom:.25,levels:{1:1,2:.4,3:.25}}),()=>stage.explorer?.exit(), NAVIGATION_TARGETS), [stage]);
   const [den,setDen]=useState(null);
   const [gardenLoad, setGardenLoad] = useState({ status: 'loading', message: 'Opening the garden…' });
   const [exploring,setExploring]=useState(false);

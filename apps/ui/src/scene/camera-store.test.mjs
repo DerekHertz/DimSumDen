@@ -4,6 +4,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createCameraStore, levelOfZoom, LEVEL_ZOOM } from "./camera-store.mjs";
 
+test('the larger garden keeps station and panda levels in sync with its close zoom range',()=>{
+  const levels={1:1,2:.4,3:.25},store=createCameraStore({minZoom:.25,levels});
+  store.goToStation('tea');assert.equal(store.getZoom(),.4);assert.equal(levelOfZoom(store.getZoom(),store.levels),2);
+  store.goToLevel(3);assert.equal(store.getZoom(),.25);assert.equal(levelOfZoom(store.getZoom(),store.levels),3);
+  store.stepZoom('+');assert.equal(store.getZoom(),.25);
+  store.goToLevel(1);assert.equal(store.getZoom(),1);assert.equal(levelOfZoom(store.getZoom(),store.levels),1);
+});
+
 test("starts at the Level 1 framing: zoom 1, the default look-at", () => {
   const s = createCameraStore();
   assert.equal(s.getZoom(), 1);

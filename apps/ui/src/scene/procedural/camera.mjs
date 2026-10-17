@@ -21,6 +21,6 @@ export function createDenCameraStore(base,onNavigate=()=>{},targets=null) {
   base.setTarget(DEN_TARGET);
   return {...base,
     goToLevel(level){onNavigate();base.goToLevel(level);if(level===1)base.setTarget(DEN_TARGET);},
-    goToStation(id){onNavigate();base.setZoom(targets?0.30:0.75);const s=STATIONS[id];base.setTarget(targets?.[id]??(s?[s.x,1,s.z]:id==='pass'?[0,2,-10]:DEN_TARGET));},
+    goToStation(id){onNavigate();base.setZoom(base.levels?.[2]??0.75);const s=STATIONS[id];base.setTarget(targets?.[id]??(s?[s.x,1,s.z]:id==='pass'?[0,2,-10]:DEN_TARGET));},
   };
 }

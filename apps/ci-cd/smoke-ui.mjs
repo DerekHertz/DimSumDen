@@ -170,8 +170,9 @@ async function main() {
           const r = el.getBoundingClientRect();
           return { x: r.left + r.width / 2 - scene.left, y: r.top + r.height / 2 - scene.top, left: r.left - scene.left, right: r.right - scene.left, top: r.top - scene.top, bottom: r.bottom - scene.top };
         };
-        const signs = {};
+        const signs = {},projected={};
         for (const el of document.querySelectorAll(".chip-layer .station-label")) {
+          projected[el.textContent.trim()]=rel(el);
           if (getComputedStyle(el).visibility === "visible") signs[el.textContent.trim()] = rel(el);
         }
         const chips = {};
@@ -179,7 +180,7 @@ async function main() {
           if (getComputedStyle(el).visibility === "visible") chips[el.dataset.ref] = rel(el);
         }
         const tally = document.querySelector(".chip-layer .chip-tally");
-        return { width: scene.width, height: scene.height, signs, chips, tally: tally ? rel(tally) : null };
+        return { width: scene.width, height: scene.height, signs, projected, chips, tally: tally ? rel(tally) : null };
       });
     const settle = async (predicate, what) => {
       const deadline = Date.now() + 6000;
@@ -192,7 +193,7 @@ async function main() {
       throw new Error(`${what}: not reached within 6 s; last ${JSON.stringify(last)}`);
     };
     const fits = (p) => {
-      const names = ["Steamers", "Front of House", "Tea", "Pantry"];
+      const names = ["The Pass", "Steamers", "Front of House", "Tea & Pantry", "Library"];
       if (!names.every((n) => p.signs[n])) return false;
       const all = [...names.map((n) => p.signs[n]), ...(p.tally ? [p.tally] : [])];
       return all.every((r) => r.left >= 0 && r.right <= p.width && r.top >= 0 && r.bottom <= p.height);
@@ -222,17 +223,18 @@ async function main() {
       await page.setViewportSize({ width: 1440, height: 900 });
       // The signs follow a resize a few frames late (longer under load): the first probe can still show the
       // phone-sized layout from the previous check, which also "fits". Take the baseline only once the signs are
-      // centred on the scene box. Tea and Pantry are opposite sides of the
-      // approved clearing at x -12.4 and +12.4.
-      const centred = (p) => p.signs["Tea"] && p.signs["Pantry"] && Math.abs((p.signs["Tea"].x + p.signs["Pantry"].x) / 2 - p.width / 2) < 2;
+      // centred on the scene box. Steamers and Tea & Pantry flank the garden
+      // at x -20.2 and +20.2.
+      const centred = (p) => p.signs["Steamers"] && p.signs["Tea & Pantry"] && Math.abs((p.signs["Steamers"].x + p.signs["Tea & Pantry"].x) / 2 - p.width / 2) < 2;
       const base = await settle((p) => centred(p) && fits(p), "default frame before zoom");
-      const gap = (p) => p.signs["Pantry"].x - p.signs["Tea"].x;
-      const box = await page.locator("main.scene").boundingBox();
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      // Projected positions remain measurable when close zoom clips the outer signs.
+      const gap = (p) => p.projected["Tea & Pantry"].x - p.projected["Steamers"].x;
+      const box = await page.locator('.forest-canvas canvas').boundingBox();
+      await page.mouse.move(box.x + box.width * .85, box.y + box.height * .15);
       await page.mouse.wheel(0, -300); // exponential: zoom factor 1 -> exp(-0.3) = 0.7408, so 1/0.7408 = 1.3499 times wider
       const zoomed = await settle((p) => Math.abs(gap(p) / gap(base) - 1.3499) < 0.03, "zoom in by exp(-0.3)");
-      await page.mouse.wheel(0, -5000); // clamps at 0.55: 1/0.55 = 1.818
-      const nearest = await settle((p) => Math.abs(gap(p) / gap(base) - 1 / 0.55) < 0.04, "zoom clamps at 0.55");
+      await page.mouse.wheel(0, -5000); // close zoom allows inspection of the personal workstations
+      const nearest = await settle((p) => Math.abs(gap(p) / gap(base) - 4) < 0.04, "zoom clamps at 0.25");
       await page.mouse.wheel(0, 20000); // clamps at 1.2: 1/1.2 = 0.833
       const farthest = await settle((p) => Math.abs(gap(p) / gap(base) - 1 / 1.2) < 0.03, "zoom clamps at 1.2");
       return `spacing x${(gap(zoomed) / gap(base)).toFixed(3)}, x${(gap(nearest) / gap(base)).toFixed(3)} (nearest), x${(gap(farthest) / gap(base)).toFixed(3)} (farthest)`;
@@ -240,8 +242,10 @@ async function main() {
 
     await check("camera pan: dragging 100 px right moves every sign 100 px right", async () => {
       await page.setViewportSize({ width: 1440, height: 900 });
-      await page.mouse.wheel(0, -3000); // back to the nearest zoom, where there is room to pan sideways
-      await settle((p) => p.signs["Tea"] && p.signs["Pantry"] && p.signs["Pantry"].x - p.signs["Tea"].x > 350, "zoomed in");
+      const wheelBox=await page.locator('.forest-canvas canvas').boundingBox();
+      await page.mouse.move(wheelBox.x+wheelBox.width*.85,wheelBox.y+wheelBox.height*.15);
+      await page.mouse.wheel(0, -780.1586); // factor 1.2 -> .55: keep both flanking signs visible while panning
+      await settle((p) => p.signs["Steamers"] && p.signs["Tea & Pantry"] && p.signs["Tea & Pantry"].x - p.signs["Steamers"].x > 350, "zoomed in");
       await page.waitForTimeout(800); // let the rig's easing finish before measuring
       const start = await sceneProbe();
       const names = Object.keys(start.signs).filter((n) => start.signs[n].left >= 4 && start.signs[n].right + 110 <= start.width);
