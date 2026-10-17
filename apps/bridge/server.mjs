@@ -11,6 +11,8 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
 import { createHost } from "./cells/host.mjs";
+import { createProjects } from "./projects.mjs";
+import { buildSnapshot } from "./snapshot.mjs";
 import { createLedger } from "./cells/ledger.mjs";
 import { createDelivery } from "./delivery/runner.mjs";
 import { createDeliveryBoard } from "./delivery/board.mjs";
@@ -157,6 +159,8 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   };
   // Friction F19: the production bridge reads the plan-usage cache; a test bridge reads only usage.jsonl rows.
   const usageReading = usageOption ?? (() => null);
+  // den-mvp/49: the den and the projects onboarded beside it. The registry is the user's (den:project); the active project is ours.
+  const projects = createProjects({ control: root, denState: denState ?? stateDir ?? path.join(root, ".scratch", "_run") });
   const hub = createHub(root, {
     agents: () => host.snapshot(), approvals: () => host.approvals(), transcripts: () => host.transcripts(), capacity: (lockedRefs) => host.capacity(lockedRefs),
     deliveries: () => delivery?.snapshot() ?? [],
@@ -166,11 +170,13 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     build: () => readBuild_(),
     wall: () => wallTables(),
     readUsage: usageReading,
+    boardRoot: () => projects.activeRoot(),
   });
   // den-mvp outcome 4: the production entry point passes the den's catalog; with none, no agent is given a connection.
   const library = libraryOption ?? createLibrary({ catalog: parseCatalog({ connections: [] }) });
   host = createHost({
     root,
+    projects,
     runtime,
     bridgeUrl: () => `http://127.0.0.1:${actualPort}`,
     policy,
@@ -193,6 +199,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   delivery = createDelivery({
     host: { start: host.start, stop: host.stop, retire: host.retire },
     board: createDeliveryBoard(root),
+    activeProject: () => projects.active(),
     git,
     build: denBuild,
     checks,
@@ -296,6 +303,22 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
       const run = postChain.then(() => postRequest(req, res));
       postChain = run.catch(() => {});
       await run;
+    },
+    "GET /projects": async (req, res) => reply(res, 200, { projects: await projects.list() }),
+    "POST /projects/active": async (req, res) => {
+      const body = await readJsonObject(req, res);
+      if (!body) return;
+      if (typeof body.slug !== "string") return reply(res, 400, { error: "slug must be a string" });
+      const result = await projects.activate(body.slug, { runs: host.projectRuns() });
+      if (result.refused) return reply(res, 409, { error: result.reason, blocking: result.blocking });
+      reply(res, 200, { ok: true, active: body.slug });
+    },
+    "GET /projects/:slug/board": async (req, res) => {
+      const slug = new URL(req.url, "http://x").pathname.split("/")[2];
+      const project = await projects.get(slug);
+      if (!project) return reply(res, 404, { error: "no such project" });
+      if (project.board.kind !== "markdown") return reply(res, 501, { error: `a ${project.board.kind} board cannot be read yet` });
+      reply(res, 200, await buildSnapshot(project.root, 0, { readUsage: usageReading }));
     },
     "POST /agents": (req, res) => postAgent(req, res),
     "POST /tasks": (req, res) => postTask(req, res),
@@ -463,7 +486,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     const result = await host.direct({
       role: body.role,
       grants: body.grants,
-      createTicket: (role) => createTicket(root, { feature: DEN_FEATURE, slug: role, title: `Den task for ${role}`, text, source: "den" }),
+      createTicket: async (role) => createTicket(role === "orchestrator" ? root : await projects.activeRoot(), { feature: DEN_FEATURE, slug: role, title: `Den task for ${role}`, text, source: "den" }),
     });
     const ticket = result.ticket ? { ticket: result.ticket } : {};
     if (!result.ok) return reply(res, result.status, { error: result.error, ...ticket });
@@ -877,7 +900,7 @@ if (startedDirectly()) {
   const checksLauncher = createResourceLauncher({ env: process.env, limits: checksLimits(), slice: CHECKS_SLICE });
   // The box mounts the den's packages folder for each commit's own lockfile (deps/<lock-hash>, made by den:update).
   const checks = createChecks({ repo: root, launcher: checksLauncher, recordDir: path.join(root, ".scratch", "_run", "checks"), depsDir: path.join(denState, "deps") });
-  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }), watchCi: true, usage: createUsageReading(), checks });
+  const bridge = await startBridge({ root, port: Number(process.env.PORT) || 4317, runtime: createClaudeRuntime({ env: process.env, launcher, controlRoot: root }), box: createBuildBox({ launcher }), stateDir, denState, library: createLibrary({ stateDir }), watchCi: true, usage: createUsageReading(), checks });
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
   console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);

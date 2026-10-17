@@ -28,7 +28,7 @@ async function start({ token, connections = [GITHUB] } = {}) {
   }
   const stub = await makeStub({ mode: "hang" });
   const cwd = await mkdtemp(path.join(tmpdir(), "den-cred-cwd-"));
-  const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: home, DEN_CLAUDE_BIN: stub.bin } });
+  const runtime = createClaudeRuntime({ controlRoot: "/", launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: home, DEN_CLAUDE_BIN: stub.bin } });
   const proc = await runtime.spawn({ role: "developer", cwd, prompt: "go", sessionId: SESSION, connections });
   cleanups.push(async () => {
     try { proc.signal("SIGKILL"); } catch {}
@@ -73,7 +73,7 @@ test("a launch failure removes the config file", async () => {
   await writeFile(path.join(credDir, "github.token"), TOKEN);
   cleanups.push(() => rm(home, { recursive: true, force: true }));
   const launcher = { ...unconfinedLauncher(), launch: async () => { throw new Error("no launch"); } };
-  const runtime = createClaudeRuntime({ launcher, env: { PATH: process.env.PATH, HOME: home, DEN_CLAUDE_BIN: "claude" } });
+  const runtime = createClaudeRuntime({ controlRoot: "/", launcher, env: { PATH: process.env.PATH, HOME: home, DEN_CLAUDE_BIN: "claude" } });
   const cwd = await mkdtemp(path.join(tmpdir(), "den-cred-cwd-"));
   await assert.rejects(runtime.spawn({ role: "developer", cwd, prompt: "go", sessionId: SESSION, connections: [GITHUB] }), /no launch/);
   assert.deepEqual(await readdir(path.join(credDir, "run")), []);

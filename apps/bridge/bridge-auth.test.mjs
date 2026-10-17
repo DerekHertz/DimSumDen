@@ -35,6 +35,7 @@ const BODIES = {
   // den-mvp/13: approve or decline a ticket waiting at ready-for-human (the fixture's 06-human).
   "POST /tickets/approve": { real: { ref: `${FEATURE}/06-human` }, bogus: { ref: `${FEATURE}/99-nope` } },
   "POST /tickets/decline": { real: { ref: `${FEATURE}/06-human`, note: "not now" }, bogus: { ref: `${FEATURE}/99-nope`, note: "no" } },
+  "POST /projects/active": { real: { slug: "den" }, bogus: { slug: "nope" } },
   "POST /requests": {
     real: { kind: "dispatch-approve", ref: DISPATCH_REF },
     bogus: { kind: "dispatch-approve", ref: `${FEATURE}/99-nope` },

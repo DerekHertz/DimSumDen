@@ -27,6 +27,7 @@
     "next-session": "node scripts/next-session.mjs",
     "session-check": "node scripts/session-check.mjs",
     "bridge": "node apps/bridge/server.mjs",
+    "den:project": "node scripts/den-project.mjs",
     "den:install": "node apps/bridge/service/den-service.mjs install",
     "den:update": "node apps/bridge/service/den-service.mjs update",
     "den:link": "node apps/bridge/service/den-service.mjs link",

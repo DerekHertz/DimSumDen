@@ -35,7 +35,7 @@ afterEach(async () => {
 async function launch(role, { dirName = "den-wall-cwd-", extra = {} } = {}) {
   const stub = await makeStub({ mode: "hang" });
   const cwd = await mkdtemp(path.join(tmpdir(), dirName));
-  const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+  const runtime = createClaudeRuntime({ controlRoot: "/", launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
   const proc = await runtime.spawn({ role, cwd, prompt: "do the thing", sessionId: SESSION, ...extra });
   cleanups.push(async () => {
     try {
@@ -114,7 +114,7 @@ describe("the runtime passes a role's connections", () => {
   test("a connection the adapter cannot write refuses the spawn: nothing starts with a looser one", async () => {
     const stub = await makeStub({ mode: "hang" });
     const cwd = await mkdtemp(path.join(tmpdir(), "den-wall-cwd-"));
-    const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+    const runtime = createClaudeRuntime({ controlRoot: "/", launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
     await assert.rejects(runtime.spawn({ role: "developer", cwd, prompt: "x", sessionId: SESSION, connections: [{ name: "docs", command: "sh" }] }), TypeError);
     assert.equal(await stub.start(), undefined);
   });

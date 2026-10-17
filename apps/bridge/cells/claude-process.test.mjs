@@ -1,7 +1,7 @@
 // organism-infra/143 (ADR 0016 decisions 2, 6.5, 6.6, 6.8; amendment 6): the process half of the Claude adapter.
 //
 // PINNED INTERFACE (what these tests hold the developer to):
-//   apps/bridge/cells/claude-runtime.mjs   export createClaudeRuntime({ launcher: unconfinedLauncher(), env = process.env }) -> CellRuntime
+//   apps/bridge/cells/claude-runtime.mjs   export createClaudeRuntime({ controlRoot: "/", launcher: unconfinedLauncher(), env = process.env }) -> CellRuntime
 //     - the binary is env.DEN_CLAUDE_BIN, else "claude"; it never comes from a spawn argument
 //     - spawn(args) runs  spawn(bin, buildClaudeArgs({ sessionId, agent: role, model? }), { shell: false, detached: true,
 //       cwd: args.cwd, env: buildClaudeEnv(env) })  and writes the prompt as ONE stdin line
@@ -46,7 +46,7 @@ async function launch(stubOpts, { args = {}, env = {} } = {}) {
   assert.equal(typeof createClaudeRuntime, "function", "claude-runtime.mjs must export createClaudeRuntime");
   const stub = await makeStub(stubOpts);
   const cwd = await mkdtemp(path.join(tmpdir(), "den-claude-cwd-"));
-  const runtime = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin, ...env } });
+  const runtime = createClaudeRuntime({ controlRoot: "/", launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin, ...env } });
   const proc = await runtime.spawn({ role: "architect", ref: "fx/02-ready-p0", cwd, prompt: "do the thing", sessionId: SESSION, ...args });
   const run = collect(proc);
   cleanups.push(async () => {
@@ -62,7 +62,7 @@ async function launch(stubOpts, { args = {}, env = {} } = {}) {
 describe("the runtime's declared shape", () => {
   test("capabilities: approve and send on, and a resume command naming the session", async () => {
     const { createClaudeRuntime } = await loadRuntimeModule();
-    const rt = createClaudeRuntime({ launcher: unconfinedLauncher(), env: {} });
+    const rt = createClaudeRuntime({ controlRoot: "/", launcher: unconfinedLauncher(), env: {} });
     assert.deepEqual(rt.capabilities, { spawn: true, stop: true, approve: true, send: true, handover: true, resume: true });
     assert.equal(typeof rt.id, "string");
     assert.match(rt.resumeCommand(SESSION), new RegExp(`--resume ${SESSION}`));
@@ -123,7 +123,7 @@ describe("what the child is launched with", () => {
   test("a binary that cannot start makes spawn reject (the host then answers 502)", async () => {
     const { createClaudeRuntime } = await loadRuntimeModule();
     const missing = path.join(await mkdtemp(path.join(tmpdir(), "den-claude-none-")), "no-such-claude");
-    const rt = createClaudeRuntime({ launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, DEN_CLAUDE_BIN: missing } });
+    const rt = createClaudeRuntime({ controlRoot: "/", launcher: unconfinedLauncher(), env: { PATH: process.env.PATH, DEN_CLAUDE_BIN: missing } });
     await assert.rejects(rt.spawn({ role: "architect", ref: "fx/02-ready-p0", cwd: tmpdir(), prompt: "p", sessionId: SESSION }));
   });
 });
