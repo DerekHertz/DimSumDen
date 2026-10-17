@@ -10,7 +10,7 @@
 **A local control room where a small team of AI agents builds software, and you sit at the Pass.**
 
 Agents work tickets through a strict relay on a plain-file board, stop at gates only you can open,
-and perch on Bao, a big plush panda, in a 3D den that shows who is doing what at a glance.
+and show up as plush pandas in a 3D bamboo garden, around Bao, so you can see who is doing what at a glance.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/DerekHertz/DimSumDen/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/DerekHertz/DimSumDen/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
@@ -24,7 +24,7 @@ and perch on Bao, a big plush panda, in a 3D den that shows who is doing what at
 npm ci && npm run ui    # then open http://127.0.0.1:4317/?demo=den
 ```
 
-![The den in Demo mode: Bao at the center, agents at their stations](docs/images/den-demo.jpg)
+![The den in Demo mode: the bamboo garden with Bao at the center, agents at their pavilions, and your desk beside it](docs/images/den-demo.jpg)
 
 *The den in Demo mode (`?demo=den`), captured from the running app.*
 
@@ -39,7 +39,7 @@ npm ci && npm run ui    # then open http://127.0.0.1:4317/?demo=den
 - **A relay for every code ticket.** qa writes failing tests, a developer makes them pass, qa verifies, a risk check decides whether security reviews, and the orchestrator opens the PR and merges on green CI ([ADR 0002](docs/adr/0002-relay-not-swarm.md)).
 - **Gates you can't miss.** Agents stop before pushing, adding a dependency, or editing an ADR or their own role files. You approve a ticket once; the orchestrator runs its whole relay and only comes back for a visual check, a design question, a ticket that failed twice, or a red merge.
 - **A board you can diff.** Tickets are markdown under `.scratch/`, claimed with lock files and handed off through a `board` CLI ([ADR 0003](docs/adr/0003-local-file-board.md), [ADR 0008](docs/adr/0008-board-service.md)). No database, no hosted service.
-- **The den.** `apps/ui` is a React Three Fiber scene of Bao and the agents, with a dashboard for the queue, gates and usage. Walk up to an agent to read its transcript, message it, or approve or deny what it's waiting on.
+- **The den.** `apps/ui` is a React Three Fiber garden: Bao at the center, a pavilion per station, and plush pandas dressed for their role. Beside it, your desk holds the queue, what needs you, meetings and the library, with tabs for Work, Pandas and Library and a Talk to Bao button. Zoom from the whole den to a station, a panda or its workspace, or press Enter the den to walk around; walk up to an agent to read its transcript, message it, or approve or deny what it's waiting on.
 - **Demo mode.** Open `?demo=den` or press **Watch the demo** to replay a recorded session into the den. It makes no bridge calls and reads no tokens, and every action that would steer a real agent is greyed out.
 - **Cheap decisions, logged before trusted.** Routine relay choices (which model a developer needs, how deep qa verifies) go to Jev, a small typed-decision model, through `scripts/jev.mjs`. It runs in shadow mode: each pick is logged beside what the relay actually did, and any error or missing key falls back to the current rule ([ADR 0010](docs/adr/0010-jev-precheck-tier-and-verify-depth.md)).
 
@@ -84,7 +84,7 @@ npm run next-session            # prints the command to resume from the latest h
 
 | Key | Action |
 | --- | --- |
-| Walk button | Enter walk mode (the on-screen W A S D pad works on touch screens) |
+| Enter the den | Enter walk mode (the on-screen W A S D pad works on touch screens) |
 | W A S D / arrows | Walk; hold Shift to go faster |
 | Mouse drag | Look around; double-click to grab the pointer again |
 | Tab | Free the cursor to click a card |
@@ -97,7 +97,9 @@ npm run next-session            # prints the command to resume from the latest h
 | M | Jump to the note field on a card |
 | Ctrl/Cmd + Enter | Send the card's action |
 | Ctrl/Cmd + K | Focus the input bar |
+| 1 Den · 2 Station · 3 Panda · 4 Workspace | Jump the overview camera to a zoom level |
 | + / − / wheel / pinch | Zoom the overview camera |
+| ← / → / drag | Pan the overview camera |
 
 ## How it works
 
@@ -115,20 +117,23 @@ npm run next-session            # prints the command to resume from the latest h
 
 - **Agents from the den.** Press T beside a resident panda that has no agent and type a task. The bridge writes a ticket under `.scratch/den/` and starts that role's Claude Code agent in its own git worktree. Its tool calls, permission requests, final reply and cost show on the panda's card, and you can message it while it works. A permission request also shows in the Needs you card and in the transcript, with Deny and Allow ([ADR 0016](docs/adr/0016-ui-steering-channel.md)).
 
-  ![Starting a task for the scout from the den, allowing its request and reading its reply](docs/images/den-loop.gif)
+  ![Demo mode in the garden: agents work at their pavilions while their permission requests come and go in Needs you](docs/images/den-garden.gif)
 
-  *The loop in the running app: pick a panda, start a task, allow its request, read the reply and the cost. The agent in this recording is a scripted stand-in for Claude Code, so the reply and the cost are not from a live run.*
+  *Demo mode in the running app, zooming from the whole den to a station and a panda. The scout's tool calls and permission requests are a recorded live run; the developer and qa agents are staged. Allow and Deny are greyed in Demo mode.*
 
-Not built yet: shipping an agent's work from the den (the review, PR and merge still run from a terminal session), and runtimes other than Claude Code ([ADR 0004](docs/adr/0004-runtime-adapter.md) sketches the adapter).
+- **Delivery from the den.** Deliver on a ticket runs the developer, qa's verify, the scripted checks and, on a hit, security; then the bridge pushes, opens the PR and merges on green checks ([ADR 0024](docs/adr/0024-delivery-jobs.md)). A change to the bridge, a guardrail or CI is left for you to merge.
+- **Meetings.** Ask up to six specialists for one take each; Bao then writes a decision brief with two or three options, and choosing one writes a ticket for your approval ([ADR 0017](docs/adr/0017-meetings-and-decision-briefs.md)).
+
+Not built yet: runtimes other than Claude Code ([ADR 0004](docs/adr/0004-runtime-adapter.md) sketches the adapter).
 
 ## Numbers
 
-All of these can be re-run, as of `9d3e57c`.
+All of these can be re-run, as of `757dbda`.
 
-- **917 commits on `main`**, 128 of them merges: `git log --oneline 9d3e57c | wc -l`, then add `--merges`.
-- **231 test files**: `find apps packages scripts -name "*.test.mjs" -not -path "*/node_modules/*" | wc -l`.
-- **20 recorded decisions** in [`docs/adr/`](docs/adr/).
-- **573 logged agent runs across 122 tickets, about 32.6 million tokens**: the `kind:"cell"` rows of `.scratch/usage.jsonl`, summing `tokens` (17 early rows carry no token count).
+- **1,368 commits on `main`**, 255 of them merges: `git log --oneline 757dbda | wc -l`, then add `--merges`.
+- **342 test files**: `find apps packages scripts -name "*.test.mjs" -not -path "*/node_modules/*" | wc -l`.
+- **26 recorded decisions** in [`docs/adr/`](docs/adr/).
+- **791 logged agent runs across 169 tickets, about 127.8 million tokens**: the `kind:"cell"` rows of `.scratch/usage.jsonl`, summing `tokens` (17 early rows carry no token count).
 
 ## Development
 
