@@ -16,6 +16,7 @@ import { buildSnapshot } from "./snapshot.mjs";
 import { createLedger } from "./cells/ledger.mjs";
 import { createDelivery } from "./delivery/runner.mjs";
 import { createDeliveryBoard } from "./delivery/board.mjs";
+import { createReleaseDrafts } from "./delivery/release-draft.mjs";
 import { createGitHost } from "./delivery/git-host.mjs";
 import { createJobLog } from "./delivery/jobs.mjs";
 import { createCiWatch } from "./delivery/ci-watch.mjs";
@@ -136,6 +137,8 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   const denBuild = denState
     ? createDenBuild({ stateDir: denState, repo: root, box, reads: () => readsMade, fetchMain: () => git.mainSha(), onSwitch: async () => hub.publish({ type: "build", build: await readBuild_() }) })
     : null;
+  // den-mvp/45: Bao's release draft; only the user's Approve (POST /release/approve) tags and publishes.
+  const releases = createReleaseDrafts({ git, onChange: (release) => hub.publish({ type: "release", release }) });
   const auth = createAuth(authOptions);
   let host;
   let delivery;
@@ -168,6 +171,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     ci: () => ciWatch.snapshot(),
     checks: () => checksView(),
     build: () => readBuild_(),
+    release: () => releases.current(),
     wall: () => wallTables(),
     readUsage: usageReading,
     boardRoot: () => projects.activeRoot(),
@@ -355,6 +359,8 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     "POST /meetings/:id/decide": (req, res) => steerMeeting(req, res, "decide"),
     "POST /meetings/:id/ask": (req, res) => steerMeeting(req, res, "ask"),
     "POST /build/rollback": (req, res) => rollBack(req, res),
+    "POST /release/approve": (req, res) => steerRelease(req, res, "approve"),
+    "POST /release/decline": (req, res) => steerRelease(req, res, "decline"),
     "POST /tickets/approve": (req, res) => steerTicket(req, res, "approve"),
     "POST /tickets/decline": (req, res) => steerTicket(req, res, "decline"),
     "POST /checks": (req, res) => postChecks(req, res),
@@ -636,6 +642,14 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
         }
         return done(`filed ${refs.length} ticket${refs.length === 1 ? "" : "s"} at ready-for-human: ${refs.join(", ")}`);
       }
+      if (tool === "release_propose") {
+        try {
+          const d = await releases.propose();
+          return done(`drafted ${d.version} at ${d.sha.slice(0, 12)} from ${d.prs.length} pull request${d.prs.length === 1 ? "" : "s"} (${d.bump} bump); it waits in the den for the user to approve or decline`);
+        } catch (err) {
+          return refused(409, String(err?.message ?? err).slice(0, 200));
+        }
+      }
       if (tool === "start_delivery") {
         const ref = fullRef(body.ref);
         if (!allowed((input) => input.ref === cleanText(body.ref))) return refused(403, "the user has not allowed starting this delivery");
@@ -735,6 +749,15 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     if (checks.running().includes(st.sha)) return reply(res, 409, { error: "the checks of this commit are already running" });
     checks.run({ sha: st.sha, why: `pull request #${body.pr}` }).catch((err) => console.error(`bridge: checks of #${body.pr} failed: ${err?.message ?? err}`));
     reply(res, 202, { sha: st.sha });
+  }
+  // POST /release/approve | decline (den-mvp/45): the user's answer to Bao's release draft. Both read `id`, the draft's id.
+  async function steerRelease(req, res, action) {
+    const body = await readJsonObject(req, res);
+    if (!body) return;
+    if (typeof body.id !== "string" || !body.id) return reply(res, 400, { error: "id must be the draft's id" });
+    const result = await releases[action](body.id);
+    if (!result.ok) return reply(res, result.status, { error: result.error });
+    reply(res, 200, result.release ?? { declined: true });
   }
   // POST /tickets/approve | decline (den-mvp/13): the user's answer to a ticket waiting at ready-for-human. Approve reads `ref`;
   // decline reads `ref` and `note` (required: it is the reason the ticket is closed, and goes under its Comments).
@@ -852,6 +875,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     newLaunchCode: auth.newLaunchCode,
     previewReads,
     host: { start: host.start, message: host.message, retire: host.retire, shutdown: host.shutdown },
+    releases: { propose: releases.propose }, // den-mvp/45: a test seam; the tool route is the agents' only way in
     pollCi: () => ciWatch.poll(), // one look of the CI watch now, for a test (its timer is off there)
     close: async () => {
       await host.shutdown();
