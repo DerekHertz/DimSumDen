@@ -97,9 +97,9 @@ after(async () => {
 const snapshot = { schema: 1, seq: 1, tickets: [], agents: [], frontier: [], usage: null, requests: [] };
 const assets = JSON.parse(readFileSync(join(UI, 'public/den/manifest.json'), 'utf8')).assets;
 
-async function openGarden({ viewport = { width: 1440, height: 900 }, failModels = false, snapshot: initialSnapshot = snapshot, signedIn = false } = {}) {
+async function openGarden({ viewport = { width: 1440, height: 900 }, failModels = false, snapshot: initialSnapshot = snapshot, signedIn = false, frameDelayMs = 100, snapshotDelayMs = 0 } = {}) {
   const context = await browser.newContext({ viewport, reducedMotion: "reduce" });
-  await lightenScene(context);
+  await lightenScene(context, { frameDelayMs });
   if (signedIn) await context.addInitScript(() => sessionStorage.setItem('den.session-token', 'tok-garden-profile-qa'));
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
@@ -107,13 +107,16 @@ async function openGarden({ viewport = { width: 1440, height: 900 }, failModels 
   page.on("pageerror", error => errors.push(error.message));
   page.on("request", request => { loaded.push(new URL(request.url()).pathname); if (!["GET", "HEAD"].includes(request.method())) mutations.push({ path: new URL(request.url()).pathname, method: request.method() }); });
   page.on("response", response => { if (new URL(response.url()).pathname.startsWith('/den/models/')) modelResponses.push(response); });
-  await page.addInitScript(snap => {
+  await page.addInitScript(({snap, snapshotDelayMs}) => {
     window.__eventStreams = 0;
     class FakeEventSource {
       constructor() {
         window.__eventStreams++;
         this.l = {};
-        window.__pushGardenSnapshot = next => { for (const listener of this.l.snapshot ?? []) listener({ data: JSON.stringify(next) }); };
+        window.__pushGardenSnapshot = next => {
+          const deliver = () => { for (const listener of this.l.snapshot ?? []) listener({ data: JSON.stringify(next) }); };
+          if (snapshotDelayMs) setTimeout(deliver, snapshotDelayMs); else deliver();
+        };
         setTimeout(() => {
           this.onopen?.();
           for (const f of this.l.snapshot ?? []) f({ data: JSON.stringify(snap) });
@@ -123,7 +126,7 @@ async function openGarden({ viewport = { width: 1440, height: 900 }, failModels 
       close() {}
     }
     window.EventSource = FakeEventSource;
-  }, initialSnapshot);
+  }, {snap:initialSnapshot, snapshotDelayMs});
   await page.route(url => url.pathname === '/state', route => route.fulfill({ json: initialSnapshot }));
   await page.route(url => url.pathname === '/metrics', route => route.fulfill({ json: { throughput: { windows: [] }, tokensByCell: {}, incidentsByTool: {} } }));
   await page.route(url => url.pathname === '/requests', route => route.fulfill({ json: [] }));
@@ -231,7 +234,7 @@ function screenPoint(box, x, y, z) {
 }
 
 test("desk navigation exits walking and keeps the requested Work panel available", { timeout: 90000 }, async () => {
-  const { context, page, errors } = await openGarden();
+  const { context, page, errors } = await openGarden({ frameDelayMs: 500 });
   try {
     await ready(page);
     const enter = page.locator('.den-entry button').first();
@@ -242,10 +245,14 @@ test("desk navigation exits walking and keeps the requested Work panel available
     await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Work', exact: true }).click();
     const stations = page.locator('[data-overlay="stations"]');
     await stations.waitFor({ state: 'visible' });
+    // Cards applies the requested section in an effect after the shell exits walk mode.
+    await stations.locator('.card-toggle[aria-expanded="true"]').waitFor({ state: 'visible' });
     assert.equal(await enter.getAttribute('aria-pressed'), 'false', 'desk navigation leaves walking mode');
     assert.equal(await stations.locator('.card-toggle').getAttribute('aria-expanded'), 'true');
-    await page.waitForTimeout(350); // proximity refresh must not reopen a detail over the requested panel
+    // Let proximity refresh on subsequent frames, even when the renderer is slow.
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     assert.equal(await stations.isVisible(), true);
+    assert.equal(await stations.locator('.card-toggle').getAttribute('aria-expanded'), 'true');
     assert.equal(await page.locator('.forest-desk-home').isVisible(), true);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
@@ -309,7 +316,7 @@ const openProfiles = async page => {
 };
 
 test("portrait profiles keep real work and visitor identities, and route explicit Talk actions to idle, current and past conversations", { timeout: 90000 }, async () => {
-  const { context, page, errors, mutations } = await openGarden({ snapshot: quietProfiles(), signedIn: true });
+  const { context, page, errors, mutations } = await openGarden({ snapshot: quietProfiles(), signedIn: true, frameDelayMs: 500, snapshotDelayMs: 2000 });
   try {
     let profiles = await openProfiles(page);
     const portraits = profiles.getByRole('list', { name: 'Residents and visitors' });
@@ -363,7 +370,10 @@ test("portrait profiles keep real work and visitor identities, and route explici
     await ticket.getByRole('button', { name: 'Close ticket details' }).click();
     profiles = await openProfiles(page);
     await page.evaluate(next => window.__pushGardenSnapshot(next), profileLive(3, true));
-    await profiles.getByRole('list', { name: 'Residents and visitors' }).getByRole('button', { name: /^The Maker,/ }).click();
+    const endedResidents = profiles.getByRole('list', { name: 'Residents and visitors' });
+    await endedResidents.getByRole('button', { name: /visitor on work\/03-visitor/ }).waitFor({ state: 'hidden' });
+    await endedResidents.getByRole('button', { name: 'The Maker, At home', exact: true }).click();
+    assert.equal(await endedResidents.getByRole('button').count(), 14, 'the ended visitor is removed before opening the resident’s past conversation');
     await profiles.getByRole('button', { name: 'Talk to Maker', exact: true }).click();
     await page.locator('.transcript-meta code').filter({ hasText: /^c-maker-past$/ }).waitFor({ state: 'visible' });
     assert.match(await page.locator('.transcript-log').innerText(), /Conversation for c-maker-past/);
