@@ -23,7 +23,7 @@ import { createMeetingStore } from "./meetings/store.mjs";
 import { createMeetingLog } from "./meetings/log.mjs";
 import { TOPIC_MAX_BYTES } from "./meetings/types.mjs";
 import { DEN_FEATURE, DESK_REF, TASK_MAX_BYTES } from "./cells/policy.mjs";
-import { BoardError, comment, createTicket, resolve, resolveShortRef, setOffRelay } from "../organism-infra/board-service.mjs";
+import { BoardError, comment, createTicket, isBoardCell, modeAllowed, resolve, resolveShortRef, setOffRelay } from "../organism-infra/board-service.mjs";
 import { cleanText } from "./cells/approvals.mjs";
 
 // den-mvp/55: Bao's board_file batch. The allow is matched against the whole batch as the user saw it (cleaned the way
@@ -177,7 +177,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     library,
     onChange: (change) => hub.publish(change),
     recordRun: createLedger(root).record,
-    onEnd: (run) => Promise.all([delivery.onEnd(run), meetings.onEnd(run)]),
+    onEnd: (run) => Promise.all([delivery.onEnd(run), meetings.onEnd(run), runEnded(run)]),
     readUsage: async () => (await hub.snapshot()).usage?.fiveHour ?? null,
     // organism-infra/226: a dispatch needs the ticket to be in the frontier (ready, unblocked, unlocked), not to hold the gate.
     checkGate: async (ref) => {
@@ -417,11 +417,37 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
   }
   // POST /agents (ADR 0016 decision 3): with POST /tasks, the only HTTP ways an agent starts. Only ref, role and mode are read from
   // the body; the host validates them, applies the policy and answers with a status from its table.
+  // den-mvp/23 (with den-v1/15): what a Run or a den task leaves on the board. The agent's board is read-only behind the
+  // wall, and the bridge already keeps one live agent per ticket, so a run takes no board lock (a lock would keep the
+  // ticket out of the frontier, so it could not be Run again or Delivered the moment the run ended). When a run finishes,
+  // the bridge publishes its last message as the ticket's handoff. A den task's ticket, written for that task alone, then
+  // goes to in-review. A role the board keeps no handoffs for (herald) leaves nothing.
+  const runBoard = createDeliveryBoard(root);
+  const held = new Map(); // agent id -> { ref, role, mode, task }
+  function hold(agent, { task }) {
+    if (isBoardCell(agent.role)) held.set(agent.id, { ref: agent.ref, role: agent.role, mode: agent.mode && modeAllowed(agent.role, agent.mode) ? agent.mode : null, task });
+  }
+  async function runEnded(run) {
+    const entry = held.get(run?.agentId);
+    if (!entry) return;
+    held.delete(run.agentId);
+    if (run.state !== "done") return;
+    const { ref, role, mode, task } = entry;
+    try {
+      const committed = !!run.sha && run.sha !== run.startSha;
+      // A den task's ticket goes to in-review: the board wants the claim before the handoff that releases it.
+      if (task) await runBoard.claimForHandoff(ref, { role });
+      await runBoard.handoff(ref, { role, mode: task ? (role === "qa" ? "verify" : null) : mode, runId: run.agentId, sha: run.sha ?? run.startSha ?? "", branch: committed ? run.branch : null, report: run.report, committed, source: task ? "den task" : "den run", status: task ? "in-review" : null });
+    } catch (err) {
+      console.error(`bridge: could not hand off ${ref} after its run: ${err?.message ?? err}`);
+    }
+  }
   async function postAgent(req, res) {
     const body = await readJsonObject(req, res);
     if (!body) return;
     const result = await host.dispatch({ ref: body.ref, role: body.role, mode: body.mode });
     if (!result.ok) return reply(res, result.status, { error: result.error });
+    hold(result.agent, { task: false });
     reply(res, result.status, { agent: result.agent, ...(result.usageUnknown ? { usageUnknown: true } : {}) });
   }
   // POST /tasks (ADR 0016 decision 3, amendment 9): a task typed in the den. Only role, text and grants are read (grants: agent-os/02, data in a fixed shape the host checks). The text
@@ -441,6 +467,7 @@ export async function startBridge({ root, port = 4317, uiDir = DEFAULT_UI_DIR, d
     });
     const ticket = result.ticket ? { ticket: result.ticket } : {};
     if (!result.ok) return reply(res, result.status, { error: result.error, ...ticket });
+    hold(result.agent, { task: true });
     reply(res, result.status, { agent: result.agent, ...ticket, ...(result.usageUnknown ? { usageUnknown: true } : {}) });
   }
   // POST /agents/:id/stop: takes no body, but the 4 KB cap still applies before anything is looked up.

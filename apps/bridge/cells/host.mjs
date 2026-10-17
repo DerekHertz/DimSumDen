@@ -518,6 +518,8 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
     agent.worktree = workspace.worktree;
     agent.branch = workspace.branch;
     agent.workspace = workspace;
+    // den-mvp/23: every run records the commit it started at, so its end can say whether it committed anything.
+    if (!agent.delivery) agent.startSha = await workspaces.head(workspace).catch(() => null);
     // A delivery step's worktree is at the commit the bridge named, and a fix round finds the review's findings in it.
     if (agent.delivery) {
       try {
