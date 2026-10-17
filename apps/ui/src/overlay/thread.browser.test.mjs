@@ -2,7 +2,7 @@
 // shows the role's earlier run above the live one, sends a message to the run, stops it behind a one-step confirm, and
 // follows up a run that has ended. The bridge is stubbed at the network; what it is sent is what the test checks.
 // DEN_SHOTS=<dir> also saves screenshots of the thread (wide and 375px) for the user's visual check.
-import { test } from 'node:test';
+import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { createServer } from 'vite';
@@ -41,10 +41,19 @@ const history = { more: true, before: 40, entries: [
   { runId: OLD, ref: REF, id: 3, at: iso(8900), kind: 'ended', state: 'done' },
 ] };
 
-async function open({ ended = false, width = 1280 } = {}) {
-  const server = await createServer({ configFile: 'apps/ui/vite.config.mjs', configLoader: 'native', server: { port: 0, host: '127.0.0.1' }, logLevel: 'silent' });
+// ci-cd/08: one dev server and one browser for the file; each scenario gets its own context and page.
+let server, browser;
+before(async () => {
+  server = await createServer({ configFile: 'apps/ui/vite.config.mjs', configLoader: 'native', server: { port: 0, host: '127.0.0.1' }, logLevel: 'silent' });
   await server.listen();
-  const browser = await chromium.launch(buildLaunchOptions());
+  browser = await chromium.launch(buildLaunchOptions());
+}, { timeout: 120000 });
+after(async () => {
+  await browser?.close();
+  await server?.close();
+});
+
+async function open({ ended = false, width = 1280 } = {}) {
   const context = await browser.newContext({ reducedMotion: 'reduce', viewport: { width, height: 800 } });
   await lightenScene(context);
   await context.addInitScript(() => sessionStorage.setItem('den.session-token', 'tok-test-123'));
@@ -66,10 +75,35 @@ async function open({ ended = false, width = 1280 } = {}) {
   await page.route('**/agents/*/stop', (r) => { posts.push({ path: new URL(r.request().url()).pathname, body: r.request().postData() }); return r.fulfill({ status: 202, json: { ok: true } }); });
   await page.goto(server.resolvedUrls.local[0]);
   await page.waitForFunction(() => document.querySelector('.den-entry button')?.getAttribute('aria-disabled') !== 'true');
-  const close = async () => { await browser.close(); await server.close(); };
+  const close = () => context.close();
   return { page, errors, posts, reads, close };
 }
 const shot = async (page, name) => { if (process.env.DEN_SHOTS) await page.locator('.thread-panel').screenshot({ path: path.join(process.env.DEN_SHOTS, name) }); };
+
+// Click the scout panda where it is on screen. ci-cd/08 (PR #325 flake, a click that selected nothing): the click goes only
+// once a ray through the point hits the panda and the canvas is the topmost element there; the point is read again right
+// before the click, so it lands where it was measured.
+const scoutPoint = async () => {
+  const url = performance.getEntriesByType('resource').map((e) => e.name).find((n) => n.includes('@react-three_fiber'));
+  if (!url) return null;
+  const { _roots } = await import(url);
+  const canvas = document.querySelector('canvas');
+  const state = _roots.get(canvas)?.store.getState();
+  let found = null;
+  state?.scene.traverse((o) => { if (o.userData?.actorKey === 'scout') found = o; });
+  if (!found) return null;
+  const p = found.getWorldPosition(found.position.clone()); p.y += 0.6; p.project(state.camera);
+  const ray = new state.raycaster.constructor(); ray.setFromCamera({ x: p.x, y: p.y }, state.camera);
+  if (!ray.intersectObject(found, true).length) return null;
+  const r = canvas.getBoundingClientRect();
+  const at = { x: r.left + (p.x + 1) / 2 * r.width, y: r.top + (1 - p.y) / 2 * r.height };
+  return document.elementFromPoint(at.x, at.y) === canvas ? at : null;
+};
+async function pickScout(page) {
+  await page.waitForFunction(scoutPoint);
+  const at = await page.evaluate(scoutPoint);
+  await page.mouse.click(at.x, at.y);
+}
 
 test('the thread: opened from Needs you, it reads as a conversation, takes a message and stops the agent behind a confirm', { timeout: 90000 }, async () => {
   const t = await open();
@@ -125,22 +159,7 @@ test('the thread of a run that ended: opened from its panda, a follow-up continu
   try {
     const { page } = t;
     // No request is waiting, so the thread opens from the role's panda: pick it in the overview and press R.
-    await page.waitForFunction(async () => {
-      const url = performance.getEntriesByType('resource').map((e) => e.name).find((n) => n.includes('@react-three_fiber'));
-      if (!url) return false;
-      const { _roots } = await import(url);
-      const canvas = document.querySelector('canvas');
-      const state = _roots.get(canvas)?.store.getState();
-      let found = null;
-      state?.scene.traverse((o) => { if (o.userData?.actorKey === 'scout') found = o; });
-      if (!found) return false;
-      const p = found.getWorldPosition(found.position.clone()); p.y += 0.6; p.project(state.camera);
-      const r = canvas.getBoundingClientRect();
-      window.__scout = { x: r.left + (p.x + 1) / 2 * r.width, y: r.top + (1 - p.y) / 2 * r.height };
-      return true;
-    });
-    const at = await page.evaluate(() => window.__scout);
-    await page.mouse.click(at.x, at.y);
+    await pickScout(page);
     await page.getByRole('region', { name: 'Selected panda' }).waitFor();
     await page.keyboard.press('KeyR');
     const thread = page.getByRole('complementary', { name: /Conversation with/ });
@@ -164,6 +183,32 @@ test('the thread of a run that ended: opened from its panda, a follow-up continu
     await thread.getByRole('button', { name: 'Follow up' }).click();
     await page.waitForFunction((id) => document.querySelector('.transcript-meta code')?.textContent === id, NEXT);
     assert.deepEqual(t.posts, [{ path: '/conversations/scout/message', body: { text: 'Which test was wrong?', runId: RUN } }]);
+    assert.deepEqual(t.errors, []);
+  } finally {
+    await t.close();
+  }
+});
+
+// den-v1/12: the App capture listener (useTranscript in TranscriptPanel.jsx) takes Esc while the thread is open: it closes the
+// thread and goes no further, so the panda picked from the overview stays picked (the card Esc, which unpicks, did not run).
+test('Esc closes the thread and is consumed there: the picked panda card stays', { timeout: 90000 }, async () => {
+  const t = await open({ ended: true });
+  try {
+    const { page } = t;
+    await pickScout(page);
+    const card = page.getByRole('region', { name: 'Selected panda' });
+    await card.waitFor();
+    await page.keyboard.press('KeyR');
+    const thread = page.getByRole('complementary', { name: /Conversation with/ });
+    await thread.waitFor();
+    // A bubbling listener on window stands for every other Esc user (walk mode leaves on Esc, the card unpicks on it).
+    await page.evaluate(() => { window.__esc = 0; window.addEventListener('keydown', (e) => { if (e.key === 'Escape') window.__esc += 1; }); });
+    await page.keyboard.press('Escape');
+    await thread.waitFor({ state: 'hidden' });
+    assert.equal(await page.evaluate(() => window.__esc), 0, 'the Esc that closed the thread went no further');
+    assert.equal(await card.isVisible(), true, 'the first Esc closed only the thread');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.evaluate(() => window.__esc), 1, 'with the thread closed, Esc reaches the rest of the page again');
     assert.deepEqual(t.errors, []);
   } finally {
     await t.close();

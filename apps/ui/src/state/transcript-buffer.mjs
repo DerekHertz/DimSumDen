@@ -11,7 +11,7 @@ const readable = (entry) => (isObject(entry) && KINDS.has(entry.kind) ? entry : 
 // that entry in place (a tool call gets its result, a permission request its answer); an older id the buffer has
 // already dropped is ignored; a new one appends with n = id. An entry with no id appends, numbered by arrival.
 export function appendTranscript(buffers, agentId, entry, cap = TRANSCRIPT_CAP) {
-  const previous = buffers[agentId] ?? { entries: [], dropped: 0 };
+  const previous = Object.hasOwn(buffers, agentId) ? buffers[agentId] : { entries: [], dropped: 0 }; // den-v1/12: "constructor" and "__proto__" are not buffers
   let n = previous.dropped + previous.entries.length + 1;
   if (Number.isInteger(entry?.id)) {
     const at = previous.entries.findIndex((e) => e.id === entry.id);
