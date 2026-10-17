@@ -854,4 +854,7 @@ if (startedDirectly()) {
   console.log(`bridge listening on ${bridge.url} (root ${root})`);
   // The only place the launch code is shown (ADR 0016 decision 6.2): once, in a URL fragment the browser never sends.
   console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`);
+  // F39 (npm run den:link): SIGUSR2 prints one more launch URL to the same console, so a second browser or a recording
+  // needs no restart. Only the user's own account can signal this process; a run's agent is in a pid namespace of its own.
+  process.on("SIGUSR2", () => console.log(`to steer, open (one use, 5 minutes): ${bridge.url}/#code=${bridge.newLaunchCode()}`));
 }

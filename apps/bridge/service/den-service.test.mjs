@@ -267,3 +267,30 @@ describe("den:install and den:update", () => {
     for (const file of walk(bridge)) assert.doesNotMatch(readFileSync(file, "utf8"), /den-service/, file);
   });
 });
+
+// F39: npm run den:link signals the running den for one more launch URL and reads it back from the den's journal.
+describe("den:link", () => {
+  const URL_A = `http://127.0.0.1:4317/#code=${"a".repeat(43)}`, URL_B = `http://127.0.0.1:4317/#code=${"b".repeat(43)}`;
+  const den = ({ journal, systemctl, lines }) => createDen({
+    env: { HOME: "/nonexistent", PATH: "/usr/bin:/bin" }, say: (line) => lines.push(line), repo: "/nonexistent/repo", stateDir: "/nonexistent/state", unitDir: "/nonexistent/units",
+    bus: { env: {} }, bwrap: null, systemctl, journal, linkWaitMs: 1,
+  });
+  test("signals the den's main process with SIGUSR2 and prints the newest link it logged", async () => {
+    const sys = [], jr = [], lines = [];
+    let calls = 0;
+    const url = await den({
+      lines,
+      systemctl: async (args) => (sys.push(args.join(" ")), { ok: true, out: "", err: "" }),
+      journal: async (args) => (jr.push(args), { ok: true, out: (calls += 1) < 3 ? "" : `bridge listening\nto steer, open (one use, 5 minutes): ${URL_A}\nto steer, open (one use, 5 minutes): ${URL_B}\n`, err: "" }),
+    }).link();
+    assert.deepEqual(sys, ["kill --signal=SIGUSR2 --kill-whom=main den.service"]);
+    assert.ok(jr.every((a) => a.includes("den.service") && a.includes("--since")), "only the den's own lines, only since the signal");
+    assert.equal(url, URL_B);
+    assert.ok(lines.some((l) => l.includes(URL_B)));
+  });
+  test("a den that is not running, or that prints no link, is a clear error", async () => {
+    const lines = [];
+    await assert.rejects(den({ lines, systemctl: async () => ({ ok: false, out: "", err: "Unit den.service not loaded." }), journal: async () => ({ ok: true, out: "", err: "" }) }).link(), /is the den running\?.*not loaded/);
+    await assert.rejects(den({ lines, systemctl: async () => ({ ok: true, out: "", err: "" }), journal: async () => ({ ok: true, out: "nothing here\n", err: "" }) }).link(), /printed no link/);
+  });
+});

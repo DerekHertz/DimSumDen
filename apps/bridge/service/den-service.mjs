@@ -54,7 +54,7 @@ const defaultAnswers = async (url, { tries = 30, waitMs = 500 } = {}) => {
  * The host and its parts, each replaceable by a test. `systemctl(args)` -> { ok, out, err }; `answers(url)` -> boolean;
  * `releases` is a createReleases object; `git(args)` -> { ok, out, err } in the checkout.
  */
-export function createDen({ env = process.env, say = (line) => console.log(line), platform = process.platform, node = process.execPath, repo, stateDir, unitDir, bus, bwrap, systemctl, git, answers = defaultAnswers, releases, remote = "origin" } = {}) {
+export function createDen({ env = process.env, say = (line) => console.log(line), platform = process.platform, node = process.execPath, repo, stateDir, unitDir, bus, bwrap, systemctl, git, answers = defaultAnswers, releases, remote = "origin", journal, linkWaitMs = 250 } = {}) {
   repo ??= resolveRoot(process.cwd(), env);
   const home = env.HOME || os.homedir();
   stateDir ??= path.join(env.XDG_STATE_HOME || path.join(home, ".local", "state"), "den");
@@ -64,6 +64,7 @@ export function createDen({ env = process.env, say = (line) => console.log(line)
   if (bwrap === undefined) bwrap = findBwrap(); // null means there is none
   systemctl ??= (args) => run("systemctl", ["--user", ...args], { env: bus.env ?? {} });
   git ??= (args) => run("git", ["-C", repo, ...args]);
+  journal ??= (args) => run("journalctl", ["--user", ...args], { env: { ...env, ...(bus.env ?? {}) } });
   releases ??= () => createReleases({ stateDir, repo, main: `${remote}/main`, box: createBuildBox({ launcher: createResourceLauncher({ env }) }) });
   let made;
   const rel = () => (made ??= typeof releases === "function" ? releases() : releases);
@@ -199,13 +200,31 @@ export function createDen({ env = process.env, say = (line) => console.log(line)
     ]);
   }
 
-  return { check, install, update, unitFile, stateDir };
+  // F39: one more launch URL from the running den, without a restart. SIGUSR2 makes the bridge print it to its journal;
+  // it is read back from the den's own lines since the signal, so an older link is never handed out.
+  async function link() {
+    const since = `@${Math.floor(Date.now() / 1000) - 1}`;
+    const sent = await systemctl(["kill", "--signal=SIGUSR2", "--kill-whom=main", UNIT_NAME]);
+    if (!sent.ok) throw new DenServiceError(`could not signal ${UNIT_NAME}; is the den running? (${sent.err || "systemctl failed"})`);
+    for (let i = 0; i < 20; i += 1) {
+      const out = await journal(["-u", UNIT_NAME, "-o", "cat", "--no-pager", "--since", since]);
+      const found = String(out.out ?? "").match(/http:\/\/127\.0\.0\.1:\d+\/#code=[A-Za-z0-9_-]+/g);
+      if (found) {
+        say(`open this once, within 5 minutes: ${found.at(-1)}`);
+        return found.at(-1);
+      }
+      await new Promise((r) => setTimeout(r, linkWaitMs));
+    }
+    throw new DenServiceError(`the den printed no link; see journalctl --user -u ${UNIT_NAME}`);
+  }
+
+  return { check, install, update, link, unitFile, stateDir };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const command = process.argv[2];
-  if (command !== "install" && command !== "update") {
-    console.error("usage: node apps/bridge/service/den-service.mjs install | update [--main | vX.Y.Z]");
+  if (command !== "install" && command !== "update" && command !== "link") {
+    console.error("usage: node apps/bridge/service/den-service.mjs install | update [--main | vX.Y.Z] | link");
     process.exit(2);
   }
   try {
