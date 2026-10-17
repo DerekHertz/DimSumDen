@@ -274,7 +274,7 @@ async function startChild({ env = {}, args = [] } = {}) {
       child.kill("SIGTERM");
       setTimeout(() => child.kill("SIGKILL"), 3000).unref();
     });
-  return { port, url: m?.[0], code: m?.[2], logs: () => text, stop, bridge: { port } };
+  return { port, url: m?.[0], code: m?.[2], logs: () => text, stop, bridge: { port }, child };
 }
 
 describe("the production entry point (node apps/bridge/server.mjs)", () => {
@@ -300,6 +300,28 @@ describe("the production entry point (node apps/bridge/server.mjs)", () => {
     } finally {
       await a.stop();
       await b.stop();
+    }
+  });
+
+  // F39 (npm run den:link): a fresh link without a restart. Only the user's own account can signal the process (a run's
+  // agent is in a pid namespace of its own), and the link goes to the same console the first one did.
+  test("SIGUSR2 prints one more launch URL with a new code, which redeems once", async () => {
+    const c = await startChild();
+    try {
+      const before = c.logs();
+      process.kill(c.child.pid, "SIGUSR2");
+      const deadline = Date.now() + 10_000;
+      while ((c.logs().match(/#code=/g) ?? []).length < 2) {
+        if (Date.now() > deadline) throw new Error(`no second launch URL: ${c.logs()}`);
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      const fresh = c.logs().slice(before.length).match(/http:\/\/127\.0\.0\.1:(\d+)\/#code=([A-Za-z0-9_-]+)/);
+      assert.ok(fresh, "the new line has the launch URL's shape");
+      assert.notEqual(fresh[2], c.code);
+      assert.equal((await redeem(c.bridge, fresh[2])).status, 200);
+      assert.equal((await redeem(c.bridge, fresh[2])).status, 401, "burned on first use");
+    } finally {
+      await c.stop();
     }
   });
 

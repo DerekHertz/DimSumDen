@@ -478,3 +478,19 @@ test("only the bus socket in the den's state folder is hidden, not the folder: t
   assert.equal(hide.includes(state), false, "the state folder stays visible");
   assert.deepEqual(hideSockets, [sock]);
 });
+
+// F39 security review: the system journal holds the bridge's launch URLs, so a run sees the journal directories empty.
+test("the journal directories are covered like the bus directories, and the probe fails a run that can read one", async (t) => {
+  const base = await mkdtemp(path.join(tmpdir(), "den-journal-"));
+  t.after(() => rm(base, { recursive: true, force: true }));
+  const journal = path.join(base, "journal");
+  await mkdir(journal);
+  const { hide } = busPlaces({}, { uid: 99999, journalDirs: [journal, path.join(base, "absent")] });
+  assert.ok(hide.includes(journal), "an existing journal directory is covered");
+  assert.ok(!hide.includes(path.join(base, "absent")), "a missing one is skipped");
+  assert.deepEqual(busPlaces({}, { uid: 99999 }).hide.filter((d) => d.includes("journal")), ["/var/log/journal", "/run/log/journal"].filter((d) => existsSync(d)));
+  const argv = buildScopeArgv({ unit: "den-x.scope", slice: "den", limit: LIMITS.classes.worker, fileBytes: 1 << 30, bin: "/bin/true", args: [], hide: [journal] });
+  assert.ok(argv.join(" ").includes(`--tmpfs ${journal}`));
+  assert.match(PROBE_SCRIPT, /for j in \/var\/log\/journal \/run\/log\/journal; do/);
+  assert.ok(PROBE_SCRIPT.indexOf("bad=0") < PROBE_SCRIPT.indexOf("system journal"), "the check is counted, after bad is set");
+});

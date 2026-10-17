@@ -114,11 +114,15 @@ const oneLine = (text) => String(text ?? "").replace(/[\u0000-\u001f\u007f-\u009
 const onPath = (name, PATH) => String(PATH ?? "").split(":").filter((d) => d.startsWith("/")).map((d) => path.join(d, name)).find((f) => { try { accessSync(f, constants.X_OK); return statSync(f).isFile(); } catch { return false; } }) ?? null;
 const isDir = (f) => { try { return statSync(f).isDirectory(); } catch { return false; } };
 
-/** What the wrapper must hide so a run cannot reach the service manager: bus directories, and lone bus sockets. */
-export function busPlaces(env, { uid = process.getuid?.() } = {}) {
+// F39 security review: the system journal holds the bridge's console, launch URLs included, and the user can read it
+// (systemd-journal ACL). A run sees neither directory: each is covered by an empty tmpfs like the bus directories.
+export const JOURNAL_DIRS = Object.freeze(["/var/log/journal", "/run/log/journal"]);
+
+/** What the wrapper must hide so a run cannot reach the service manager or read the journal: bus and journal directories, and lone bus sockets. */
+export function busPlaces(env, { uid = process.getuid?.(), journalDirs = JOURNAL_DIRS } = {}) {
   const rd = typeof env?.XDG_RUNTIME_DIR === "string" && ABS_RE.test(env.XDG_RUNTIME_DIR.replace(/\/+$/, "")) ? env.XDG_RUNTIME_DIR.replace(/\/+$/, "") : `/run/user/${uid}`;
   // The den's state folder holds the build box's packages and the releases, so only its bus socket is hidden, not the folder.
-  const dirs = [`/run/user/${uid}`, rd];
+  const dirs = [`/run/user/${uid}`, rd, ...journalDirs];
   const hide = [...new Set(dirs.filter((d) => d && ABS_RE.test(d) && isDir(d)))];
   const denBus = typeof env?.HOME === "string" ? `${env.HOME}/.local/state/den/user-bus` : null;
   const hideSockets = [...new Set([env?.DEN_USER_BUS, denBus])].filter((f) => typeof f === "string" && ABS_RE.test(f) && isSocket(f) && !hide.some((d) => f.startsWith(`${d}/`)));
@@ -142,6 +146,7 @@ if command -v unshare >/dev/null 2>&1; then
     rmdir "$t" 2>/dev/null
   }
 fi
+for j in ${JOURNAL_DIRS.join(" ")}; do if [ -n "$(ls -A "$j" 2>/dev/null)" ]; then echo "the system journal $j is readable"; bad=1; fi; done
 for s in "$@" "/run/user/$(id -u)/bus"; do if [ -S "$s" ]; then echo "the service manager's bus socket $s is visible"; bad=1; fi; done
 for r in /proc/*/root; do
   if [ -S "$r/run/user/$(id -u)/bus" ] 2>/dev/null; then echo "the bus is reachable through $r"; bad=1; break; fi
