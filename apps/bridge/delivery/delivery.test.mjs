@@ -40,6 +40,8 @@ function fakeGitHost(root) {
     },
     changed: async ({ base, sha }) => h.files ?? git(root, "diff", "--name-only", base, sha).split("\n").filter(Boolean),
     addsSecret: async () => h.secret,
+    // F29: the dry-run merge with main; h.conflicting lists the files it reports.
+    conflicts: async () => h.conflicting ?? [],
     risk: async () => h.riskResult,
     push: async (a) => {
       await call("push", a);
@@ -340,6 +342,61 @@ test("a red pull request from outside the den starts Bao's desk with a message a
   assert.match(desk[0].sent[0].text, /pull request #40 \(outside work\) is red/);
   const { ci } = await t.state();
   assert.deepEqual(ci.prs.map((p) => [p.number, p.state, p.bao]), [[40, "red", "Bao was told"]]);
+});
+
+describe("a branch that no longer merges with main (F29)", () => {
+  test("the developer merges main before anything is pushed; it is not a bounce, and the base moves to that main", async () => {
+    const t = await setup();
+    await t.start();
+    const base = (await t.job()).base;
+    // While the work is under way, main moves on in a way that conflicts.
+    writeFileSync(path.join(t.root, "elsewhere.txt"), "main moved\n");
+    git(t.root, "add", "-A");
+    git(t.root, "commit", "-q", "-m", "main moves on");
+    const main = git(t.root, "rev-parse", "HEAD");
+    t.git.conflicting = ["feature.txt"];
+    const first = await t.toQaPass();
+
+    const merge = await t.spawn(2);
+    assert.equal(merge.args.role, "developer");
+    assert.equal(git(merge.args.cwd, "rev-parse", "HEAD"), first, "the merge round starts at the candidate");
+    const findings = readFileSync(path.join(merge.args.cwd, ".den", "findings.md"), "utf8");
+    assert.match(findings, /no longer merges cleanly with main/);
+    assert.match(findings, /^- feature\.txt$/m);
+    assert.ok(findings.includes(`git merge ${main}`), "it is told the exact main to merge");
+    assert.deepEqual(t.sideEffects(), [], "a conflicting commit is never pushed");
+
+    git(merge.args.cwd, "merge", "-q", "--no-edit", main);
+    t.git.conflicting = [];
+    const merged = git(merge.args.cwd, "rev-parse", "HEAD");
+    t.work(merge, { say: "Merged main; no conflict left." });
+
+    const qa = await t.spawn(3);
+    assert.deepEqual([qa.args.role, git(qa.args.cwd, "rev-parse", "HEAD")], ["qa", merged], "the merged commit is verified again");
+    t.work(qa, { say: "VERDICT: pass" });
+    const done = await t.when((j) => j.state === "merged", "the delivery to merge");
+    assert.equal(done.bounces, 0, "main moving is not the developer's failure");
+    assert.equal(done.base, main, "the reviews and the scripted check now look only at this work");
+    assert.notEqual(base, main);
+    assert.equal(t.git.calls[0][1].sha, merged);
+  });
+
+  test("a branch that still conflicts after the merge rounds waits for the user; Resume is one more round", async () => {
+    const t = await setup();
+    await t.start();
+    t.git.conflicting = ["feature.txt"];
+    await t.toQaPass();
+    t.work(await t.spawn(2), { commit: "try1.txt", say: "Tried." });
+    t.work(await t.spawn(3), { say: "VERDICT: pass" });
+    t.work(await t.spawn(4), { commit: "try2.txt", say: "Tried again." });
+    t.work(await t.spawn(5), { say: "VERDICT: pass" });
+    const waiting = await t.paused("conflict");
+    assert.match(waiting.pause.reason, /still conflicts with main after 2 merge rounds: feature\.txt/);
+    assert.equal(waiting.bounces, 0);
+    const res = await t.post(`/deliveries/${waiting.id}/resume`, {});
+    assert.equal(res.status, 202);
+    assert.equal((await t.spawn(6)).args.role, "developer", "one more merge round");
+  });
 });
 
 describe("a review that sends the work back", () => {

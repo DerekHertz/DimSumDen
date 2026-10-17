@@ -34,6 +34,7 @@ function fakeGitHost(root) {
     descends: async ({ base, sha }) => git(root, "merge-base", base, sha) === base,
     changed: async ({ base, sha }) => git(root, "diff", "--name-only", base, sha).split("\n").filter(Boolean),
     addsSecret: async () => false,
+    conflicts: async () => [], // F29: the dry-run merge with main is clean here
     risk: async () => ({ clean: true, hits: [] }),
     push: async (a) => {
       h.calls.push("push");

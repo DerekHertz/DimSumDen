@@ -70,6 +70,17 @@ export function createGitHost(root, { exec = execFileP, remote = "origin", main 
       await git("fetch", "--quiet", remote, main);
       return commit((await git("rev-parse", "--verify", `refs/remotes/${remote}/${main}^{commit}`)).trim(), "the main branch");
     },
+    /** F29: the files that conflict when `sha` is merged with `main`, from a dry-run merge that touches no checkout. [] when clean. */
+    async conflicts({ main: head, sha }) {
+      try {
+        await git("merge-tree", "--write-tree", "--name-only", "--no-messages", commit(head, "main"), commit(sha, "sha"));
+        return [];
+      } catch (err) {
+        // Exit 1 is "the merge has conflicts": the first line is the tree, then one conflicting path per line.
+        if (err?.code !== 1) throw err;
+        return [...new Set(String(err.stdout ?? "").split("\n").slice(1).map((l) => l.trim()).filter(Boolean))].slice(0, 50);
+      }
+    },
     /** Is `sha` built on `base`? A commit made somewhere else in the history is not what the delivery started. */
     async descends({ base, sha }) {
       try {
