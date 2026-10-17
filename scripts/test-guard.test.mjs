@@ -97,7 +97,7 @@ describe("a weakening diff is flagged", () => {
       { "a.test.mjs": T('test("adds", () => {\n  assert.strictEqual(add(1, 2), 3);\n});\n') },
       { "a.test.mjs": T('test("adds", () => {\n  assert.ok(add(1, 2));\n});\n') },
     );
-    flagged(reasons(root), /a\.test\.mjs: assertion loosened \(strict to loose\)/);
+    flagged(reasons(root), /a\.test\.mjs: assertion loosened \(strict to ok\)/);
   });
 
   test("an assertion removed", () => {
@@ -123,9 +123,107 @@ describe("a weakening diff is flagged", () => {
     );
     flagged(reasons(root), /a\.test\.mjs: tolerance widened/);
   });
+
+  // The repo's dominant assertion is assert.equal (node:assert/strict), so loosening must be seen beyond strictEqual.
+  for (const [name, was, now] of [
+    ["equal to ok(true)", "assert.equal(add(1, 2), 3);", "assert.ok(true);"],
+    ["deepEqual to ok(x)", "assert.deepEqual(list(), [1]);", "assert.ok(list());"],
+    ["match to ok(true)", "assert.match(say(), /^hi$/);", "assert.ok(true);"],
+    ["notEqual to ok(1)", "assert.notEqual(add(1, 2), 4);", "assert.ok(1);"],
+    ["throws to a bare assert(x)", "assert.throws(() => boom(), /bad/);", "assert(boom);"],
+    ["rejects to ok(true)", "await assert.rejects(boom());", "assert.ok(true);"],
+    ["t.assert.equal to t.assert.ok(true)", "t.assert.equal(add(1, 2), 3);", "t.assert.ok(true);"],
+    ["ok(x) to ok(true)", "assert.ok(add(1, 2) === 3);", "assert.ok(true);"],
+    ["strictEqual to equal", "assert.strictEqual(add(1, 2), 3);", "assert.equal(add(1, 2), 3);"],
+  ]) {
+    test(`${name} is loosened`, () => {
+      const root = fixture({ "a.test.mjs": T(`test("adds", async (t) => {\n  ${was}\n});\n`) }, { "a.test.mjs": T(`test("adds", async (t) => {\n  ${now}\n});\n`) });
+      flagged(reasons(root), /a\.test\.mjs: assertion loosened \(/);
+    });
+  }
+
+  test("a test commented out line by line", () => {
+    const root = fixture(
+      { "a.test.mjs": T('test("adds", () => { assert.equal(1, 1); });\ntest("subtracts", () => { assert.equal(2, 2); });\n') },
+      { "a.test.mjs": T('test("adds", () => { assert.equal(1, 1); });\n// test("subtracts", () => { assert.equal(2, 2); });\n') },
+    );
+    flagged(reasons(root), /a\.test\.mjs: test removed or renamed away: "subtracts"/);
+  });
+
+  test("a test commented out in a block", () => {
+    const root = fixture(
+      { "a.test.mjs": T('test("adds", () => { assert.equal(1, 1); });\ntest("subtracts", () => {\n  assert.equal(2, 2);\n});\n') },
+      { "a.test.mjs": T('test("adds", () => { assert.equal(1, 1); });\n/*\ntest("subtracts", () => {\n  assert.equal(2, 2);\n});\n*/\n') },
+    );
+    flagged(reasons(root), /a\.test\.mjs: test removed or renamed away: "subtracts"/);
+  });
+
+  test("an assertion commented out", () => {
+    const root = fixture(
+      { "a.test.mjs": T('test("adds", () => {\n  assert.equal(add(1, 2), 3);\n  assert.equal(add(2, 2), 4);\n});\n') },
+      { "a.test.mjs": T('test("adds", () => {\n  assert.equal(add(1, 2), 3);\n  // assert.equal(add(2, 2), 4);\n});\n') },
+    );
+    flagged(reasons(root), /a\.test\.mjs: assertion/);
+  });
+
+  test("a one-line test with its body emptied", () => {
+    const root = fixture(
+      { "a.test.mjs": T('test("adds", () => { assert.equal(add(1, 2), 3); });\n') },
+      { "a.test.mjs": T('test("adds", () => {});\n') },
+    );
+    flagged(reasons(root), /a\.test\.mjs: assertion count dropped in "adds" \(1 to 0\)/);
+  });
+
+  test("a test that lost one of its assertions to a line elsewhere", () => {
+    const root = fixture(
+      { "a.test.mjs": T('test("adds", () => { assert.equal(1, 1); assert.equal(2, 2); });\ntest("subs", () => { assert.equal(3, 3); });\n') },
+      { "a.test.mjs": T('test("adds", () => { assert.equal(1, 1); });\ntest("subs", () => { assert.equal(3, 3); assert.equal(2, 2); });\n') },
+    );
+    flagged(reasons(root), /a\.test\.mjs: assertion count dropped in "adds" \(2 to 1\)/);
+  });
 });
 
 describe("a clean diff passes", () => {
+  test("assertions kept or strengthened across the assert family", () => {
+    const root = fixture(
+      { "a.test.mjs": T('test("t", () => {\n  assert.equal(add(1, 2), 3);\n  assert.deepEqual(list(), [1]);\n  assert.ok(list());\n  assert.throws(() => boom());\n});\n') },
+      { "a.test.mjs": T('test("t", () => {\n  assert.strictEqual(add(1, 2), 3);\n  assert.deepStrictEqual(list(), [1]);\n  assert.equal(list().length, 1);\n  assert.throws(() => boom(), /bad/);\n});\n') },
+    );
+    assert.deepEqual(reasons(root), []);
+  });
+
+  test("an equal assertion given another expected value", () => {
+    const root = fixture(
+      { "a.test.mjs": T('test("adds", () => {\n  assert.equal(add(1, 2), 4);\n});\n') },
+      { "a.test.mjs": T('test("adds", () => {\n  assert.equal(add(1, 2), 3);\n});\n') },
+    );
+    assert.deepEqual(reasons(root), []);
+  });
+
+  test("comments added, edited and removed around the tests", () => {
+    const root = fixture(
+      { "a.test.mjs": T('// test("old", () => {});\n/* assert.equal(1, 1); */\ntest("adds", () => {\n  assert.equal(add(1, 2), 3); // was 4\n});\n') },
+      { "a.test.mjs": T('// a note about test("new", ...)\ntest("adds", () => {\n  // adds small numbers\n  assert.equal(add(1, 2), 3);\n});\n') },
+    );
+    assert.deepEqual(reasons(root), []);
+  });
+
+  test("a test inserted ahead of assertions that sit outside any test", () => {
+    const rows = 'for (const [a, b] of [[1, 2]]) {\n  assert.equal(add(a, a), b);\n}\n';
+    const root = fixture(
+      { "a.test.mjs": T(`test("adds", () => {\n  assert.equal(add(1, 2), 3);\n});\n${rows}`) },
+      { "a.test.mjs": T(`test("adds", () => {\n  assert.equal(add(1, 2), 3);\n});\ntest("subs", () => {\n  assert.equal(sub(2, 1), 1);\n});\n${rows}`) },
+    );
+    assert.deepEqual(reasons(root), []);
+  });
+
+  test("a test body that gains assertions", () => {
+    const root = fixture(
+      { "a.test.mjs": T('test("adds", () => { assert.equal(1, 1); });\n') },
+      { "a.test.mjs": T('test("adds", () => { assert.equal(1, 1); assert.equal(2, 2); });\n') },
+    );
+    assert.deepEqual(reasons(root), []);
+  });
   test("a source change with no test touched", () => {
     const root = fixture({ "a.mjs": SRC, "a.test.mjs": T('test("adds", () => { assert.strictEqual(1, 1); });\n') }, { "a.mjs": `${SRC}// more\n` });
     assert.deepEqual(reasons(root), []);

@@ -37,6 +37,7 @@ const KEPT = 30; // ended deliveries kept in the snapshot
 const PLAN_STEPS_MAX = 12; // bridge operations in a row before the runner stops and says the plan did not move
 const NOTE_MAX_BYTES = 2000; // the user's note with a decline, or with a Resume
 const FINDINGS_MAX = 16000;
+const GUARD_HITS_IN_BODY = 10;
 const refuse = (status, error) => ({ ok: false, status, error });
 // An error's text as the den may show it: one line, no credential a remote URL carried, nothing that looks like a secret.
 const errorText = (err) => {
@@ -449,6 +450,12 @@ export function createDelivery({ host, board, git, log, readTicket, activeProjec
     await save(job);
   }
 
+  // The guard's hits, the first ten of them: they are text from the candidate's own tests, so each goes through errorText.
+  const guardLines = (hits) =>
+    hits.length
+      ? [`- Test guard: ${hits.length} hit(s) listed for the verifier`, ...hits.slice(0, GUARD_HITS_IN_BODY).map((h) => `  - ${errorText(h)}`), ...(hits.length > GUARD_HITS_IN_BODY ? [`  - and ${hits.length - GUARD_HITS_IN_BODY} more`] : [])]
+      : ["- Test guard: clean"];
+
   const prBody = (job) =>
     [
       `Delivered from the den for ticket \`${job.ref}\`.`, "",
@@ -456,7 +463,7 @@ export function createDelivery({ host, board, git, log, readTicket, activeProjec
       `- qa verify: ${job.evidence.qa.verdict} (run ${job.evidence.qa.runId})`,
       `- Risk check: ${job.evidence.risk.clean ? "clean" : `${job.evidence.risk.hits} hit(s)`}${job.evidence.risk.userMerge ? "; touches a guardrail, bridge or check path: the user reviews and merges" : ""}`,
       // The local run is advisory (the commit's own test scripts ran it), so only its state and counts are written here.
-      ...(job.evidence.guard?.sha === job.candidate.sha ? [`- Test guard: ${job.evidence.guard.hits.length ? `${job.evidence.guard.hits.length} hit(s) listed for the verifier` : "clean"}`] : []),
+      ...(job.evidence.guard?.sha === job.candidate.sha ? guardLines(job.evidence.guard.hits) : []),
       ...(job.evidence.tests?.sha === job.candidate.sha ? [`- Checks run on the den's machine (advisory; GitHub CI is the gate): ${job.evidence.tests.state}${job.evidence.tests.flaky?.length ? `, ${job.evidence.tests.flaky.length} test(s) passed only when run again` : ""} (record \`${job.evidence.tests.record}\`)`] : []),
       ...(job.evidence.security?.sha === job.candidate.sha ? [`- Security review: ${job.evidence.security.verdict} (run ${job.evidence.security.runId})`] : []),
       "", "The handoffs are on the board. The bridge opened this pull request; no agent holds git-host credentials.",

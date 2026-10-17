@@ -174,17 +174,21 @@ describe("one approved job, from the den to a merged pull request", () => {
   // evidence and the pull request, and block nothing.
   test("the test guard's hits reach the verifier's brief and the check record, and block nothing", async () => {
     const t = await setup();
-    t.git.guard = async () => ({ hits: ["a.test.mjs: test file deleted", "b.test.mjs: can't fail: \"x\" passes on the merge base"] });
+    const hits = ["a.test.mjs: test file deleted", "b.test.mjs: can't fail: \"x\" passes on the merge base", ...Array.from({ length: 10 }, (_, i) => `c.test.mjs: assertion removed: ${i}`)];
+    t.git.guard = async () => ({ hits });
     await t.start();
     t.work(await t.spawn(0), { commit: "feature.txt", say: "Added feature.txt." });
     const qa = await t.spawn(1);
     const brief = readFileSync(path.join(qa.args.cwd, ".den", "findings.md"), "utf8");
     assert.match(brief, /# Test guard[\s\S]*- a\.test\.mjs: test file deleted\n- b\.test\.mjs: can't fail/);
     assert.match(qa.args.prompt, /test guard flagged[\s\S]*accept it and why, or bounce it/);
-    assert.deepEqual((await t.job()).evidence.guard, { hits: ["a.test.mjs: test file deleted", "b.test.mjs: can't fail: \"x\" passes on the merge base"] });
+    assert.deepEqual((await t.job()).evidence.guard, { hits });
     t.work(qa, { say: "Accepted both.\nVERDICT: pass" });
     await t.when((j) => j.state === "merged", "the delivery to merge");
-    assert.match(t.git.calls.find((c) => c[0] === "openPr")[1].body, /Test guard: 2 hit\(s\) listed for the verifier/);
+    assert.match(t.git.calls.find((c) => c[0] === "openPr")[1].body, /Test guard: 12 hit\(s\) listed for the verifier/);
+    const body = t.git.calls.find((c) => c[0] === "openPr")[1].body;
+    assert.match(body, /listed for the verifier\n  - a\.test\.mjs: test file deleted\n  - b\.test\.mjs: can't fail/);
+    assert.match(body, /  - c\.test\.mjs: assertion removed: 7\n  - and 2 more\n/); // the first ten are listed, the rest counted
   });
 
   test("Bao's desk is never retired by the host", async () => {

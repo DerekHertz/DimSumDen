@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // den-mvp/70: the test-tamper guard, run beside risk-check on every candidate. Against the merge base it flags a change
 // that weakens the tests: a test file deleted or renamed away, a test removed, a skip/todo/only or an early return added,
-// an assertion removed or loosened (strict to loose, a regex or a tolerance widened), and a NEW test that passes on the
+// an assertion removed or loosened (down a strict > equal > ok > constant rank, a regex or a tolerance widened), comments ignored, and a NEW test that passes on the
 // merge base (it can't fail). A hit blocks nothing: it is listed for the verifier, which accepts or bounces each one.
 // Exit 0 = clean. Exit 1 = hits, printed as "file: reason". Exit 2 = bad usage. Notes print as "test-guard: ...".
 //
@@ -25,7 +25,12 @@ const NAME_RE = /\b(?:test|it|describe|suite)(?:\.\w+)*\s*\(\s*(["'`])((?:(?!\1)
 const ASSERT_RE = /\b(?:assert(?:\.\w+)*|expect|t\.assert\.\w+)\s*\(/g;
 const SKIP_RE = /\b(?:test|it|describe|suite)\.(?:skip|todo|only)\b|\bt\.(?:skip|todo)\s*\(|\b(?:skip|todo|only)\s*:\s*(?!false\b)\S/;
 const EARLY_RETURN_RE = /^\s*(?:if\s*\(.*\)\s*)?return\s*;?\s*$/;
-const STRICT_RE = /\b(?:deepS|s)trictEqual\b/;
+const STRICT_NAME_RE = /^(?:not)?(?:deep)?strictEqual$/i;
+const CALL_RE = /\b(assert(?:\.\w+)*|expect|t\.assert\.\w+)\s*\(\s*([^,)]*)/g;
+const CONSTANT_ARG_RE = /^(?:true|1|!0|(["'`]).*\1)$/;
+const RANK_NAMES = ["constant", "ok", "equal", "strict"];
+// Strings are kept whole so a "//" inside one survives; comments go, block comments leave their newlines.
+const COMMENT_RE = /("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`)|\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
 const REGEX_RE = /(?<=[(,=:\s])\/((?:\\.|[^/\n\\])+)\/([a-z]*)/;
 const NUMBER_RE = /\d+(?:\.\d+)?(?:e-?\d+)?/g;
 const TOLERANCE_WORD_RE = /toler|epsilon|\beps\b|delta|within|closeTo/i;
@@ -42,9 +47,41 @@ const show = (cwd, rev, file) => {
 };
 const count = (re, text) => (text.match(re) ?? []).length;
 
-/** The literal test and suite names of a source text. */
+/** A source text without its comments (shortcut: a quote inside a regex literal can fool it). */
+export const stripComments = (text) => text.replace(COMMENT_RE, (m, str) => str ?? m.replace(/[^\n]/g, ""));
+
+/** The literal test and suite names of a source text; a commented-out test has no name. */
 export function testNames(text) {
-  return new Set([...text.matchAll(NAME_RE)].map((m) => m[2]).filter((n) => !n.includes("${")));
+  return new Set([...stripComments(text).matchAll(NAME_RE)].map((m) => m[2]).filter((n) => !n.includes("${")));
+}
+
+const STRING_RE = /"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`/y;
+
+// The index just past the ")" that closes the "(" at code[open] (shortcut: a paren inside a regex literal is counted).
+function callEnd(code, open) {
+  let depth = 0;
+  for (let i = open; i < code.length; i += 1) {
+    if (/["'`]/.test(code[i])) {
+      STRING_RE.lastIndex = i;
+      const str = STRING_RE.exec(code);
+      if (str) i += str[0].length - 1;
+    } else if (code[i] === "(") depth += 1;
+    else if (code[i] === ")" && (depth -= 1) === 0) return i + 1;
+  }
+  return code.length;
+}
+
+// name -> { count, text }: the assertions inside each named test() or it() call (a suite holds tests, not assertions).
+function testBodies(text) {
+  const code = stripComments(text);
+  const out = new Map();
+  for (const m of code.matchAll(NAME_RE)) {
+    if (m[2].includes("${") || /^(?:describe|suite)\b/.test(m[0])) continue;
+    const body = code.slice(m.index, callEnd(code, m.index + m[0].indexOf("(")));
+    const was = out.get(m[2]) ?? { count: 0, text: "" };
+    out.set(m[2], { count: was.count + count(ASSERT_RE, body), text: was.text + body });
+  }
+  return out;
 }
 
 function resolveRange(range, cwd) {
@@ -55,13 +92,15 @@ function resolveRange(range, cwd) {
   return { base: m[2] === "..." ? git(cwd, "merge-base", a, head).trim() : a, head };
 }
 
-// -U0 hunks of one file pair -> [{ removed: [line], added: [line] }]
-function hunks(cwd, base, head, files) {
+// -U0 hunks of one file pair -> [{ removed: [line], added: [line] }]. Each line is read from the comment-stripped
+// text (oldCode, newCode: its lines) by its number, so a comment line carries no assertion.
+function hunks(cwd, base, head, files, [oldCode, newCode]) {
   const hs = [];
   for (const line of git(cwd, "diff", "--unified=0", "--no-color", "--no-ext-diff", "-M", base, head, "--", ...files).split("\n")) {
-    if (line.startsWith("@@")) hs.push({ removed: [], added: [] });
-    else if (hs.length && line.startsWith("-") && !line.startsWith("---")) hs.at(-1).removed.push(line.slice(1));
-    else if (hs.length && line.startsWith("+") && !line.startsWith("+++")) hs.at(-1).added.push(line.slice(1));
+    const at = /^@@ -(\d+)(?:,\d+)? \+(\d+)/.exec(line);
+    if (at) hs.push({ removed: [], added: [], from: Number(at[1]), to: Number(at[2]) });
+    else if (hs.length && line.startsWith("-") && !line.startsWith("---")) hs.at(-1).removed.push(oldCode[hs.at(-1).from - 1 + hs.at(-1).removed.length] ?? line.slice(1));
+    else if (hs.length && line.startsWith("+") && !line.startsWith("+++")) hs.at(-1).added.push(newCode[hs.at(-1).to - 1 + hs.at(-1).added.length] ?? line.slice(1));
   }
   return hs;
 }
@@ -72,11 +111,21 @@ const looseness = ([, source, flags]) => {
   return count(/[.*+?|]/g, bare) - count(/[\^$]/g, bare) + (flags.includes("i") ? 1 : 0);
 };
 
+// How strong an assertion call is: 3 strict, 2 any other comparison, 1 ok or a bare assert(x), 0 a constant ok(true).
+const rank = ([, callee, arg]) => {
+  const name = callee.split(".").at(-1);
+  if (name === "assert" || name === "ok") return CONSTANT_ARG_RE.test(arg.trim()) ? 0 : 1;
+  return STRICT_NAME_RE.test(name) ? 3 : 2;
+};
+const ranks = (line) => [...line.matchAll(CALL_RE)].map(rank).sort((a, b) => b - a);
+
 // Why `after` is a weaker assertion than `before`, or null.
 function loosened(before, after) {
-  if (STRICT_RE.test(before) && !STRICT_RE.test(after) && count(ASSERT_RE, after) > 0) return "assertion loosened (strict to loose)";
-  const [rb, ra] = [REGEX_RE.exec(before), REGEX_RE.exec(after)];
-  if (rb && ra && looseness(ra) > looseness(rb)) return "regex widened";
+  const [rb, ra] = [ranks(before), ranks(after)];
+  const k = ra.findIndex((r, i) => i < rb.length && r < rb[i]); // strongest to weakest, as many as both lines have
+  if (k >= 0) return `assertion loosened (${RANK_NAMES[rb[k]]} to ${RANK_NAMES[ra[k]]})`;
+  const [xb, xa] = [REGEX_RE.exec(before), REGEX_RE.exec(after)];
+  if (xb && xa && looseness(xa) > looseness(xb)) return "regex widened";
   const [nb, na] = [before.match(NUMBER_RE) ?? [], after.match(NUMBER_RE) ?? []];
   if (nb.length === na.length && (count(ASSERT_RE, after) > 0 || TOLERANCE_WORD_RE.test(after))) {
     const i = nb.findIndex((n, k) => Number(n) !== Number(na[k]));
@@ -117,7 +166,8 @@ function staticHits(cwd, base, head) {
     for (const n of removedNames) add(c.path, `test removed or renamed away: "${n}"`);
     const fresh = [...namesAfter].filter((n) => !namesBefore.has(n));
     if (fresh.length) newTests.push({ path: c.path, names: fresh });
-    const hs = hunks(cwd, base, head, c.status === "R" ? [c.oldPath, c.path] : [c.path]);
+    const hs = hunks(cwd, base, head, c.status === "R" ? [c.oldPath, c.path] : [c.path], [stripComments(before).split("\n"), stripComments(after).split("\n")]);
+    const lineRemoved = [];
     const addedAll = new Set(hs.flatMap((h) => h.added.map((l) => l.trim())));
     for (const h of hs) {
       for (const l of h.added) {
@@ -131,8 +181,14 @@ function staticHits(cwd, base, head) {
       }
       const removesATest = h.removed.some((l) => [...testNames(l)].some((n) => removedNames.includes(n)));
       if (!removesATest) {
-        for (const l of h.removed.slice(paired)) if (count(ASSERT_RE, l) > 0 && !addedAll.has(l.trim())) add(c.path, `assertion removed: ${l.trim()}`);
+        for (const l of h.removed.slice(paired)) if (count(ASSERT_RE, l) > 0 && !addedAll.has(l.trim())) (lineRemoved.push(l.trim()), add(c.path, `assertion removed: ${l.trim()}`));
       }
+    }
+    // A test that keeps its name but has fewer assertions (a body emptied, an assertion commented out or moved away).
+    const [bodiesBefore, bodiesAfter] = [testBodies(before), testBodies(after)];
+    for (const [name, was] of bodiesBefore) {
+      const now = bodiesAfter.get(name);
+      if (now && now.count < was.count && !lineRemoved.some((l) => was.text.includes(l))) add(c.path, `assertion count dropped in "${name}" (${was.count} to ${now.count})`);
     }
   }
   return { hits, newTests };
@@ -178,7 +234,6 @@ function cantFail({ cwd, base, head, newTests, box, bwrap, timeoutSec }) {
       env = { ...process.env, CI: "true" };
       delete env.NODE_TEST_CONTEXT; // a guard run inside a test run must not look recursive
       command = test;
-      [command, env] = [test, { ...process.env, NODE_TEST_CONTEXT: undefined, CI: "true" }]; // a guard run inside a test run must not look recursive
     }
     let r = spawnSync("timeout", ["-k", "5", String(timeoutSec), ...command], { cwd: wt, env, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
     let timedOut = r.status === 124 || r.status === 137;
