@@ -51,7 +51,7 @@ const watchedCheckOf = (raw) => {
   return { ...checkOf(raw), cancelled: raw?.conclusion === "CANCELLED", runId: link?.[1] ?? null, jobId: link?.[2] ?? null };
 };
 
-export function createGitHost(root, { exec = execFileP, remote = "origin", main = "main", riskScript = path.join(root, "scripts", "risk-check.mjs"), env = process.env, waitMs = NO_CHECKS_WAIT_MS } = {}) {
+export function createGitHost(root, { exec = execFileP, remote = "origin", main = "main", riskScript = path.join(root, "scripts", "risk-check.mjs"), guardScript = path.join(root, "scripts", "test-guard.mjs"), env = process.env, waitMs = NO_CHECKS_WAIT_MS } = {}) {
   if (!NAME_RE.test(remote) || !NAME_RE.test(main)) throw new TypeError("git host: bad remote or branch name");
   const quiet = { ...env, GIT_TERMINAL_PROMPT: "0", GH_PROMPT_DISABLED: "1", NO_COLOR: "1" };
   const git = async (...args) => String((await exec("git", ["-C", root, ...args], { env: quiet, maxBuffer: DIFF_MAX })).stdout);
@@ -118,6 +118,21 @@ export function createGitHost(root, { exec = execFileP, remote = "origin", main 
       } catch (err) {
         if (!Number.isInteger(err?.code) || err.code === 0) throw err;
         return { clean: false, hits: String(err.stdout ?? "").split("\n").map((l) => oneLine(l, 300)).filter(Boolean).slice(0, 50) };
+      }
+    },
+    /**
+     * den-mvp/70: the test-tamper guard, run from the bridge's own checkout on the change. Its hits go to the verifier; none
+     * blocks. The changed tests run only inside bubblewrap (--require-box), under a time limit. A crash (not exit 0 or 1) throws.
+     */
+    async guard({ base, sha }) {
+      const range = `${commit(base, "base")}...${commit(sha, "sha")}`;
+      if (!(await access(guardScript).then(() => true, () => false))) return { hits: ["no test guard here: the verifier checks the tests by hand"] };
+      try {
+        await exec(process.execPath, [guardScript, range, "--require-box"], { cwd: root, env: quiet, maxBuffer: 4 * 1024 * 1024 });
+        return { hits: [] };
+      } catch (err) {
+        if (err?.code !== 1) throw err;
+        return { hits: String(err.stdout ?? "").split("\n").filter((l) => l && !l.startsWith("test-guard:")).map((l) => oneLine(l, 300)).slice(0, 50) };
       }
     },
     /** Puts exactly this commit on the remote branch. A branch that has moved elsewhere is not forced. */

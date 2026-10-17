@@ -170,6 +170,23 @@ describe("one approved job, from the den to a merged pull request", () => {
     assert.deepEqual(done.runs.map((r) => [r.role, r.state]), [["developer", "done"], ["qa", "done"]]);
   });
 
+  // den-mvp/70: the test guard runs on the candidate before qa verifies; its hits reach the verifier's brief, the delivery's
+  // evidence and the pull request, and block nothing.
+  test("the test guard's hits reach the verifier's brief and the check record, and block nothing", async () => {
+    const t = await setup();
+    t.git.guard = async () => ({ hits: ["a.test.mjs: test file deleted", "b.test.mjs: can't fail: \"x\" passes on the merge base"] });
+    await t.start();
+    t.work(await t.spawn(0), { commit: "feature.txt", say: "Added feature.txt." });
+    const qa = await t.spawn(1);
+    const brief = readFileSync(path.join(qa.args.cwd, ".den", "findings.md"), "utf8");
+    assert.match(brief, /# Test guard[\s\S]*- a\.test\.mjs: test file deleted\n- b\.test\.mjs: can't fail/);
+    assert.match(qa.args.prompt, /test guard flagged[\s\S]*accept it and why, or bounce it/);
+    assert.deepEqual((await t.job()).evidence.guard, { hits: ["a.test.mjs: test file deleted", "b.test.mjs: can't fail: \"x\" passes on the merge base"] });
+    t.work(qa, { say: "Accepted both.\nVERDICT: pass" });
+    await t.when((j) => j.state === "merged", "the delivery to merge");
+    assert.match(t.git.calls.find((c) => c[0] === "openPr")[1].body, /Test guard: 2 hit\(s\) listed for the verifier/);
+  });
+
   test("Bao's desk is never retired by the host", async () => {
     const t = await setup();
     const { DESK_REF } = await import("../cells/policy.mjs");

@@ -1,0 +1,244 @@
+#!/usr/bin/env node
+// den-mvp/70: the test-tamper guard, run beside risk-check on every candidate. Against the merge base it flags a change
+// that weakens the tests: a test file deleted or renamed away, a test removed, a skip/todo/only or an early return added,
+// an assertion removed or loosened (strict to loose, a regex or a tolerance widened), and a NEW test that passes on the
+// merge base (it can't fail). A hit blocks nothing: it is listed for the verifier, which accepts or bounces each one.
+// Exit 0 = clean. Exit 1 = hits, printed as "file: reason". Exit 2 = bad usage. Notes print as "test-guard: ...".
+//
+// Usage: node scripts/test-guard.mjs [A...B | A..B] [--no-rerun] [--require-box]   (default: main...HEAD)
+//   --no-rerun     skip the can't-fail check (static checks only)
+//   --require-box  run the can't-fail check only inside bubblewrap (the bridge passes this: the changed tests are not trusted)
+//
+// The can't-fail check puts the merge base in a temp worktree, drops the head's changed test files over it, and runs
+// them there under `timeout`. A new test whose name shows up as passing is flagged. Limits (shortcut): tests are found by
+// literal names in test()/it()/describe() calls, so a generated name is not seen; assertions are read line by line.
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { findBwrap } from "../apps/bridge/build/box.mjs";
+import { checkBoxArgv } from "../apps/bridge/delivery/checks.mjs";
+import { isBrowserFile } from "./test-split.mjs";
+
+export const TEST_FILE_RE = /\.(test|spec)\.[cm]?[jt]sx?$/;
+const NAME_RE = /\b(?:test|it|describe|suite)(?:\.\w+)*\s*\(\s*(["'`])((?:(?!\1)[^\\\n]|\\.)*)\1/g;
+const ASSERT_RE = /\b(?:assert(?:\.\w+)*|expect|t\.assert\.\w+)\s*\(/g;
+const SKIP_RE = /\b(?:test|it|describe|suite)\.(?:skip|todo|only)\b|\bt\.(?:skip|todo)\s*\(|\b(?:skip|todo|only)\s*:\s*(?!false\b)\S/;
+const EARLY_RETURN_RE = /^\s*(?:if\s*\(.*\)\s*)?return\s*;?\s*$/;
+const STRICT_RE = /\b(?:deepS|s)trictEqual\b/;
+const REGEX_RE = /(?<=[(,=:\s])\/((?:\\.|[^/\n\\])+)\/([a-z]*)/;
+const NUMBER_RE = /\d+(?:\.\d+)?(?:e-?\d+)?/g;
+const TOLERANCE_WORD_RE = /toler|epsilon|\beps\b|delta|within|closeTo/i;
+const WORKTREES_DIR = ".claude/worktrees";
+const HITS_MAX = 50;
+
+const git = (cwd, ...args) => execFileSync("git", ["-C", cwd, ...args], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+const show = (cwd, rev, file) => {
+  try {
+    return git(cwd, "show", `${rev}:${file}`);
+  } catch {
+    return "";
+  }
+};
+const count = (re, text) => (text.match(re) ?? []).length;
+
+/** The literal test and suite names of a source text. */
+export function testNames(text) {
+  return new Set([...text.matchAll(NAME_RE)].map((m) => m[2]).filter((n) => !n.includes("${")));
+}
+
+function resolveRange(range, cwd) {
+  const m = /^([^.\s][^\s]*?)(\.\.\.?)([^.\s][^\s]*)$/.exec(range);
+  if (!m) throw new RangeError(`test-guard: range must look like A...B or A..B, got "${range}"`);
+  const rev = (r) => git(cwd, "rev-parse", "--verify", "--end-of-options", `${r}^{commit}`).trim();
+  const [a, head] = [rev(m[1]), rev(m[3])];
+  return { base: m[2] === "..." ? git(cwd, "merge-base", a, head).trim() : a, head };
+}
+
+// -U0 hunks of one file pair -> [{ removed: [line], added: [line] }]
+function hunks(cwd, base, head, files) {
+  const hs = [];
+  for (const line of git(cwd, "diff", "--unified=0", "--no-color", "--no-ext-diff", "-M", base, head, "--", ...files).split("\n")) {
+    if (line.startsWith("@@")) hs.push({ removed: [], added: [] });
+    else if (hs.length && line.startsWith("-") && !line.startsWith("---")) hs.at(-1).removed.push(line.slice(1));
+    else if (hs.length && line.startsWith("+") && !line.startsWith("+++")) hs.at(-1).added.push(line.slice(1));
+  }
+  return hs;
+}
+
+// How loose a regex is: wildcards, alternation and quantifiers raise it, anchors lower it, a case-insensitive flag raises it.
+const looseness = ([, source, flags]) => {
+  const bare = source.replace(/\\./g, "");
+  return count(/[.*+?|]/g, bare) - count(/[\^$]/g, bare) + (flags.includes("i") ? 1 : 0);
+};
+
+// Why `after` is a weaker assertion than `before`, or null.
+function loosened(before, after) {
+  if (STRICT_RE.test(before) && !STRICT_RE.test(after) && count(ASSERT_RE, after) > 0) return "assertion loosened (strict to loose)";
+  const [rb, ra] = [REGEX_RE.exec(before), REGEX_RE.exec(after)];
+  if (rb && ra && looseness(ra) > looseness(rb)) return "regex widened";
+  const [nb, na] = [before.match(NUMBER_RE) ?? [], after.match(NUMBER_RE) ?? []];
+  if (nb.length === na.length && (count(ASSERT_RE, after) > 0 || TOLERANCE_WORD_RE.test(after))) {
+    const i = nb.findIndex((n, k) => Number(n) !== Number(na[k]));
+    if (i >= 0) {
+      const [was, now] = [Number(nb[i]), Number(na[i])];
+      if ((/<=?/.test(after) || TOLERANCE_WORD_RE.test(after)) && now > was) return "tolerance widened";
+      if (/>=?/.test(after) && !/<=?/.test(after) && now < was) return "tolerance widened";
+    }
+  }
+  return null;
+}
+
+/** The changed paths between two commits: [{ status, path, oldPath }], renames followed. */
+function changes(cwd, base, head) {
+  const parts = git(cwd, "diff", "--name-status", "-M", "-z", base, head).split("\0");
+  const out = [];
+  for (let i = 0; i < parts.length - 1;) {
+    const status = parts[i][0];
+    if (status === "R" || status === "C") (out.push({ status, oldPath: parts[i + 1], path: parts[i + 2] }), (i += 3));
+    else (out.push({ status, oldPath: parts[i + 1], path: parts[i + 1] }), (i += 2));
+  }
+  return out;
+}
+
+function staticHits(cwd, base, head) {
+  const hits = [];
+  const add = (file, reason) => hits.push({ file, reason });
+  const newTests = []; // files whose NEW tests the can't-fail check reruns: { path, names }
+  for (const c of changes(cwd, base, head)) {
+    const wasTest = TEST_FILE_RE.test(c.oldPath);
+    const isTest = TEST_FILE_RE.test(c.path) && c.status !== "D";
+    if (c.status === "D" && wasTest) add(c.path, "test file deleted");
+    else if (c.status === "R" && wasTest && !isTest) add(c.oldPath, `test file renamed away to ${c.path}`);
+    if (!isTest) continue;
+    const [before, after] = [c.status === "A" ? "" : show(cwd, base, c.oldPath), show(cwd, head, c.path)];
+    const [namesBefore, namesAfter] = [testNames(before), testNames(after)];
+    const removedNames = [...namesBefore].filter((n) => !namesAfter.has(n));
+    for (const n of removedNames) add(c.path, `test removed or renamed away: "${n}"`);
+    const fresh = [...namesAfter].filter((n) => !namesBefore.has(n));
+    if (fresh.length) newTests.push({ path: c.path, names: fresh });
+    const hs = hunks(cwd, base, head, c.status === "R" ? [c.oldPath, c.path] : [c.path]);
+    const addedAll = new Set(hs.flatMap((h) => h.added.map((l) => l.trim())));
+    for (const h of hs) {
+      for (const l of h.added) {
+        if (SKIP_RE.test(l)) add(c.path, `skip, todo or only added: ${l.trim()}`);
+        if (EARLY_RETURN_RE.test(l)) add(c.path, `early return added: ${l.trim()}`);
+      }
+      const paired = Math.min(h.removed.length, h.added.length);
+      for (let i = 0; i < paired; i += 1) {
+        const why = loosened(h.removed[i], h.added[i]);
+        if (why) add(c.path, `${why}: ${h.added[i].trim()}`);
+      }
+      const removesATest = h.removed.some((l) => [...testNames(l)].some((n) => removedNames.includes(n)));
+      if (!removesATest) {
+        for (const l of h.removed.slice(paired)) if (count(ASSERT_RE, l) > 0 && !addedAll.has(l.trim())) add(c.path, `assertion removed: ${l.trim()}`);
+      }
+    }
+  }
+  return { hits, newTests };
+}
+
+// The names of the tests that passed in a TAP report.
+const passedNames = (tap) =>
+  new Set([...tap.matchAll(/^\s*ok \d+ - (.*?)(?: # (SKIP|TODO).*)?$/gm)].filter((m) => !m[2]).map((m) => m[1].replace(/\\#/g, "#").trim()));
+
+function cantFail({ cwd, base, head, newTests, box, bwrap, timeoutSec }) {
+  const hits = [];
+  const notes = [];
+  const files = [];
+  for (const t of newTests) {
+    if (isBrowserFile(t.path, cwd)) notes.push(`test-guard: not rerun (browser test): ${t.path}`);
+    else files.push(t);
+  }
+  if (!files.length) return { hits, notes };
+  if (box === "require" && !bwrap) return { hits: [{ file: "(guard)", reason: "can't-fail check not run: no bubblewrap to box the changed tests" }], notes };
+  const repo = realpathSync(git(cwd, "rev-parse", "--show-toplevel").trim());
+  const wt = path.join(repo, ...WORKTREES_DIR.split("/"), `test-guard-${process.pid}-${Date.now()}`);
+  const emptyModules = `${wt}-nm`;
+  mkdirSync(path.dirname(wt), { recursive: true });
+  try {
+    // The change's code is not trusted here: no hooks, no filters.
+    execFileSync("git", ["-C", repo, "-c", "core.hooksPath=/dev/null", "-c", "filter.lfs.process=", "-c", "filter.lfs.smudge=", "-c", "filter.lfs.required=false", "worktree", "add", "--detach", wt, base],
+      { stdio: "pipe", env: { ...process.env, GIT_LFS_SKIP_SMUDGE: "1" } });
+    for (const t of files) {
+      mkdirSync(path.dirname(path.join(wt, t.path)), { recursive: true });
+      writeFileSync(path.join(wt, t.path), show(cwd, head, t.path));
+    }
+    const modules = path.join(repo, "node_modules");
+    const node = realpathSync(process.execPath);
+    const test = [node, "--test", "--test-concurrency=2", "--test-reporter=tap", ...files.map((t) => t.path)];
+    let command;
+    let env;
+    if (bwrap && box !== "never") {
+      mkdirSync(path.join(emptyModules, ".vite"), { recursive: true }); // the box mounts a tmpfs over it
+      if (existsSync(modules)) try { mkdirSync(path.join(modules, ".vite"), { recursive: true }); } catch {}
+      const gitDir = git(wt, "rev-parse", "--absolute-git-dir").trim();
+      command = [bwrap, ...checkBoxArgv({ repo, worktree: realpathSync(wt), gitDir, nodeDir: path.dirname(path.dirname(node)), browsers: null, command: test, packages: existsSync(modules) ? modules : emptyModules })];
+    } else {
+      env = { ...process.env, CI: "true" };
+      delete env.NODE_TEST_CONTEXT; // a guard run inside a test run must not look recursive
+      command = test;
+      [command, env] = [test, { ...process.env, NODE_TEST_CONTEXT: undefined, CI: "true" }]; // a guard run inside a test run must not look recursive
+    }
+    let r = spawnSync("timeout", ["-k", "5", String(timeoutSec), ...command], { cwd: wt, env, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    let timedOut = r.status === 124 || r.status === 137;
+    if (r.error?.code === "ENOENT") {
+      r = spawnSync(command[0], command.slice(1), { cwd: wt, env, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, timeout: timeoutSec * 1000, killSignal: "SIGKILL" });
+      timedOut = r.signal === "SIGKILL";
+    }
+    if (timedOut) return { hits: [{ file: "(guard)", reason: `can't-fail check did not finish in ${timeoutSec} s on the merge base: run the changed tests there by hand` }], notes };
+    const bwrapError = /^bwrap: .*$/m.exec(r.stderr ?? "");
+    if (bwrapError) return { hits: [{ file: "(guard)", reason: `can't-fail check not run: ${bwrapError[0].slice(0, 200)}` }], notes };
+    const passed = passedNames(String(r.stdout ?? ""));
+    for (const t of files) for (const n of t.names) if (passed.has(n)) hits.push({ file: t.path, reason: `can't fail: "${n}" passes on the merge base ${base.slice(0, 12)}` });
+  } finally {
+    try {
+      execFileSync("git", ["-C", repo, "worktree", "remove", "--force", wt], { stdio: "ignore" });
+    } catch {}
+    rmSync(wt, { recursive: true, force: true });
+    rmSync(emptyModules, { recursive: true, force: true });
+    try {
+      execFileSync("git", ["-C", repo, "worktree", "prune"], { stdio: "ignore" });
+    } catch {}
+  }
+  return { hits, notes };
+}
+
+/** -> { hits: [{ file, reason }], notes: [string] } for the change base...head. */
+export function testGuard({ range = "main...HEAD", cwd = process.cwd(), rerun = true, box = "auto", bwrap = findBwrap(), timeoutSec = 60 } = {}) {
+  const { base, head } = resolveRange(range, cwd);
+  const { hits, newTests } = staticHits(cwd, base, head);
+  const notes = [];
+  if (rerun && newTests.length) {
+    const r = cantFail({ cwd, base, head, newTests, box, bwrap, timeoutSec });
+    hits.push(...r.hits);
+    notes.push(...r.notes);
+  }
+  const seen = new Set();
+  return { hits: hits.filter((h) => !seen.has(`${h.file}|${h.reason}`) && seen.add(`${h.file}|${h.reason}`)).slice(0, HITS_MAX), notes };
+}
+
+function main(argv) {
+  const flags = argv.filter((a) => a.startsWith("--"));
+  const range = argv.find((a) => !a.startsWith("--")) ?? "main...HEAD";
+  if (argv.some((a) => a.startsWith("-") && !a.startsWith("--")) || flags.some((f) => !["--no-rerun", "--require-box"].includes(f)) || /^-/.test(range)) {
+    console.error(`test-guard: refusing option-shaped argument (looks like a git option, not a range): ${argv.join(" ")}`);
+    return 2;
+  }
+  try {
+    const { hits, notes } = testGuard({ range, rerun: !flags.includes("--no-rerun"), box: flags.includes("--require-box") ? "require" : "auto" });
+    for (const n of notes) console.log(n);
+    if (hits.length === 0) {
+      console.log(`test-guard: clean (${range})`);
+      return 0;
+    }
+    console.log(`test-guard: ${hits.length} hit(s) on ${range} — the verifier accepts or bounces each`);
+    for (const h of hits) console.log(`${h.file}: ${h.reason}`);
+    return 1;
+  } catch (err) {
+    console.error(String(err?.message ?? err));
+    return 2;
+  }
+}
+
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) process.exit(main(process.argv.slice(2)));

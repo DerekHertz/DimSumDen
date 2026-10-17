@@ -31,6 +31,14 @@ describe("the delivery plan", () => {
     assert.equal(nextStep(job({ ...passed, tests: { sha: SHA, state: "red" } }, { localChecks: true, bounces: MAX_BOUNCES })).pause, "failed-twice");
   });
 
+  // den-mvp/70: with the test guard on, it runs on the candidate before any verifier sees it.
+  test("the test guard runs before qa verifies, once per candidate, and only for a job that has it", () => {
+    assert.deepEqual(nextStep(job({}, { testGuard: true })), { kind: "guard" });
+    assert.deepEqual(nextStep(job({ guard: { sha: OLD, hits: [] } }, { testGuard: true })), { kind: "guard" });
+    assert.deepEqual(nextStep(job({ guard: { sha: SHA, hits: ["a.test.mjs: test file deleted"] } }, { testGuard: true })), { kind: "run", role: "qa", mode: "verify", at: SHA, since: BASE });
+    assert.deepEqual(nextStep(job({}, {})), { kind: "run", role: "qa", mode: "verify", at: SHA, since: BASE });
+  });
+
   const rows = [
     ["no candidate: a developer at the base", { base: BASE, candidate: null, bounces: 0, evidence: {} }, { kind: "run", role: "developer", at: BASE, since: BASE }],
     ["a candidate: qa verifies it", job(), { kind: "run", role: "qa", mode: "verify", at: SHA, since: BASE }],
@@ -266,6 +274,28 @@ describe("the git-host operations", () => {
     };
     return { calls, git: createGitHost("/repo", { exec, waitMs: 1, riskScript: "/nonexistent/risk-check.mjs" }) };
   }
+
+  // den-mvp/70: the test guard is run like the risk check, with the box required for the changed tests.
+  test("the test guard: clean, hits without its own header and notes, a crash, and no script", async () => {
+    const run = (answer) => {
+      const calls = [];
+      const exec = async (file, args) => {
+        calls.push([file, ...args]);
+        if (answer instanceof Error) throw answer;
+        return { stdout: answer, stderr: "" };
+      };
+      return { calls, git: createGitHost("/repo", { exec, guardScript: new URL(import.meta.url).pathname }) };
+    };
+    const clean = run("test-guard: clean\n");
+    assert.deepEqual(await clean.git.guard({ base: BASE, sha: SHA }), { hits: [] });
+    assert.deepEqual(clean.calls[0].slice(1), [new URL(import.meta.url).pathname, `${BASE}...${SHA}`, "--require-box"]);
+    const out = "test-guard: not rerun (browser test): b.test.mjs\ntest-guard: 2 hit(s) on r\na.test.mjs: test file deleted\n(guard): can't-fail check not run: no bubblewrap\n";
+    const hit = run(Object.assign(new Error("x"), { code: 1, stdout: out }));
+    assert.deepEqual(await hit.git.guard({ base: BASE, sha: SHA }), { hits: ["a.test.mjs: test file deleted", "(guard): can't-fail check not run: no bubblewrap"] });
+    await assert.rejects(run(Object.assign(new Error("bad range"), { code: 2, stdout: "" })).git.guard({ base: BASE, sha: SHA }), /bad range/);
+    const none = createGitHost("/repo", { exec: async () => ({ stdout: "" }), guardScript: "/nonexistent/test-guard.mjs" });
+    assert.match((await none.guard({ base: BASE, sha: SHA })).hits[0], /no test guard here/);
+  });
 
   test("each operation is one fixed argument list over checked values", async () => {
     const t = host({ "pr list": [{ number: 9, url: "https://github.com/o/r/pull/9", state: "OPEN", headRefOid: SHA }], "rev-parse": `${SHA}\n` });
