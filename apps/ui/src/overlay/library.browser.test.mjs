@@ -47,7 +47,9 @@ async function open({ width = 1280, answer = () => ({ json: library }) } = {}) {
   const errors = [];
   let reads = 0;
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.route('**/events', (r) => r.fulfill({ contentType: 'text/event-stream', body: `event: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n` }));
+  // ci-cd/08: the page stays offline. A live bridge makes the archive scene read GET /library itself (App.jsx useArchiveLibrary), and
+  // a one-shot event-stream answer made the page live for an instant under load, so that read counted as the card's (1 !== 0).
+  await page.route('**/events', (r) => r.abort());
   await page.route('**/state', (r) => r.fulfill({ json: snapshot }));
   await page.route('**/metrics', (r) => r.fulfill({ json: { throughput: { windows: [] }, tokensByCell: {}, incidentsByTool: {} } }));
   await page.route('**/library', (r) => { reads += 1; return r.fulfill(answer()); });

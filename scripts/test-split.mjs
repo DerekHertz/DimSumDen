@@ -56,8 +56,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     if (bom.status !== 0) process.exit(bom.status ?? 1);
   }
   // Each browser file loads the complete garden. Bound file concurrency so
-  // model decoding and Chromium contexts do not exhaust the CI runner.
-  const concurrency = mode === "browser" ? ["--test-concurrency=1"] : [];
+  // model decoding and Chromium contexts do not exhaust the CI runner (ci-cd/08).
+  const concurrency = mode === "browser" ? [`--test-concurrency=${process.env.BROWSER_FILE_CONCURRENCY || 3}`] : [];
   const r = spawnSync(process.execPath, ["--test", ...concurrency, ...groups[mode]], { cwd: ROOT, stdio: "inherit" });
   process.exit(r.status ?? 1);
 }
