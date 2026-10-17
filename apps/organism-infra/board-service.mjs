@@ -715,7 +715,7 @@ async function prepare(root, ref) {
 const CLAIM_MODES = new Set(["specify", "verify"]);
 // organism-infra/55: a designer claim names what it is doing.
 const DESIGNER_MODES = new Set(["review", "spec", "critique", "direction"]);
-function modeAllowed(cellType, mode) {
+export function modeAllowed(cellType, mode) {
   return CLAIM_MODES.has(mode) || (cellType === "designer" && DESIGNER_MODES.has(mode));
 }
 
@@ -725,6 +725,9 @@ const KNOWN_CELLS = new Set([
   "product", "architect", "orchestrator", "developer", "scout",
   "qa", "security", "designer",
 ]);
+
+/** Is this a cell type the board can hold a ticket for? (den-mvp/23: a role it does not know runs unclaimed.) */
+export const isBoardCell = (name) => typeof name === "string" && KNOWN_CELLS.has(name);
 
 function checkKnownCell(name, what) {
   if (typeof name !== "string" || !KNOWN_CELLS.has(name)) {

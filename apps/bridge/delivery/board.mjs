@@ -18,13 +18,15 @@ export function createDeliveryBoard(root) {
      * Writes the step's handoff and releases the ticket at in-review. The State block is the bridge's own record of the
      * run; the agent's last message follows it as a quoted report, and is data to read.
      */
-    async handoff(ref, { role, mode, runId, sha, branch, verdict, report }) {
+    // den-mvp/23: a Run from the den hands off the same way; `committed: false` says it left no commit, `source` names it.
+    // `status: null` publishes the handoff and leaves the ticket alone (a Run holds no claim to release).
+    async handoff(ref, { role, mode, runId, sha, branch, verdict, report, committed = true, source = "den delivery", status = "in-review" }) {
       const [feature, ticket] = ref.split("/");
       const nn = /^(\d{2,})-/.exec(ticket)[1];
       const state = {
         ticket: ref, cell: role, ...(mode ? { mode } : {}),
-        current_step: verdict ? `${role} ${verdict === "pass" ? "passed" : "bounced"} commit ${sha.slice(0, 12)}` : `${role} committed ${sha.slice(0, 12)}`,
-        artifacts: [...(branch ? [`branch ${branch}`] : []), `commit ${sha}`], decisions: [], failures: [],
+        current_step: verdict ? `${role} ${verdict === "pass" ? "passed" : "bounced"} commit ${sha.slice(0, 12)}` : committed ? `${role} committed ${sha.slice(0, 12)}` : `${role} made no commit`,
+        artifacts: committed ? [...(branch ? [`branch ${branch}`] : []), `commit ${sha}`] : [], decisions: [], failures: [],
         pending: verdict === "bounce" ? [{ item: "fix the findings below", owner: "developer" }] : [],
       };
       const body =
@@ -40,8 +42,11 @@ export function createDeliveryBoard(root) {
       } finally {
         await rm(dir, { recursive: true, force: true }).catch(() => {});
       }
-      await release(root, ref, "in-review", verdict ? `${role} ${verdict} at ${sha.slice(0, 12)} (den delivery)` : `committed ${sha.slice(0, 12)} (den delivery)`);
+      if (status === null) return;
+      await release(root, ref, status, verdict ? `${role} ${verdict} at ${sha.slice(0, 12)} (${source})` : committed ? `committed ${sha.slice(0, 12)} (${source})` : `no commit (${source})`);
     },
+    /** den-v1/15: a den task's ticket is claimed at its end, so the handoff that follows can release it at in-review. */
+    claimForHandoff: (ref, { role }) => claim(root, ref, role, role === "qa" ? { mode: "verify" } : {}),
     /** Gives up a step's claim without a handoff: the run failed, was stopped, or left nothing to hand on. */
     drop: (ref, { status, reason }) => release(root, ref, status, reason, status === undefined ? { force: true, keepStatus: true } : { force: true }),
     /** After a confirmed merge. */
