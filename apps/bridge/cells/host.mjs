@@ -655,7 +655,7 @@ export function createHost({ root, projects: projectsOption, runtime, policy = {
         "approve; one ticket per outcome, with a review's findings or small fixes in one area as one checklist or a comment on that area's " +
         "open follow-up ticket; file every ticket of one request in a single call, so the user answers one ask; each names the goal it serves, " +
         "a key from .scratch/goals.md) and start_delivery (a " +
-        "ready-for-agent ticket the user asked you to start). The last two ask the user first. " +
+        "ready-for-agent ticket the user asked you to start). The last two ask the user first. release_propose drafts the next release for the user to approve in the den; you cannot tag or publish. " +
         "Start only what the user asked for; propose anything else in words. The user's message follows."
       : a.meeting
       ? meetingPrompt({ role: a.role, part: a.meeting.part, ref: a.ref, ticketFile: ticketFile(a.ref) })

@@ -33,6 +33,9 @@ const BODIES = {
   // den-mvp/34: the checks of an open pull request (the fake git host knows #7), run by the fake checks below.
   "POST /checks": { real: { pr: 7 }, bogus: { pr: 8 } },
   // den-mvp/13: approve or decline a ticket waiting at ready-for-human (the fixture's 06-human).
+  // den-mvp/45: the user's answer to Bao's release draft; with no draft both ids are a 409 and nothing is published.
+  "POST /release/approve": { real: { get id() { return draftId; } }, bogus: { id: "no-draft" }, prepare: async () => void (draftId = (await bridge.releases.propose()).id) },
+  "POST /release/decline": { real: { get id() { return draftId; } }, bogus: { id: "no-draft" }, prepare: async () => void (draftId = (await bridge.releases.propose()).id) },
   "POST /tickets/approve": { real: { ref: `${FEATURE}/06-human` }, bogus: { ref: `${FEATURE}/99-nope` } },
   "POST /tickets/decline": { real: { ref: `${FEATURE}/06-human`, note: "not now" }, bogus: { ref: `${FEATURE}/99-nope`, note: "no" } },
   "POST /projects/active": { real: { slug: "den" }, bogus: { slug: "nope" } },
@@ -173,6 +176,7 @@ beforeEach(async () => {
   // The delivery rows never get past their first agent here, so the git host is only asked for the main branch's commit.
   const gitHost = {
     mainSha: async () => execFileSync("git", ["-C", fx.root, "rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+    lastTag: async () => "v0.1.0", mergedSince: async () => [{ number: 3, title: "fix: x", body: "" }], publishRelease: async () => {},
     prState: async ({ number }) => (number === 7 ? { number, state: "OPEN", sha: "a".repeat(40), checks: [], mergeable: "MERGEABLE" } : Promise.reject(new Error("not found"))),
   };
   const checks = { run: async () => ({}), recent: async () => [], running: () => [] };
@@ -186,6 +190,7 @@ afterEach(async () => {
   await fx.cleanup();
 });
 
+let draftId = null;
 const requestsFile = () => readFile(file, "utf8");
 const bodyFor = (row, which) => {
   const entry = BODIES[`${row.method} ${row.path}`];

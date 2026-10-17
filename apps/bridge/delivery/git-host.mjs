@@ -192,6 +192,31 @@ export function createGitHost(root, { exec = execFileP, remote = "origin", main 
       if (pr?.state !== "MERGED") throw new Error("the pull request is not merged");
       return commit(pr.mergeCommit?.oid, "the merge commit");
     },
+    /** den-mvp/45: the newest release tag (v<major>.<minor>.<patch>) reachable from main, or null. */
+    async lastTag() {
+      await git("fetch", "--quiet", "--tags", remote);
+      const tags = (await git("tag", "--list", "v[0-9]*.[0-9]*.[0-9]*", "--merged", `refs/remotes/${remote}/${main}`, "--sort=-version:refname")).split("\n").map((t) => t.trim()).filter((t) => /^v\d+\.\d+\.\d+$/.test(t));
+      return tags[0] ?? null;
+    },
+    /** den-mvp/45: the pull requests merged into `sha` since `tag` (null: all). -> [{ number, title, body }] */
+    async mergedSince({ tag, sha }) {
+      if (tag !== null && !/^v\d+\.\d+\.\d+$/.test(tag)) throw new TypeError("git host: not a release tag");
+      const out = await git("log", "--first-parent", "-z", "--format=%s%x1f%b", tag === null ? commit(sha, "sha") : `refs/tags/${tag}..${commit(sha, "sha")}`);
+      const prs = [];
+      for (const rec of out.split("\0")) {
+        const [subject = "", body = ""] = rec.replace(/^\n/, "").split("\x1f");
+        const merge = /^Merge pull request #(\d+) from /.exec(subject);
+        const squash = /^(.*) \(#(\d+)\)$/.exec(subject);
+        if (merge) prs.push({ number: Number(merge[1]), title: oneLine(body.split("\n").find((l) => l.trim()) ?? subject, 200), body });
+        else if (squash) prs.push({ number: Number(squash[2]), title: oneLine(squash[1], 200), body });
+      }
+      return prs;
+    },
+    /** den-mvp/45: tags `sha` and publishes the GitHub Release for it, in one call. The user's Approve is the only caller. */
+    async publishRelease({ version, sha, notes }) {
+      if (!/^v\d+\.\d+\.\d+$/.test(version)) throw new TypeError("git host: not a release version");
+      await gh("release", "create", version, "--target", commit(sha, "sha"), "--title", version, "--notes", String(notes).slice(0, 20000));
+    },
     /** Merges the pull request only while its head is still this commit. */
     async merge({ number, sha }) {
       await gh("pr", "merge", prNumber(number), "--merge", "--match-head-commit", commit(sha, "sha"));
