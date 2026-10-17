@@ -1,11 +1,11 @@
 > [!WARNING]
-> **Work in progress.** Dim Sum Dev is built for one person's workflow (mine), and the agents in it rebuild it every day.
+> **Work in progress.** DimSumDev is built for one person's workflow (mine), and the agents in it rebuild it every day.
 > Expect breaking changes: keys that move, panels that get redrawn, features that come and go without notice.
 > If it's close to what you want, fork it and bend it into what you need.
 
 <div align="center">
 
-# 🥟 Dim Sum Dev
+# 🥟 DimSumDev
 
 **A local control room where a small team of AI agents builds software, and you sit at the Pass.**
 
@@ -24,9 +24,11 @@ and show up as plush pandas in a 3D bamboo garden, around Bao, so you can see wh
 npm ci && npm run ui    # then open http://127.0.0.1:4317/?demo=den
 ```
 
-![The den in Demo mode: the bamboo garden with Bao at the center, agents at their pavilions, and your desk beside it](docs/images/den-demo.jpg)
+[![DimSumDev: a living world for your AI dev team, showing the global garden view and your desk](docs/images/dimsumdev-preview.png)](docs/videos/dimsumdev-linkedin.mp4)
 
-*The den in Demo mode (`?demo=den`), captured from the running app.*
+**[Watch the 18-second demo](docs/videos/dimsumdev-linkedin.mp4)** · Global view → agent conversation → enter the den.
+
+*Captured from the running app in Demo mode (`?demo=den`). The preview uses the demo's recorded and staged events; steering actions are disabled.*
 
 </div>
 
@@ -82,6 +84,17 @@ npm run next-session            # prints the command to resume from the latest h
 
 ## Controls
 
+| Visit an agent | Enter the den |
+| --- | --- |
+| ![DimSumDev agent view: a developer panda at Steamers with its tool calls and message exchange open at your desk](docs/images/dimsumdev-agents.png) | ![DimSumDev first-person view: visiting the pandas at the Steamers workstations after touring the tea garden and Bao's courtyard](docs/images/dimsumdev-walk.png) |
+
+<details>
+<summary>Preview the first-person view</summary>
+
+![A first-person tour past the tea garden, Bao's courtyard and the Steamers workstations](docs/images/dimsumdev-walk.gif)
+
+</details>
+
 | Key | Action |
 | --- | --- |
 | Enter the den | Enter walk mode (the on-screen W A S D pad works on touch screens) |
@@ -117,9 +130,9 @@ npm run next-session            # prints the command to resume from the latest h
 
 - **Agents from the den.** Press T beside a resident panda that has no agent and type a task. The bridge writes a ticket under `.scratch/den/` and starts that role's Claude Code agent in its own git worktree. Its tool calls, permission requests, final reply and cost show on the panda's card, and you can message it while it works. A permission request also shows in the Needs you card and in the transcript, with Deny and Allow ([ADR 0016](docs/adr/0016-ui-steering-channel.md)).
 
-  ![Demo mode in the garden: agents work at their pavilions while their permission requests come and go in Needs you](docs/images/den-garden.gif)
+  ![DimSumDev in motion: the global garden view, opening a developer panda's conversation, and walking through the den](docs/images/dimsumdev-preview.gif)
 
-  *Demo mode in the running app, zooming from the whole den to a station and a panda. The scout's tool calls and permission requests are a recorded live run; the developer and qa agents are staged. Allow and Deny are greyed in Demo mode.*
+  *Demo mode in the running app, moving from the global view to a developer's card and conversation, then taking a first-person tour past the tea garden, Bao's courtyard and Steamers. The scout's events are from a recorded run; the developer and qa storylines are staged. Steering actions are disabled. [Download the MP4 with captions and an original soundtrack](docs/videos/dimsumdev-linkedin.mp4).*
 
 - **Delivery from the den.** Deliver on a ticket runs the developer, qa's verify, the scripted checks and, on a hit, security; then the bridge pushes, opens the PR and merges on green checks ([ADR 0024](docs/adr/0024-delivery-jobs.md)). A change to the bridge, a guardrail or CI is left for you to merge.
 - **Meetings.** Ask up to six specialists for one take each; Bao then writes a decision brief with two or three options, and choosing one writes a ticket for your approval ([ADR 0017](docs/adr/0017-meetings-and-decision-briefs.md)).
@@ -148,6 +161,17 @@ npm run board -- status <feature>/<NN-slug>
 ```
 
 Layout: `apps/ui` (React + React Three Fiber, built by Vite, the only build step), `apps/bridge` (localhost server), `apps/organism-infra` (the board CLI), `apps/ci-cd` (dev server and smoke checks), `scripts/` (relay tooling). Everything else is Node ESM run with `node --test`.
+
+### Refresh the README media
+
+With the existing Playwright Chromium and `ffmpeg` / `ffprobe` installed:
+
+```sh
+PW_GPU=1 DISPLAY=:0 node scripts/capture-readme.mjs   # WSL GPU; omit these variables for headless capture
+node scripts/render-readme-media.mjs
+```
+
+The capture runs an isolated Vite server with local responses for bridge reads. It uses the demo fixture, opens a panda's conversation, and walks through the garden without launching agents. Screenshots and GIFs go to `docs/images/`; the 18-second, 1920 × 1080 H.264/AAC video goes to `docs/videos/dimsumdev-linkedin.mp4`. Temporary footage stays under the system temp directory. The video includes captions for muted playback and an original synthesized soundtrack.
 
 ### Claude Code settings
 
