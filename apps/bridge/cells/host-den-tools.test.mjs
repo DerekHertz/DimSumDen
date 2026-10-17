@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { makeBridge, until, DISPATCH_REF, FEATURE, send } from "./host-test-helpers.mjs";
+import { GOAL_KEY } from "../bridge-fixture.mjs";
 import { parseCatalog } from "../library/catalog.mjs";
 import { createLibrary } from "../library/library.mjs";
 
@@ -77,9 +78,9 @@ describe("Bao's den tools", () => {
   const BATCH = {
     feature: FEATURE,
     tickets: [
-      { title: "Outcome 6 design: target worktrees", text: `## What to decide\n\nWhere worktrees live.${AC}`, priority: "P1", type: "design question" },
-      { title: "Outcome 6 slice 1: clean start", text: `## What to build\n\nThe adapter.${AC}`, priority: "P1", type: "feature", blockedBy: [1] },
-      { title: "Outcome 6 slice 2: two roots", text: `## What to build\n\nTwo roots.${AC}`, type: "feature", blockedBy: [1, DISPATCH_REF], slug: "two-roots" },
+      { title: "Outcome 6 design: target worktrees", text: `## What to decide\n\nWhere worktrees live.${AC}`, priority: "P1", type: "design question", goal: GOAL_KEY },
+      { title: "Outcome 6 slice 1: clean start", text: `## What to build\n\nThe adapter.${AC}`, priority: "P1", type: "feature", blockedBy: [1], goal: GOAL_KEY },
+      { title: "Outcome 6 slice 2: two roots", text: `## What to build\n\nTwo roots.${AC}`, type: "feature", blockedBy: [1, DISPATCH_REF], slug: "two-roots", goal: GOAL_KEY },
     ],
   };
   async function allow(run, input, requestId = "r-1") {
@@ -112,6 +113,7 @@ describe("Bao's den tools", () => {
     assert.match(slice2, new RegExp(`^\\*\\*Blocked by:\\*\\* ${refs[0]}, ${DISPATCH_REF}$`, "m"));
     for (const md of [design, slice1, slice2]) {
       assert.match(md, /^\*\*Status:\*\* ready-for-human$/m);
+      assert.match(md, new RegExp(`^\\*\\*Goal:\\*\\* ${GOAL_KEY}$`, "m"), "den-mvp/61: the ticket names its goal");
       assert.doesNotMatch(md, /quoted as its author wrote it|The request above is done/);
     }
     assert.equal((await tool("board_file", BATCH)).status, 403, "the allow was used up");
@@ -129,11 +131,40 @@ describe("Bao's den tools", () => {
       { ...BATCH, tickets: [{ ...BATCH.tickets[0], text: `hi \u001b[2J \u202e${AC}` }] },
     ];
     for (const [i, call] of bad.entries()) {
-      await allow(run, call, `r-${i}`);
+      // F34: a batch the bridge would refuse is denied with the reason when it asks, so the user is never asked for it.
+      run.emit({ type: "permission-request", requestId: `r-${i}`, tool: "mcp__den__board_file", input: call });
+      const denied = await until(() => run.decisions.find((d) => d.requestId === `r-${i}`), { what: `the answer to r-${i}` });
+      assert.equal(denied.allow, false, JSON.stringify(call));
+      assert.ok(denied.reason, "the denial says why");
       const res = await tool("board_file", call);
       assert.equal(res.status, 400, JSON.stringify(call));
     }
+    assert.equal((await t.state()).approvals.filter((a) => a.tool === "mcp__den__board_file").length, 0, "no bad batch became an ask");
     assert.deepEqual(await issues(), before);
+  });
+
+  test("a feature with no issues folder, a body over 8 KB, and a missing or unknown goal are denied at the ask, with the rule", async () => {
+    const { run } = await desk();
+    const cases = [
+      [{ ...BATCH, feature: "no-such-feature" }, /issues folder/],
+      [{ ...BATCH, tickets: [{ ...BATCH.tickets[0], text: `${"x".repeat(8193)}${AC}` }] }, /8192 bytes/],
+      [{ ...BATCH, tickets: [{ ...BATCH.tickets[0], goal: undefined }] }, new RegExp(`goal must be one of: ${GOAL_KEY}`)],
+      [{ ...BATCH, tickets: [{ ...BATCH.tickets[0], goal: "nope" }] }, new RegExp(`goal must be one of: ${GOAL_KEY}`)],
+    ];
+    for (const [i, [call, rule]] of cases.entries()) {
+      run.emit({ type: "permission-request", requestId: `big-${i}`, tool: "mcp__den__board_file", input: call });
+      const denied = await until(() => run.decisions.find((d) => d.requestId === `big-${i}`), { what: `the answer to big-${i}` });
+      assert.equal(denied.allow, false);
+      assert.match(denied.reason, rule);
+    }
+  });
+
+  test("a ticket body past the 2 KB message cap is filed", async () => {
+    const { run, tool } = await desk();
+    const call = { feature: FEATURE, tickets: [{ title: "A long design ticket", text: `## What to decide\n\n${"Detail. ".repeat(500)}${AC}`, goal: GOAL_KEY }] };
+    await allow(run, call);
+    const res = await tool("board_file", call);
+    assert.equal(res.status, 200, res.text);
   });
 
   test("start_delivery is refused without the user's allow", async () => {

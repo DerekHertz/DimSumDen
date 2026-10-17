@@ -97,7 +97,7 @@ const NO_CONNECTIONS = parseCatalog({ connections: [] });
 
 // den-mvp outcome 4: `library` is the catalog of connections and its record (library/library.mjs). Without one, an agent is
 // started with no connection and every connection tool is refused.
-export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], openDesk = async () => {}, onChange = () => {}, recordRun = async () => {}, onEnd = async () => {}, library = createLibrary({ catalog: NO_CONNECTIONS }) }) {
+export function createHost({ root, projects: projectsOption, runtime, policy = {}, bridgeUrl = () => null, readUsage = async () => null, checkGate = async () => "ok", lockedRefs = async () => [], openDesk = async () => {}, checkCall = () => null, onChange = () => {}, recordRun = async () => {}, onEnd = async () => {}, library = createLibrary({ catalog: NO_CONNECTIONS }) }) {
   const maxConcurrent = Math.min(policy.maxConcurrent ?? MAX_CONCURRENT_AGENTS, SESSION_CAP);
   const sessionCap = Math.min(policy.sessionCap ?? SESSION_CAP, SESSION_CAP);
   const graceMs = policy.killGraceMs ?? KILL_GRACE_MS;
@@ -106,6 +106,12 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
   const sessions = createSessions(root);
   const conversations = createConversations(root);
   const workspaces = createWorkspaces(root);
+  // den-mvp/49: the roots a run can be made under. Without a registry (a host test, `createHost({ root })`) the den is the only one.
+  const controlHandle = { slug: "den", root, control: root, workspaces };
+  const projects = projectsOption ?? { active: async () => "den", get: async (slug) => (slug === "den" ? controlHandle : null) };
+  // A run's project, fixed when it starts: a desk, meeting or orchestrator run is the den's; any other takes the active project.
+  const isControl = (a) => a.role === "orchestrator" || a.ref === DESK_REF || Boolean(a.meeting);
+  const workspacesOf = async (slug) => (slug === undefined || slug === "den" ? workspaces : (await projects.get(slug))?.workspaces ?? null);
   const agents = new Map(); // id -> record; insertion order is snapshot order
   const liveByRef = new Map(); // ref -> record, for every reserved or running agent
   const pending = new Set(); // spawns in flight
@@ -116,7 +122,7 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
   const view = (a) => ({
     id: a.id, ref: a.ref, role: a.role, mode: a.mode, runtime: a.runtimeId, sessionId: a.sessionId, state: a.state,
     startedAt: a.startedAt, lastEventAt: a.lastEventAt, tool: a.tool, tokens: a.tokens, capabilities: a.capabilities,
-    resume: a.resume, reason: a.reason, worktree: a.worktree ?? null, branch: a.branch ?? null,
+    resume: a.resume, reason: a.reason, project: a.project ?? "den", worktree: a.worktree ?? null, branch: a.branch ?? null,
     model: a.model ?? null, usage: a.usage ?? null, costUsd: a.costUsd ?? null, reply: a.reply ?? null, durationMs: a.durationMs ?? null,
     resumeOf: a.resumeOf ?? null, followUp: canContinue(a) && END_STATES.includes(a.state),
     wall: wallView(a),
@@ -292,7 +298,7 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
         state: h.state, startedAt: h.startedAt, lastEventAt: h.endedAt ?? h.startedAt, tool: null, tokens: null,
         capabilities: { stop: false, approve: false, send: false, handover: runtime?.capabilities?.handover === true },
         resume: resumeFor(h.sessionId), reason: h.reason, worktree: h.worktree, branch: h.branch, proc: null,
-        ...(h.origin ? { origin: h.origin, resumeOf: h.resumeOf } : {}),
+        ...(h.origin ? { origin: h.origin, resumeOf: h.resumeOf } : {}), ...(h.project ? { project: h.project } : {}),
         model: h.model, usage: h.usage, costUsd: h.costUsd, durationMs: h.durationMs,
       });
     }
@@ -506,6 +512,23 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
     // den-mvp outcome 2: a follow-up run reopens the worktree its session ran in; nothing is created, and a cleanup below
     // never removes it.
     let workspace;
+    let project;
+    try {
+      project = await projects.get(agent.project ?? (isControl(agent) ? "den" : await projects.active()));
+    } catch {
+      project = null;
+    }
+    if (!project) {
+      liveByRef.delete(agent.ref);
+      return agent.resumeOf ? refuse(409, "the earlier run's project is no longer onboarded; start a new task instead") : refuse(409, "the active project is not ready; check it with den:project");
+    }
+    // den-mvp/49: a delivery run (a resume included) is the control checkout's work until delivery carries a project.
+    if (agent.delivery && project.slug !== "den") {
+      liveByRef.delete(agent.ref);
+      return refuse(409, "Deliver runs on the den project only, for now; switch the active project to the den first");
+    }
+    agent.project = project.slug;
+    const workspaces = project.workspaces; // this run's root, whatever the active project becomes later
     try {
       workspace = agent.resumeOf
         ? await workspaces.reopen({ ref: agent.ref, agentId: agent.id, origin: agent.origin, catchUp: agent.ref === DESK_REF })
@@ -518,6 +541,8 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
     agent.worktree = workspace.worktree;
     agent.branch = workspace.branch;
     agent.workspace = workspace;
+    // den-mvp/23: every run records the commit it started at, so its end can say whether it committed anything.
+    if (!agent.delivery) agent.startSha = await workspaces.head(workspace).catch(() => null);
     // A delivery step's worktree is at the commit the bridge named, and a fix round finds the review's findings in it.
     if (agent.delivery) {
       try {
@@ -547,7 +572,7 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
     // agent-os/09 (ADR 0021 Amendment 2): every deny target of the main .git must exist before the spawn, or nothing is spawned.
     let mainGit;
     try {
-      ({ mainGit } = await prepareMainGit(root));
+      ({ mainGit } = await prepareMainGit(project.root));
     } catch (err) {
       await workspaces.remove(workspace);
       liveByRef.delete(agent.ref);
@@ -557,11 +582,13 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
     const connections = await library.connectionsFor(agent.role);
     const args = {
       role: agent.role, ...(agent.mode ? { mode: agent.mode } : {}), ref: agent.ref, cwd: workspace.dir, sessionId: agent.sessionId,
-      prompt: agent.followUp ? agent.followUp.text : promptFor(agent), ticketFile: ticketFile(agent.ref), mainGit,
+      prompt: agent.followUp ? agent.followUp.text : promptFor(agent), ticketFile: ticketFile(agent.ref, project.root), mainGit,
+      // den-mvp/49: derived here, from the bridge's own root and the run's project; never from a request. The runtime refuses a spawn without it outside the control checkout.
+      project: { control: project.slug === "den", root: project.root, pluginDir: path.join(root, ".claude") },
       ...(agent.resumeOf ? { resume: true, runId: agent.id, promptId: agent.followUp.messageId } : {}),
       // agent-os/02: data for the adapter, never in the prompt. The main checkout's path rides along so the adapter can deny
       // the governed paths a path grant reaches there.
-      ...(agent.grants.length === 0 ? {} : { grants: agent.grants, root: await realRoot() }),
+      ...(agent.grants.length === 0 ? {} : { grants: agent.grants, root: await realpath(project.root).catch(() => project.root) }),
       // den-mvp outcome 4: the connections the catalog and the role file both give this role; data for the adapter.
       ...(connections.length === 0 ? {} : { connections }),
     };
@@ -598,7 +625,7 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
     agent.finished = watch(agent);
     try {
       await sessions.append({
-        event: "spawn", agentId: agent.id, ref: agent.ref, role: agent.role, sessionId: agent.sessionId, route: routeName, worktree: agent.worktree, branch: agent.branch,
+        event: "spawn", agentId: agent.id, ref: agent.ref, role: agent.role, sessionId: agent.sessionId, route: routeName, project: agent.project, worktree: agent.worktree, branch: agent.branch,
         ...(agent.resumeOf ? { resumeOf: agent.resumeOf, origin: agent.origin } : {}),
       });
     } catch (err) {
@@ -616,7 +643,7 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
   // The prompt is a fixed template over validated fields only; no client string reaches it. A direct agent's task
   // text is in its ticket file (the board is in the main checkout, not in the agent's worktree), so its template
   // names that file by a path built from the bridge's own root and the validated ref.
-  const ticketFile = (ref) => path.join(root, ".scratch", ref.split("/")[0], "issues", `${ref.split("/")[1]}.md`);
+  const ticketFile = (ref, base = root) => path.join(base, ".scratch", ref.split("/")[0], "issues", `${ref.split("/")[1]}.md`);
   const promptFor = (a) =>
     a.ref === DESK_REF
       ? "You are Bao, the orchestrator, at your desk in the den. Read .claude/agents/orchestrator.md for who you are. " +
@@ -624,7 +651,9 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
         "For pull requests, checks and CI logs use the GitHub connection's tools (mcp__github__*): `gh` has no login here. " +
         "Run no board command and change no file: the board is read-only to your shell. Act on the board through the den's tools " +
         "(mcp__den__*): board_resolve (a ticket whose pull request merged), board_comment, board_file (new tickets, for the user to " +
-        "approve; file every ticket of one request in a single call, so the user answers one ask) and start_delivery (a " +
+        "approve; one ticket per outcome, with a review's findings or small fixes in one area as one checklist or a comment on that area's " +
+        "open follow-up ticket; file every ticket of one request in a single call, so the user answers one ask; each names the goal it serves, " +
+        "a key from .scratch/goals.md) and start_delivery (a " +
         "ready-for-agent ticket the user asked you to start). The last two ask the user first. release_propose drafts the next release for the user to approve in the den; you cannot tag or publish. " +
         "Start only what the user asked for; propose anything else in words. The user's message follows."
       : a.meeting
@@ -638,8 +667,14 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
         // Friction log F3: the board is read-only behind the wall, so a direct run does not claim or hand off; its last message is its report.
         `The board is read-only to you: run no board command. Do the work, and end with a short report of what you did and what you checked: that last message is your handoff. ` +
         WORK_TIPS
-      : `You are the ${a.role} cell${a.mode ? ` in ${a.mode} mode` : ""} for ticket ${a.ref}. ` +
-        `Read .claude/agents/${a.role}.md and follow it, then follow the organism-protocol skill: claim the ticket, do the work, hand off.`;
+      : `You are the ${a.role} cell${a.mode ? ` in ${a.mode} mode` : ""} for ticket ${a.ref}. The user started this run from the den. ` +
+        `Read .claude/agents/${a.role}.md and follow it. The ticket is the file ${ticketFile(a.ref)}. ` +
+        // den-mvp/23: the board is read-only behind the wall, and the bridge already keeps one live agent per ticket, so a
+        // Run does not claim or hand off through the board (as F3 settled for direct runs); its last message is its report.
+        `The board is read-only to you: run no board command, and do not stop because you cannot claim; the den already ` +
+        `holds this ticket for you. Do the work in your worktree and commit it there (stage files by name), so the den can ` +
+        `publish your branch; end with a short report of what you did and what you ` +
+        `checked: that last message is your handoff.`;
 
   // Consume the process's events, then finalise once it has exited (and its event stream has drained).
   async function watch(agent) {
@@ -658,11 +693,15 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
     // agent-os/09: the agent committed on a detached HEAD; the bridge, not the agent, creates its branch at the final commit.
     if (agent.workspace) {
       // A follow-up that committed nothing publishes nothing, and then has no branch to name.
-      const published = await workspaces.publish(agent.workspace).catch((err) => console.error(`bridge: could not create the branch ${agent.branch}: ${err?.message ?? err}`));
+      const published = await (await workspacesOf(agent.project)).publish(agent.workspace).catch((err) => console.error(`bridge: could not create the branch ${agent.branch}: ${err?.message ?? err}`));
       if (published === null) agent.branch = null;
       agent.sha = published?.sha ?? (published === null ? agent.startSha ?? null : null);
     }
     finalize(agent);
+    // den-mvp/43: a meeting take has no follow-up, so its worktree goes with it; unsaved work is kept on a wip/ branch.
+    if (agent.meeting && agent.workspace && !agent.workspace.reopened && agent.ref !== DESK_REF) {
+      await (await workspacesOf(agent.project)).retire({ ref: agent.ref, agentId: agent.id }).catch((err) => console.error(`bridge: could not remove the worktree of ${agent.id}: ${err?.message ?? err}`));
+    }
     // The run record (den-v1 loop S4): on the end line, then as one ledger row. Neither write can undo the end.
     const run = {
       agentId: agent.id, ref: agent.ref, role: agent.role, mode: agent.mode ?? null, state: agent.state, reason: agent.reason ?? null,
@@ -789,6 +828,12 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
           Promise.resolve(agent.proc.decide(event.requestId, verdict.kind === "allow" ? { allow: true } : { allow: false, reason: verdict.reason })).catch(() => {});
           return touch(agent);
         }
+      }
+      // F34: a den call the bridge would refuse anyway is denied now with its reason, and never asks the user.
+      const unfit = typeof event.tool === "string" && event.tool.startsWith("mcp__den__") ? checkCall(event.tool, event.input) : null;
+      if (unfit) {
+        Promise.resolve(agent.proc.decide(event.requestId, { allow: false, reason: `Refused before asking the user: ${unfit}` })).catch(() => {});
+        return touch(agent);
       }
       approvals.hold(agent.id, event, { accepting: !agent.stopRequested && !shuttingDown, says: agent.said ?? null });
       return;
@@ -1081,7 +1126,7 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
     const messageId = randomUUID();
     const agent = newAgent({
       ref: prev.ref, role: prev.role, mode: prev.mode ?? null, grants, sessionId: prev.sessionId,
-      resumeOf: prev.id, origin: prev.origin ?? prev.id, followUp: { text, messageId },
+      resumeOf: prev.id, origin: prev.origin ?? prev.id, project: prev.project ?? "den", followUp: { text, messageId },
     });
     const started = await launch(agent, CONVERSE_ROUTE, usage === null);
     if (!started.ok) return started;
@@ -1132,6 +1177,8 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
     dispatch: (input) => admit(input, { entry: "dispatch" }),
     start: (input) => admit(input, { entry: "start" }),
     direct,
+    // den-mvp/43: a finished delivery asks for the worktrees of its runs to go (Bao's desk never does).
+    retire: async ({ ref, agentId, merged }) => (ref === DESK_REF ? { removed: false, saved: null } : ((await workspacesOf(agents.get(agentId)?.project)) ?? workspaces).retire({ ref, agentId, merged })),
     stop,
     message: (id, body) => message(id, body),
     cancel,
@@ -1141,6 +1188,8 @@ export function createHost({ root, runtime, policy = {}, bridgeUrl = () => null,
     conversation: (role, page) => (typeof role === "string" && ROLES.includes(role) ? conversations.read(role, page) : Promise.resolve(null)),
     shutdown,
     killAllSync,
+    // den-mvp/49: what the project switch looks at: each run's project and whether it is the den's own (desk, meeting, orchestrator).
+    projectRuns: () => [...agents.values()].map((a) => ({ id: a.id, role: a.role, ref: a.ref, state: a.state, project: a.project ?? "den", control: isControl(a) })),
     snapshot: () => [...agents.values()].map(view),
     capacity: capacityNow, // (lockedRefs) -> the capacity key the hub puts in the snapshot
     approvals: () => approvals.list(),

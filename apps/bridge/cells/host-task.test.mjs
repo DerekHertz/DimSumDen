@@ -64,7 +64,7 @@ describe("POST /tasks starts a role on a ticket the route writes", () => {
     const res = await t.post("/tasks", { role: "architect", text: TEXT });
     assert.equal(res.status, 201, res.text);
     const { args } = t.fake.spawns[0];
-    assert.deepEqual(Object.keys(args).sort(), ["cwd", "mainGit", "mode", "prompt", "ref", "role", "sessionId", "ticketFile"]);
+    assert.deepEqual(Object.keys(args).sort(), ["cwd", "mainGit", "mode", "project", "prompt", "ref", "role", "sessionId", "ticketFile"]);
     // den-v1 loop, the ticket read: the runtime is told which file the agent's ticket is, a path the bridge built.
     assert.equal(args.ticketFile, path.join(issuesDir(t.fx.root), "01-architect.md"));
     for (const probe of ["steamer", "chipped", "Count"]) {
@@ -82,6 +82,18 @@ describe("POST /tasks starts a role on a ticket the route writes", () => {
         WORK_TIPS,
     );
     assert.doesNotMatch(args.prompt, /claim the ticket/, "the wall makes the board read-only: a direct run is not told to claim (friction F3)");
+  });
+
+  test("den-mvp/23: Run on a ticket is not told to claim either: the board is read-only behind the wall", async () => {
+    t = await makeBridge();
+    const res = await t.post("/agents", { ref: DISPATCH_REF, role: "architect" });
+    assert.equal(res.status, 201, res.text);
+    const { args } = t.fake.spawns[0];
+    assert.doesNotMatch(args.prompt, /claim the ticket|organism-protocol skill: claim/, "57's architect stopped on EROFS claiming");
+    assert.match(args.prompt, /The board is read-only to you: run no board command/);
+    assert.match(args.prompt, new RegExp(`for ticket ${DISPATCH_REF}`));
+    assert.match(args.prompt, /that last message is your handoff/);
+    assert.match(args.prompt, /commit it there/, "the den publishes a branch only for committed work");
   });
 
   test("every role may be started, relay-hop roles included, and each task gets the next number", async () => {

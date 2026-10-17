@@ -14,7 +14,7 @@ const SRC = join(UI, "src");
 const PUBLIC = join(UI, "public");
 const ROOT = resolve(UI, "..", "..");
 const ENTRY = join(SRC, "main.jsx");
-const CODE_EXT = new Set([".js", ".jsx", ".mjs", ".css"]);
+const CODE_EXT = new Set([".js", ".jsx", ".mjs", ".css", ".json"]);
 const isTest = (f) => /\.test\.mjs$/.test(f);
 
 function walk(dir) {
@@ -51,7 +51,7 @@ function referencedFiles(file) {
     const r = resolveSpec(file, m[1]);
     if (r) found.add(r);
   }
-  const abs = text.matchAll(/["'`(](\/(?:models|textures|assets|fonts)\/[^"'`)\s]+)["'`)]/g);
+  const abs = text.matchAll(/["'`(](\/(?:den|models|textures|assets|fonts)\/[^"'`)\s]+)["'`)]/g);
   for (const m of abs) {
     const p = join(PUBLIC, m[1]);
     if (existsSync(p) && statSync(p).isFile()) found.add(p);
@@ -82,17 +82,17 @@ function reachableFromEntry() {
 
 // den-layout/02: PR #162's restaurant scene replaces the procedural Den.jsx. The ported scene and review
 // modules are reached from main.jsx (whatever component hosts them), and the old den renderer is not.
-test("the walker sees the live frontend: main.jsx reaches the ported restaurant scene and not the old den", () => {
+test("the live frontend reaches the native Meshy world and its local model manifest", () => {
   const reach = reachableFromEntry();
   const names = [...reach].map(rel);
   assert.ok(names.includes("apps/ui/src/App.jsx"), "App.jsx is reachable");
   assert.ok(names.includes("apps/ui/src/scene/scene-from-state.mjs"), "scene-from-state is reachable");
   const ported = [
-    "apps/ui/src/scene/procedural/den-scene.mjs",
-    "apps/ui/src/scene/procedural/restaurant.mjs",
-    "apps/ui/src/review/agents.mjs",
-    "apps/ui/src/review/site-plan.mjs",
-    "apps/ui/src/scene/expansion/base-assets.mjs",
+    "apps/ui/src/scene/meshy/MeshyDen.jsx",
+    "apps/ui/src/scene/meshy/world.mjs",
+    "apps/ui/src/scene/meshy/actors.mjs",
+    "apps/ui/src/scene/meshy/navigation.mjs",
+    "apps/ui/public/den/manifest.json",
   ];
   const unreached = ported.filter((p) => !names.includes(p));
   assert.deepEqual(unreached, [], "ported modules main.jsx does not reach");
@@ -101,6 +101,7 @@ test("the walker sees the live frontend: main.jsx reaches the ported restaurant 
     .map((n) => `apps/ui/src/review/${n}.mjs`).filter((p) => existsSync(join(ROOT, p)));
   assert.deepEqual(goneWithTheOldDen, [], "old den modules are removed");
   assert.ok(!names.includes("apps/ui/src/scene/procedural/Den.jsx"), "the old procedural Den.jsx must not be reachable (no path renders the old den)");
+  assert.ok(!names.includes("apps/ui/src/scene/procedural/RestaurantDen.jsx"), "the replaced scene is not bundled");
 });
 
 test("no file under apps/ui/src or apps/ui/public is unreachable from main.jsx, except tests of reachable modules", () => {
@@ -109,7 +110,6 @@ test("no file under apps/ui/src or apps/ui/public is unreachable from main.jsx, 
   const tests = all.filter((f) => isTest(f));
 
   // A fixture or helper is test support; any other unreachable module is dead code.
-  const isSupport = (f) => /(fixtures?|helpers?)[.\-]/.test(f.split("/").pop()) || /(fixtures?|helpers?)\.[a-z]+$/.test(f);
 
   // A test is kept when it names at least one reachable module, or when it mounts
   // the live App through the vite config. (A test that still names a deleted
@@ -121,10 +121,14 @@ test("no file under apps/ui/src or apps/ui/public is unreachable from main.jsx, 
     }),
   );
 
-  // Fixtures and helpers are kept when a kept test names them.
+  // Tests may retain reference scene implementations for regression comparisons.
+  // Follow their dependency graph too; none of these modules enters the UI bundle.
   const keptHelpers = new Set();
-  for (const t of keptTests) {
-    for (const r of referencedFiles(t)) if (!reach.has(r) && isSupport(r)) keptHelpers.add(r);
+  const queue = [...keptTests];
+  while (queue.length) {
+    for (const r of referencedFiles(queue.pop())) if (!reach.has(r) && !keptHelpers.has(r)) {
+      keptHelpers.add(r); queue.push(r);
+    }
   }
 
   const orphans = all
@@ -167,7 +171,7 @@ test("the market scene modules are gone", () => {
   assert.deepEqual(present, []);
 });
 
-test("no .glb remains in the repo outside .scratch/", () => {
+test("all shipped model files belong to the audited Den manifest", () => {
   const tracked = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
     cwd: ROOT,
     encoding: "utf8",
@@ -176,8 +180,13 @@ test("no .glb remains in the repo outside .scratch/", () => {
     .split("\0")
     .filter(Boolean)
     .filter((p) => existsSync(join(ROOT, p)));
-  const glbs = tracked.filter((p) => /\.glb$/i.test(p) && !p.startsWith(".scratch/"));
-  assert.deepEqual(glbs, []);
+  const manifest = JSON.parse(readFileSync(join(PUBLIC, 'den/manifest.json'), 'utf8'));
+  const declared = new Set(Object.values(manifest.assets).map(a => `apps/ui/public${a.url}`));
+  const glbs = tracked.filter((p) => /\.glb(?:\.gz)?$/i.test(p) && !p.startsWith(".scratch/"));
+  assert.deepEqual(glbs.filter(p => !declared.has(p)), []);
+  assert.equal(declared.size, 22);
+  assert.ok(!Object.keys(manifest.assets).some(key=>key.startsWith('scenery.')), 'structures are authored as lightweight Three.js geometry');
+  for (const p of declared) assert.ok(existsSync(join(ROOT, p)), `packaged asset exists: ${p}`);
 });
 
 test("apps/ui/public/models holds no glbs or textures", () => {

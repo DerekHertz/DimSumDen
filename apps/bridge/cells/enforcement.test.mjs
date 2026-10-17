@@ -152,10 +152,10 @@ describe("credential stores are closed to every role", () => {
 });
 
 describe("a grant cannot reopen a credential store", () => {
-  const TOUCHING = ["~/.aws", "~/.aws/credentials", "~/.codex", "~/.kube/config", "~/.gnupg", "~/.docker", "~/.netrc", "~/.npmrc", "~/.claude.json", "~/.AWS"];
+  const TOUCHING = ["~/.aws", "~/.aws/credentials", "~/.codex", "~/.kube/config", "~/.gnupg", "~/.docker", "~/.netrc", "~/.npmrc", "~/.claude.json", "~/.AWS", "~/.local/state/den/projects.json", "~/.local/state/den"];
 
   test("the ceiling compiler refuses a path grant on, under or above a store, in either form", () => {
-    for (const value of [...TOUCHING, "/home/u/.aws", "/home/u/.codex", "/home/u/.kube/config"]) {
+    for (const value of [...TOUCHING, "/home/u/.aws", "/home/u/.codex", "/home/u/.kube/config", "/home/u/.local/state/den/projects.json"]) {
       assert.throws(() => compileCeiling("developer", { worktree: WT, home: "/home/u", root: "/home/u/den", grants: [{ kind: "path", value }] }), /may not reach a credential store/, value);
     }
     for (const value of ["~/projects/data", "/home/u/projects/data", "/srv/data", "~/.awsome"]) {

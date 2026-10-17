@@ -95,7 +95,7 @@ test("bad input is refused and writes nothing", async () => {
       { feature: "../den" }, { feature: "Den" }, { feature: "" },
       { slug: "-scout" }, { slug: "a/b" }, { slug: "Scout" }, { slug: "" }, { slug: "s".repeat(80) },
       { title: "two\nlines" }, { title: "" }, { title: "t".repeat(200) },
-      { text: "" }, { text: "   \n " }, { text: 7 }, { text: "x".repeat(4001) },
+      { text: "" }, { text: "   \n " }, { text: 7 }, { text: "x".repeat(8193) },
       { priority: "P9" }, { source: "den\n**Status:** resolved" },
     ];
     for (const over of bad) {

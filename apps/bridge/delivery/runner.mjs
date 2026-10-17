@@ -15,6 +15,7 @@
 //   it skips them, and GitHub CI alone decides.
 //   host: { start(input), stop(agentId) }    board: delivery/board.mjs    git: delivery/git-host.mjs    log: delivery/jobs.mjs
 //   readTicket(ref) -> { title, type, frontier } | null, from the board as the bridge reads it
+//   activeProject() -> slug (den-mvp/49): delivery is the control checkout's, so a start is refused while another project is active
 // The route answers are { ok: true, status, delivery } or { ok: false, status, error }.
 import { randomBytes } from "node:crypto";
 import { hasSecret } from "../../../scripts/exposure.mjs";
@@ -49,6 +50,17 @@ const quoteOutput = (text) =>
   String(text ?? "").replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "").replace(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, " ")
     .split("\n").map((l) => l.trimEnd()).filter(Boolean).slice(-40).map((l) => `    ${l.slice(0, 300)}`).join("\n");
 
+// F29: what a merge-main round reads in .den/findings.md.
+export function syncFindings(main, conflicts) {
+  return [
+    `Your branch no longer merges cleanly with main (${main.slice(0, 12)}). Nothing is wrong with your work: main moved. These files conflict:`,
+    "",
+    ...conflicts.map((f) => `- ${f}`),
+    "",
+    `Merge main into your branch: run \`git merge ${main}\`, resolve each conflict so both sides keep what they meant, run the tests that cover those files, and commit the merge. Change nothing else.`,
+  ].join("\n");
+}
+
 // den-mvp/34: what a fix round after a red local run reads in .den/findings.md. Everything below the first paragraph is
 // the commit's own test output: each name is cleaned to one line, each output is indented (it cannot close a fence or
 // pass for a heading), cut to its last lines, and masked when it looks like a secret. The note comes first, so a cut at
@@ -68,7 +80,10 @@ const testFindings = (rec) => {
 };
 
 // ciWaitMs: how long the runner waits between looks for a re-run's jobs to replace the timed-out ones (a test seam).
-export function createDelivery({ host, board, git, log, readTicket, onChange = () => {}, build = null, checks = null, ciWaitMs = 15000 }) {
+// den-mvp/49: until delivery carries a project, its claim, handoffs, push, PR and merge are the control checkout's.
+export const DEN_ONLY = "Deliver runs on the den project only, for now; switch the active project to the den first";
+
+export function createDelivery({ host, board, git, log, readTicket, activeProject = async () => "den", onChange = () => {}, build = null, checks = null, ciWaitMs = 15000 }) {
   const jobs = new Map(); // id -> job; insertion order is snapshot order
   let mergeChain = Promise.resolve(); // merges go one at a time
   // The preview that is open for the job's candidate: { url, sha } | null.
@@ -175,6 +190,7 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     if (typeof ref !== "string" || !REF_RE.test(ref)) return refuse(400, "ref must look like <feature>/<NN>-<slug>");
     await ready;
     if (closing) return refuse(503, "the bridge is shutting down");
+    if ((await activeProject()) !== "den") return refuse(409, DEN_ONLY);
     const ticket = await readTicket(ref);
     if (!ticket) return refuse(404, "no such ticket");
     if (!DELIVERABLE_TYPES.includes(ticket.type)) return refuse(409, `a ${ticket.type || "ticket of this type"} is not delivered as software; start its role directly`);
@@ -218,6 +234,7 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
         else if (next.kind === "tests") await localTests(job, gen);
         else if (next.kind === "preview") await preview(job, gen);
         else if (next.kind === "go-live") await goLive(job, gen);
+        else if (next.kind === "sync") await syncMain(job, gen, next.at ?? "push");
         else if (next.kind === "publish") await publish(job, gen);
         else if (next.kind === "ci") await watchChecks(job, gen);
         else if (next.kind === "ci-rerun") await rerunChecks(job, gen);
@@ -241,6 +258,8 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
       return pause(job, kind, started.error, kind === "no-room" ? "It starts by itself when a run ends, or on Resume." : "Resume once that has changed.");
     }
     job.live = { runId: started.agent.id, role, mode: mode ?? null };
+    // F29: a merge-main round. Its main becomes the job's base once the developer's commit contains it.
+    if (next.sync) { job.syncRounds = (job.syncRounds ?? 0) + 1; job.syncTarget = next.sync; }
     job.note = null; // the run has it
     job.step = role;
     job.claimed = false;
@@ -295,6 +314,9 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
       await build?.close(job.id, { remove: true }).catch(() => {}); // a new commit: a preview of the last one is gone
       job.branch ??= run.branch; // the first developer run names the branch; a fix round moves it forward
       job.findings = null;
+      // F29: the branch now holds the main it merged, so the reviews and the scripted check look only at this work.
+      if (job.syncTarget && (await git.descends({ base: job.syncTarget, sha: run.sha }).catch(() => false))) job.base = job.syncTarget;
+      job.syncTarget = null;
     } else {
       const verdict = readVerdict(run.report);
       if (run.sha !== run.startSha) return giveUp("changed-commit", `the ${role} run changed the commit it was reviewing, so its verdict is not counted`, "Resume to review again.");
@@ -426,6 +448,18 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     ].join("\n");
 
   // The candidate on the remote branch and its pull request. What is already there is found first, so a repeat adds nothing.
+  // F29: merge the candidate with main as a dry run. A conflict hands the developer a merge-main round with the files.
+  async function syncMain(job, gen, at) {
+    const { sha } = job.candidate;
+    still(job, gen);
+    const main = await git.mainSha(); // read-only (a fetch and a dry-run merge), so it needs no entry in the intent log
+    const conflicts = await git.conflicts({ main, sha });
+    if (job.gen !== gen) return;
+    job.evidence.sync = { sha, main, conflicts, at };
+    if (conflicts.length) job.findings = syncFindings(main, conflicts);
+    await save(job);
+  }
+
   async function publish(job, gen) {
     const { sha } = job.candidate;
     let pr = await git.findPr({ branch: job.branch });
@@ -525,6 +559,15 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     job.state = "merged";
     job.step = null;
     await save(job);
+    await retireRuns(job, { merged: true });
+  }
+
+  // den-mvp/43: the delivery has ended, so no fix round or follow-up reopens its worktrees: they and their den/ branches go.
+  // Unsaved work is kept on a wip/ branch by the host. A failure is logged and leaves the leftover to scripts/worktree-gc.mjs.
+  async function retireRuns(job, { merged = false } = {}) {
+    for (const r of job.runs) {
+      await host.retire?.({ ref: job.ref, agentId: r.runId, merged }).catch((err) => console.error(`bridge: could not clean up run ${r.runId}: ${err?.message ?? err}`));
+    }
   }
 
   const find = (id) => (typeof id === "string" && JOB_ID_RE.test(id) ? jobs.get(id) : undefined);
@@ -563,7 +606,8 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     const lost = job.lost;
     job.lost = null;
     job.uncertain = null;
-    job.evidence.pr = job.evidence.ci = null;
+    job.evidence.pr = job.evidence.ci = job.evidence.sync = null;
+    if (job.pause.kind === "conflict") job.syncRounds = 0; // the user's click is one more merge round
     if (job.evidence.tests?.state === "error") job.evidence.tests = null; // a run the box could not make is tried again
     // A red the developer found nothing to fix in (it committed nothing) may have been the environment's: Resume runs the
     // checks again on the same commit instead of sending the developer back to the same red.
@@ -608,6 +652,7 @@ export function createDelivery({ host, board, git, log, readTicket, onChange = (
     await save(job);
     enqueue(job, async () => {
       if (lost && job.claimed) await drop(job, lost.role, "den delivery: closed");
+      await retireRuns(job);
     });
     return { ok: true, status: 200, delivery: view(job) };
   }

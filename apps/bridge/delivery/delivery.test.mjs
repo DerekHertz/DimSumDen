@@ -20,6 +20,8 @@ const REF = `${FEATURE}/08-plain`;
 const git = (dir, ...args) =>
   execFileSync("git", ["-C", dir, "-c", "user.name=fx", "-c", "user.email=fx@example.invalid", "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args], { encoding: "utf8" }).trim();
 
+const worktrees = (root) => git(root, "worktree", "list", "--porcelain").split("\n").filter((l) => l.startsWith("worktree ") && l.includes(".claude/worktrees/")).map((l) => l.slice(9));
+
 // A git host that keeps one pull request in memory. `calls` is every side effect asked of it, in order.
 function fakeGitHost(root) {
   const h = { calls: [], pr: null, remote: null, checks: [{ name: "test", done: true, ok: true }], mergeable: "MERGEABLE", riskResult: { clean: true, hits: [] }, files: null, secret: false, fail: {}, gate: null };
@@ -38,6 +40,8 @@ function fakeGitHost(root) {
     },
     changed: async ({ base, sha }) => h.files ?? git(root, "diff", "--name-only", base, sha).split("\n").filter(Boolean),
     addsSecret: async () => h.secret,
+    // F29: the dry-run merge with main; h.conflicting lists the files it reports.
+    conflicts: async () => h.conflicting ?? [],
     risk: async () => h.riskResult,
     push: async (a) => {
       await call("push", a);
@@ -141,6 +145,9 @@ describe("one approved job, from the den to a merged pull request", () => {
     assert.notEqual(qa.args.cwd, dev.args.cwd);
     assert.match(qa.args.prompt, new RegExp(`git diff ${base}\\.\\.HEAD`));
     assert.equal(t.status(), "in-review");
+    // den-mvp/43: while the delivery is open its worktrees stay (a fix round reopens them).
+    assert.ok(worktrees(t.root).includes(dev.args.cwd), "the developer's worktree survives while the delivery is open");
+    assert.ok(worktrees(t.root).includes(qa.args.cwd));
     const devHandoff = t.handoffs().find((n) => n.startsWith("08-developer-"));
     assert.match(readFileSync(path.join(t.root, ".scratch", FEATURE, "handoffs", devHandoff), "utf8"), /"cell": "developer"[\s\S]*Added feature\.txt\. The tests pass\./);
 
@@ -156,8 +163,17 @@ describe("one approved job, from the den to a merged pull request", () => {
     assert.equal(t.status(), "resolved");
     assert.equal(t.lock(), null);
     assert.deepEqual(done.pr, { number: 7, url: "https://github.com/o/r/pull/7" });
+    // den-mvp/43: a merged delivery's worktrees and den/ branches are gone, and no wip/ branch is made for a clean, merged commit.
+    await until(async () => worktrees(t.root).length === 0, { what: "the worktrees to be removed" });
+    assert.equal(git(t.root, "branch", "--list", "den/*", "wip/*"), "");
     assert.deepEqual(done.evidence, { qa: "pass", security: null, risk: { clean: true, hits: 0, security: false, userMerge: false }, ci: "green", tests: null });
     assert.deepEqual(done.runs.map((r) => [r.role, r.state]), [["developer", "done"], ["qa", "done"]]);
+  });
+
+  test("Bao's desk is never retired by the host", async () => {
+    const t = await setup();
+    const { DESK_REF } = await import("../cells/policy.mjs");
+    assert.deepEqual(await t.bridge.host.retire({ ref: DESK_REF, agentId: "p0-0123456789abcdef", merged: true }), { removed: false, saved: null });
   });
 
   test("a risk hit sends the commit to security before anything is pushed", async () => {
@@ -328,6 +344,61 @@ test("a red pull request from outside the den starts Bao's desk with a message a
   assert.deepEqual(ci.prs.map((p) => [p.number, p.state, p.bao]), [[40, "red", "Bao was told"]]);
 });
 
+describe("a branch that no longer merges with main (F29)", () => {
+  test("the developer merges main before anything is pushed; it is not a bounce, and the base moves to that main", async () => {
+    const t = await setup();
+    await t.start();
+    const base = (await t.job()).base;
+    // While the work is under way, main moves on in a way that conflicts.
+    writeFileSync(path.join(t.root, "elsewhere.txt"), "main moved\n");
+    git(t.root, "add", "-A");
+    git(t.root, "commit", "-q", "-m", "main moves on");
+    const main = git(t.root, "rev-parse", "HEAD");
+    t.git.conflicting = ["feature.txt"];
+    const first = await t.toQaPass();
+
+    const merge = await t.spawn(2);
+    assert.equal(merge.args.role, "developer");
+    assert.equal(git(merge.args.cwd, "rev-parse", "HEAD"), first, "the merge round starts at the candidate");
+    const findings = readFileSync(path.join(merge.args.cwd, ".den", "findings.md"), "utf8");
+    assert.match(findings, /no longer merges cleanly with main/);
+    assert.match(findings, /^- feature\.txt$/m);
+    assert.ok(findings.includes(`git merge ${main}`), "it is told the exact main to merge");
+    assert.deepEqual(t.sideEffects(), [], "a conflicting commit is never pushed");
+
+    git(merge.args.cwd, "merge", "-q", "--no-edit", main);
+    t.git.conflicting = [];
+    const merged = git(merge.args.cwd, "rev-parse", "HEAD");
+    t.work(merge, { say: "Merged main; no conflict left." });
+
+    const qa = await t.spawn(3);
+    assert.deepEqual([qa.args.role, git(qa.args.cwd, "rev-parse", "HEAD")], ["qa", merged], "the merged commit is verified again");
+    t.work(qa, { say: "VERDICT: pass" });
+    const done = await t.when((j) => j.state === "merged", "the delivery to merge");
+    assert.equal(done.bounces, 0, "main moving is not the developer's failure");
+    assert.equal(done.base, main, "the reviews and the scripted check now look only at this work");
+    assert.notEqual(base, main);
+    assert.equal(t.git.calls[0][1].sha, merged);
+  });
+
+  test("a branch that still conflicts after the merge rounds waits for the user; Resume is one more round", async () => {
+    const t = await setup();
+    await t.start();
+    t.git.conflicting = ["feature.txt"];
+    await t.toQaPass();
+    t.work(await t.spawn(2), { commit: "try1.txt", say: "Tried." });
+    t.work(await t.spawn(3), { say: "VERDICT: pass" });
+    t.work(await t.spawn(4), { commit: "try2.txt", say: "Tried again." });
+    t.work(await t.spawn(5), { say: "VERDICT: pass" });
+    const waiting = await t.paused("conflict");
+    assert.match(waiting.pause.reason, /still conflicts with main after 2 merge rounds: feature\.txt/);
+    assert.equal(waiting.bounces, 0);
+    const res = await t.post(`/deliveries/${waiting.id}/resume`, {});
+    assert.equal(res.status, 202);
+    assert.equal((await t.spawn(6)).args.role, "developer", "one more merge round");
+  });
+});
+
 describe("a review that sends the work back", () => {
   test("the developer fixes it from the same commit with the findings, and every check runs again on the new commit", async () => {
     const t = await setup();
@@ -451,6 +522,9 @@ describe("what stops a delivery, and what it leaves", () => {
     assert.equal((await t.post(`/deliveries/${started.id}/close`)).status, 200);
     assert.equal((await t.job()).state, "closed");
     assert.equal((await t.post(`/deliveries/${started.id}/resume`)).status, 409);
+    // den-mvp/43: a closed delivery's worktrees are removed.
+    const listed = async () => execFileSync("git", ["-C", t.root, "worktree", "list", "--porcelain"], { encoding: "utf8" });
+    await until(async () => !(await listed()).includes(".claude/worktrees/"), { what: "the worktrees to be removed" });
   });
 
   test("with no room the delivery waits, and starts by itself when a run ends", async () => {

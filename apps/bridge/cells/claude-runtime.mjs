@@ -6,8 +6,10 @@
 // limits; a kill goes to that group, and a hard limit that is hit ends the run with the limit named.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
-  MAX_LINE_BYTES, buildClaudeArgs, mcpConfigWithTokens, buildClaudeEnv, compileCeiling, createLineSplitter, decodeControlRequest, encodeControlResponse, encodeUserMessage, isTicketFilePath, isWorktreePath,
+  MAX_LINE_BYTES, buildClaudeArgs, readProjectGuide, mcpConfigWithTokens, buildClaudeEnv, compileCeiling, createLineSplitter, decodeControlRequest, encodeControlResponse, encodeUserMessage, isTicketFilePath, isWorktreePath,
   parseClaudeLine, CREDENTIAL_PATHS, webRefusal,
 } from "./claude-adapter.mjs";
 import { snapshotPlaceholders, sweepPlaceholders } from "./placeholders.mjs";
@@ -60,7 +62,15 @@ function withAnswers(input, answers) {
   return { ...input, answers: Object.fromEntries(input.questions.map((q, i) => [q.question, answers[i]])) };
 }
 
-export function createClaudeRuntime({ env = process.env, launcher = createResourceLauncher({ env }) } = {}) {
+// den-mvp/49: the control checkout, from where this module sits; the bridge may pass its own root (a release folder runs from elsewhere).
+const MODULE_CONTROL_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
+
+export function createClaudeRuntime({ env = process.env, launcher = createResourceLauncher({ env }), controlRoot = MODULE_CONTROL_ROOT } = {}) {
+  const control = path.resolve(controlRoot);
+  const insideControl = (dir) => {
+    const rel = path.relative(control, path.resolve(dir));
+    return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+  };
   return {
     id: "claude",
     capabilities: { ...CAPABILITIES },
@@ -74,9 +84,12 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
     // first message an id, and a message-applied event with that id follows once the child takes it.
     // den-mvp outcome 4: `connections` are the catalog's targets for this role; a list the adapter cannot write refuses the spawn.
     // den-mvp/38: `runCredential` ({ url, token }) is what a "run" connection's script is given to call the bridge back.
-    async spawn({ role, cwd, prompt, sessionId, model, ticketFile, grants, root, mainGit, resume, runId, promptId, connections, runCredential } = {}) {
+    async spawn({ role, cwd, prompt, sessionId, model, ticketFile, grants, root, mainGit, resume, runId, promptId, connections, runCredential, project } = {}) {
       if (typeof cwd !== "string" || cwd === "") throw new TypeError("claude runtime: cwd must be a path");
       if (typeof prompt !== "string") throw new TypeError("claude runtime: prompt must be a string");
+      // den-mvp/49: fail closed. A spawn with no project handle is the den's own, so its cwd must be inside the control checkout;
+      // anywhere else it would start with the den's settings loaded from a target's .claude/.
+      if (project === undefined && !insideControl(cwd)) throw new TypeError("claude runtime: a spawn with no project must run inside the control checkout");
       // A ticket path the adapter cannot write as a rule is left out: that agent's ticket read stays a request.
       // agent-os/04: a role with a ceiling starts behind the wall, and a role that writes may write in cwd (its worktree).
       // A cwd the adapter cannot write as a rule keeps the wall and leaves the write rules out: the Write request stays.
@@ -125,7 +138,10 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
       const removeConfig = () => {
         if (mcpConfigFile !== undefined) rmSync(mcpConfigFile, { force: true });
       };
-      const args = buildClaudeArgs({ sessionId, ...(resume === true ? { resume: true } : {}), agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}), ...(ceiling ?? {}), ...(Array.isArray(usable) && usable.length > 0 ? { connections: usable } : {}), ...(mcpConfigFile === undefined ? {} : { mcpConfigFile }) });
+      const args = buildClaudeArgs({ sessionId, ...(resume === true ? { resume: true } : {}), agent: role, ...(model === undefined ? {} : { model }), ...(isTicketFilePath(ticketFile) ? { ticketFile } : {}), ...(ceiling ?? {}), ...(Array.isArray(usable) && usable.length > 0 ? { connections: usable } : {}), ...(mcpConfigFile === undefined ? {} : { mcpConfigFile }), ...(project === undefined ? {} : { project }) });
+      // den-mvp/48: for every project the bridge passes in its CLAUDE.md or AGENTS.md as committed at HEAD of the main checkout.
+      const guide = project === undefined ? null : readProjectGuide(project.root);
+      const guideText = guide === null ? "" : `Project guide (${guide.file}, committed at HEAD):\n\n${guide.text}`;
       const bin = typeof env.DEN_CLAUDE_BIN === "string" && env.DEN_CLAUDE_BIN !== "" ? env.DEN_CLAUDE_BIN : "claude";
       const placeholders = await snapshotPlaceholders({ mainGit, worktree: isWorktreePath(cwd) ? cwd : undefined });
       // The child is inside its resource group, limits read back, before this resolves; a host that cannot do that starts nothing.
@@ -237,7 +253,7 @@ export function createClaudeRuntime({ env = process.env, launcher = createResour
 
       try {
         if (promptId !== undefined) sent.add(promptId);
-        await write(encodeUserMessage({ text: prompt, ...(promptId === undefined ? {} : { id: promptId }) }));
+        await write(encodeUserMessage({ text: guideText === "" ? prompt : `${guideText}\n\n${prompt}`, ...(promptId === undefined ? {} : { id: promptId }) }));
       } catch {
         // the child may already be gone; the host sees it through `exited`
       }

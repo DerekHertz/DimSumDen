@@ -119,6 +119,8 @@ function isForgivableEntry(root, worktreePath, mainTip, entry) {
   if (entry.code !== "??") return false;
   const relPath = entry.filePath.replace(/\\/g, "/");
   if (relPath === ".claude" || relPath.startsWith(".claude/")) return true;
+  // den-mvp/43: every den worktree carries an untracked copy of .agents/skills/; those files are not work.
+  if (relPath === ".agents/skills" || relPath.startsWith(".agents/skills/")) return true;
   let wtBytes;
   try {
     wtBytes = readFileSync(path.join(worktreePath, entry.filePath));

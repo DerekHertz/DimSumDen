@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { nextStep, isCiPath, isUserMergePath, MAX_BOUNCES } from "./plan.mjs";
+import { nextStep, isCiPath, isUserMergePath, MAX_BOUNCES, MAX_SYNC_ROUNDS } from "./plan.mjs";
 import { deliveryPrompt, readLookAt, readVerdict } from "./prompts.mjs";
 import { createJobLog, validateJob } from "./jobs.mjs";
 import { createGitHost } from "./git-host.mjs";
@@ -16,7 +16,10 @@ const BASE = "a".repeat(40), SHA = "b".repeat(40), OLD = "c".repeat(40), RUN = "
 const BRANCH = "den/fx/08-plain-01234567";
 const riskOf = (more = {}) => ({ sha: SHA, clean: true, hits: 0, secret: false, security: false, userMerge: false, ...more });
 const job = (evidence = {}, more = {}) => ({ base: BASE, candidate: { sha: SHA }, bounces: 0, visual: false, evidence, ...more });
-const passed = { qa: { sha: SHA, verdict: "pass" }, risk: riskOf() };
+// F29: before the push the candidate is merged with main (a dry run); a clean result is part of "passed".
+const MAIN = "d".repeat(40);
+const synced = (more = {}) => ({ sha: SHA, main: MAIN, conflicts: [], at: "push", ...more });
+const passed = { qa: { sha: SHA, verdict: "pass" }, risk: riskOf(), sync: synced() };
 const open = { ...passed, pr: { sha: SHA, state: "OPEN", mergeable: "MERGEABLE" } };
 const green = { ...open, ci: { sha: SHA, state: "green" } };
 
@@ -53,6 +56,13 @@ describe("the delivery plan", () => {
     ["local checks green and a risk hit: security next", job({ ...passed, risk: riskOf({ security: true }), tests: { sha: SHA, state: "green" } }, { localChecks: true }), { kind: "run", role: "security", at: SHA, since: BASE }],
     ["local checks red, counted as a bounce: the developer fixes it", job({ ...passed, tests: { sha: SHA, state: "red" } }, { localChecks: true, bounces: 1 }), { kind: "run", role: "developer", at: SHA, since: BASE, fix: true }],
     ["a job started without local checks never runs them", job(passed), { kind: "publish" }],
+    // F29: a branch that no longer merges with main goes back to the developer to merge it, before anything is pushed.
+    ["checked and clean, not yet merged with main: the merge check", job({ qa: passed.qa, risk: riskOf() }), { kind: "sync" }],
+    ["a merge check of an older commit does not count", job({ ...passed, sync: synced({ sha: OLD }) }), { kind: "sync" }],
+    ["it conflicts with main: the developer merges main, and it is not a bounce", job({ ...passed, sync: synced({ conflicts: ["apps/bridge/cells/host.mjs"] }) }), { kind: "run", role: "developer", at: SHA, since: BASE, fix: true, sync: MAIN }],
+    ["the pull request conflicts though the push-time check was clean (main moved): check again", job({ ...green, pr: { sha: SHA, state: "OPEN", mergeable: "CONFLICTING" } }), { kind: "sync", at: "pr" }],
+    ["a conflicting pull request is checked before its missing checks are waited on", job({ ...open, pr: { sha: SHA, state: "OPEN", mergeable: "CONFLICTING" }, ci: { sha: SHA, state: "none" } }), { kind: "sync", at: "pr" }],
+    ["the check after the pull request finds the conflict: the developer merges main", job({ ...green, pr: { sha: SHA, state: "OPEN", mergeable: "CONFLICTING" }, sync: synced({ at: "pr", conflicts: ["a.mjs"] }) }), { kind: "run", role: "developer", at: SHA, since: BASE, fix: true, sync: MAIN }],
   ];
   for (const [name, input, want] of rows) test(name, () => assert.deepEqual(nextStep(input), want));
 
@@ -65,12 +75,13 @@ describe("the delivery plan", () => {
     ["a guardrail path, even when all is green", job({ ...green, risk: riskOf({ security: true, userMerge: true }), security: { sha: SHA, verdict: "pass" } }), "guardrail"],
     ["a ui ticket with no verdict", job(green, { visual: true }), "visual-verdict"],
     ["a ui verdict for an older commit", job({ ...green, verdict: { sha: OLD, ok: true } }, { visual: true }), "visual-verdict"],
-    ["a conflict", job({ ...green, pr: { sha: SHA, state: "OPEN", mergeable: "CONFLICTING" } }), "conflict"],
+    ["the git host says conflict, a fresh merge of main says clean", job({ ...green, pr: { sha: SHA, state: "OPEN", mergeable: "CONFLICTING" }, sync: synced({ at: "pr" }) }), "conflict"],
+    ["still conflicting after the merge rounds", job({ ...passed, sync: synced({ conflicts: ["a.mjs"] }) }, { syncRounds: MAX_SYNC_ROUNDS }), "conflict"],
     ["mergeability not known", job({ ...green, pr: { sha: SHA, state: "OPEN", mergeable: "UNKNOWN" } }), "not-mergeable"],
   ];
   // den-mvp/10 (ADR 0026 decisions 5 and 6): a candidate that changes apps/ui/ is previewed and approved before the push,
   // and goes live after the merge.
-  const unreviewed = { qa: passed.qa, risk: riskOf({ ui: true }) };
+  const unreviewed = { qa: passed.qa, risk: riskOf({ ui: true }), sync: synced() };
   const ui = { ...unreviewed, security: { sha: SHA, verdict: "pass" } };
   const built = { ...ui, preview: { sha: SHA, ok: true } };
   const approved = { ...built, verdict: { sha: SHA, ok: true } };
@@ -346,6 +357,35 @@ describe("the git-host operations", () => {
       const files = await createGitHost(dir).changed({ base, sha });
       assert.deepEqual(files.sort(), ["apps/bridge/wall.mjs", "lib/wall.mjs"]);
       assert.equal(files.some(isUserMergePath), true);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("in a real repository, a dry-run merge with main lists the conflicting files, and a clean one lists none (F29)", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "den-githost-"));
+    try {
+      const git = (...args) => execFileSync("git", ["-C", dir, "-c", "user.name=fx", "-c", "user.email=fx@example.invalid", "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args], { encoding: "utf8" }).trim();
+      git("init", "-q", "-b", "main");
+      writeFileSync(path.join(dir, "host.mjs"), "line one\nline two\n");
+      writeFileSync(path.join(dir, "other.mjs"), "x\n");
+      git("add", "-A");
+      git("commit", "-q", "-m", "base");
+      git("switch", "-q", "-c", "den/fx/01-work-01234567");
+      writeFileSync(path.join(dir, "host.mjs"), "line one\nthe branch's line\n");
+      git("commit", "-qam", "branch");
+      const branch = git("rev-parse", "HEAD");
+      git("switch", "-q", "main");
+      writeFileSync(path.join(dir, "other.mjs"), "y\n");
+      git("commit", "-qam", "main, elsewhere");
+      const clean = git("rev-parse", "HEAD");
+      assert.deepEqual(await createGitHost(dir).conflicts({ main: clean, sha: branch }), [], "main changed another file: no conflict");
+      writeFileSync(path.join(dir, "host.mjs"), "line one\nmain's line\n");
+      git("commit", "-qam", "main, same line");
+      const moved = git("rev-parse", "HEAD");
+      assert.deepEqual(await createGitHost(dir).conflicts({ main: moved, sha: branch }), ["host.mjs"]);
+      assert.equal(git("rev-parse", "HEAD"), moved, "the dry run leaves the checkout as it was");
+      await assert.rejects(createGitHost(dir).conflicts({ main: "main", sha: branch }), /full commit id/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

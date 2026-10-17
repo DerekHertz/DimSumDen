@@ -3,7 +3,7 @@
 // only while that commit is still the candidate, so a changed commit asks for each check again.
 //
 //   nextStep(job) -> { kind: "run", role, mode?, at, since, fix? }      start an agent at commit `at`
-//                  | { kind: "check" | "tests" | "preview" | "publish" | "ci" | "merge" | "go-live" | "resolve" }   a bridge operation
+//                  | { kind: "check" | "tests" | "preview" | "sync" | "publish" | "ci" | "merge" | "go-live" | "resolve" }   a bridge operation
 //                  | { kind: "pause", pause, reason, next }             wait for the user
 //   job = { base, candidate: { sha } | null, bounces, visual, localChecks?, evidence: { qa, security, risk, tests, preview, verdict, pr, ci, live } }
 // den-mvp/34: with localChecks, the bridge runs the checks of ci.yml here (delivery/checks.mjs) after the scripted risk
@@ -13,10 +13,14 @@
 // as a preview, and waits for the user before anything is pushed; their one approval covers the push, the pull request,
 // the merge and going live.
 // A decline (verdict.ok === false) sends the developer round again and is not a bounce.
+// F29: before the push the candidate is merged with main as a dry run (evidence.sync: { sha, main, conflicts, at }). A
+// conflict sends the developer round to merge main (not a bounce: main moved, the work did not fail); a pull request the
+// git host calls conflicting is checked again first, before its missing checks are waited on.
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 
 export const MAX_BOUNCES = 2; // the second bounce on one ticket pauses the job
+export const MAX_SYNC_ROUNDS = 2; // merge-main rounds before the job waits for the user
 export { DELIVERABLE_TYPES, VISUAL_TYPES } from "./types.mjs";
 
 // A change to one of these is the user's own to review and merge, and always has a security review first: the files that
@@ -58,7 +62,7 @@ export function nextStep(job) {
   const ev = job.evidence ?? {};
   const now = (e) => (e && e.sha === c.sha ? e : null);
   const [qa, security, risk, pr, ci] = [now(ev.qa), now(ev.security), now(ev.risk), now(ev.pr), now(ev.ci)];
-  const [preview, verdict, live, tests] = [now(ev.preview), now(ev.verdict), now(ev.live), now(ev.tests)];
+  const [preview, verdict, live, tests, sync] = [now(ev.preview), now(ev.verdict), now(ev.live), now(ev.tests), now(ev.sync)];
 
   // The user declined this commit: the developer runs again with their note, however many times. Not a bounce.
   if (verdict?.ok === false) return { kind: "run", role: "developer", at: c.sha, since: job.base, fix: true };
@@ -82,6 +86,11 @@ export function nextStep(job) {
     if (!preview) return { kind: "preview" };
     if (verdict?.ok !== true) return pause("visual-verdict", "a UI change waits for your verdict on its preview", "Open the preview. Approve it to merge it and put it live, or decline it with a note for the developer.");
   }
+  if (!sync && pr?.state !== "MERGED") return { kind: "sync" };
+  if (sync?.conflicts?.length && pr?.state !== "MERGED") {
+    if ((job.syncRounds ?? 0) >= MAX_SYNC_ROUNDS) return pause("conflict", `the branch still conflicts with main after ${MAX_SYNC_ROUNDS} merge rounds: ${sync.conflicts.slice(0, 5).join(", ")}`, "Resume for one more merge round, or close the delivery.");
+    return { kind: "run", role: "developer", at: c.sha, since: job.base, fix: true, sync: sync.main };
+  }
   if (!pr) return { kind: "publish" }; // a change to CI configuration is stopped there, before the push
   if (pr.state === "MERGED") {
     // What goes live is rebuilt from main after the merge. A change with nothing under apps/ui/ makes no release.
@@ -89,6 +98,10 @@ export function nextStep(job) {
     if (!live) return { kind: "go-live" };
     if (live.state === "needs-update") return pause("needs-update", live.reason || "the merged commit changes the bridge or the lockfile, so the den must be updated before this change can go live", "Update the den (npm run den:update), then Resume to put this change live.");
     return pause("go-live-failed", live.reason || "the merged change could not be put live", "The merge stands and nothing went live. Resume to try again.");
+  }
+  if (pr.mergeable === "CONFLICTING") {
+    if (sync?.at !== "pr") return { kind: "sync", at: "pr" };
+    return pause("conflict", "the git host says the pull request conflicts with main, but a fresh merge of main shows no conflict", "Resume to ask the git host again.");
   }
   if (!ci) return { kind: "ci" };
   // den-mvp/29: a timeout is run again once; any other red goes back to the developer with the log, like a review's bounce.
@@ -101,7 +114,6 @@ export function nextStep(job) {
   if (ci.state !== "green") return pause("ci-pending", "the checks have not finished", "Resume to watch them again.");
   if (risk.userMerge) return pause("guardrail", "the change touches the den's own guardrails, the bridge, its checks or a script that runs by itself: the review and the merge are yours", "Review and merge the pull request yourself, then Resume to close the ticket.");
   if (job.visual && verdict?.ok !== true) return pause("visual-verdict", "a UI change waits for your visual verdict", "Look at the change, then approve it to merge.");
-  if (pr.mergeable === "CONFLICTING") return pause("conflict", "the pull request conflicts with main", "Resolve the conflict, then Resume.");
   if (pr.mergeable !== "MERGEABLE") return pause("not-mergeable", "the git host has not said the pull request can merge", "Resume to ask again.");
   return { kind: "merge" };
 }

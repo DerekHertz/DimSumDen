@@ -1,6 +1,6 @@
 // den-scene-v1/05: source and stylesheet checks for the expanded Tally card, for the criteria that
-// the browser test (tally-expand.test.mjs) cannot see: CSS tokens, the phone-width rule, and the removal
-// of the old scroll-to-dashboard route. Spec: handoffs/05-designer-spec-2.md sections 1, 3, 5, 7.
+// the focused browser scenarios supplement: shared fixture CSS tokens and the removal
+// of the old scroll-to-dashboard route. Main-app placement is verified in the Garden & Desk browser tests. Spec: handoffs/05-designer-spec-2.md sections 1, 3, 5, 7.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
@@ -10,11 +10,11 @@ const app = read("../App.jsx");
 const css = read("../styles.css");
 const chips = read("./ChipLayer.jsx");
 
-test("App no longer scrolls to a dashboard heading: no openDashboard counter, no h-dashboard focus effect, no scroll", () => {
+test("App no longer scrolls to the removed dashboard sidebar slot", () => {
   assert.doesNotMatch(app, /openDashboard/, "replaced by open/close/toggle Tally state");
   assert.doesNotMatch(app, /dashboardOpens/);
   assert.doesNotMatch(app, /h-dashboard/, "the Pipeline heading is no longer a sidebar slot");
-  assert.doesNotMatch(app, /scrollTop|scrollIntoView/, "the page and the panel never scroll");
+  assert.doesNotMatch(app, /h-dashboard.*scrollIntoView|dashboard.*scrollTop/, "Tally no longer jumps to an old dashboard sidebar slot");
   assert.doesNotMatch(app, /\["dashboard", "Pipeline"\]/, "the sidebar Pipeline slot is gone");
   assert.match(app, /tallyOpen/);
   assert.match(app, /toggleTally|openTally/);
@@ -61,7 +61,7 @@ test("the card reads --scene-bottom-inset with a 0 fallback so 07's overlays can
   assert.match(all, /var\(--scene-bottom-inset,\s*0px\)/);
 });
 
-test("phone width: a max-width 640px rule turns .tally-card into a bottom sheet (full width, max-height 85%)", () => {
+test("isolated Tally fixtures retain their 640px bottom-sheet rule", () => {
   const media = [...css.matchAll(/@media\s*\(max-width:\s*640px\)\s*\{/g)];
   assert.ok(media.length > 0, "a 640px media query exists");
   const blocks = media.map((m) => {
@@ -81,7 +81,7 @@ test("phone width: a max-width 640px rule turns .tally-card into a bottom sheet 
   assert.match(card, /bottom:/);
 });
 
-test("the card is non-modal and floats over the scene: .tally-card is absolutely positioned with a z-index above the chips", () => {
+test("isolated Tally fixtures retain the shared positioned-panel rule; the connected app scopes its desk override", () => {
   const rule = css.match(/\.tally-card\s*\{[^}]*\}/)?.[0] ?? "";
   assert.ok(rule, ".tally-card rule exists");
   assert.match(rule, /position:\s*absolute/);

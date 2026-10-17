@@ -24,7 +24,7 @@ test("spawn's exit removes the placeholders the child's sandbox left, in the mai
     return inner.launch(o);
   } };
   const stub = await makeStub({ mode: "crash" });
-  const runtime = createClaudeRuntime({ launcher, env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
+  const runtime = createClaudeRuntime({ controlRoot: "/", launcher, env: { PATH: process.env.PATH, HOME: process.env.HOME, DEN_CLAUDE_BIN: stub.bin } });
   const proc = await runtime.spawn({ role: "developer", cwd: wt, mainGit: git, prompt: "go", sessionId: "0b8f1c1e-5c1a-4c0e-9a55-3f2d9e7a4b10" });
   await proc.exited;
   for (const p of [...made, stale]) assert.ok(await gone(p), `${p} should be gone`);

@@ -1,6 +1,7 @@
 // The floating cards over the scene (den-scene-v1/07, digest 2026-10-01-iso-den.md section 4): the logo pill top-left,
 // and on the right a Needs you card and a Stations & queue card, each collapsible from its header.
 // Agent text (ticket titles) is untrusted: everything renders as React text nodes, never as HTML.
+import { QueueButton, QueueDrawer } from "./QueueDrawer.jsx";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { noteCounter, submitGate } from "../panel/gates-model.mjs";
 import { DemoBadge } from "../demo/DemoControls.jsx";
@@ -34,7 +35,7 @@ export function LogoPill({ connection, demo = false }) {
   return (
     <header className="logo-pill" data-overlay="logo">
       <span className="logo-face" aria-hidden="true"><PandaFace /></span>
-      <h1>Dim Sum Den</h1>
+      <h1>Dim Sum Dev</h1>
       {demo ? <DemoBadge /> : <span className={`live-badge live-${badge.tone}`} aria-live={badge.ariaLive ?? undefined}>
         <span className="live-dot" aria-hidden="true" />
         <span>{badge.label}</span>
@@ -648,12 +649,13 @@ export function StationsCard({ snapshot, open, onToggle, busy, placeholder, onZo
  * The right-hand column. Needs you opens by itself while something waits, until the user toggles it; Stations & queue,
  * Meetings and Library start closed. Under 600 px all start closed and opening one closes the others.
  */
-export function Cards({ snapshot, ownBuild = null, now, connection, placeholder, camera, steering, onAnswer, onOpenThread = null, demo = false, libraryRequest = 0 }) {
+export function Cards({ snapshot, ownBuild = null, now, connection, placeholder, camera, steering, onAnswer, onOpenThread = null, onOpenTicket = null, demo = false, libraryRequest = 0, focusRequest = null }) {
   const [needsOpen, setNeedsOpen] = useState(null); // null: follow the data
   const [stationsOpen, setStationsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [meetingsOpen, setMeetingsOpen] = useState(false);
   const [shownMeeting, setShownMeeting] = useState(null); // the meeting whose brief is open in the Meetings card
+  const [shownRole, setShownRole] = useState(null); // the seat whose take opens with it (den-mvp/64)
   const waiting = needsYouModel(snapshot, now).count;
   const needs = needsOpen ?? (!isPhone() && waiting > 0);
   const busy = connection.phase !== "live";
@@ -667,6 +669,28 @@ export function Cards({ snapshot, ownBuild = null, now, connection, placeholder,
   const capacity = capacityFromSnapshot(snapshot);
   const steer = { state: steering.state, demo };
 
+  // The garden shell opens the existing controllers; it never creates another runner or reader.
+  useEffect(() => {
+    if (!focusRequest) return;
+    setNeedsOpen(focusRequest.section === 'home');
+    setStationsOpen(focusRequest.section === 'work');
+    setLibraryOpen(focusRequest.section === 'library');
+    setMeetingsOpen(focusRequest.section === 'meetings');
+    // den-mvp/64: from the table, the meeting opens on the seat's take.
+    if (focusRequest.meeting) { setShownMeeting(focusRequest.meeting); setShownRole(focusRequest.role ?? null); }
+  }, [focusRequest]);
+
+  // den-mvp/62: the Queue drawer, over the scene and this column. A ticket row uses the same Run and Deliver controls as
+  // Stations & queue; a Needs-you row opens the Needs you card, where acting stays.
+  const [queueOpen, setQueueOpen] = useState(false);
+  const queueButton = useRef(null);
+  const closeQueue = () => { setQueueOpen(false); queueButton.current?.focus({ preventScroll: true }); };
+  const queueControls = (ticket) => (
+    <>
+      {run ? <RunControl scope="queue" ticket={ticket} capacity={capacity} steer={steer} run={run} /> : null}
+      {deliveries ? <DeliverControl scope="queue" ticket={ticket} snapshot={snapshot} steer={steer} deliveries={deliveries} /> : null}
+    </>
+  );
   const toggleNeeds = () => {
     setNeedsOpen(!needs);
     if (!needs && isPhone()) { setStationsOpen(false); setLibraryOpen(false); setMeetingsOpen(false); }
@@ -696,13 +720,19 @@ export function Cards({ snapshot, ownBuild = null, now, connection, placeholder,
     if (isPhone()) { setNeedsOpen(false); setStationsOpen(false); setLibraryOpen(false); }
   };
   return (
+    <>
+    <QueueButton count={waiting} open={queueOpen} onToggle={() => (queueOpen ? closeQueue() : setQueueOpen(true))} buttonRef={queueButton} />
     <div className="cards">
       {steering.message ? <p className="small muted session-none" data-session="none" role="status">{steering.message}</p> : null}
       <BuildStatus snapshot={snapshot} ownBuild={ownBuild} steer={steer} client={client} />
       <NeedsYouCard snapshot={snapshot} now={now} open={needs} onToggle={toggleNeeds} busy={busy} placeholder={placeholder} session={steering.session} onAnswer={onAnswer} onOpenThread={onOpenThread} capacity={capacity} steer={steer} run={run} deliveries={deliveries} meetings={meetings} onOpenMeeting={openMeeting} />
       <StationsCard snapshot={snapshot} open={stationsOpen} onToggle={toggleStations} busy={busy} placeholder={placeholder} onZoomStation={(id) => camera.goToStation(id)} capacity={capacity} steer={steer} run={run} deliveries={deliveries} />
-      <MeetingsCard client={client} snapshot={snapshot} open={meetingsOpen} onToggle={toggleMeetings} busy={busy} steer={steer} meetings={meetings} shown={shownMeeting} onShow={setShownMeeting} />
+      <MeetingsCard client={client} snapshot={snapshot} open={meetingsOpen} onToggle={toggleMeetings} busy={busy} steer={steer} meetings={meetings} shown={shownMeeting} shownRole={shownRole} onShow={setShownMeeting} />
       <LibraryCard client={reader} rev={snapshot?.libraryRev ?? 0} now={now} open={libraryOpen} onToggle={toggleLibrary} busy={busy} demo={demo} />
     </div>
+    <QueueDrawer snapshot={snapshot} now={now} open={queueOpen} onClose={closeQueue}
+      onOpenNeeds={() => { setQueueOpen(false); setNeedsOpen(true); }}
+      onOpenTicket={onOpenTicket ? (ref) => { setQueueOpen(false); onOpenTicket(ref); } : null} controls={queueControls} />
+    </>
   );
 }

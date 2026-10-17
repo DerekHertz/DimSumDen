@@ -54,11 +54,15 @@ export function validateJob(raw) {
       live: forSha(ev.live, (r) => (r.state === "live" && sha(r.release) ? { state: "live", release: r.release } : null)),
       // What the git host said is asked again on every resume; these two are kept only to show.
       pr: null, ci: null,
+      // F29: the dry-run merge with main is asked again too: main may have moved while the job waited.
+      sync: null,
       verdict: forSha(ev.verdict, (r) => ({ ok: r.ok === true })),
     },
     bounces: count(raw.bounces), declines: count(raw.declines), findings: typeof raw.findings === "string" ? raw.findings.slice(0, 16000) : null,
     // den-mvp/29: the commit whose timed-out checks were run again, and the commit whose red checks were counted as a bounce.
     ciRerun: sha(raw.ciRerun), ciBounced: sha(raw.ciBounced),
+    // F29: the merge-main rounds run so far, and the main commit the running round was asked to merge.
+    syncRounds: count(raw.syncRounds), syncTarget: sha(raw.syncTarget),
     live: runOf(raw.live), claimed: raw.claimed === true,
     runs: (Array.isArray(raw.runs) ? raw.runs : []).slice(-50).flatMap((r) => (runOf(r) && END_STATES.includes(r.state) ? [{ ...runOf(r), state: r.state, sha: sha(r.sha) }] : [])),
     pr, startedAt: raw.startedAt, updatedAt: ts(raw.updatedAt) ?? raw.startedAt,

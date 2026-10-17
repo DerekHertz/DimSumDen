@@ -59,3 +59,41 @@ for (const launcher of ["smoke.mjs", "smoke-ui.mjs"]) {
     assert.match(src, /buildLaunchOptions\(/);
   });
 }
+
+// PW_GPU=1 with a display (WSLg): headed Chromium on the real card through Mesa's D3D12 driver, window off-screen.
+// Headless Chromium always falls back to SwiftShader, so the GPU path has to be headed. No display: today's behaviour.
+const GUI = { PW_GPU: "1", DISPLAY: ":0" };
+
+test("PW_GPU=1 with a display: headed, D3D12 GL, off-screen window", () => {
+  const opts = buildLaunchOptions(undefined, GUI);
+  assert.equal(opts.headless, false);
+  assert.ok(opts.args.includes("--use-angle=gl"));
+  assert.ok(opts.args.includes("--ignore-gpu-blocklist"));
+  assert.ok(opts.args.some((a) => a.startsWith("--window-position=-")));
+  assert.equal(opts.env.GALLIUM_DRIVER, "d3d12");
+  assert.match(opts.env.LD_LIBRARY_PATH, /^\/usr\/lib\/wsl\/lib/);
+});
+
+test("PW_GPU=1: keeps the channel, keeps the caller's env and LD_LIBRARY_PATH", () => {
+  const opts = buildLaunchOptions("chrome", { ...GUI, LD_LIBRARY_PATH: "/opt/x", HOME: "/h" });
+  assert.equal(opts.channel, "chrome");
+  assert.equal(opts.env.HOME, "/h");
+  assert.equal(opts.env.LD_LIBRARY_PATH, "/usr/lib/wsl/lib:/opt/x");
+});
+
+test("PW_GPU=1 with PW_CHROMIUM_PATH: the executable stays, the GPU flags replace swiftshader", () => {
+  const opts = buildLaunchOptions(undefined, { ...GUI, PW_CHROMIUM_PATH: CLOUD_CHROME });
+  assert.equal(opts.executablePath, CLOUD_CHROME);
+  assert.equal(opts.args.includes("--use-angle=swiftshader"), false);
+  assert.equal(opts.headless, false);
+});
+
+test("PW_GPU=1 under Wayland only (no DISPLAY) still counts as a display", () => {
+  assert.equal(buildLaunchOptions(undefined, { PW_GPU: "1", WAYLAND_DISPLAY: "wayland-0" }).headless, false);
+});
+
+test("PW_GPU unset, not 1, or no display: today's options", () => {
+  assert.deepEqual(buildLaunchOptions("chrome", { DISPLAY: ":0" }), { channel: "chrome" });
+  assert.deepEqual(buildLaunchOptions("chrome", { PW_GPU: "0", DISPLAY: ":0" }), { channel: "chrome" });
+  assert.deepEqual(buildLaunchOptions(undefined, { PW_GPU: "1" }), {});
+});

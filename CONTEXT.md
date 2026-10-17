@@ -1,4 +1,4 @@
-# Dim Sum Den
+# Dim Sum Dev
 
 Formerly Agent Office. A personal control room for observing and steering AI agents across the software development life cycle. The team is modeled as an organism.
 
@@ -19,6 +19,10 @@ _Avoid_: Client repo, workspace
 **Active project**:
 The one target project runs and deliveries happen in, chosen in the den. Every project's board and queue can be opened at any time; a switch is refused while runs are active.
 _Avoid_: Current repo, selected workspace
+
+**Project registry**:
+The den's list of onboarded projects: a slug, a plain path, a board kind and the toolchain a run may read. It lives in the den's state, not in the repo, and only the user's terminal writes it. The control project is always in it, implicitly (ADR 0021 Amendment 5).
+_Avoid_: Project config, workspace list
 
 **Station**:
 A group of cell types that owns one SDLC outcome, drawn as a place on Bao: the Pass (orchestrator, product, architect), Steamers (developer, scout), Tea & Pantry (qa, security), Front of House (designer), Service, Meter, Recipe book, Order rail. See the table in `design-brief.md` §4.2.
@@ -100,6 +104,10 @@ The tickets that are ready, unblocked, and unclaimed right now. An unordered set
 **Queue**:
 The frontier in its computed order: the active feature's tickets first, then the rest, each group ordered by unblock count, then priority, then ticket number. Only a P0 with a named reason jumps the active feature. It is computed on every read, never stored.
 _Avoid_: Backlog, board (the board is the whole tracker, not the order)
+
+**Goal**:
+One of the user's few standing aims for the den, listed with its reason and "done when" in `.scratch/goals.md`. Every open ticket names the goal it serves on a `Goal:` line, so the board can show what each ticket is for. Only the user changes the list; Bao may propose a change.
+_Avoid_: Epic, theme, initiative. Not the same as a ticket's `Serves:` line, which is the admission gate's machine form.
 
 **Active feature**:
 The one feature whose ready tickets outrank all others in the Queue. Only the user sets it.

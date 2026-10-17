@@ -167,7 +167,7 @@ describe("a host that cannot enforce the limits starts nothing", () => {
   test("the default runtime is the enforced one: its spawn rejects and the binary it names is never run", async () => {
     const env = await emptyHost();
     const marker = path.join(env.HOME, "ran");
-    const runtime = createClaudeRuntime({ env: { ...env, DEN_CLAUDE_BIN: "touch" } });
+    const runtime = createClaudeRuntime({ controlRoot: "/", env: { ...env, DEN_CLAUDE_BIN: "touch" } });
     assert.equal(runtime.enforced, true);
     assert.equal((await runtime.preflight()).ok, false);
     await assert.rejects(runtime.spawn({ role: "scout", cwd: env.HOME, prompt: marker, sessionId: "0f8fad5b-d9cb-469f-a165-70867728950e" }), { name: "EnforcementError" });
@@ -477,4 +477,20 @@ test("only the bus socket in the den's state folder is hidden, not the folder: t
   const { hide, hideSockets } = busPlaces({ HOME: home, XDG_RUNTIME_DIR: path.join(home, "run") }, { uid: 99999 });
   assert.equal(hide.includes(state), false, "the state folder stays visible");
   assert.deepEqual(hideSockets, [sock]);
+});
+
+// F39 security review: the system journal holds the bridge's launch URLs, so a run sees the journal directories empty.
+test("the journal directories are covered like the bus directories, and the probe fails a run that can read one", async (t) => {
+  const base = await mkdtemp(path.join(tmpdir(), "den-journal-"));
+  t.after(() => rm(base, { recursive: true, force: true }));
+  const journal = path.join(base, "journal");
+  await mkdir(journal);
+  const { hide } = busPlaces({}, { uid: 99999, journalDirs: [journal, path.join(base, "absent")] });
+  assert.ok(hide.includes(journal), "an existing journal directory is covered");
+  assert.ok(!hide.includes(path.join(base, "absent")), "a missing one is skipped");
+  assert.deepEqual(busPlaces({}, { uid: 99999 }).hide.filter((d) => d.includes("journal")), ["/var/log/journal", "/run/log/journal"].filter((d) => existsSync(d)));
+  const argv = buildScopeArgv({ unit: "den-x.scope", slice: "den", limit: LIMITS.classes.worker, fileBytes: 1 << 30, bin: "/bin/true", args: [], hide: [journal] });
+  assert.ok(argv.join(" ").includes(`--tmpfs ${journal}`));
+  assert.match(PROBE_SCRIPT, /for j in \/var\/log\/journal \/run\/log\/journal; do/);
+  assert.ok(PROBE_SCRIPT.indexOf("bad=0") < PROBE_SCRIPT.indexOf("system journal"), "the check is counted, after bad is set");
 });

@@ -1,5 +1,5 @@
 /**
- * Dim Sum Den: the v5 kit's assembled village (den-mvp/25).
+ * Dim Sum Dev: the v5 kit's assembled village (den-mvp/25).
  * Supply the same THREE instance and createBao function used by your app.
  *
  * The world is `createVillage({includeResidents:false})`: ground, the station assets, promenades, bamboo, lanterns and
@@ -15,7 +15,7 @@ const SPARE_STALLS = ['steamers', 'front', 'tea', 'pantry'];
 
 export function createDenScene(THREE, createBao) {
   const world = createVillage({ includeResidents: false });
-  world.name = 'DimSumDen';
+  world.name = 'DimSumDev';
   const pandas = [], mixers = [], obstacles = [], tallyRows = [];
   const frontier = new Map();
   const byAsset = (id) => world.children.find((o) => o.userData.assetId === id);
@@ -39,7 +39,7 @@ export function createDenScene(THREE, createBao) {
   }
 
   // Bao stands behind the Pass counter, where the kit's own host stands.
-  const hero = createBao(THREE); hero.model.name = 'Bao — host of Dim Sum Den';
+  const hero = createBao(THREE); hero.model.name = 'Bao — host of Dim Sum Dev';
   hero.model.position.set(BAO_HOME[0], 0.16, BAO_HOME[1]); hero.model.scale.setScalar(BAO_SCALE);
   world.add(hero.model); pandas.push(hero);
   const heroMixer = new THREE.AnimationMixer(hero.model);

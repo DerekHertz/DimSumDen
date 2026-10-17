@@ -101,6 +101,10 @@ async function main() {
     // organism-infra/94: the software-rendered scene made the Tally click flake on CI. The clean load above (smoke.mjs
     // --url) already ran with real draws; these checks read the DOM, so draws are skipped here. See light-scene.mjs.
     await lightenScene(context);
+    // Headless pointer capture can emit OS recentering deltas after the pan
+    // scenario. Exercise the supported drag-to-look fallback so W movement is
+    // measured from the authored entry view, independent of the window manager.
+    await context.addInitScript(() => { HTMLCanvasElement.prototype.requestPointerLock = undefined; });
     const page = await context.newPage();
     const requested = [];
     page.on("request", (r) => requested.push(r.url()));
@@ -166,12 +170,17 @@ async function main() {
           const r = el.getBoundingClientRect();
           return { x: r.left + r.width / 2 - scene.left, y: r.top + r.height / 2 - scene.top, left: r.left - scene.left, right: r.right - scene.left, top: r.top - scene.top, bottom: r.bottom - scene.top };
         };
-        const signs = {};
+        const signs = {},projected={};
         for (const el of document.querySelectorAll(".chip-layer .station-label")) {
+          projected[el.textContent.trim()]=rel(el);
           if (getComputedStyle(el).visibility === "visible") signs[el.textContent.trim()] = rel(el);
         }
+        const chips = {};
+        for (const el of document.querySelectorAll(".chip-layer .chip[data-ref]")) {
+          if (getComputedStyle(el).visibility === "visible") chips[el.dataset.ref] = rel(el);
+        }
         const tally = document.querySelector(".chip-layer .chip-tally");
-        return { width: scene.width, height: scene.height, signs, tally: tally ? rel(tally) : null };
+        return { width: scene.width, height: scene.height, signs, projected, chips, tally: tally ? rel(tally) : null };
       });
     const settle = async (predicate, what) => {
       const deadline = Date.now() + 6000;
@@ -184,7 +193,7 @@ async function main() {
       throw new Error(`${what}: not reached within 6 s; last ${JSON.stringify(last)}`);
     };
     const fits = (p) => {
-      const names = ["Steamers", "Front of House", "Tea", "Pantry"];
+      const names = ["The Pass", "Steamers", "Front of House", "Tea & Pantry", "Library"];
       if (!names.every((n) => p.signs[n])) return false;
       const all = [...names.map((n) => p.signs[n]), ...(p.tally ? [p.tally] : [])];
       return all.every((r) => r.left >= 0 && r.right <= p.width && r.top >= 0 && r.bottom <= p.height);
@@ -196,10 +205,17 @@ async function main() {
       return `${Object.keys(p.signs).length} signs inside ${Math.round(p.width)}x${Math.round(p.height)}`;
     });
 
-    // The scene is the full viewport (den-scene-v1/07 floating cards), so the scene box is the phone's size as it is.
+    // Garden & Desk stacks on phones. Both panels fit without overlap or
+    // horizontal scrolling; the garden retains its own camera viewport.
     await check("camera fit: every kiosk sign and the Tally are in the scene at 375x667", async () => {
       await page.setViewportSize({ width: 375, height: 667 });
-      const p = await settle((q) => Math.abs(q.width - 375) < 2 && Math.abs(q.height - 667) < 2 && fits(q), "375x667 fit");
+      const p = await settle((q) => q.width <= 375 && q.height <= 667 && fits(q), "375x667 fit");
+      const layout = await page.evaluate(() => {
+        const garden=document.querySelector('main.scene').getBoundingClientRect();
+        const desk=document.querySelector('aside[aria-label="Your desk"]').getBoundingClientRect();
+        return {gardenBottom:garden.bottom,deskTop:desk.top,width:document.body.scrollWidth};
+      });
+      if(layout.deskTop<layout.gardenBottom||layout.width>375)throw new Error('Phone garden and desk overlap or overflow: '+JSON.stringify(layout));
       return `${Object.keys(p.signs).length} signs inside ${Math.round(p.width)}x${Math.round(p.height)}`;
     });
 
@@ -207,17 +223,18 @@ async function main() {
       await page.setViewportSize({ width: 1440, height: 900 });
       // The signs follow a resize a few frames late (longer under load): the first probe can still show the
       // phone-sized layout from the previous check, which also "fits". Take the baseline only once the signs are
-      // centred on the scene box (the default frame centres the den, so the middle of the Library and Drum signs, at
-      // x -4 and +4, is the horizontal centre), which a stale layout from a different width is not.
-      const centred = (p) => p.signs["Library"] && p.signs["Drum"] && Math.abs((p.signs["Library"].x + p.signs["Drum"].x) / 2 - p.width / 2) < 2;
+      // centred on the scene box. Steamers and Tea & Pantry flank the garden
+      // at x -20.2 and +20.2.
+      const centred = (p) => p.signs["Steamers"] && p.signs["Tea & Pantry"] && Math.abs((p.signs["Steamers"].x + p.signs["Tea & Pantry"].x) / 2 - p.width / 2) < 2;
       const base = await settle((p) => centred(p) && fits(p), "default frame before zoom");
-      const gap = (p) => p.signs["Drum"].x - p.signs["Library"].x;
-      const box = await page.locator("main.scene").boundingBox();
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      // Projected positions remain measurable when close zoom clips the outer signs.
+      const gap = (p) => p.projected["Tea & Pantry"].x - p.projected["Steamers"].x;
+      const box = await page.locator('.forest-canvas canvas').boundingBox();
+      await page.mouse.move(box.x + box.width * .85, box.y + box.height * .15);
       await page.mouse.wheel(0, -300); // exponential: zoom factor 1 -> exp(-0.3) = 0.7408, so 1/0.7408 = 1.3499 times wider
       const zoomed = await settle((p) => Math.abs(gap(p) / gap(base) - 1.3499) < 0.03, "zoom in by exp(-0.3)");
-      await page.mouse.wheel(0, -5000); // clamps at 0.55: 1/0.55 = 1.818
-      const nearest = await settle((p) => Math.abs(gap(p) / gap(base) - 1 / 0.55) < 0.04, "zoom clamps at 0.55");
+      await page.mouse.wheel(0, -5000); // close zoom allows inspection of the personal workstations
+      const nearest = await settle((p) => Math.abs(gap(p) / gap(base) - 4) < 0.04, "zoom clamps at 0.25");
       await page.mouse.wheel(0, 20000); // clamps at 1.2: 1/1.2 = 0.833
       const farthest = await settle((p) => Math.abs(gap(p) / gap(base) - 1 / 1.2) < 0.03, "zoom clamps at 1.2");
       return `spacing x${(gap(zoomed) / gap(base)).toFixed(3)}, x${(gap(nearest) / gap(base)).toFixed(3)} (nearest), x${(gap(farthest) / gap(base)).toFixed(3)} (farthest)`;
@@ -225,15 +242,14 @@ async function main() {
 
     await check("camera pan: dragging 100 px right moves every sign 100 px right", async () => {
       await page.setViewportSize({ width: 1440, height: 900 });
-      await page.mouse.wheel(0, -3000); // back to the nearest zoom, where there is room to pan sideways
-      // At the nearest zoom (0.55) the station signs sit past the viewport edge and ChipLayer hides them, so measure
-      // the signs that are still on screen with room to move 100 px: Library and Drum (8 world units apart).
-      // den-mvp/25: the village's default frame is wider (camera.mjs), so 8 units at zoom 0.55 are about 400 px at 900 px tall.
-      await settle((p) => p.signs["Library"] && p.signs["Drum"] && p.signs["Drum"].x - p.signs["Library"].x > 350, "zoomed in");
+      const wheelBox=await page.locator('.forest-canvas canvas').boundingBox();
+      await page.mouse.move(wheelBox.x+wheelBox.width*.85,wheelBox.y+wheelBox.height*.15);
+      await page.mouse.wheel(0, -780.1586); // factor 1.2 -> .55: keep both flanking signs visible while panning
+      await settle((p) => p.signs["Steamers"] && p.signs["Tea & Pantry"] && p.signs["Tea & Pantry"].x - p.signs["Steamers"].x > 350, "zoomed in");
       await page.waitForTimeout(800); // let the rig's easing finish before measuring
       const start = await sceneProbe();
       const names = Object.keys(start.signs).filter((n) => start.signs[n].left >= 4 && start.signs[n].right + 110 <= start.width);
-      if (!names.includes("Library") || !names.includes("Drum")) throw new Error("expected Library and Drum on screen with room to pan, got " + JSON.stringify(names));
+      if (names.length<2) throw new Error("expected at least two signs on screen with room to pan, got " + JSON.stringify(names));
       const box = await page.locator("main.scene").boundingBox();
       const cx = box.x + box.width / 2;
       const cy = box.y + box.height / 2;
@@ -246,7 +262,7 @@ async function main() {
       for (const n of names) {
         if (Math.abs(after.signs[n].y - start.signs[n].y) > 4) throw new Error(`${n} sign moved vertically by ${after.signs[n].y - start.signs[n].y}`);
       }
-      return `${names.length} signs shifted ${Math.round(after.signs["Library"].x - start.signs["Library"].x)} px`;
+      return `${names.length} signs shifted ${Math.round(after.signs[names[0]].x - start.signs[names[0]].x)} px`;
     });
 
     // den-v1/03, back for den-layout/04: Enter the den switches to a first-person camera in the restaurant scene, WASD
@@ -258,11 +274,12 @@ async function main() {
       await page.waitForTimeout(800); // the diorama's easing has finished
       const enter = page.getByRole("button", { name: "Enter the den" });
       await page.waitForFunction(() => !document.querySelector(".den-entry button")?.hasAttribute("aria-disabled"), null, { timeout: 15000 });
-      const round = (p) => Object.fromEntries(Object.entries(p.signs).map(([n, r]) => [n, [Math.round(r.x), Math.round(r.y)]]));
+      // Signs and chips both: at real frame rates (PW_GPU=1) the station signs leave the walker's view within a second.
+      const round = (p) => Object.fromEntries(Object.entries({ ...p.signs, ...p.chips }).map(([n, r]) => [n, [Math.round(r.x), Math.round(r.y)]]));
       const before = await sceneProbe();
       await enter.click();
-      await page.waitForSelector(".den-crosshair:not([hidden])", { timeout: 5000 });
-      expectEqual(await page.locator(".den-entry button").getAttribute("aria-pressed"), "true", "button pressed in walk mode");
+      await page.waitForSelector('.den-entry button[aria-pressed="true"]', { timeout: 5000 });
+      expectEqual(await page.locator(".den-entry button[aria-pressed]").getAttribute("aria-pressed"), "true", "button pressed in walk mode");
       await page.waitForTimeout(500);
       const standing = round(await sceneProbe());
       // Hold W until the view has moved (the software-rendered scene runs at a few frames a second, so poll, don't sleep).
@@ -277,7 +294,7 @@ async function main() {
       if (JSON.stringify(walked) === JSON.stringify(standing)) throw new Error("W did not move the view in 8 s: " + JSON.stringify(standing));
       await page.keyboard.press("Escape");
       await page.waitForSelector(".den-crosshair[hidden]", { state: "attached", timeout: 5000 });
-      expectEqual(await page.locator(".den-entry button").getAttribute("aria-pressed"), "false", "button after Esc");
+      expectEqual(await page.locator(".den-entry button[aria-pressed]").getAttribute("aria-pressed"), "false", "button after Esc");
       const names = Object.keys(before.signs);
       const back = await settle((p) => names.every((n) => p.signs[n] && Math.abs(p.signs[n].x - before.signs[n].x) < 2 && Math.abs(p.signs[n].y - before.signs[n].y) < 2), "diorama frame restored after Esc");
       return `view moved while walking, ${names.length} signs back within 2 px after Esc (${Math.round(back.width)}x${Math.round(back.height)})`;

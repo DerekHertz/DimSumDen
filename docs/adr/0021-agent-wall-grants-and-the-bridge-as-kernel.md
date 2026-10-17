@@ -190,7 +190,7 @@ Not shown: that a genome's `skills:` preload works under the plugin namespace. A
 
 The den-mvp spec's outcome 6 ("one real change in the routing project, from the den") settled what Amendment 3 left open. Spec: `.scratch/den-mvp/outcome-6-spec.md`.
 
-**The model (the user's words).** "The den is its own organization that you can imagine is contracted out to do development for these other projects." Dim Sum Den is its own product and its own project. An onboarded project has its own repo, its own tickets, board and queue, and all of it is reached and dispatched from the den's interface. What the den brings to every project is its way of working: the guardrails, the sandbox, and how work is passed around efficiently and safely.
+**The model (the user's words).** "The den is its own organization that you can imagine is contracted out to do development for these other projects." Dim Sum Dev is its own product and its own project. An onboarded project has its own repo, its own tickets, board and queue, and all of it is reached and dispatched from the den's interface. What the den brings to every project is its way of working: the guardrails, the sandbox, and how work is passed around efficiently and safely.
 
 - **Decision 18 applies to other projects; the den's own runs start as today.** A run on another project starts with `--setting-sources ""` and `--plugin-dir <control>/.claude`, as `den:<role>`. Nothing of that project's `.claude/` loads: no hooks, roles, skills or settings. A run on the den's own repo keeps `--setting-sources project,local`, its own roles and `CLAUDE.md`, with hooks already off (`disableAllHooks`, den-mvp/03). The bridge picks the path by whether the project is the control project; an agent can't choose it.
 - **A project's own instructions are passed in by the bridge.** The bridge reads the project's `CLAUDE.md` or `AGENTS.md` from its main checkout's committed `HEAD`, never from the agent-editable worktree, and adds it to the run as project knowledge. Its `CONTEXT.md` and ADRs stay files the agent reads.
@@ -208,6 +208,66 @@ The den-mvp spec's outcome 6 ("one real change in the routing project, from the 
 - The adapter's clean start (decision 18) touches only runs on other projects. Its first test is the real genomes as plugin roles; a genome's `skills:` preload under the plugin is unshown (Amendment 3), so the prompt names the skills until it is.
 - Two start paths exist, chosen by the bridge. A change to one is checked against the other in review.
 - Ticket states the den uses (`ready-for-human`, `ready-for-agent`, resolved) map onto the target's issues: labels for the first two, closing the issue for the last.
+
+## Amendment 5 (proposed by the architect for den-mvp/47 on 2026-10-16, pending the user's acceptance): worktrees, the project registry, the queue, and the seam between `control` and the active project
+
+Answers the three points Amendment 4 left open, and says where the seam goes. Slices: den-mvp/48 to 54; spec `.scratch/den-mvp/outcome-6-spec.md`. Code read: `cells/workspace.mjs`, `cells/host.mjs` (root-keyed state), `delivery/git-host.mjs`, `delivery/board.mjs`, `snapshot.mjs`, `server.mjs` (start-up).
+
+**What the code does today.** `startBridge({ root })` takes one root and closes over it: `createHost({ root })` builds the sessions, conversations, workspaces, ledger and ticket-file path from it; the hub, the delivery board, the git host, the meeting store and the request log do the same. Workspaces already take only a `root` (`createWorkspaces(root)`, `prepareMainGit(root)`, `createGitHost(root)`), so those modules need no change; what is missing is something that picks the root per run. `stateDir` is already `<denState>/projects/<hash of root>`.
+
+### Decision 22. A target's worktrees live under `<target>/.claude/worktrees/`
+
+Options:
+- **Under the target (chosen).** Same `WORKTREES_DIR` as the den's own, so `workspaceNames`, `reopen` (repo-relative names in run records), `scripts/worktree-gc.mjs --root <target>` and the plain-path check work unchanged. The cost is one untracked directory in the user's clone. The bridge appends `.claude/worktrees/` to `<target>/.git/info/exclude` when it is missing (at onboarding and at each activation), the way it already adds `.den/`. No tracked file of the target changes. The target's `.gitignore` is never edited; if the target tracks anything under that path, onboarding refuses with the reason.
+- **In the den's state** (`<denState>/projects/<slug>/worktrees/`). Keeps the target's tree untouched, but the state folder also holds the releases, the credentials and the delivery logs, so the wall would need a carve-out in a folder it must otherwise deny. It also changes `workspaceNames`, run records and the gc script from repo-relative to absolute for one project. Rejected.
+
+The CLI finds no project settings while walking up from `<target>/.claude/worktrees/x`, because a target run starts with `--setting-sources ""` (Amendment 3 prototype, which ran in exactly this layout).
+
+### Decision 23. The registry is a file in the den's state, written only by the user's terminal
+
+Options:
+- **`<denState>/projects.json` (chosen).** Machine-specific paths and toolchain mounts do not belong in git, and the den runs from release folders, so a repo file would need a release and a restart to onboard a project. The shape is `{ "<slug>": { "path": "/abs/plain/path", "board": { "kind": "github-issues", "repo": "owner/repo" }, "toolchain": ["/abs/path", ...] } }`. `den` is the control project's slug and is implicit (path = `control`, board = the markdown board); a stored `den` is refused. A slug passes `^[a-z0-9][a-z0-9-]{0,31}$`. `toolchain` is the list of read-only mounts den-mvp/52 consumes. The bridge reads the file and never writes it; `npm run den:project -- add|list|remove` (the user's terminal, setup) is the writer, through the same validation (a git repo, a real `.git` directory, a plain path, `origin` and `main` exist, the exclude line is added). The bridge re-reads it when its mtime changes, so onboarding needs no restart, and checks the path again at activation and at each run start.
+- **A guardrail file in the repo** (`apps/bridge/cells/projects.json`, the shape Amendment 3 decision 21 used for host lists). Gives the merge gate for free, but fails the two reasons above. The gate comes instead from the wall: an agent writes only its worktree (the ceilings), and `~/.local/state/den/projects.json` joins `governance.json`'s `credentialPaths`, so no grant can reach it and it is not readable.
+- The **active** project is a separate one-line file, `<denState>/active-project`, written by the bridge on a switch. The registry has one writer (the user) and this file has one (the bridge). It is read at start; a missing or unregistered slug means `den`. A bridge restart by `den:update` therefore does not change the user's context.
+
+### Decision 24. A project's queue is the den's queue scoped to the project; the board kind is an adapter
+
+Options:
+- **One queue, one board interface, an adapter per kind (chosen).** The frontier, gate, priority order and `blockedBy` logic in `snapshot.mjs` stay the only queue implementation. A board adapter returns normalized tickets (`ref`, `title`, `type`, `status`, `priority`, `blockedBy`, `holder`) and carries the board operations (`list`, `read`, `create`, `claim`, `comment`, `release`, `resolve`). The markdown board becomes the first adapter (`createDeliveryBoard` and `board-service.mjs` behind it, behaviour unchanged); `github-issues` is the second (den-mvp/51). The frontier is computed from the tickets by the same function, so the UI, dispatch, capacity and delivery see one shape.
+- **The target's `den:*` labels read as the queue.** This is what the GitHub adapter does underneath, but as a separate queue it would give dispatch, the kanban and delivery a second frontier code path and lose `blockedBy` and holder. Rejected as an implementation; kept as the adapter's status mapping.
+
+The GitHub mapping, fixed here so den-mvp/51 starts from it:
+- **The den's board is the issues that carry a `den:*` label.** Other issues are not tickets and never enter the queue; Bao reads them separately (den-mvp/53). Resolved is a closed issue with a den label.
+- **Status:** `den:ready-for-human`, `den:ready-for-agent`; `den:in-progress` is a claim and is added with a comment that starts with a marker line (`<!-- den-claim role=<role> run=<id> -->`), from which the holder is read. The bridge is the only writer and serializes claims in-process; that, not the label, is the exactly-one-holder guarantee.
+- **Ref:** `<project-slug>/<NN>-<title-slug>`, `NN` the issue number zero-padded to two digits, so `REF_RE`, branch names and worktree names hold. The number is the key; the slug is derived from the title when a ticket is read.
+- **`blockedBy`:** a `Blocked by: #12, #13` line in the issue body; an issue without one is unblocked. **Priority:** a `priority:P1`..`P3` label, default `P2`. These are the only conventions the first target needs.
+- **Reading a non-active project** is on demand with a short cache; only the active project is polled for the hub. The interval is den-mvp/51's, bounded by the host's rate limit.
+
+### The seam: the project is resolved once per run, and the run carries it
+
+Options:
+- **Make `root` a getter and re-point it on a switch.** Touches every closure and leaves in-flight state (a delivery, a reopened worktree) pointing at the wrong repo after a switch. Rejected.
+- **A full service set per project** (`startBridge`'s body per project). Clean isolation, but capacity (`max_concurrent_cells`), the resource-group slice, the approvals queue, Bao's desk, the ledger and usage are shared by the whole den. Each project would need escape hatches to singletons, and two agent tables would break the cell cap. Rejected.
+- **One host, a project resolved when a run starts, stored on the run (chosen).** Everything after dispatch (worktree, branch, publish, reopen, `mainGit`, grants root, delivery steps) reads the run's own project, so a switch cannot re-point work in flight.
+
+The module is a new deep one, `apps/bridge/projects.mjs`, with a small interface:
+- `createProjects({ control, denState, exec })` where `control` is the bridge module's own location.
+- `list()`, then `[{ slug, path, kind, control, active }]`; `active()`; `activate(slug, { runs })`, then `{ ok }` or `{ refused, blocking: [{ id, role, ref }] }`.
+- `get(slug)`, then the project handle `{ slug, root, control, board, git, workspaces, toolchain }`, built once per root and revalidated by the start check. `root` is a plain real path. `board`, `git` and `workspaces` are `createDeliveryBoard`-shaped adapters, `createGitHost(root)` and `createWorkspaces(root)`.
+
+Rules, so the callers agree:
+1. **`control` and the active `root` are two values; nothing else reads a bare `root`.** `control` is this repo from the module's location and is used for: the role files and `--plugin-dir`, `governance.json`, the den's build, releases and go-live, the checks (den-only, den-mvp/34), the CI watch, the library, meetings, Bao's desk and orchestrator conversations, the ledger, usage, events, the request log and the sessions/conversations store (rows gain a `project` field; rows without one are `den`). The active `root` is used for exactly: the worktree and its branch, `prepareMainGit`, the grants root, the git host and the delivery board of a delivery, and the ticket text.
+2. **`createHost` takes `projects` instead of `root`.** `createHost({ root })` stays as a shorthand that builds a control-only `projects`, so existing host tests do not change. A new run takes `projects.get(projects.active())` at the one place `start` creates the workspace, records `agent.project = slug`, and uses that handle for the rest of its life. A client never names a project for a run; the picker (activate) is the only way.
+3. **Delivery jobs carry `project`.** The one delivery instance resolves `{ board, git }` by the job's project. The job log stays in the control's `stateDir`.
+4. **A switch is blocked by the active project's runs that are not ended.** Bao's desk, meeting and orchestrator runs are `control` runs that touch no project's tree, so they never block a switch, and a target's runs never block the den's own. The refusal names `[{ id, role, ref }]`.
+5. **Bao works on a target through material the bridge hands it,** not through a read grant on the target (den-mvp/53): the plan files read from the target's committed `HEAD` (as `CLAUDE.md` is, Amendment 4) and its open issues, in the prompt.
+6. **A target run has no ticket file.** The bridge writes the issue text to `<worktree>/.den/ticket.md` (a new note name beside `findings.md` and `meeting.md`, already excluded) and puts it in the prompt; the single allowed Read of the ticket file stays for the den's own runs. No `.scratch/` is created in a target, which makes Amendment 3 decision 19's `.scratch/` exclude line unnecessary.
+7. **A target run makes no board call.** The bridge claims on dispatch, comments the outcome and resolves on merge; the agent has no board CLI there (there is no `package.json` to hold one).
+8. **The scripted risk check fails safe for a target.** `createGitHost` looks for `scripts/risk-check.mjs` in the repo it is given and reviews every change when it is missing. A target has none, so security reviews every change. The den's script is not borrowed, because its path rules (`apps|packages|scripts/`, the den's guardrail files) would pass a repo with other layouts as clean. **Accepted by the user on 2026-10-16:** every target change gets a security review until a per-project risk rule exists (a registry field, a later ticket).
+
+**Tests at the seam.** `projects.mjs` is tested through its interface with temp git repos and a temp state folder: registration refusals, the persisted active slug, a switch blocked by a named run and allowed without one. Host tests assert that a run started under project A keeps A's root for its worktree, `mainGit` and branch after the active project changes to B. Workspace and git-host tests are unchanged.
+
+**What this changes in earlier text.** Decision 19's `.scratch/` exclude and its `board.mjs` path do not apply to a target (Amendment 4 replaced 19; rules 6 and 7 close the leftovers). Decision 20's start check now runs at registration, activation and run start.
 
 ## Consequences
 

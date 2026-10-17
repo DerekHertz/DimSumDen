@@ -6,7 +6,7 @@ import http from "node:http";
 import net from "node:net";
 import os from "node:os";
 import { startBridge } from "./server.mjs";
-import { makeStateFixture, FEATURE, BIG_HANDOFF, SMALL_HANDOFF, PENDING_ID, HANDLED_ID, LOCK_TS } from "./bridge-fixture.mjs";
+import { makeStateFixture, FEATURE, GOAL_KEY, BIG_HANDOFF, SMALL_HANDOFF, PENDING_ID, HANDLED_ID, LOCK_TS } from "./bridge-fixture.mjs";
 
 const ref = (n) => `${FEATURE}/${n}`;
 const ISO = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$/;
@@ -69,6 +69,13 @@ describe("GET /state on a fixture tree (no claim lock)", () => {
     assert.equal(t.type, "design");
     assert.equal(byRef[ref("04-review")].type, "bug");
     assert.equal(byRef[ref("02-ready-p0")].type, "feature");
+  });
+
+  test("den-mvp/61: the goals file and each ticket's goal ride the snapshot", () => {
+    assert.deepEqual(snap.goals, [{ key: GOAL_KEY, name: "The fixture goal", why: "To test goals.", doneWhen: "Never." }]);
+    assert.deepEqual(snap.goalErrors, []);
+    assert.equal(byRef[ref("02-ready-p0")].goal, GOAL_KEY);
+    assert.equal(byRef[ref("04-review")].goal, null);
   });
 
   test("status is copied verbatim", () => {

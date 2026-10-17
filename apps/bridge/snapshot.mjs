@@ -6,6 +6,7 @@ import path from "node:path";
 import { parsePriority, orderFrontier } from "../organism-infra/priority.mjs";
 import { buildRequests } from "./requests-log.mjs";
 import { compareRefs } from "../../packages/board-refs/src/compare-refs.mjs";
+import { readGoals } from "../organism-infra/goals.mjs";
 
 const HANDOFF_CAP = 8192;
 
@@ -51,6 +52,7 @@ function parseTicket(md) {
   const typeRaw = headerValue(md, "Type");
   const type = typeRaw ? (typeRaw.split(/\s+/)[0] || "").toLowerCase() || null : null;
   const status = headerValue(md, "Status") ?? "unknown";
+  const goal = headerValue(md, "Goal") || null;
   const blockedByRaw = headerValue(md, "Blocked by") ?? "";
   const blockers = [];
   for (const tok of blockedByRaw.split(",")) {
@@ -66,7 +68,7 @@ function parseTicket(md) {
       .filter((l) => /^- /.test(l));
     if (bullets.length) blockedReason = bullets[bullets.length - 1].slice(2).trim();
   }
-  return { title, type, status, blockers, blockedReason, md };
+  return { title, type, status, goal, blockers, blockedReason, md };
 }
 
 const TICKET_TEXT_CAP = 6000;
@@ -102,20 +104,23 @@ async function newestHandoff(scratch, feature, nn) {
   };
 }
 
-export async function buildSnapshot(root, seq = 0, { readUsage = () => null } = {}) {
-  const scratch = path.join(root, ".scratch");
+// den-mvp/49: `boardRoot` is the active project's root when it is not the den's. Its tickets, their handoffs and their events
+// are read from there; usage, requests and the orchestrator's handoffs stay the den's (control-keyed).
+export async function buildSnapshot(root, seq = 0, { readUsage = () => null, boardRoot = root } = {}) {
+  const control = path.join(root, ".scratch");
+  const scratch = path.join(boardRoot, ".scratch");
   const [events, usageRows, requestRows] = await Promise.all([
     readJsonl(path.join(scratch, "events.jsonl")),
-    readJsonl(path.join(scratch, "usage.jsonl")),
-    readJsonl(path.join(scratch, "_requests", "requests.jsonl")),
+    readJsonl(path.join(control, "usage.jsonl")),
+    readJsonl(path.join(control, "_requests", "requests.jsonl")),
   ]);
 
   // orchestrator handoffs
   const handoffTimestamps = [];
-  for (const name of await listDir(path.join(scratch, "_handoffs"))) {
+  for (const name of await listDir(path.join(control, "_handoffs"))) {
     if (!/-orchestrator-[^/]*\.md$/.test(name)) continue;
     try {
-      const st = await stat(path.join(scratch, "_handoffs", name));
+      const st = await stat(path.join(control, "_handoffs", name));
       handoffTimestamps.push(new Date(st.mtimeMs).toISOString());
     } catch {
       // vanished
@@ -167,6 +172,7 @@ export async function buildSnapshot(root, seq = 0, { readUsage = () => null } = 
   const pendingByRef = new Map();
   for (const r of requests) if (r.state === "pending" && !pendingByRef.has(r.ref)) pendingByRef.set(r.ref, r);
 
+  const goalsFile = await readGoals(root);
   const tickets = [];
   const candidates = [];
   for (const t of [...all.values()].sort((a, b) => compareRefs(a.ref, b.ref))) {
@@ -195,6 +201,7 @@ export async function buildSnapshot(root, seq = 0, { readUsage = () => null } = 
       title: t.title,
       type: t.type,
       status: t.status,
+      goal: t.goal,
       ready,
       priority,
       effectivePriority: priority,
@@ -244,5 +251,8 @@ export async function buildSnapshot(root, seq = 0, { readUsage = () => null } = 
     frontier,
     usage,
     requests,
+    // den-mvp/61: the user's goals, and what is wrong with the file (none with no file: the board has no goals yet).
+    goals: goalsFile.goals,
+    goalErrors: goalsFile.missing ? [] : goalsFile.errors,
   };
 }
