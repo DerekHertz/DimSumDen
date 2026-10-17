@@ -26,7 +26,6 @@ npm ci && npm run ui    # then open http://127.0.0.1:4317/?demo=den
 
 [![DimSumDev: a living world for your AI dev team, showing the global garden view and your desk](docs/images/dimsumdev-preview.png)](docs/videos/dimsumdev-linkedin.mp4)
 
-**[Watch the 18-second demo](docs/videos/dimsumdev-linkedin.mp4)** · Global view → agent conversation → enter the den.
 
 *Captured from the running app in Demo mode (`?demo=den`). The preview uses the demo's recorded and staged events; steering actions are disabled.*
 
