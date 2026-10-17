@@ -39,6 +39,8 @@ import { DESK_THREAD } from "./overlay/transcript-panel.mjs";
 import { Residents } from "./shell/Residents.jsx";
 import { deskActivity } from "./shell/desk-model.mjs";
 import { actorBindings, NAVIGATION_TARGETS, MESHY_STATION_LABELS } from "./scene/meshy/layout.mjs";
+import { MeetingLayer } from "./scene/MeetingLayer.jsx";
+import { claimOf, tableMeeting } from "./scene/meshy/meeting-table.mjs";
 
 class SceneBoundary extends Component {
   state={error:null};
@@ -147,7 +149,9 @@ export function App() {
   const cells = useMemo(() => (snapshot ? sceneFromState(snapshot) : []), [snapshot]);
   // Bao's crown always holds the Pass: an idle stand-in when no orchestrator work is active.
   const sceneCells = useMemo(() => withPassCell(cells), [cells]);
-  const sceneChips=useMemo(()=>[...cells,...frontier.map(ref=>({ref,cellType:'queued',pose:'idle'}))],[cells,frontier]);
+  // den-mvp/64: a meeting's runs wear the meeting's own labels at the table, so their generic chips are left out.
+  const tableRef = tableMeeting(snapshot?.meetings, now)?.ref ?? null;
+  const sceneChips=useMemo(()=>[...cells.filter(c=>c.ref!==tableRef),...frontier.map(ref=>({ref,cellType:'queued',pose:'idle'}))],[cells,frontier,tableRef]);
   const handoffs = useHandoffs(snapshot);
   const { metrics, failed: metricsFailed, retry: retryMetrics } = useMetrics(metricsRevision);
   const dashboard = useMemo(() => dashboardModel(metrics, { error: metricsFailed }), [metrics, metricsFailed]);
@@ -185,6 +189,25 @@ export function App() {
     setSelected(null); unpick(); setTallyOpen(false); setDeskSection(section);
     setFocusRequest(previous => ({ section, sequence: (previous?.sequence ?? 0) + 1 }));
   }, [stage, transcript.close, message.composer, approval.review, unpick]);
+  // den-mvp/64: a seat, Bao or the table opens the meeting in the Meetings card, on that seat's take when there is one.
+  const openMeeting = useCallback((meeting, role) => {
+    navigateDesk('meetings');
+    setFocusRequest(previous => ({ section: 'meetings', meeting, role: role ?? null, sequence: (previous?.sequence ?? 0) + 1 }));
+  }, [navigateDesk]);
+  const atTable = tableMeeting(snapshot?.meetings, now);
+  const claimKey = atTable ? `${atTable.id}:${atTable.seats.map(s => `${s.status}${s.takes ?? 0}`).join(',')}` : '';
+  const [claims, setClaims] = useState({});
+  useEffect(() => {
+    if (!atTable || inDemo || steering.state === 'none') { setClaims({}); return; }
+    let current = true;
+    bridge.getMeeting(atTable.id).then(body => {
+      if (!current) return;
+      const out = {};
+      for (const t of [...body.takes].sort((a, b) => (a.n ?? 1) - (b.n ?? 1))) out[t.role] = claimOf(t.text) ?? out[t.role];
+      setClaims(out);
+    }, () => {});
+    return () => { current = false; };
+  }, [claimKey, bridge, inDemo, steering.state]); // eslint-disable-line react-hooks/exhaustive-deps
   const residentCard = useCallback(row => {
     const boundRefs=new Set([...bindings.values()].map(actor=>actor.ref));
     return pickedCard([{...row,agent:agentFor(row,snapshot?.agents,boundRefs)}],snapshot?.approvals,row.id);
@@ -266,11 +289,12 @@ export function App() {
                 <CameraRig store={camera} stage={stage} den={den} onModeChange={onExploreChange} onHint={setExploreHint} onCursorChange={setCursorFree} />
                 <Suspense fallback={null}>
                   <MeshyDen snapshot={snapshot} bindings={bindings} onLoadState={setGardenLoad} cells={sceneCells} frontier={frontier} tally={tally} onOpenTally={openTally}
-                    selected={selected} onSelect={selectTicket} stage={stage} onReady={onDenReady} onNearby={onNearby} picked={picked} onPick={pickPanda} zoneView={zoneView} onZoneClick={zoneClick} />
+                    selected={selected} onSelect={selectTicket} stage={stage} onReady={onDenReady} onNearby={onNearby} picked={picked} onPick={pickPanda} zoneView={zoneView} onZoneClick={zoneClick} onOpenMeeting={openMeeting} />
                 </Suspense>
               </Canvas>
             </SceneBoundary>
             <ChipLayer cells={sceneChips} labelsOverride={MESHY_STATION_LABELS} hearts={hearts} onToggleTally={toggleTally} tallyOpen={tallyOpen} tally={tally} tickets={snapshot?.tickets} selected={selected} onSelect={selectTicket} stage={stage} />
+            <MeetingLayer snapshot={snapshot} stage={stage} claims={claims} onOpen={openMeeting} />
             <div className="den-crosshair" aria-hidden="true" hidden={!exploring || cursorFree}>+</div>
             {!den ? <p className="forest-loading" role={gardenLoad.status === 'error' ? 'alert' : 'status'}>{gardenLoad.message}<span>{gardenLoad.status === 'error' ? 'Your board controls are still available at the desk.' : 'Preparing Bao, the workspaces and their props.'}</span></p> : null}
             {zoneNotice ? <p className="scene-caption scene-zone-notice" role="status">{zoneNotice}</p> : null}

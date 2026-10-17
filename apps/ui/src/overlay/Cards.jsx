@@ -655,6 +655,7 @@ export function Cards({ snapshot, ownBuild = null, now, connection, placeholder,
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [meetingsOpen, setMeetingsOpen] = useState(false);
   const [shownMeeting, setShownMeeting] = useState(null); // the meeting whose brief is open in the Meetings card
+  const [shownRole, setShownRole] = useState(null); // the seat whose take opens with it (den-mvp/64)
   const waiting = needsYouModel(snapshot, now).count;
   const needs = needsOpen ?? (!isPhone() && waiting > 0);
   const busy = connection.phase !== "live";
@@ -675,6 +676,8 @@ export function Cards({ snapshot, ownBuild = null, now, connection, placeholder,
     setStationsOpen(focusRequest.section === 'work');
     setLibraryOpen(focusRequest.section === 'library');
     setMeetingsOpen(focusRequest.section === 'meetings');
+    // den-mvp/64: from the table, the meeting opens on the seat's take.
+    if (focusRequest.meeting) { setShownMeeting(focusRequest.meeting); setShownRole(focusRequest.role ?? null); }
   }, [focusRequest]);
 
   // den-mvp/62: the Queue drawer, over the scene and this column. A ticket row uses the same Run and Deliver controls as
@@ -724,7 +727,7 @@ export function Cards({ snapshot, ownBuild = null, now, connection, placeholder,
       <BuildStatus snapshot={snapshot} ownBuild={ownBuild} steer={steer} client={client} />
       <NeedsYouCard snapshot={snapshot} now={now} open={needs} onToggle={toggleNeeds} busy={busy} placeholder={placeholder} session={steering.session} onAnswer={onAnswer} onOpenThread={onOpenThread} capacity={capacity} steer={steer} run={run} deliveries={deliveries} meetings={meetings} onOpenMeeting={openMeeting} />
       <StationsCard snapshot={snapshot} open={stationsOpen} onToggle={toggleStations} busy={busy} placeholder={placeholder} onZoomStation={(id) => camera.goToStation(id)} capacity={capacity} steer={steer} run={run} deliveries={deliveries} />
-      <MeetingsCard client={client} snapshot={snapshot} open={meetingsOpen} onToggle={toggleMeetings} busy={busy} steer={steer} meetings={meetings} shown={shownMeeting} onShow={setShownMeeting} />
+      <MeetingsCard client={client} snapshot={snapshot} open={meetingsOpen} onToggle={toggleMeetings} busy={busy} steer={steer} meetings={meetings} shown={shownMeeting} shownRole={shownRole} onShow={setShownMeeting} />
       <LibraryCard client={reader} rev={snapshot?.libraryRev ?? 0} now={now} open={libraryOpen} onToggle={toggleLibrary} busy={busy} demo={demo} />
     </div>
     <QueueDrawer snapshot={snapshot} now={now} open={queueOpen} onClose={closeQueue}

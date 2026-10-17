@@ -235,10 +235,14 @@ function furniture(g, m, meta, id) {
     meta.table = {width: big ? 5 : 2, depth: big ? 3.1 : 2, top: height + .04};
     roundTable(g, m, meta.table.width, meta.table.depth, height);
     teaSet(g, m, big ? -1.4 : -.3, height + .04, big ? -.6 : -.2);
+    // den-mvp/64: on the big table the baskets ride a lazy susan, which turns toward whoever speaks in a meeting.
+    const susan = big ? new T.Group() : g;
+    if (big) { susan.name = 'Lazy susan'; susan.position.set(.2, 0, .1); g.add(susan); cyl(susan, 1.25, .04, m.endgrain, [0, height + .06, 0], 48); }
     for (const [x, z] of big ? [[-.6, .3], [.3, -.3], [1.15, .35]] : [[.32, .22]]) {
-      cyl(g, .22, .12, m.bamboo, [x, height + .10, z], 24);
-      ring(g, .22, .011, m.endgrain, [x, height + .145, z]);
-      for (const dx of [-.08, .08]) orb(g, .075, m.ivory, [x + dx, height + .19, z], [1, .7, 1]);
+      const [sx, sz] = big ? [x - .2, z - .1] : [x, z];
+      cyl(susan, .22, .12, m.bamboo, [sx, height + .10, sz], 24);
+      ring(susan, .22, .011, m.endgrain, [sx, height + .145, sz]);
+      for (const dx of [-.08, .08]) orb(susan, .075, m.ivory, [sx + dx, height + .19, sz], [1, .7, 1]);
     }
     if (!big) for (const [x, z] of [[-1.5, 0], [1.5, 0], [0, -1.5], [0, 1.5]]) stool(g, m, x, z);
   } else if (id === 'games') {
