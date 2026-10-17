@@ -43,6 +43,14 @@ export function split(files = allTestFiles()) {
   return { browser: files.filter((f) => isBrowserFile(f)), rest: files.filter((f) => !isBrowserFile(f)) };
 }
 
+// Each browser file loads the complete garden. Bound file concurrency so
+// model decoding and Chromium contexts do not exhaust the CI runner (ci-cd/08).
+export function nodeTestArgs(mode, env = process.env) {
+  if (mode !== "browser") return [];
+  const n = Number(env.BROWSER_FILE_CONCURRENCY);
+  return [`--test-concurrency=${Number.isInteger(n) && n > 0 ? n : 3}`];
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const mode = process.argv[2];
   const groups = split();
@@ -55,9 +63,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const bom = spawnSync(process.execPath, ["scripts/bom-check.mjs"], { cwd: ROOT, stdio: "inherit" });
     if (bom.status !== 0) process.exit(bom.status ?? 1);
   }
-  // Each browser file loads the complete garden. Bound file concurrency so
-  // model decoding and Chromium contexts do not exhaust the CI runner.
-  const concurrency = mode === "browser" ? ["--test-concurrency=1"] : [];
-  const r = spawnSync(process.execPath, ["--test", ...concurrency, ...groups[mode]], { cwd: ROOT, stdio: "inherit" });
+  const r = spawnSync(process.execPath, ["--test", ...nodeTestArgs(mode), ...groups[mode]], { cwd: ROOT, stdio: "inherit" });
   process.exit(r.status ?? 1);
 }

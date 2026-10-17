@@ -11,15 +11,19 @@ import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../", import.meta.url)));
 
+// ci-cd/08 (organism-infra/221): a port from listen(0) is in the kernel's ephemeral range, which every outgoing connection and
+// every other listen(0) in a parallel run also draws from, and `npm run dev` takes seconds to start; in 64 runs at 24 at once one
+// child died with "EADDRINUSE" (exit code 1). Probe a random port below that range (32768+) instead.
 async function findFreePort() {
-  return new Promise((resolve, reject) => {
-    const srv = createServer();
-    srv.listen(0, "127.0.0.1", () => {
-      const { port } = srv.address();
-      srv.close(() => resolve(port));
+  for (;;) {
+    const port = 20000 + Math.floor(Math.random() * 12000);
+    const free = await new Promise((resolve) => {
+      const srv = createServer();
+      srv.once("error", () => resolve(false));
+      srv.listen(port, "127.0.0.1", () => srv.close(() => resolve(true)));
     });
-    srv.on("error", reject);
-  });
+    if (free) return port;
+  }
 }
 
 function startDevServer(port) {
@@ -33,10 +37,12 @@ function startDevServer(port) {
   });
 }
 
-async function waitForServer(url, child, timeoutMs = 10000) {
+async function waitForServer(url, child, timeoutMs = 30000 /* ci-cd/08: startup time, measured: 24 parallel `npm run dev` starts on 8 cores took more than 10 s (4 of 64 runs) */) {
   const deadline = Date.now() + timeoutMs;
   let exited = false;
   let exitInfo = null;
+  let stderr = ""; // ci-cd/08: say why it exited (organism-infra/221 had only the exit code)
+  child.stderr?.on("data", (c) => (stderr += c));
   child.once("exit", (code, signal) => {
     exited = true;
     exitInfo = { code, signal };
@@ -45,7 +51,7 @@ async function waitForServer(url, child, timeoutMs = 10000) {
   while (Date.now() < deadline) {
     if (exited) {
       throw new Error(
-        `dev server exited before it answered ${url} (code=${exitInfo.code}, signal=${exitInfo.signal})`
+        `dev server exited before it answered ${url} (code=${exitInfo.code}, signal=${exitInfo.signal}). stderr: ${stderr.slice(0, 1500)}`
       );
     }
     try {

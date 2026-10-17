@@ -104,3 +104,17 @@ describe("entryFromFrame", () => {
     assert.deepEqual(type({ kind: { nested: true } }), { kind: "unreadable", type: "unknown" });
   });
 });
+
+// den-v1/12: an agentId that names something on Object.prototype is an ordinary id.
+describe("ids that are prototype keys", () => {
+  for (const id of ["constructor", "__proto__", "toString", "hasOwnProperty"]) {
+    test(`${id} appends safely and does not touch the prototype`, () => {
+      const next = appendTranscript({}, id, { kind: "message", role: "agent", text: "hi", at: "t" });
+      assert.equal(Object.hasOwn(next, id), true);
+      assert.deepEqual(next[id].entries.map((e) => [e.n, e.text]), [[1, "hi"]]);
+      assert.deepEqual(Object.getPrototypeOf(next), Object.prototype);
+      const again = appendTranscript(next, id, { kind: "message", role: "agent", text: "two", at: "t" });
+      assert.deepEqual(again[id].entries.map((e) => e.n), [1, 2]);
+    });
+  }
+});

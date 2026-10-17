@@ -11,7 +11,7 @@ import { initialTranscriptState, transcriptKey, closeTranscript } from "./transc
 import { cardFor } from "./proximity-card.mjs";
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8");
-const MODULES = ["../state/transcript-buffer.mjs", "./transcript-view.mjs", "./transcript-panel.mjs"];
+const MODULES = ["../state/transcript-buffer.mjs", "./transcript-view.mjs", "./transcript-panel.mjs", "./TranscriptPanel.jsx"]; // den-v1/12: the panel itself, where it opens
 
 describe("story 23: no network request", () => {
   test("open, stream, scroll state and close touch neither fetch nor /state", async () => {
