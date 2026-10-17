@@ -24,12 +24,12 @@ const fakeBox = (calls) => ({
 });
 
 describe("the unit text", () => {
-  const values = { node: "/usr/bin/node", checkout: "/home/me/dimsumden", state: "/home/me/.local/state/den", searchPath: "/home/me/.local/bin:/usr/bin" };
+  const values = { node: "/usr/bin/node", checkout: "/home/me/dimsumdev", state: "/home/me/.local/state/den", searchPath: "/home/me/.local/bin:/usr/bin" };
 
   test("runs the bridge from bridge/current, in den.slice, on 4317, restarting on failure, in the checkout", () => {
     const text = renderUnit(TEMPLATE, values);
     assert.match(text, /^Slice=den\.slice$/m);
-    assert.match(text, /^WorkingDirectory=\/home\/me\/dimsumden$/m);
+    assert.match(text, /^WorkingDirectory=\/home\/me\/dimsumdev$/m);
     assert.match(text, /^ExecStart=\/usr\/bin\/node \/home\/me\/\.local\/state\/den\/bridge\/current\/apps\/bridge\/server\.mjs$/m);
     assert.match(text, /^Environment=PORT=4317$/m);
     assert.match(text, /^Environment="PATH=\/home\/me\/\.local\/bin:\/usr\/bin"$/m);

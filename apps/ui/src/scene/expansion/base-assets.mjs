@@ -111,7 +111,7 @@ function teaRetreat(){const g=group('Garden tea retreat');roundPad(g,1.85);cyl(g
 function mahjong(){const g=group('Mahjong corner');roundPad(g,2.1);box(g,[1.65,.18,1.65],[0,.85,0],C.wood);box(g,[1.48,.025,1.48],[0,.96,0],C.jade);for(const x of [-.65,.65])for(const z of [-.65,.65])box(g,[.12,.7,.12],[x,.45,z],C.wood);for(let side=0;side<4;side++)for(let j=0;j<8;j++){const tile=group('Mahjong tile');at(g,tile,[0,1.03,0],side*Math.PI/2);box(tile,[.12,.16,.07],[-.52+j*.15,0,.58],C.cream,.018);ball(tile,.018,[-.52+j*.15,.02,.619],j%2?C.red:C.jade);}for(const [x,z]of [[0,1.5],[0,-1.5],[-1.5,0],[1.5,0]])stool(g,[x,.15,z],C.jade);return g;}
 function rest(){const g=group('Sleepy cushion nook');floor(g,3.4,2.4);for(const x of [-1.3,1.3])cyl(g,.08,2.7,[x,1.45,-.7],C.wood);beam(g,[-1.5,2.75,-.7],[1.5,2.75,-.7],.08,C.wood);box(g,[2.9,.12,1.9],[0,2.8,-.1],C.bamboo).rotation.x=.12;cushion(g,[-.55,.36,.3],C.lavender,1.05);cushion(g,[.7,.36,.3],C.cream,.95);worker(g,'cub',[-.55,.46,.2],.26,0,true);if(residentsOn)bubble(g,'zzz',[-.55,1.73,.28],.65);box(g,[2.8,.5,.12],[0,.55,-.88],C.woodLight);return g;}
 function grove(){const g=group('Bamboo & garden planting');for(const [x,z,h]of [[-1.2,.4,3.5],[0,-.4,4.3],[1.2,.3,3]])bamboo(g,[x,0,z],h,x);for(const x of [-1.1,.6,1.3])ball(g,.38,[x,.12,.8],C.stone,[1,.55,.7]);for(let i=0;i<6;i++)ball(g,.28,[Math.sin(i*2.3)*1.5,.13,Math.cos(i*2.3)*1.2],C.leaf,[1,.6,1]);return g;}
-function gate(){const g=group('Welcome garden gate');for(const x of [-1.7,1.7]){cyl(g,.15,3.1,[x,1.55,0],C.wood);cyl(g,.22,.2,[x,.1,0],C.stone);}roof(g,4.4,1.6,3.1);sign(g,'DIM SUM DEN',[0,2.65,.22],2.8,C.jade);lantern(g,[-1.4,2.76,.3]);lantern(g,[1.4,2.76,.3]);return g;}
+function gate(){const g=group('Welcome garden gate');for(const x of [-1.7,1.7]){cyl(g,.15,3.1,[x,1.55,0],C.wood);cyl(g,.22,.2,[x,.1,0],C.stone);}roof(g,4.4,1.6,3.1);sign(g,'DIM SUM DEV',[0,2.65,.22],2.8,C.jade);lantern(g,[-1.4,2.76,.3]);lantern(g,[1.4,2.76,.3]);return g;}
 function paths(){const g=group('Courtyard paving kit');for(let i=0;i<7;i++){const m=cyl(g,.56,.1,[(i-3)*.9,.05,Math.sin(i)*.2],C.stone);m.scale.z=.7;m.rotation.y=i*.4;}for(const x of [-2.4,2.4])ball(g,.16,[x,.1,.6],C.leaf,[1,.5,1]);return g;}
 function buildPad(){const g=group('Future workspace plot');roundPad(g,1.5,C.grass);for(const x of [-1.1,1.1])for(const z of [-1.1,1.1]){cyl(g,.05,.6,[x,.3,z],C.wood);box(g,[.2,.2,.035],[x,.48,z],C.cream);}for(const z of [-1.1,1.1])beam(g,[-1.1,.43,z],[1.1,.43,z],.015,C.bamboo);for(const x of [-1.1,1.1])beam(g,[x,.43,-1.1],[x,.43,1.1],.015,C.bamboo);sign(g,'ROOM TO GROW',[0,.8,1.25],1.85,C.jadeDark);return g;}
 
@@ -160,7 +160,7 @@ export function createVillage({includeResidents=true}={}){
   try{return buildVillage(includeResidents);}finally{residentsOn=before;}
 }
 function buildVillage(includeResidents){
-  const world=group('Dim Sum Den · garden village');
+  const world=group('Dim Sum Dev · garden village');
   const ground=cyl(world,28,.55,[0,-.34,0],C.grass);ring(world,27.7,.16,[0,-.08,0],C.leaf);
   const lawn=cyl(world,27,.05,[0,-.04,0],C.grass);lawn.receiveShadow=true;
   const positions=VILLAGE_POSITIONS;

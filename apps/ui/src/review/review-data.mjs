@@ -2,7 +2,7 @@ import {pandaSettings} from '../scene/procedural/panda-settings.mjs';
 import {normalizeFit} from './traditional-props.mjs';
 export const REVIEW_KEY='dimsum-local-review-v2';
 export function normalizeReview(raw){
-  if(!raw||raw.format!=='dim-sum-den-review'||raw.version!==2)throw new Error('Choose a Dim Sum Den review JSON exported from this artifact.');
+  if(!raw||raw.format!=='dim-sum-den-review'||raw.version!==2)throw new Error('Choose a Dim Sum Dev review JSON exported from this artifact.');
   const notes=(Array.isArray(raw.notes)?raw.notes:[]).slice(0,200).map((n,i)=>({
     id:String(n.id||i).slice(0,80),label:String(n.label||'Comment').slice(0,100),text:String(n.text||'').slice(0,4000),
     view:['scene','characters','walking'].includes(n.view)?n.view:'characters',role:String(n.role||'orchestrator').slice(0,60),sample:String(n.sample||'morning').slice(0,30),direction:['teahouse','scholar','traveler'].includes(n.direction)?n.direction:'traveler',

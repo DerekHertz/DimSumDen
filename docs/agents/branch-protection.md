@@ -27,7 +27,7 @@ Residual risk (low): with admin bypass, the owner's credentials can push directl
 ## Apply (user runs this)
 
 ```
-gh api -X PUT repos/DerekHertz/DimSumDen/branches/main/protection --input docs/agents/branch-protection-main.json
+gh api -X PUT repos/DerekHertz/DimSumDev/branches/main/protection --input docs/agents/branch-protection-main.json
 ```
 
 Run it from a checkout that contains the JSON file (after this branch merges, or from the branch's worktree).
@@ -35,7 +35,7 @@ Run it from a checkout that contains the JSON file (after this branch merges, or
 ## Verify
 
 ```
-gh api repos/DerekHertz/DimSumDen/branches/main/protection --jq '{checks: .required_status_checks.checks, strict: .required_status_checks.strict, approvals: .required_pull_request_reviews.required_approving_review_count, admins: .enforce_admins.enabled, force_push: .allow_force_pushes.enabled, deletions: .allow_deletions.enabled}'
+gh api repos/DerekHertz/DimSumDev/branches/main/protection --jq '{checks: .required_status_checks.checks, strict: .required_status_checks.strict, approvals: .required_pull_request_reviews.required_approving_review_count, admins: .enforce_admins.enabled, force_push: .allow_force_pushes.enabled, deletions: .allow_deletions.enabled}'
 ```
 
 Expected:
@@ -49,5 +49,5 @@ A 404 `Branch not protected` means protection is off. Do not verify with a live 
 ## Roll back
 
 ```
-gh api -X DELETE repos/DerekHertz/DimSumDen/branches/main/protection
+gh api -X DELETE repos/DerekHertz/DimSumDev/branches/main/protection
 ```

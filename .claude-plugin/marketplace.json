@@ -1,7 +1,7 @@
 {
   "name": "dimsumden-mods",
-  "owner": { "name": "Dim Sum Den" },
-  "metadata": { "description": "Dim Sum Den's own mods (project-scope Claude Code plugins). Mods trial: see .scratch/mods-trial/spec.md." },
+  "owner": { "name": "Dim Sum Dev" },
+  "metadata": { "description": "Dim Sum Dev's own mods (project-scope Claude Code plugins). Mods trial: see .scratch/mods-trial/spec.md." },
   "plugins": [
     {
       "name": "sleep-guard",

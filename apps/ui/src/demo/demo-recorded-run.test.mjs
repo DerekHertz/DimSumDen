@@ -69,7 +69,7 @@ describe("the scout's storyline is the recorded run", () => {
     assert.deepEqual([seen.states[0], seen.states.at(-1)], ["working", "done"]);
     const agent = end.snapshot.agents.find((a) => a.id === SCOUT);
     assert.equal(agent.costUsd, 0.00375692);
-    assert.match(agent.reply, /^The package name is \*\*`dim-sum-den`\*\*/);
+    assert.match(agent.reply, /^The package name is \*\*`dim-sum-dev`\*\*/);
     const card = cardsOf({ ...end.snapshot, agents: [agent] })[0];
     assert.equal(card.last.label, "Last task: done");
     assert.equal(card.last.cost, "≈0.38¢ API-equiv");

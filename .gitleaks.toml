@@ -1,4 +1,4 @@
-title = "Dim Sum Den gitleaks config"
+title = "Dim Sum Dev gitleaks config"
 
 [extend]
 useDefault = true

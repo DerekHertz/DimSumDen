@@ -161,7 +161,7 @@ test("the native plush garden loads Balanced Bao and the shared role wardrobe wi
       const {_roots}=await import(url);
       const {createGardenNavigation}=await import('/src/scene/meshy/garden-navigation.mjs');
       const {gardenRoute}=await import('/src/scene/meshy/garden-route.mjs');
-      const world=_roots.get(document.querySelector('canvas')).store.getState().scene.getObjectByName('Dim Sum Den · plush bamboo garden');
+      const world=_roots.get(document.querySelector('canvas')).store.getState().scene.getObjectByName('Dim Sum Dev · plush bamboo garden');
       const roles=[],skeletons=new Set(),tools=[],assets={};let landscape;
       world.traverse(n=>{
         if(n.userData.actorKey)roles.push(n);

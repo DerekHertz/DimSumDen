@@ -21,7 +21,7 @@ export async function createMeshyWorld(renderer,{signal,onProgress=()=>{}}={}){
  den.dispose=()=>{if(disposed)return;disposed=true;ambient?.dispose();if(ambient){disposeWorld(ambient.props);for(const outfit of ambient.outfits)disposeWorld(outfit);}for(const model of [...rigs.keys()])den.destroyPanda(model);garden?.dispose();meeting?.dispose();disposeWorld(den.world);disposeWorld(resources);};
  try{
   den.assets=await loadManifest(signal);active(signal);
-  onProgress('Opening the bright bamboo garden…');garden=createDenScene();den.garden=garden;den.world.add(garden.root,residents,den.roleTools,den.vegetation);den.world.name='Dim Sum Den · plush bamboo garden';
+  onProgress('Opening the bright bamboo garden…');garden=createDenScene();den.garden=garden;den.world.add(garden.root,residents,den.roleTools,den.vegetation);den.world.name='Dim Sum Dev · plush bamboo garden';
   onProgress('Fitting the pandas’ role attire…');
   const ids=['bao','wardrobe.developer-vest','wardrobe.qa-scarf','wardrobe.developer-headphones'];
   const sources=[];for(const id of ids){const source=await loadModel(den.assets[id].url);resources.add(source);sources.push(source);active(signal);}
