@@ -325,14 +325,14 @@ describe("a new test that passes on the merge base", () => {
   // H1: the rerun of untrusted tests goes through the launcher, in a resource group with the checks limits.
   const addZero = () => fixture(before, withNew('test("adds zero", () => { assert.strictEqual(add(0, 0), 0); });\n'));
   const BWRAP = "/usr/bin/bwrap"; // never run: the fake launcher stands in for it
-  function fakeLauncher({ out = "", hang = false, fail = null } = {}) {
+  function fakeLauncher({ out = "", hang = false, fail = null, exhausted = null, code = 0 } = {}) {
     const l = { enforced: true, launches: [], killed: 0 };
     l.launch = async (req) => {
       l.launches.push(req);
       if (fail) throw fail;
-      const script = hang ? "setInterval(() => {}, 1000)" : `process.stdout.write(${JSON.stringify(out)})`;
+      const script = hang ? "setInterval(() => {}, 1000)" : `process.stdout.write(${JSON.stringify(out)}, () => process.exit(${code}))`;
       const child = spawn(process.execPath, ["-e", script], { stdio: ["pipe", "pipe", "pipe"] });
-      return { child, group: { kill: () => ((l.killed += 1), child.kill("SIGKILL")), settled: async () => true, unit: "fake.scope" } };
+      return { child, group: { kill: () => ((l.killed += 1), child.kill("SIGKILL")), settled: async () => true, exhausted: () => exhausted, unit: "fake.scope" } };
     };
     return l;
   }
@@ -340,7 +340,7 @@ describe("a new test that passes on the merge base", () => {
 
   test("runs the changed tests through the launcher, as a worker, in the box", async () => {
     const root = addZero();
-    const launcher = fakeLauncher({ out: "ok 1 - adds zero\n" });
+    const launcher = fakeLauncher({ out: "ok 1 - adds zero\n1..1\n" });
     flagged(await reasons(root, { rerun: true, launcher, bwrap: BWRAP }), /can't fail: "adds zero"/);
     assert.equal(launcher.launches.length, 1);
     const [req] = launcher.launches;
@@ -352,6 +352,24 @@ describe("a new test that passes on the merge base", () => {
     assert.ok(req.args.includes("--unshare-all"));
     assert.equal(launcher.killed >= 1, true, "the group is ended when the run is over");
     assert.deepEqual(worktrees(root), []);
+  });
+
+  // L9: a rerun that was cut short, or gave no test report, says nothing about "can't fail", so it is a hit, not clean.
+  test("a rerun whose group ran out of memory or tasks is a hit", async () => {
+    for (const exhausted of ["memory", "processes"]) {
+      const launcher = fakeLauncher({ out: "1..1\n", exhausted, code: 137 });
+      flagged(await reasons(addZero(), { rerun: true, launcher, bwrap: BWRAP }), new RegExp(`can't-fail check not run: .*ran out of ${exhausted}`));
+    }
+  });
+
+  test("a rerun that gives no test report is a hit", async () => {
+    const launcher = fakeLauncher({ out: "", code: 1 });
+    flagged(await reasons(addZero(), { rerun: true, launcher, bwrap: BWRAP }), /can't-fail check not run: .*no test report \(exit 1\)/);
+  });
+
+  test("a rerun whose tests fail on the merge base, with a report, is clean", async () => {
+    const launcher = fakeLauncher({ out: "not ok 1 - adds zero\n1..1\n", code: 1 });
+    assert.deepEqual(await reasons(addZero(), { rerun: true, launcher, bwrap: BWRAP }), []);
   });
 
   test("the guard's launcher has the checks limits", () => {

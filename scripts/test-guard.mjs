@@ -216,7 +216,8 @@ export const guardLauncher = (env = process.env) => createResourceLauncher({ env
 
 const OUTPUT_KEPT = 16 * 1024 * 1024;
 
-// One command through the launcher, in its resource group. -> { stdout, stderr, timedOut }; throws when the group cannot be had.
+// One command through the launcher, in its resource group. -> { stdout, stderr, timedOut, status, exhausted }; throws when the
+// group cannot be had. exhausted is read before the kill, while the group still holds its counters.
 async function runGrouped({ launcher, bwrap, argv, timeoutSec }) {
   const { child, group } = await launcher.launch({ slotClass: "worker", id: `test-guard-${process.pid}-${(launches += 1)}`, bin: bwrap, args: argv, cwd: "/", env: {} });
   if (!group) {
@@ -229,12 +230,13 @@ async function runGrouped({ launcher, bwrap, argv, timeoutSec }) {
   child.stdin.end();
   let timedOut = false;
   const timer = setTimeout(() => ((timedOut = true), group.kill()), timeoutSec * 1000);
-  await new Promise((resolve) => child.once("exit", resolve)); // "exit", not "close": the launcher's anchor holds the pipes until the group is killed
+  const status = await new Promise((resolve) => child.once("exit", (code, signal) => resolve(code ?? signal))); // "exit", not "close": the launcher's anchor holds the pipes until the group is killed
   clearTimeout(timer);
+  const exhausted = group.exhausted?.() ?? null;
   group.kill();
   await group.settled(5000);
   await Promise.race([new Promise((resolve) => child.once("close", resolve)), new Promise((resolve) => setTimeout(resolve, 1000))]);
-  return { ...out, timedOut };
+  return { ...out, timedOut, status, exhausted };
 }
 
 // Guard worktrees left by a guard that was killed (their name carries the start time).
@@ -304,6 +306,10 @@ async function cantFail({ cwd, base, head, newTests, box, bwrap, launcher, timeo
     if (timedOut) return { hits: [{ file: "(guard)", reason: `can't-fail check did not finish in ${timeoutSec} s on the merge base: run the changed tests there by hand` }], notes };
     const bwrapError = /^bwrap: .*$/m.exec(r.stderr ?? "");
     if (bwrapError) return notRun(bwrapError[0].slice(0, 200));
+    // A rerun cut short, or one with no TAP plan, never got to say which tests pass: that is not a clean result.
+    // A non-zero exit with a plan is the expected case (a good new test fails on the merge base).
+    if (r.exhausted) return notRun(`the rerun ran out of ${r.exhausted}`);
+    if (!/^\s*1\.\.\d+/m.test(String(r.stdout ?? ""))) return notRun(`the rerun gave no test report (exit ${r.status ?? "unknown"})`);
     const passed = passedNames(String(r.stdout ?? ""));
     for (const t of files) for (const n of t.names) if (passed.has(n)) hits.push({ file: t.path, reason: `can't fail: "${n}" passes on the merge base ${base.slice(0, 12)}` });
   } finally {
