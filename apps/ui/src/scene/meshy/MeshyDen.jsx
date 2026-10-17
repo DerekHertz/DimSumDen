@@ -9,10 +9,9 @@ import {TABLE,seatSpots,seated,tableMeeting} from './meeting-table.mjs';
 
 // Native R3F scene. App remains the sole owner of live state, actions and panels.
 export function MeshyDen({snapshot,cells,frontier,tally,selected,onSelect,onOpenTally,stage,onReady,onNearby,picked=null,onPick,zoneView=null,onZoneClick=null,onLoadState,bindings=null,onOpenMeeting=null}){
- const [den,setDen]=useState(null),[dark,setDark]=useState(()=>matchMedia('(prefers-color-scheme: dark)').matches);
+ const [den,setDen]=useState(null);
  const live=useRef(null),inputs=useRef({});inputs.current={snapshot,cells,frontier,tally,selected,onSelect,onOpenTally,onNearby,picked,onPick,zoneView,onZoneClick,onLoadState,bindings,onOpenMeeting};
  const {scene,gl}=useThree();
- useEffect(()=>{const theme=matchMedia('(prefers-color-scheme: dark)'),change=()=>setDark(theme.matches);theme.addEventListener('change',change);return()=>theme.removeEventListener('change',change);},[]);
  useEffect(()=>{
   const abort=new AbortController();let mounted=true,world=null;
   inputs.current.onLoadState?.({status:'loading',message:'Opening the forest garden…'});
@@ -21,13 +20,13 @@ export function MeshyDen({snapshot,cells,frontier,tally,selected,onSelect,onOpen
    const agents=createMeshyActors(d),media=matchMedia('(prefers-reduced-motion: reduce)');
    // den-mvp/64: a gold ring round the table while a meeting's brief waits on the user.
    const glow=new THREE.Mesh(new THREE.TorusGeometry(2.8,.06,8,72),new THREE.MeshBasicMaterial({color:'#f8bd40',transparent:true,opacity:.9}));
-   glow.name='Brief waiting';glow.rotation.x=Math.PI/2;glow.scale.set(1,.68,1);glow.position.set(TABLE.x,.09,TABLE.z);glow.visible=false;d.world.add(glow);
+   glow.name='Brief waiting';glow.rotation.x=Math.PI/2;glow.scale.set(1,.68,1);glow.position.set(TABLE.x,.35,TABLE.z);glow.visible=false;d.world.add(glow);
    live.current={den:d,agents,media,anchored:new Set(),proximity:0,meeting:null,susan:d.world.getObjectByName('Lazy susan'),glow};setDen(d);stage.tallyAnchor=d.tallyAnchor;onReady(d);
    inputs.current.onLoadState?.({status:'ready',message:'The forest garden is ready.'});
   }).catch(error=>{if(mounted&&error.name!=='AbortError'){console.error('Den scene',error);inputs.current.onLoadState?.({status:'error',message:'The garden models could not load. Reload to retry.'});}});
   return()=>{mounted=false;abort.abort();onReady(null);stage.meetingAnchors?.clear();live.current?.agents.dispose();live.current=null;world?.dispose();stage.anchors.clear();};
  },[gl,stage,onReady]);
- useEffect(()=>{const previous={background:scene.background,fog:scene.fog};const color=dark?'#263e3e':'#dce6d4';scene.background=new THREE.Color(color);scene.fog=new THREE.Fog(color,72,145);return()=>{scene.background=previous.background;scene.fog=previous.fog;};},[scene,dark]);
+ useEffect(()=>{const previous={background:scene.background,fog:scene.fog};const color='#e9f0d9';scene.background=new THREE.Color(color);scene.fog=new THREE.Fog(color,150,260);return()=>{scene.background=previous.background;scene.fog=previous.fog;};},[scene]);
  useEffect(()=>{if(!den)return;den.setFrontier(frontier||[]);den.setTally(tally?.rods);},[den,frontier,tally]);
  useEffect(()=>{
   const agents=live.current?.agents;if(!agents)return;
@@ -36,7 +35,7 @@ export function MeshyDen({snapshot,cells,frontier,tally,selected,onSelect,onOpen
  },[den,snapshot,bindings]);
  useEffect(()=>{live.current?.agents.setSelected(selected??null);},[den,selected]);
  useFrame((_,delta)=>{
-  const l=live.current;if(!l)return;const dt=Math.min(delta,.1);l.agents.update(dt,l.media.matches);l.den.world.updateMatrixWorld(true);
+  const l=live.current;if(!l)return;const dt=Math.min(delta,.1);l.agents.update(dt,l.media.matches);l.elapsed=(l.elapsed||0)+(l.media.matches?0:dt);l.den.ambient.pose(l.elapsed);l.den.world.updateMatrixWorld(true);
   const figures=l.agents.liveFigures();for(const ref of l.anchored)if(!figures.has(ref)){stage.anchors.delete(ref);l.anchored.delete(ref);}
   for(const [ref,{model}]of figures){stage.anchors.set(ref,model.localToWorld(new THREE.Vector3(0,3.4,0)));l.anchored.add(ref);}
   for(const [ref,basket]of l.den.frontier)stage.anchors.set(ref,basket.localToWorld(new THREE.Vector3(0,.6,0)));
@@ -74,8 +73,8 @@ export function MeshyDen({snapshot,cells,frontier,tally,selected,onSelect,onOpen
   }
  };
  return <>
-  <hemisphereLight args={['#fff1d8','#637b60',dark?.8:1.15]}/>
-  <directionalLight position={[-18,35,12]} intensity={dark?1.15:2.1} color={dark?'#ffc886':'#ffebc3'} castShadow shadow-mapSize={[2048,2048]} shadow-camera-left={-30} shadow-camera-right={30} shadow-camera-top={30} shadow-camera-bottom={-30} shadow-camera-far={100} shadow-normalBias={.06}/>
+  <hemisphereLight args={['#fff1d8','#8fa47b',1.65]}/>
+  <directionalLight position={[-35,60,30]} intensity={2.5} color='#ffebc3' castShadow shadow-mapSize={[2048,2048]} shadow-camera-left={-62} shadow-camera-right={62} shadow-camera-top={62} shadow-camera-bottom={-62} shadow-camera-far={160} shadow-normalBias={.06}/>
   <directionalLight position={[12,10,-8]} intensity={.65} color="#d6e9ff"/>
   {den?<primitive object={den.world} dispose={null} onClick={hit}/>:null}
  </>;

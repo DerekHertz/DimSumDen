@@ -22,7 +22,7 @@ function Glyph({ d }) {
 /** Levels dolly the camera; + and - step the same zoom the wheel, pinch and keys move. `data-zoom` is that live value. */
 export function ZoomSwitcher({ camera }) {
   const zoom = useSyncExternalStore(camera.subscribe, camera.getZoom);
-  const current = levelOfZoom(zoom);
+  const current = levelOfZoom(zoom,camera.levels);
   return (
     <nav className="zoom-switcher" data-overlay="zoom" data-zoom={zoom} aria-label="Zoom level">
       <div className="zoom-levels">

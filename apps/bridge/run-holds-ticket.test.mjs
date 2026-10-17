@@ -41,7 +41,8 @@ test("a Run takes no board lock, and a finished run publishes its report as the 
   git(rec.args.cwd, "commit", "-q", "-m", "draft the ADR");
   rec.emit({ type: "reply", text: "Drafted the routing ADR in adr.md and checked it against the spec." });
   rec.emit({ type: "done", ok: true });
-  const [handoff] = await until(() => { const h = t.handoffsOf(DISPATCH_REF); return h.length ? h : null; }, { what: "the handoff" });
+  // An async write creates the file before its contents are available.
+  const [handoff] = await until(() => { const h = t.handoffsOf(DISPATCH_REF); return h.length && h.every(text => text.trim()) ? h : null; }, { what: "the written handoff" });
   assert.match(handoff, /architect committed [0-9a-f]{12}/);
   assert.match(handoff, /branch den\/fx\/02-ready-p0-/);
   assert.match(handoff, /Drafted the routing ADR/);
@@ -58,7 +59,7 @@ test("a run that ends with no commit still hands off its report; a failed run ha
   const rec = await until(() => t.fake.spawns[0], { what: "the spawn" });
   rec.emit({ type: "reply", text: "Read the ticket; the open question is the router. Nothing to commit yet." });
   rec.emit({ type: "done", ok: true });
-  const [handoff] = await until(() => { const h = t.handoffsOf(DISPATCH_REF); return h.length ? h : null; }, { what: "the handoff" });
+  const [handoff] = await until(() => { const h = t.handoffsOf(DISPATCH_REF); return h.length && h.every(text => text.trim()) ? h : null; }, { what: "the written handoff" });
   assert.match(handoff, /architect made no commit/);
 
   const second = await until(async () => { const r = await t.post("/agents", { ref: DISPATCH_REF, role: "architect" }); return r.status === 201 ? r : null; }, { what: "a second run" });

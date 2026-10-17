@@ -32,7 +32,7 @@ export function isDenPositionBlocked(x,z,obstacles,radius=WALK.radius) {
 }
 
 export function startWalk(start = WALK.start) {
-  return {...start, y: start.eyeHeight??WALK.eyeHeight, walkTime: 0};
+  return {...start, y: (start.groundY??0)+(start.eyeHeight??WALK.eyeHeight), walkTime: 0};
 }
 
 export function isWalkBlocked(x,z,world) {

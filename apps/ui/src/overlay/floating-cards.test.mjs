@@ -11,7 +11,7 @@ import { lightenScene } from "../../../ci-cd/light-scene.mjs";
 
 const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
-const ZOOM_NEAREST = 0.55; // digest section 1: dolly factor range, smaller is closer
+const ZOOM_NEAREST = 0.25; // the larger garden permits close inspection of personal workstations
 const ZOOM_FARTHEST = 1.2;
 const near = (a, b, tol = 1.5) => Math.abs(a - b) <= tol;
 
@@ -468,7 +468,7 @@ test("clicking a level makes it current and dollies in (Level 3 is closer than L
   assert.ok(three >= ZOOM_NEAREST, "within the clamp");
 }));
 
-test("+ and - buttons step the same zoom the wheel and keys use, and clamp at [0.55, 1.2] (scope 2026-10-01: clamp test)", { timeout: 90000 }, withApp({}, async ({ page, zoom }) => {
+test("+ and - buttons step the same zoom the wheel and keys use, and clamp at [0.25, 1.2]", { timeout: 90000 }, withApp({}, async ({ page, zoom }) => {
   const zin = zoom.getByRole("button", { name: "Zoom in" });
   const zout = zoom.getByRole("button", { name: "Zoom out" });
   await zin.click();
@@ -493,7 +493,7 @@ test("scroll wheel over the scene zooms freely and clamps at both ends (scope 20
   const closer = await zoomValue(zoom);
   assert.ok(closer < 1 && closer >= ZOOM_NEAREST, `wheel up zooms in: ${closer}`);
   await page.mouse.wheel(0, -100000);
-  await page.waitForFunction(() => Number(document.querySelector('[data-overlay=zoom]').dataset.zoom) === .55);
+  await page.waitForFunction(nearest => Number(document.querySelector('[data-overlay=zoom]').dataset.zoom) === nearest, ZOOM_NEAREST);
   assert.ok(near(await zoomValue(zoom), ZOOM_NEAREST, 1e-6), "a huge scroll in stops at the nearest limit");
   await page.mouse.wheel(0, 100000);
   await page.waitForFunction(() => Number(document.querySelector('[data-overlay=zoom]').dataset.zoom) === 1.2);
